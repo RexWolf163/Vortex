@@ -14,6 +14,7 @@ Laravel's plugin. It simplifies the creation of items that are updated by ping
 
 например, для класса User мы получаем следующий код:
 
+```php
 namespace App;
 
 use App\Vortex\Vortex;
@@ -27,4 +28,4 @@ class User extends Authenticatable
     ...
     
 }
-
+```
