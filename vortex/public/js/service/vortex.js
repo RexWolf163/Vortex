@@ -1448,7 +1448,7 @@ Vortex._cleanFrames = function () {
                                 console.log("Объект не найден в БД");
                             }, 300);
                         }
-                        if (temp[id].that[i].parentElement === null) {
+                        if ($(temp[id].that[i]).length === 0) {
                             temp[id].that.splice(i);
                             num++;
                         }
