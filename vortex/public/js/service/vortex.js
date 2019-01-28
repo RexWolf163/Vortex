@@ -1437,19 +1437,20 @@ Vortex._cleanFrames = function () {
             var temp = Vortex.frames[frameVID];
             for (var id in temp) {
                 if (temp.hasOwnProperty(id)) {
-                    for (var i = 0; i < temp[id].that.length; i++) {
+                    for (var i = temp[id].that.length - 1; i >= 0; i--) {
                         //Пустой хэш говорит что объект не получен из БД. Такую карточку нужно удалить
                         if (temp[id].hash == "") {
                             $(temp[id].that).fadeOut();
                             var t = temp[id];
                             setTimeout(function () {
                                 $(t.that).remove();
-                                t.that.splice(i);
                                 console.log("Объект не найден в БД");
                             }, 300);
+                            t.that.splice(i, 1);
+                            continue;
                         }
-                        if ($(temp[id].that[i]).length === 0) {
-                            temp[id].that.splice(i);
+                        if ($(temp[id].that[i]).parent().length === 0) {
+                            temp[id].that.splice(i, 1);
                             num++;
                         }
                     }
