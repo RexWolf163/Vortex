@@ -374,7 +374,7 @@ var Vortex = {
     lists: {},
     switches: {},
     switchesGroups: {}, //Группы переключателей
-    loadingIco: "img/v_loading.gif",
+    loadingIco: "/img/v_loading.gif",
     ico: {},
     _premade: {},
     debug: {
