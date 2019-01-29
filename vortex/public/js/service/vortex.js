@@ -417,6 +417,28 @@ var Vortex = {
         }
         return false;
     },
+    /**
+     * Функция вызывает функцию с сервера и выводит ответ как html код внутри элемента parent
+     */
+    render: function (model, method, parent, args) {
+        if (args == undefined) args = {};
+        try {
+            parent.html(Vortex._showLoading());
+        } catch (e) {
+            parent.innerHTML = Vortex._showLoading();
+        }
+        Vortex.send({'model': model, 'method': method, 'args': args},
+            function (data) {
+                try {
+                    parent.html(data.html);
+                } catch (e) {
+                    parent.innerHTML = data.html;
+                }
+                $(document).trigger('vrender_complete');
+            },
+            'v_action'
+        )
+    },
     _counter: 0,
     _lostFocusTime: 0
 };
