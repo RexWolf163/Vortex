@@ -523,7 +523,7 @@ Vortex._premade.newVlist = function (that, vid, isAccumulator) {
                             hasChange = true;
                         }
                     } else {
-                        if (typeof thatData[order].toLowerCase == 'function' && typeof prevData[order].toLowerCase == 'function') {
+                        if (thatData[order] && prevData[order] && typeof thatData[order].toLowerCase == 'function' && typeof prevData[order].toLowerCase == 'function') {
                             if ((!desc && thatData[order].toLowerCase() < prevData[order].toLowerCase()) || (desc && thatData[order].toLowerCase() > prevData[order].toLowerCase())) {
                                 list.insertBefore(that, prev);
                                 hasChange = true;
