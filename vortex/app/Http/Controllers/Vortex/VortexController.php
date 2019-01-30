@@ -35,9 +35,9 @@ class VortexController extends Controller
              * Очистка устаревших данных.
              * Условие очистки - от lastPing до Carbon::now более 30 минут
              */
-            foreach ($sessionsList as $sessionID => $sessionData) {
+            foreach ($sessionsList as $tempSessionID => $sessionData) {
                 /** @var Carbon $lastPing */
-                if (isset($lastPing) && $lastPing->diffInMinutes(Carbon::now()) > 30) unset($sessionsList[$sessionID]);
+                if (isset($lastPing) && $lastPing->diffInMinutes(Carbon::now()) > 30) unset($sessionsList[$tempSessionID]);
             }
 
             $sessionData = (isset($sessionsList[$sessionID])) ? $sessionsList[$sessionID] : ['vlists' => [], 'vframes' => [], '_vortexBustList' => []];
