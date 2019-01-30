@@ -377,6 +377,7 @@ var Vortex = {
     loadingIco: "/img/v_loading.gif",
     ico: {},
     _premade: {},
+    _lastResponce: null, //Хранилище последнего ответа на vPing()
     debug: {
         mode: false,
         _btnListTemplate: '<a class="vortex_scan_btn btn"><img src="/img/vortex_scan.svg"><div>To Console</div></a>',
@@ -1432,6 +1433,7 @@ Vortex.ajax.pingCallback = function (data) {
         }
         Vortex._counter = 0;
     }
+    Vortex._lastResponce = data;
     $(document).trigger('vping_complete');
 };
 
