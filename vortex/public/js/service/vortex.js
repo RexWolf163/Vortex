@@ -511,6 +511,10 @@ Vortex._premade.newVlist = function (that, vid, isAccumulator) {
                     if (!tempFrame) continue;
                     prevData = Vortex.frames[$(prev).attr('vid')][$(prev).attr('mid')].data;
                     if (thatData[order] !== undefined) sortKeyPresent = true;
+                    /*Обработка занчения null*/
+                    if(thatData[order] == null) thatData[order] = "";
+                    if(prevData[order] == null) prevData[order] = "";
+
                     /*
                      * Проверка, сравниваются ли параметры как числа, если да, то производится сравнение именно как числа
                      * иначе, сравниваем как строки.
