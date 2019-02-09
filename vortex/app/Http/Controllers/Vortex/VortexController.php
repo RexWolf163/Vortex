@@ -128,7 +128,9 @@ class VortexController extends Controller
                     $currentList = (isset($sessionLists[$key]['frames'])) ? $sessionLists[$key]['frames'] : [];
 
                     $collection = $class::_getVortexList($vid, $filterTemp, $currentList);
-                    $newHash = $class::_getVortexListHash($collection);
+                    //Если есть индивидуальный хэш-генератор, то используем его
+                    $func = "{$vid}ListHash";
+                    $newHash = ($vid && method_exists($class, $func))? $class::$func($collection): $class::_getVortexListHash($collection);
 
                     if ($hash == $newHash && $filter == $newFilter) continue;
                     $frames = $collection->lists('id');
@@ -239,7 +241,10 @@ class VortexController extends Controller
                         continue;
                     };
 
-                    $newHash = $model->_getVortexHash();
+                    //Если есть индивидуальный хэш-генератор, то используем его
+                    $func = "{$vid}Hash";
+                    $newHash = ($vid && method_exists($class, $func))? $model->$func(): $model->_getVortexHash();
+
                     if ($hash == $newHash) continue;
                     $sessionFrames[$key]['hash'] = $newHash;
 
