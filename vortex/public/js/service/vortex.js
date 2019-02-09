@@ -1201,6 +1201,11 @@ function vPing() {
             var temp = Vortex.frames[frame];
             for (var i in temp) {
                 if (temp.hasOwnProperty(i) && !temp[i].checked) {
+                    var error = ($(temp[i].that)) ? $(temp[i].that).html().replace(/[\r\n\s]*/, '') == "" : true;
+                    if (error) {
+                        temp[i].hash = "-1";
+                        $(temp[i].that).html("");
+                    }
                     temp[i].checked = true;
                     var klID = frame + '.ID' + temp[i].id;
                     keyList.frames[klID] = {
@@ -1208,7 +1213,7 @@ function vPing() {
                         id: temp[i].id,
                         hash: temp[i].hash
                     };
-                    if (!temp[i].card) {
+                    if (!temp[i].card || error) {
                         keyList.frames[klID]['card'] = true;
                     }
                 }
