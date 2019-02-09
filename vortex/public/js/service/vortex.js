@@ -868,18 +868,20 @@ Vortex.insertNewFrame = function (model, id, vid, parent, wait) {
     if (this.frames[vidFormated]) {
         var vParent = this.frames[vidFormated][id];
         if (vParent) {
-            if (Vortex.debug.mode) console.log('copy vframe ' + vidFormated + ' id:' + id);
-            var temp = vParent.that;
-            newVFrame.innerHTML = vParent.card;
-            $(newVFrame).find("[mark]").each(function () {
-                var mark = $(this).attr('mark');
-                $(this).html(vParent.data[mark]);
-            });
-            if (vParent.data) {
-                var state = vParent.data['_state'];
-                if (state) newVFrame.setAttribute('class', state);
-                var order = vParent.data['_order'];
-                if (order) newVFrame.setAttribute('style', 'order: ' + order);
+            if(vParent.card != "") {
+                if (Vortex.debug.mode) console.log('copy vframe ' + vidFormated + ' id:' + id);
+                var temp = vParent.that;
+                newVFrame.innerHTML = vParent.card;
+                $(newVFrame).find("[mark]").each(function () {
+                    var mark = $(this).attr('mark');
+                    $(this).html(vParent.data[mark]);
+                });
+                if (vParent.data) {
+                    var state = vParent.data['_state'];
+                    if (state) newVFrame.setAttribute('class', state);
+                    var order = vParent.data['_order'];
+                    if (order) newVFrame.setAttribute('style', 'order: ' + order);
+                }
             }
             temp.push(newVFrame);
         } else {
