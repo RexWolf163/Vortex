@@ -45,7 +45,7 @@ trait Vortex
      * @var array $filter настройки фильтра
      * @var array $currentList Текущее состояние списка (опционально)
      *
-     * @return Collection Коллекция моделей, для отображения в списке
+     * @return Collection Коллекция моделей, для отображения в списке. Передает из сессии VortexController.
      */
     private static function exampleFilter(&$filter, $currentList = null)
     {
