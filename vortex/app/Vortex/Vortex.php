@@ -214,7 +214,11 @@ trait Vortex
     {
         $freezeFlag = ($freeze) ? "freeze " : "";
         $list = ($freeze) ? collect([]) : static::_getVortexList($vlistID, $filter);
-        $hash = ($freeze) ? "-1" : static::_getVortexListHash($list);
+        if($freeze){
+            $hash = "-1";
+        }else{
+            $hash = (method_exists(static::class, $func))?static::$func($list): static::_getVortexListHash($list)
+        }
         $class = str_replace('\\', '_', static::class);
 
         $vid = static::_getVIDforList($vlistID);
@@ -255,7 +259,8 @@ trait Vortex
         $view = (isset(static::$vframes[$vid])) ? static::$vframes[$vid] : null;
         if (!$view) return null;
         $html = $this->_getVortexHTML($vid);
-        $hash = $this->_getVortexHash();
+        $func = "{$vid}Hash";
+        $hash = (method_exists(static::class, $func))?$this->$func(): $this->_getVortexHash();
         $class = str_replace('\\', '_', static::class);
         $data = $this->_getVortexData($vid);
         $id = $this->id;
