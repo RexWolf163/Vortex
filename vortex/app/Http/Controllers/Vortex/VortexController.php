@@ -358,7 +358,7 @@ class VortexController extends Controller
         try {
             $msg = $model::$method($args);
         } catch (\Exception $e) {
-            file_put_contents('./../storage/logs/vortex_errors.log', $e . PHP_EOL);
+            file_put_contents('./../storage/logs/vortex_errors.log', $e . PHP_EOL, FILE_APPEND);
             $js_args = (isset($request['args'])) ? json_encode($request['args']) : json_encode($request);
             return Response::json([
                 'error' => "Ошибка при выполнении запроса. Модель: {$model}\nМетод: {$method}\nПараметры{$js_args}",
