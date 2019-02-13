@@ -146,7 +146,7 @@ class VortexController extends Controller
                             }
                         $newframes = $frames->toArray();
                         $frames = array_merge($sessionLists[$key]['frames'], $newframes);
-                        if (count($newframes) == 0)
+                        if (count($newframes) == 0 && $remove == 0)
                             $newHash = $hash;
 
                         /* Переписываем count */
