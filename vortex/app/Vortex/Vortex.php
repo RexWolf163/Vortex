@@ -217,7 +217,7 @@ trait Vortex
         if($freeze){
             $hash = "-1";
         }else{
-            $hash = (method_exists(static::class, $func))?static::$func($list): static::_getVortexListHash($list)
+            $hash = (method_exists(static::class, $func))?static::$func($list): static::_getVortexListHash($list);
         }
         $class = str_replace('\\', '_', static::class);
 
