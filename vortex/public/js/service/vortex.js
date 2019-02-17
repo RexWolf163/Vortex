@@ -667,7 +667,9 @@ Vortex._premade.newVframe = function (that) {
         checked: false,
         card: '',
         that: [that],
-        data: {}
+        data: {},
+        /* На уровне интерфейса может быть задана функция в параметре onRewrite, которая будет запускаться после обновления фрейма по новым данным */
+        onRewrite: null
     };
 };
 Vortex._premade.newSwitcher = function (that) {
@@ -1315,17 +1317,24 @@ Vortex.ajax.pingCallback = function (data) {
                 parent.hash = hash;
                 for (i = 0; i < parent.that.length; i++) {
                     var that = parent.that[i];
+                    //Проверка на существование фрейма на html поле.
+                    if ($(that).parent().length === 0) {
+                        parent.that.splice(i, 1);
+                        continue;
+                    }
                     if (replaceHTML) that.innerHTML = card;
                     if (parent.data['_state']) $(that).attr('class', parent.data['_state']);
                     if (parent.data['_order']) $(that).css('order', parent.data['_order']);
                     $(that).find("[mark]").each(function () {
                         var mark = $(this).attr('mark');
-                        //Проверка, относится ли данная метка к обрабатываемому фрейму или это метка вложенного фрейма
+                        /* Проверка, относится ли данная метка к обрабатываемому фрейму или это метка вложенного фрейма */
                         if ($(this).closest('vframe')[0] == that)
                             $(this).html(parent.data[mark]);
                     });
 
                     Vortex.ajax._parseElements(that);
+                    /* для каждого фрейма запускаем функцию onRewrite, если она есть*/
+                    if ($.isFunction(parent.onRewrite)) parent.onRewrite();
                 }
                 if (card) parent.card = card;
             } catch (error) {
