@@ -499,7 +499,7 @@ Vortex._premade.newVlist = function (that, vid, isAccumulator) {
 
             while (hasChange && stopper++ < 1000) {
                 hasChange = false;
-                $arr = $(list).children('vframe'); //обновляем структуру фреймов
+                $arr = $(this.that).find('> vframe'); //обновляем структуру фреймов
                 if ($arr.length < 2) sortKeyPresent = true;
                 for (var i = 1; i < $arr.length; i++) {
                     that = $arr[i];
@@ -509,18 +509,18 @@ Vortex._premade.newVlist = function (that, vid, isAccumulator) {
                     prev = $arr[i - 1];
                     tempFrame = Vortex.frames[$(prev).attr('vid')][$(prev).attr('mid')];
                     if (!tempFrame) continue;
-                    prevData = Vortex.frames[$(prev).attr('vid')][$(prev).attr('mid')].data;
-                    if (thatData[order] !== undefined) sortKeyPresent = true;
-                    /*Обработка занчения null*/
-                    if(thatData[order] == null) thatData[order] = "";
-                    if(prevData[order] == null) prevData[order] = "";
+                    prevData = tempFrame.data;
+                    /*Обработка значения null*/
+                    if (thatData[order] == null) thatData[order] = "";
+                    if (prevData[order] == null) prevData[order] = "";
 
+                    if (thatData[order] !== undefined) sortKeyPresent = true;
                     /*
                      * Проверка, сравниваются ли параметры как числа, если да, то производится сравнение именно как числа
                      * иначе, сравниваем как строки.
                      */
-                    floatThatData = (typeof thatData[order] == 'string') ? parseFloat(thatData[order].replace(/[\s\-\:]/g, '')) : NaN;
-                    floatPrevData = (typeof prevData[order] == 'string') ? parseFloat(prevData[order].replace(/[\s\-\:]/g, '')) : NaN;
+                    floatThatData = (typeof thatData[order] == 'string') ? parseFloat(thatData[order].replace(/[\s\-\:]/g, '')) : thatData[order];
+                    floatPrevData = (typeof prevData[order] == 'string') ? parseFloat(prevData[order].replace(/[\s\-\:]/g, '')) : prevData[order];
                     if (!isNaN(floatThatData) && !isNaN(floatPrevData)) {
                         if ((!desc && floatThatData < floatPrevData)
                             || (desc && floatThatData > floatPrevData)) {
