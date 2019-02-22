@@ -1205,7 +1205,7 @@ function vPing() {
             var temp = Vortex.frames[frame];
             for (var i in temp) {
                 if (temp.hasOwnProperty(i) && !temp[i].checked) {
-                    var error = ($(temp[i].that)) ? $(temp[i].that).html().replace(/[\r\n\s]*/, '') == "" : true;
+                    var error = ($(temp[i].that) && $(temp[i].that).html()) ? $(temp[i].that).html().replace(/[\r\n\s]*/, '') == "" : true;
                     if (error) {
                         temp[i].hash = "-1";
                         $(temp[i].that).html("");
