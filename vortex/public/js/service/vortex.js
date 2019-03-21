@@ -370,6 +370,8 @@ var Vortex = {
     pingLongDelay: 20000, //Интервал между пингами, а режиме ожидания
     sleepDelay: 16000, //Сколько времени ждать до ухода в режим ожидания
     switcherFreezeDelay: 500, //Подморозка переключателя после клика на него
+    lastPingDate: 0, //Хранение времени отправлени последнего пинга
+    lastPingTime: 0, //Хранение длительности последнего пинга
     frames: {},
     lists: {},
     switches: {},
@@ -1132,6 +1134,8 @@ Vortex.send = function (req, callback, route) {
             clearInterval(Vortex.ajax.pingProcess);
 
             console.log(error);
+        }).always(function () {
+            Vortex.lastPingTime = Date.now() - Vortex.lastPingDate;
         });
     } catch (error) {
         console.log("------------------------------\nERROR: отправки POST запроса.");
