@@ -299,6 +299,8 @@ trait Vortex
             unset($filter['_buster_updated']);
         }
         foreach ($filter as $param => $value) {
+            //Флаги начинающиеся с __ не обрабатываются
+            if (substr($param, 0, 2) === '__') continue;
             if ($param == "_complete_list") continue;
             if ($param == "_skip") continue;
             if ($param == "_take") continue;
