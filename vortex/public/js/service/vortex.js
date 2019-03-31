@@ -653,7 +653,7 @@ Vortex._premade.newVlist = function (that, vid, isAccumulator) {
             this.hash = '';
             this.checked = false;
             if (this.combiner)
-                $(this.that).find('combiner').html(Vortex._showLoading());
+                $(this.that).html('<combiner>'+Vortex._showLoading()+'</combiner>');
             else this.that.innerHTML = Vortex._showLoading();
             this.that.removeAttribute('freeze');
             if (!wait) this.setFilter(this.filter);
