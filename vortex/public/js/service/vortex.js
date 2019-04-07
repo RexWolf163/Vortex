@@ -1077,7 +1077,12 @@ Vortex.send = function (req, callback, route) {
                         var func = e.func;
                         var args = e.args;
                         try {
-                            window[func](args);
+                            let tempAr = func.split('.');
+                            if (tempAr.length === 2) {
+                                window[tempAr[0]][tempAr[1]](args);
+                            } else {
+                                window[func](args);
+                            }
                         } catch (error) {
                             console.log("------------------------------\nERROR: ошибка запроса с сервера на выполнение функций");
                             console.log("function:");
