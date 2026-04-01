@@ -1,0 +1,20 @@
+{
+    "name": "ru.vortex.unity.CoreAssetsSystem",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:27ea219928481af49b58521e89020da5",
+        "GUID:51467fb2383481041817716e8215bc1d",
+        "GUID:eff4b9098a6ac9e4cbc64d8fdc43841a",
+        "GUID:826a37b90dd7f8849a995e26104dd48e"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

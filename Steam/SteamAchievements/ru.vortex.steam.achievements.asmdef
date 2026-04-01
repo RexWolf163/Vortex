@@ -1,0 +1,22 @@
+{
+    "name": "ru.vortex.steam.achievements",
+    "rootNamespace": "",
+    "references": [
+        "GUID:d250cc61a73a072449960bdf55819f6d",
+        "GUID:68bd7fdb68ef2684e982e8a9825b18a5",
+        "GUID:107a1ae24d335a64783f6777158a6259",
+        "GUID:826a37b90dd7f8849a995e26104dd48e",
+        "GUID:865e31c772c77e64cb48f0792a7a6a0c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_STEAM"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

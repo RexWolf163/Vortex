@@ -1,0 +1,19 @@
+{
+    "name": "ru.vortex.nani.core",
+    "rootNamespace": "Vortex",
+    "references": [
+        "GUID:66c3850540390be44aa49f25786b3c3a",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b",
+        "GUID:08ab4e9b32bfd234da6fed8acbd71909",
+        "GUID:a00fea34cd87e874eb05688c1583b814"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

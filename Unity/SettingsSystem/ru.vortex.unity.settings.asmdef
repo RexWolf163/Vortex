@@ -1,0 +1,20 @@
+{
+    "name": "ru.vortex.unity.settings",
+    "rootNamespace": "",
+    "references": [
+        "GUID:27ea219928481af49b58521e89020da5",
+        "GUID:eff4b9098a6ac9e4cbc64d8fdc43841a",
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b",
+        "GUID:826a37b90dd7f8849a995e26104dd48e"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

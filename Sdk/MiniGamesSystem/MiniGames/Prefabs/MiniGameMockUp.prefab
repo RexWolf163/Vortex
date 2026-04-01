@@ -1,0 +1,789 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &257359350971161937
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1630321149472979689}
+  - component: {fileID: 4564649936420493179}
+  - component: {fileID: 698135940079073986}
+  - component: {fileID: 6912198712888593149}
+  - component: {fileID: 2951421310029354973}
+  m_Layer: 0
+  m_Name: MiniGameMockUp
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1630321149472979689
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 257359350971161937}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5942455335548214261}
+  - {fileID: 6770445883759384471}
+  - {fileID: 3720913323202820378}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &4564649936420493179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 257359350971161937}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b0f7157f69e94842882a4576a47953b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.Misc.DataStorage
+--- !u!114 &698135940079073986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 257359350971161937}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b33f7f9156043854c8e696ef2a51b69a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.minigames.core::MiniGameStateSwitcher
+  dataStorage: {fileID: 4564649936420493179}
+  switcher: {fileID: 6912198712888593149}
+--- !u!114 &6912198712888593149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 257359350971161937}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7e27547ad8e9b940a928d44b8ef63bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.StateSwitcher.UIStateSwitcher
+  _setOnEnableState: 0
+  _stateOnEnable: 0
+  _duplicateOnCreate: 1
+  _states:
+  - _name: Off
+    _stateItems: []
+  - _name: Play
+    _stateItems:
+    - rid: 5711447627390517415
+  - _name: Win
+    _stateItems:
+    - rid: 5711447627390517416
+  - _name: Fail
+    _stateItems:
+    - rid: 5711447627390517417
+  - _name: Paused
+    _stateItems:
+    - rid: 5711447627390517418
+  - _name: Loading
+    _stateItems: []
+  references:
+    version: 2
+    RefIds:
+    - rid: 5711447627390517415
+      type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        links:
+        - {fileID: 7615384244838039234}
+        - {fileID: 8131239307139692930}
+    - rid: 5711447627390517416
+      type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        links:
+        - {fileID: 6212761129524375312}
+    - rid: 5711447627390517417
+      type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        links:
+        - {fileID: 6212761129524375312}
+    - rid: 5711447627390517418
+      type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        links:
+        - {fileID: 7615384244838039234}
+        - {fileID: 8131239307139692930}
+--- !u!114 &2951421310029354973
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 257359350971161937}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6c913caeb504ca1918043de267ef3a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::AutoRectSetter
+  rect: {fileID: 1630321149472979689}
+  setBorders: 1
+  left: 0
+  top: -0
+  right: -0
+  bottom: 0
+  posZ: 0
+  setAnchors: 1
+  anchorMin: {x: 0, y: 0}
+  anchorMax: {x: 1, y: 1}
+  setPivot: 1
+  pivot: {x: 0.5, y: 0.5}
+  setRotation: 1
+  rotation: {x: -0, y: 0, z: 0}
+--- !u!1 &6212761129524375312
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3720913323202820378}
+  - component: {fileID: 1324131369452150788}
+  - component: {fileID: 4301569973883030331}
+  m_Layer: 0
+  m_Name: EndButton
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &3720913323202820378
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6212761129524375312}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7454916641827365962}
+  m_Father: {fileID: 1630321149472979689}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: -309}
+  m_SizeDelta: {x: 360, y: 80}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1324131369452150788
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6212761129524375312}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f467b64e087431a86ce3637990cb1b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.UIComponent
+  uiComponentTexts:
+  - {fileID: 3967772648523115054}
+  useLocalization: 0
+  uiComponentButtons:
+  - {fileID: 1228577318131532558}
+  uiComponentGraphics: []
+  uiComponentSwitchers:
+  - {fileID: 8749449590814454087}
+--- !u!114 &4301569973883030331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6212761129524375312}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 164392cf41659ed4691b26bba3684470, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.minigames.core::MockUpStateSwitcher
+  source: {fileID: 4564649936420493179}
+  button: {fileID: 1324131369452150788}
+  state: 0
+--- !u!1 &7615384244838039234
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5942455335548214261}
+  - component: {fileID: 4321734675550490649}
+  - component: {fileID: 66759292556637568}
+  m_Layer: 0
+  m_Name: WinBtn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &5942455335548214261
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7615384244838039234}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1518691618318071156}
+  m_Father: {fileID: 1630321149472979689}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: -400, y: 0}
+  m_SizeDelta: {x: 360, y: 80}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &4321734675550490649
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7615384244838039234}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f467b64e087431a86ce3637990cb1b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.UIComponent
+  uiComponentTexts:
+  - {fileID: 5005200099287612176}
+  useLocalization: 0
+  uiComponentButtons:
+  - {fileID: 7163712175824409136}
+  uiComponentGraphics: []
+  uiComponentSwitchers:
+  - {fileID: 795479898429595769}
+--- !u!114 &66759292556637568
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7615384244838039234}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 164392cf41659ed4691b26bba3684470, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.minigames.core::MockUpStateSwitcher
+  source: {fileID: 4564649936420493179}
+  button: {fileID: 4321734675550490649}
+  state: 2
+--- !u!1 &8131239307139692930
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6770445883759384471}
+  - component: {fileID: 4565482298455812790}
+  - component: {fileID: 6780546613620906385}
+  m_Layer: 0
+  m_Name: FailBtn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &6770445883759384471
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8131239307139692930}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6322754218105374377}
+  m_Father: {fileID: 1630321149472979689}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 400, y: 0}
+  m_SizeDelta: {x: 360, y: 80}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &4565482298455812790
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8131239307139692930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f467b64e087431a86ce3637990cb1b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.UIComponent
+  uiComponentTexts:
+  - {fileID: 566218208763807949}
+  useLocalization: 0
+  uiComponentButtons:
+  - {fileID: 2433923785621479917}
+  uiComponentGraphics: []
+  uiComponentSwitchers:
+  - {fileID: 5307362751455957924}
+--- !u!114 &6780546613620906385
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8131239307139692930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 164392cf41659ed4691b26bba3684470, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.minigames.core::MockUpStateSwitcher
+  source: {fileID: 4564649936420493179}
+  button: {fileID: 4565482298455812790}
+  state: 3
+--- !u!1001 &1322332498467406717
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 6770445883759384471}
+    m_Modifications:
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6870685866720044613, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_text
+      value: Fail
+      objectReference: {fileID: 0}
+    - target: {fileID: 8914262442067602708, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+      propertyPath: m_Name
+      value: ButtonRed With Text 32 Hidable
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+--- !u!114 &566218208763807949 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1549873872225127344, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+  m_PrefabInstance: {fileID: 1322332498467406717}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcd9a17f0c96489081223a3268162a6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentText
+--- !u!114 &2433923785621479917 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3719646389937726096, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+  m_PrefabInstance: {fileID: 1322332498467406717}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1984ae6c4da471c80117efaab39a8e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentButton
+--- !u!114 &5307362751455957924 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6628828246147780825, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+  m_PrefabInstance: {fileID: 1322332498467406717}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4221373521a4d35a12cf2f3afaf65c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentSwitcher
+--- !u!224 &6322754218105374377 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 5037048657226810836, guid: 29caef3a8532c3c408cc15eac0a10a79, type: 3}
+  m_PrefabInstance: {fileID: 1322332498467406717}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &2491086670436786590
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 3720913323202820378}
+    m_Modifications:
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6870685866720044613, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_text
+      value: Close
+      objectReference: {fileID: 0}
+    - target: {fileID: 8914262442067602708, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_Name
+      value: Button With Text 32 Hidable
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+--- !u!114 &1228577318131532558 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3719646389937726096, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 2491086670436786590}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1984ae6c4da471c80117efaab39a8e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentButton
+--- !u!114 &3967772648523115054 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1549873872225127344, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 2491086670436786590}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcd9a17f0c96489081223a3268162a6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentText
+--- !u!224 &7454916641827365962 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 2491086670436786590}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8749449590814454087 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6628828246147780825, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 2491086670436786590}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4221373521a4d35a12cf2f3afaf65c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentSwitcher
+--- !u!1001 &5833367595724239008
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 5942455335548214261}
+    m_Modifications:
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6870685866720044613, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_text
+      value: Win
+      objectReference: {fileID: 0}
+    - target: {fileID: 8914262442067602708, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+      propertyPath: m_Name
+      value: Button With Text 32 Hidable
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+--- !u!114 &795479898429595769 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6628828246147780825, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 5833367595724239008}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4221373521a4d35a12cf2f3afaf65c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentSwitcher
+--- !u!224 &1518691618318071156 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 5037048657226810836, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 5833367595724239008}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5005200099287612176 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1549873872225127344, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 5833367595724239008}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcd9a17f0c96489081223a3268162a6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentText
+--- !u!114 &7163712175824409136 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3719646389937726096, guid: b5aae24fca5029e4eaabf5fe92c3dd32, type: 3}
+  m_PrefabInstance: {fileID: 5833367595724239008}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1984ae6c4da471c80117efaab39a8e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentButton

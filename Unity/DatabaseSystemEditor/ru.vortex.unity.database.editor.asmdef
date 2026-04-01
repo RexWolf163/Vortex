@@ -1,0 +1,20 @@
+{
+    "name": "ru.vortex.unity.database.editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:7c6d3de99517c0549ae82af52cb16906",
+        "GUID:61328ee0671b5b5429f7ef2e1137c0b5",
+        "GUID:826a37b90dd7f8849a995e26104dd48e",
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:51467fb2383481041817716e8215bc1d"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

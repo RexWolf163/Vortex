@@ -1,0 +1,17 @@
+{
+    "name": "ru.vortex.unity.logger",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:86f05ea23c6647040884b166bb929c16"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

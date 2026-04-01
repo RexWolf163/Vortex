@@ -1,0 +1,16 @@
+{
+    "name": "ru.vortex.logger",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a00fea34cd87e874eb05688c1583b814"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

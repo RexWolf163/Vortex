@@ -1,0 +1,66 @@
+//---{{!ClassName!}View.cs}---
+using UnityEngine;
+using Vortex.Core.System.Abstractions;
+using Vortex.Unity.EditorTools.Attributes;
+
+/// <summary>
+/// TODO: Базовый класс для работы с IDataStorage
+///  поменяйте описание, чтобы оно описывало логику существования и работы класса 
+/// </summary>
+public class {!ClassName!}View : MonoBehaviour
+{
+	/// <summary>
+	/// Ссылка на класс-хранилище нужной модели данных
+	/// </summary>
+	[SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink]
+	private MonoBehaviour source;
+
+	private IDataStorage _storage;
+	private IDataStorage Storage => _storage ??= source as IDataStorage;
+
+	/// <summary>
+	/// Модель данных из хранилища
+	/// </summary>
+	private {!ClassName!}Data _data;
+
+	private void OnEnable()
+	{
+		Storage.OnUpdateLink += UpdateLink;
+		Init();
+	}
+
+	private void OnDisable()
+	{
+		DeInit();
+		Storage.OnUpdateLink -= UpdateLink;
+	}
+
+	private void Init()
+	{
+		_data = Storage.GetData<{!ClassName!}Data>();
+		if (_data == null)
+			return;
+		_data.OnUpdated += OnDataUpdated;
+	}
+
+	private void DeInit()
+	{
+		if (_data != null)
+			_data.OnUpdated -= OnDataUpdated;
+		_data = null;
+	}
+
+	private void UpdateLink()
+	{
+		DeInit();
+		Init();
+	}
+
+	/// <summary>
+	/// Модель данных изменилась
+	/// </summary>
+	private void OnDataUpdated()
+	{
+		//TODO логика обработки данных
+	}
+}

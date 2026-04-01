@@ -1,0 +1,22 @@
+{
+  "name": "ru.vortex.unity.logicconditions",
+  "rootNamespace": "",
+  "references": [
+    "GUID:e0528c6dc593d8a4683c077db1c991f4",
+    "GUID:9b629820a0db1ee4ebf4641e8cabb0c8",
+    "GUID:a00fea34cd87e874eb05688c1583b814",
+    "GUID:826a37b90dd7f8849a995e26104dd48e",
+    "GUID:2a188fccf540d9f4da7905853fc6381b",
+    "GUID:107a1ae24d335a64783f6777158a6259",
+    "GUID:865e31c772c77e64cb48f0792a7a6a0c"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

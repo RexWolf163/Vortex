@@ -1,0 +1,18 @@
+{
+    "name": "ru.vortex.core.complexmodel",
+    "rootNamespace": "",
+    "references": [
+        "GUID:86f05ea23c6647040884b166bb929c16",
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,4 @@
+{
+	"name": "ru.vortex.unity.save",
+	"references":[ "ru.vortex.save", "ru.vortex.system", "ru.vortex.extensions", "ru.vortex.unity.uiprovider", "ru.vortex.unity.ui.misc", "ru.vortex.unity.localization", "ru.vortex.localization" ]
+}

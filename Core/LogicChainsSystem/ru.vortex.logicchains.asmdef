@@ -1,0 +1,20 @@
+{
+    "name": "ru.vortex.logicchains",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:7c6d3de99517c0549ae82af52cb16906",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b",
+        "GUID:86f05ea23c6647040884b166bb929c16",
+        "GUID:27ea219928481af49b58521e89020da5"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,23 @@
+{
+    "name": "ru.vortex.nani.audiosystem",
+    "rootNamespace": "Vortex",
+    "references": [
+        "GUID:9b629820a0db1ee4ebf4641e8cabb0c8",
+        "GUID:cad4de33a6235bb42a7e0f3710a4ae0d",
+        "GUID:02b574238dac1c642a506184679b46c4",
+        "GUID:66c3850540390be44aa49f25786b3c3a",
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b",
+        "GUID:08ab4e9b32bfd234da6fed8acbd71909",
+        "GUID:5b7bd4fecb085bb41bcf12980f822ca7"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

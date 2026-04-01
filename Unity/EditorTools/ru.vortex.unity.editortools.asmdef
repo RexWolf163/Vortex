@@ -1,0 +1,16 @@
+{
+    "name": "ru.vortex.unity.editortools",
+    "rootNamespace": "",
+    "references": [
+        "GUID:909c85e22a6433743bbdc4735bbe1b04"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
