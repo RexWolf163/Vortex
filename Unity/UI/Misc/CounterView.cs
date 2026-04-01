@@ -127,15 +127,15 @@ namespace Vortex.Unity.UI.Misc
 
                 if (textsMax is { Length: > 0 })
                     foreach (var text in textsMax)
-                        text.text = string.Format(pattern, newVal);
+                        text.text = string.Format(patternMax, newVal);
 
                 if (textsTMPMax is { Length: > 0 })
                     foreach (var text in textsTMPMax)
-                        text.text = string.Format(pattern, newVal);
+                        text.text = string.Format(patternMax, newVal);
 
                 if (textsUiTMPMax is { Length: > 0 })
                     foreach (var text in textsUiTMPMax)
-                        text.text = string.Format(pattern, newVal);
+                        text.text = string.Format(patternMax, newVal);
 
                 maxValue = newMaxValue ?? 0;
             }

@@ -23,7 +23,7 @@ namespace Vortex.Unity.DriverManagerSystem.Base
     public class DriverConfig : ScriptableObject, ICoreAsset
     {
         [SerializeReference, HideReferenceObjectPicker, ListDrawerSettings(HideAddButton = true, IsReadOnly = true)]
-        private DriverRecord[] drivers;
+        private DriverRecord[] drivers = new DriverRecord[0];
 
         [InfoBox("Искать драйверы только в ru.vortex* пакетах")] [SerializeField]
         private bool onlyInVortexSearch = true;
@@ -112,6 +112,7 @@ namespace Vortex.Unity.DriverManagerSystem.Base
             drivers = result.ToArray();
         }
 
+        private const string SystemPackageRoute = @"Vortex\Core\System";
         private const string CfgFileName = "DriversGenericList.cs";
 
         [InfoBox("Сохраняет текущий конфиг в файл DriversGenericList.cs в режиме кодогенерации")]
@@ -131,8 +132,8 @@ namespace Vortex.Unity.DriverManagerSystem.Base
 
             if (allFiles.Length <= 0)
             {
-                Debug.Log($"[DriversListFileGenerator] Не найден файл DriversGenericList.cs.");
-                return;
+                File.Create(Path.Combine(assetsPath, SystemPackageRoute, CfgFileName)).Close();
+                allFiles = Directory.GetFiles(assetsPath, CfgFileName, SearchOption.AllDirectories);
             }
 
             var targetPath = allFiles[0];

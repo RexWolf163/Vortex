@@ -23,7 +23,7 @@ namespace Vortex.Unity.UI.Misc
             }
         }
 
-        private void OnEnable() => TimeController.Call(() => SwitchChild(true));
+        private void OnEnable() => TimeController.Call(() => SwitchChild(true), delay, this);
 
         private void OnDisable()
         {

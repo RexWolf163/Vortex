@@ -20,6 +20,11 @@ namespace Vortex.Core.System.Abstractions
         /// </summary>
         private static readonly List<Action> InitQueue = new();
 
+        /// <summary>
+        /// Кешированное значение белого списка драйверов 
+        /// </summary>
+        private static Dictionary<string, string> whiteList;
+
         public static event Action OnInit
         {
             add
@@ -46,7 +51,22 @@ namespace Vortex.Core.System.Abstractions
                 return false;
 
             var systemTypeName = Instance.GetType().AssemblyQualifiedName ?? string.Empty;
-            if (!DriversGenericList.WhiteList.TryGetValue(systemTypeName, out var driverType)
+            try
+            {
+                //Чтобы избежать ошибок компиляции, первый раз список вынимаем через рефлексию
+                if (whiteList == null)
+                {
+                    var type = Type.GetType("Vortex.Core.System.DriversGenericList");
+                    var property = type.GetProperty("WhiteList");
+                    whiteList = (Dictionary<string, string>)property.GetValue(null);
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            if (!whiteList.TryGetValue(systemTypeName, out var driverType)
                 || driverType != driver.GetType().AssemblyQualifiedName)
                 return false;
 

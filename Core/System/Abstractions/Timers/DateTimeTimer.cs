@@ -19,11 +19,6 @@ namespace Vortex.Core.System.Abstractions.Timers
         /// </summary>
         public TimeSpan Duration { get; protected set; }
 
-        /// <summary>
-        /// Точка остановки таймера по команде Pause
-        /// </summary>
-        private float freezePoint = 0;
-
         public DateTimeTimer(DateTime end)
         {
             Start = DateTime.UtcNow;
