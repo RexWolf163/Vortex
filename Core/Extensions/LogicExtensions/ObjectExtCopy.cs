@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
 
@@ -19,7 +20,9 @@ namespace Vortex.Core.Extensions.LogicExtensions
         ///
         /// Можно записывать не однотипные объекты друг в друга.
         /// 
-        /// При несовпадении свойств исключения в нормальном случае не выбрасывается 
+        /// При несовпадении свойств исключения в нормальном случае не выбрасывается
+        ///
+        /// Вложенные ссылочные типы передаются AS-IS (кроме ICloneable) 
         /// </summary>
         /// <param name="target"></param>
         /// <param name="source"></param>
@@ -40,16 +43,15 @@ namespace Vortex.Core.Extensions.LogicExtensions
                         continue;
                     if (prop == null || !prop.CanWrite)
                         continue;
+
                     // Пропускаем индексированные свойства
                     if (prop.GetIndexParameters().Length > 0) continue;
 
-                    if (!prop.PropertyType.IsAssignableFrom(sourceProp.PropertyType))
-                    {
-                        Log.Print(LogLevel.Error, "Критичное несовпадение структуры объектов", target);
-                        return false;
-                    }
-
-                    prop.SetValue(target, sourceProp.CopyValue(source));
+                    var value = sourceProp.GetValue(source);
+                    if (value is ICloneable cloneable)
+                        prop.SetValue(target, cloneable.Clone());
+                    else
+                        prop.SetValue(target, value.DeepCopy(true));
                 }
 
                 return true;
@@ -59,38 +61,6 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 Log.Print(LogLevel.Error, e.Message, target);
                 return false;
             }
-        }
-
-        private static object CopyValue(this PropertyInfo property, object source)
-        {
-            var sourceValue = property.GetValue(source);
-            // null копируем как есть
-            if (sourceValue == null)
-                return null;
-
-            var sourceType = sourceValue.GetType();
-            // Примитивы, строки, enum, DateTime и т.д. — копируем напрямую
-            if (IsSimpleType(sourceType))
-                return sourceValue;
-
-            // Обычный сложный объект
-            return sourceValue.DeepCopy();
-        }
-
-        /// <summary>
-        /// Проверка на простой тип не требующий глубокого копирования
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        private static bool IsSimpleType(Type type)
-        {
-            return type.IsPrimitive
-                   || type.IsEnum
-                   || type == typeof(string)
-                   || type == typeof(DateTime)
-                   || type == typeof(decimal)
-                   || type == typeof(Guid)
-                   || type == typeof(DateTimeOffset);
         }
 
         /// <summary>
@@ -104,13 +74,14 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 .ToArray();
 
 
-        public static T DeepCopy<T>(this T obj)
+        /*
+        public static T DeepCopy<T>(this T obj, bool soft = false)
         {
             if (obj == null) return default;
-            return (T)DeepCopyInternal(obj);
+            return (T)DeepCopyInternal(obj, soft);
         }
 
-        private static object DeepCopyInternal(object obj, Dictionary<object, object> visited = null)
+        private static object DeepCopyInternal(object obj, bool soft, Dictionary<object, object> visited = null)
         {
             if (obj == null) return null;
 
@@ -130,7 +101,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 var elementType = type.GetElementType();
                 var copy = Array.CreateInstance(elementType, array.Length);
                 for (var i = 0; i < array.Length; i++)
-                    copy.SetValue(DeepCopyInternal(array.GetValue(i), visited), i);
+                    copy.SetValue(DeepCopyInternal(array.GetValue(i), soft, visited), i);
 
                 return copy;
             }
@@ -143,8 +114,8 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
                 foreach (DictionaryEntry entry in dict)
                 {
-                    var key = DeepCopyInternal(entry.Key, visited);
-                    var value = DeepCopyInternal(entry.Value, visited);
+                    var key = DeepCopyInternal(entry.Key, soft, visited);
+                    var value = DeepCopyInternal(entry.Value, soft, visited);
                     copy.Add(key, value);
                 }
 
@@ -158,7 +129,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 var copy = (IList)Activator.CreateInstance(type);
 
                 foreach (var element in list)
-                    copy.Add(DeepCopyInternal(element, visited));
+                    copy.Add(DeepCopyInternal(element, soft, visited));
 
                 return copy;
             }
@@ -169,13 +140,13 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 var ar = (IEnumerable)obj;
                 var copy = Activator.CreateInstance(type);
                 foreach (var element in ar)
-                    AddToCollection(copy, DeepCopyInternal(element, visited));
+                    AddToCollection(copy, DeepCopyInternal(element, soft, visited));
 
                 return copy;
             }
 
             // Объекты
-            visited ??= new Dictionary<object, object>();
+            visited ??= new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
 
             // Если объект уже копировался, возвращаем ссылку на существующую копию
             // Это разрывает цикл и сохраняет структуру графа
@@ -184,6 +155,9 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
             try
             {
+                if (obj is ICloneable cloneable)
+                    return cloneable.Clone();
+
                 var copyObj = Activator.CreateInstance(type);
                 visited.AddNew(obj, copyObj);
                 var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
@@ -192,28 +166,23 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 foreach (var field in type.GetFields(flags))
                 {
                     var value = field.GetValue(obj);
-                    field.SetValue(copyObj, DeepCopyInternal(value, visited));
+                    field.SetValue(copyObj, DeepCopyInternal(value, soft, visited));
                 }
 
                 return copyObj;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
+                if (soft)
+                {
+                    Log.Print(LogLevel.Common, $"DeepCopy failed for {type.Name}: {e.Message}. Pointer was return.",
+                        obj);
+                    return obj;
+                }
+
                 Log.Print(LogLevel.Error, $"DeepCopy failed for {type.Name}: {e.Message}", obj);
                 return null;
             }
-
-            /*
-            // Копирование свойств
-            foreach (var prop in type.GetProperties(flags))
-            {
-                if (prop.CanRead && prop.CanWrite && prop.GetIndexParameters().Length == 0)
-                {
-                    var value = prop.GetValue(obj);
-                    prop.SetValue(copyObj, DeepCopyInternal(value, visited));
-                }
-            }
-            */
         }
 
         /// <summary>
@@ -249,6 +218,22 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 ? item
                 : Convert.ChangeType(item, param.ParameterType);
             add.Invoke(collection, new[] { value });
+        }
+*/
+    }
+
+    public sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+    {
+        public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
+
+        public new bool Equals(object x, object y)
+        {
+            return ReferenceEquals(x, y);
+        }
+
+        public int GetHashCode(object obj)
+        {
+            return RuntimeHelpers.GetHashCode(obj);
         }
     }
 }

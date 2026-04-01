@@ -100,7 +100,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             {
                 if (gameController.GetData().State == MiniGameStates.Off)
                     continue;
-                if (!miniGameKey.Equals(_lastStartedMiniGame))
+                if (miniGameKey.Equals(_lastStartedMiniGame))
                     continue;
                 gameController.Exit();
             }
