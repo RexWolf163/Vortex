@@ -25,7 +25,7 @@ Out of scope:
 | `Vortex.Unity.UI.TweenerSystem` | `TweenerHub` — integration via `TweenerHubSwitch` |
 | `Vortex.Unity.UI.TweenerSystem.UniTaskTweener` | `AsyncTween` — color animation in `ColorsSwitch` |
 | `Vortex.Unity.EditorTools` | `DrawingUtility`, `ToolsSettings` — `StateSwitcherDrawer` rendering |
-| `Vortex.Core.Extensions` | `ActionExt.Fire()` |
+| `Vortex.Unity.AppSystem.System.TimeSystem` | `TimeController` — frame-delayed switching in `GameObjectsSwitch` |
 | Odin Inspector | `[ValueDropdown]`, `[ShowInInspector]`, `[Button]` |
 
 ---
@@ -43,8 +43,7 @@ StateSwitcher/
 │   ├── ColorsSwitch.cs         # Color (instant or animated)
 │   ├── SpritesSwitch.cs        # Sprite on SpriteRenderer/Image
 │   ├── EventFire.cs            # UnityEvent on activation
-│   ├── TweenerHubSwitch.cs     # Forward/Back on TweenerHub
-│   └── TweenersSwitch.cs       # [Obsolete] Legacy TweenerBase
+│   └── TweenerHubSwitch.cs     # Forward/Back on TweenerHub
 └── Handlers/
     └── OnEnableStateRunner.cs  # Switch on OnEnable
 ```
@@ -70,6 +69,7 @@ switcher.Set((byte)2);                  // by byte
 switcher.ResetStates();                 // reset all items + initial state
 
 int current = switcher.State;           // current state (-1 = none)
+StateData[] all = switcher.States;      // all states array
 switcher.OnStateSwitch += OnSwitch;     // event (StateData or null)
 int index = switcher.GetState("name");  // index by name (-1 = not found)
 ```
@@ -78,6 +78,7 @@ int index = switcher.GetState("name");  // index by name (-1 = not found)
 |-----------------|------|-------------|
 | `states` | `StateData[]` | State array |
 | `stateOnEnable` | `int` | Initial state (dropdown) |
+| `duplicateOnCreate` | `bool` | Editor-only: clone items from last state when adding new one |
 
 ---
 
@@ -87,7 +88,7 @@ Abstract behavior class. On state activation — `Set()`, on deactivation — `D
 
 | Implementation | Set() | DefaultState() |
 |---------------|-------|----------------|
-| `GameObjectsSwitch` | `SetActive(true)` on array | `SetActive(false)` |
+| `GameObjectsSwitch` | `SetActive(true)` on array (optionally frame-delayed via `onDelayed`) | `SetActive(false)` (optionally frame-delayed via `offDelayed`) |
 | `AnimatorBoolSwitch` | `SetBool(name, true)` | `SetBool(name, false)` |
 | `AnimatorStateSwitch` | `SetInteger(name, value)` | `SetInteger(name, default)` |
 | `ColorsSwitch` | Set color (instant or via `AsyncTween`) | Revert to `Color.white` |
@@ -102,7 +103,7 @@ Supports SpriteRenderer, Graphic (Image, Text), Outline. Modes:
 - Animated via `AsyncTween` with configurable duration and curve
 - Optional start color: `_useOwnStartColor = true` — takes current color from the object, `false` — uses the `_startColor` field
 
-Inspector button `SetCurrent()` — captures current color from first object.
+Inspector button `Get from...` — captures current color from first object.
 
 ---
 

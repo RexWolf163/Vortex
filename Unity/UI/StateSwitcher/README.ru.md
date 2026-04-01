@@ -25,7 +25,7 @@
 | `Vortex.Unity.UI.TweenerSystem` | `TweenerHub` — интеграция через `TweenerHubSwitch` |
 | `Vortex.Unity.UI.TweenerSystem.UniTaskTweener` | `AsyncTween` — анимация цвета в `ColorsSwitch` |
 | `Vortex.Unity.EditorTools` | `DrawingUtility`, `ToolsSettings` — рендеринг `StateSwitcherDrawer` |
-| `Vortex.Core.Extensions` | `ActionExt.Fire()` |
+| `Vortex.Unity.AppSystem.System.TimeSystem` | `TimeController` — покадровая задержка в `GameObjectsSwitch` |
 | Odin Inspector | `[ValueDropdown]`, `[ShowInInspector]`, `[Button]` |
 
 ---
@@ -43,8 +43,7 @@ StateSwitcher/
 │   ├── ColorsSwitch.cs         # Цвет (мгновенный или анимированный)
 │   ├── SpritesSwitch.cs        # Спрайт на SpriteRenderer/Image
 │   ├── EventFire.cs            # UnityEvent при активации
-│   ├── TweenerHubSwitch.cs     # Forward/Back на TweenerHub
-│   └── TweenersSwitch.cs       # [Obsolete] Legacy TweenerBase
+│   └── TweenerHubSwitch.cs     # Forward/Back на TweenerHub
 └── Handlers/
     └── OnEnableStateRunner.cs  # Переключение при OnEnable
 ```
@@ -70,6 +69,7 @@ switcher.Set((byte)2);                  // по byte
 switcher.ResetStates();                 // сброс всех item'ов + начальное состояние
 
 int current = switcher.State;           // текущее состояние (-1 = нет)
+StateData[] all = switcher.States;      // массив всех состояний
 switcher.OnStateSwitch += OnSwitch;     // событие (StateData или null)
 int index = switcher.GetState("name");  // индекс по имени (-1 = не найден)
 ```
@@ -78,6 +78,7 @@ int index = switcher.GetState("name");  // индекс по имени (-1 = н
 |----------------|-----|----------|
 | `states` | `StateData[]` | Массив состояний |
 | `stateOnEnable` | `int` | Начальное состояние (dropdown) |
+| `duplicateOnCreate` | `bool` | Editor-only: при добавлении нового состояния клонировать item'ы из последнего |
 
 ---
 
@@ -87,7 +88,7 @@ int index = switcher.GetState("name");  // индекс по имени (-1 = н
 
 | Реализация | Что делает Set() | Что делает DefaultState() |
 |-----------|-----------------|--------------------------|
-| `GameObjectsSwitch` | `SetActive(true)` на массив | `SetActive(false)` |
+| `GameObjectsSwitch` | `SetActive(true)` на массив (опционально с задержкой на кадр через `onDelayed`) | `SetActive(false)` (опционально с задержкой через `offDelayed`) |
 | `AnimatorBoolSwitch` | `SetBool(name, true)` | `SetBool(name, false)` |
 | `AnimatorStateSwitch` | `SetInteger(name, value)` | `SetInteger(name, default)` |
 | `ColorsSwitch` | Установка цвета (мгновенно или через `AsyncTween`) | Возврат к `Color.white` |
@@ -102,7 +103,7 @@ int index = switcher.GetState("name");  // индекс по имени (-1 = н
 - Анимированная через `AsyncTween` с настраиваемой длительностью и кривой
 - Опциональный стартовый цвет: `_useOwnStartColor = true` — берёт текущий цвет с объекта, `false` — использует поле `_startColor`
 
-Inspector-кнопка `SetCurrent()` — захватывает текущий цвет с первого объекта.
+Inspector-кнопка `Get from...` — захватывает текущий цвет с первого объекта.
 
 ---
 

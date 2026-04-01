@@ -28,6 +28,9 @@ namespace Vortex.Core.UIProviderSystem.Model
             Run();
         }
 
+        /// <summary>
+        /// Запуск переданного при инициализации колбэка
+        /// </summary>
         protected void RunCallback() => _callback?.Invoke();
 
         /// <summary>

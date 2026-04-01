@@ -25,7 +25,7 @@ namespace Vortex.Unity.LoggerSystem
         /// <param name="log">структура с данными для вывода</param>
         public void Print(LogData log)
         {
-            var source = log.Source as string ?? log.Source.GetType().Name;
+            var source = log.Source as string ?? log.Source?.GetType().Name ?? "Unknown";
             switch (log.Level)
             {
                 case LogLevel.Common:
