@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.sdk.minigames",
-    "rootNamespace": "Vortex",
+    "rootNamespace": "",
     "references": [
         "GUID:a00fea34cd87e874eb05688c1583b814",
         "GUID:7c6d3de99517c0549ae82af52cb16906",

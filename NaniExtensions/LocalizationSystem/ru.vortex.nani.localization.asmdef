@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.nani.localization",
-    "rootNamespace": "Vortex",
+    "rootNamespace": "",
     "references": [
         "GUID:ec37981827cc88c419565420343ee58c",
         "GUID:a00fea34cd87e874eb05688c1583b814",

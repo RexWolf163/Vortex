@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.nani.cutscenes",
-    "rootNamespace": "Vortex",
+    "rootNamespace": "",
     "references": [
         "GUID:9b629820a0db1ee4ebf4641e8cabb0c8",
         "GUID:cad4de33a6235bb42a7e0f3710a4ae0d",

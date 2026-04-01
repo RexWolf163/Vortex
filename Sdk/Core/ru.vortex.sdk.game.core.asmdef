@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.sdk.game.core",
-    "rootNamespace": "Vortex",
+    "rootNamespace": "",
     "references": [
         "GUID:f1e680f843d477b4982469a7325c2f44",
         "GUID:6055be8ebefd69e48b49212b09b47b2f",

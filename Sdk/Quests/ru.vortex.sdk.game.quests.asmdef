@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.sdk.game.quests",
-    "rootNamespace": "Vortex",
+    "rootNamespace": "",
     "references": [
         "GUID:66c3850540390be44aa49f25786b3c3a",
         "GUID:a00fea34cd87e874eb05688c1583b814",
