@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Vortex.Core.LoggerSystem.Bus;
@@ -12,6 +13,13 @@ namespace Vortex.Core.Extensions.LogicExtensions
     {
         private static readonly Dictionary<Type, FieldInfo[]> FieldsCache = new();
 
+        /// <summary>
+        /// Создает глубокую копию объекта.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="returnOriginalOnError"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         public static T DeepCopy<T>(this T source, bool returnOriginalOnError = false)
         {
             if (ReferenceEquals(source, null))
@@ -32,6 +40,9 @@ namespace Vortex.Core.Extensions.LogicExtensions
             if (IsPrimitive(type))
                 return obj;
 
+            if (GetPlatformPrimitives().Contains(type))
+                return obj;
+
             // cycle check
             if (visited.TryGetValue(obj, out var existing))
                 return existing;
@@ -48,11 +59,12 @@ namespace Vortex.Core.Extensions.LogicExtensions
             if (typeof(IList).IsAssignableFrom(type))
                 return CopyList((IList)obj, visited, returnOriginalOnError);
 
-            // ICloneable support
+            // ICloneable support. Должен создавать Deep Clone!
             if (obj is ICloneable cloneable)
             {
+                visited.Add(obj, null);
                 var c = cloneable.Clone();
-                visited.Add(obj, c);
+                visited[obj] = c;
                 return c;
             }
 
@@ -93,15 +105,11 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 }
 
                 fields = allFields.ToArray();
-                //fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 FieldsCache[type] = fields;
             }
 
             foreach (var field in fields)
             {
-                /*
-                if (field.IsInitOnly) continue; // readonly skip
-                */
                 var value = field.GetValue(obj);
                 field.SetValue(copy, CopyInternal(value, visited, returnOriginalOnError));
             }
@@ -209,11 +217,16 @@ namespace Vortex.Core.Extensions.LogicExtensions
                    type == typeof(Version) ||
                    type.IsEnum;
         }
+
+        private static Type[] GetPlatformPrimitives() =>
+            typeof(SimpleTypeMarker).GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Select(f => f.FieldType)
+                .ToArray();
     }
 
     public sealed class ReferenceEqualityComparer : IEqualityComparer<object>
     {
-        public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
+        public static readonly ReferenceEqualityComparer Instance = new();
 
         public new bool Equals(object x, object y)
         {

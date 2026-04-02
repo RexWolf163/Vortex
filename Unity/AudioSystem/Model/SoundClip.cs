@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Vortex.Core.AudioSystem.Bus;
 using Vortex.Core.AudioSystem.Model;
 using Vortex.Core.Extensions.LogicExtensions;
+using Random = UnityEngine.Random;
 
 namespace Vortex.Unity.AudioSystem.Model
 {
@@ -10,7 +12,7 @@ namespace Vortex.Unity.AudioSystem.Model
     /// Звуковой клип
     /// Содержит диапазоны допустимых pitch и volume
     /// </summary>
-    public class SoundClip
+    public class SoundClip : ICloneable
     {
         public AudioClip[] AudioClips { get; protected set; }
         public Vector2 PitchRange { get; }
@@ -71,5 +73,11 @@ namespace Vortex.Unity.AudioSystem.Model
                 return null;
             return IsSingle ? AudioClips[0] : AudioClips[Random.Range(0, AudioClips.Length)];
         }
+
+        /// <summary>
+        /// Deep Clone
+        /// </summary>
+        /// <returns></returns>
+        public object Clone() => new SoundClip(AudioClips, PitchRange, ValueRange, Loop, Channel);
     }
 }

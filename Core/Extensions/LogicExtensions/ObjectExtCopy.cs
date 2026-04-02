@@ -39,8 +39,24 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 var targetProperties = modelType.GetProperties()
                     .Where(p => p.CanWrite)
                     .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
-
+                
                 foreach (var sourceProp in properties)
+                {
+                    if (!targetProperties.TryGetValue(sourceProp.Name, out var prop))
+                        continue;
+                    if (prop == null || !prop.CanWrite)
+                        continue;
+
+                    // Пропускаем индексированные свойства
+                    if (prop.GetIndexParameters().Length > 0) continue;
+
+                    var value = sourceProp.GetValue(source);
+                    if (value is ICloneable cloneable)
+                        prop.SetValue(target, cloneable.Clone());
+                    else
+                        prop.SetValue(target, value.DeepCopy());
+                }
+                /*foreach (var sourceProp in properties)
                 {
                     if (!targetProperties.TryGetValue(sourceProp.Name, out var prop))
                         continue;
@@ -49,7 +65,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
                     var value = sourceProp.GetValue(source);
                     prop.SetValue(target, value);
-                }
+                }*/
 
                 return true;
             }
