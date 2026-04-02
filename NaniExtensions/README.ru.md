@@ -118,8 +118,3 @@ Open(key) → загрузка CutsceneData → SpineBackground → LoadPhase �
 
 `CutsceneData.SyncWithSpine()` — Editor-кнопка: синхронизирует фазы и события с `SkeletonDataAsset`.
 
----
-
-## LocalizationSystem
-
-Документация: [README.ru.md](LocalizationSystem/README.ru.md)

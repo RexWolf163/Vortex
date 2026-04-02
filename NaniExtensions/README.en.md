@@ -118,8 +118,3 @@ Phases:
 
 `CutsceneData.SyncWithSpine()` — Editor button: synchronizes phases and events with `SkeletonDataAsset`.
 
----
-
-## LocalizationSystem
-
-Documentation: [README.en.md](LocalizationSystem/README.en.md)
