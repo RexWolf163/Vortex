@@ -29,7 +29,10 @@ LogicExtensions/
 ├── Crypto.cs                 → SHA256, GUID generation
 ├── DateTimeExtConvert.cs     → Unix time
 ├── DictionaryExtAdding.cs    → safe dictionary operations
-├── ListExt.cs                → AddOnce
+├── IndexFabric.cs            → case-insensitive dictionary factory
+├── ListExt.cs                → AddOnce, IndexOfItem
+├── ObjectExtDeepClone.cs     → deep object cloning
+├── SimpleTypeMarker.cs       → partial marker of platform primitives for DeepCopy
 ├── StringExtCompress.cs      → string compression
 ├── StringExtCommons.cs       → IsNullOrWhitespace
 ├── ObjectExtCopy.cs          → reflection-based property copy
@@ -210,11 +213,23 @@ Safe `IDictionary` operations with conflict logging.
 
 ---
 
+## IndexFabric
+
+Factory for creating `Dictionary<string, T>` with `StringComparer.InvariantCultureIgnoreCase`.
+
+| Method | Description |
+|--------|-------------|
+| `IndexFabric.Create<T>()` | Empty case-insensitive dictionary |
+| `IndexFabric.Create<T>(source)` | Case-insensitive dictionary populated from `IDictionary<string, T>` |
+
+---
+
 ## ListExt
 
 | Method | Description |
 |--------|-------------|
 | `list.AddOnce(data)` | Add element if not already present (`Contains` check) |
+| `list.IndexOfItem(value)` | Index of element in `IReadOnlyList<T>` (returns `-1` if not found) |
 
 ---
 
@@ -241,6 +256,46 @@ String compression and decompression via `ZipArchive` + Base64.
 | Method | Description |
 |--------|-------------|
 | `str.IsNullOrWhitespace()` | `string.IsNullOrEmpty(str?.Trim())` |
+
+---
+
+## ObjectExtDeepClone
+
+Deep object cloning via reflection with cycle detection.
+
+### API
+
+| Method | Description |
+|--------|-------------|
+| `source.DeepCopy<T>(returnOriginalOnError)` | Deep copy of an object. With `returnOriginalOnError = true` — returns original instead of `null` on failure |
+
+### Type Processing Order
+
+| Priority | Type | Behavior |
+|----------|------|----------|
+| 1 | `null` | `default(T)` |
+| 2 | Primitives, `string`, `decimal`, `DateTime`, `DateTimeOffset`, `TimeSpan`, `Guid`, `Uri`, `Version`, `enum` | Returned as-is |
+| 3 | Platform primitives (`SimpleTypeMarker`) | Returned by reference (not cloned) |
+| 4 | Object already in `visited` | Returns previously created copy (cycle protection) |
+| 5 | `Array` | Element-wise recursive copying |
+| 6 | `IDictionary` | Recursive key and value copying |
+| 7 | `IList` | Recursive element copying |
+| 8 | `ICloneable` | Calls `Clone()`. **Contract: implementation must perform deep copy** |
+| 9 | Other objects | `Activator.CreateInstance` + all fields copied (including private and inherited) |
+
+### SimpleTypeMarker — Platform Primitives
+
+`SimpleTypeMarker` is a partial class. Empty in Core. Unity partial adds types (`Sprite`, `GameObject`) that should not be cloned — passed by reference. Types are cached on first call via reflection over static fields of the class.
+
+### Edge Cases
+
+- Cyclic references detected via `ReferenceEqualityComparer` — revisited objects return the already-created copy
+- `ICloneable`: if `Clone()` performs shallow copy — nested references will be shared with the original
+- `returnOriginalOnError = true` mixes the original into the copy graph — mutations to the original will be visible through the "copy"
+- `Activator.CreateInstance` requires parameterless constructor; missing → error or original returned
+- `readonly` fields are copied via `SetValue` (reflection bypasses readonly)
+- `FieldInfo[]` and platform type caches are static, never cleared
+- `null` input → `default(T)`
 
 ---
 

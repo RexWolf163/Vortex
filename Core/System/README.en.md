@@ -109,6 +109,10 @@ SetDriver(driver)
 
 Auto-generated file. Contains `Dictionary<string, string>` — pairs of `AssemblyQualifiedName` of system controller → `AssemblyQualifiedName` of allowed driver. `SetDriver` rejects drivers not in the list.
 
+`SystemController` loads the WhiteList via reflection (`Type.GetType("Vortex.Core.System.DriversGenericList")`) on first `SetDriver` call, caching the result in a static field.
+
+Special value `"[off]"` instead of a driver name means the system is disabled — no driver will be accepted.
+
 ### ISystemDriver
 
 ```
@@ -129,7 +133,7 @@ ReactiveValue<T> : IReactiveData
   └── implicit operator T → Value
 ```
 
-Value wrapper with two events: `OnUpdate` (typed) and `OnUpdateData` (generic). `Set()` always fires both events without checking for change. Implicit operator allows using `ReactiveValue<T>` as `T`.
+Value wrapper with two events: `OnUpdate` (typed) and `OnUpdateData` (generic). `Set()` always fires both events without checking for change. `CallOnUpdate()` is a protected method for firing events from subclasses without reassigning `Value`. Implicit operator allows using `ReactiveValue<T>` as `T`.
 
 #### Concrete Implementations
 
@@ -138,7 +142,7 @@ Value wrapper with two events: `OnUpdate` (typed) and `OnUpdateData` (generic). 
 | `IntData` | `ReactiveValue<int>` | `IntData(int value)` |
 | `FloatData` | `ReactiveValue<float>` | `FloatData(float value)` |
 | `BoolData` | `ReactiveValue<bool>` | `BoolData(bool value)` |
-| `StringData` | `ReactiveValue<string>` | `StringData(string value)` |
+| `StringData` | `ReactiveValue<string>` | `StringData(string value)`, `ToString() → Value` |
 
 ### IProcess / ProcessData
 
@@ -166,7 +170,8 @@ DateTimeTimer
   ├── IsComplete() → End <= UtcNow
   ├── IsStarted() → Start <= UtcNow
   ├── GetTimeRemains() → TimeSpan            ← Zero if complete, Duration if not started
-  └── GetTimeLeft() → TimeSpan               ← Duration if complete, Zero if not started
+  ├── GetTimeLeft() → TimeSpan               ← Duration if complete, Zero if not started
+  └── ToString()                             ← "DateTimeTimer from {Start} to {End} (duration: {Duration})"
 ```
 
 Timer based on `DateTime.UtcNow`. Works offline — independent of Update loop. Three constructors: `(DateTime end)`, `(TimeSpan duration)`, `(DateTime start, DateTime end)`.
@@ -217,7 +222,7 @@ Timer based on `DateTime.UtcNow`. Works offline — independent of Update loop. 
 | `Set()` without duplication check | May cause unnecessary UI updates |
 | `DriversGenericList` is auto-generated | Manual edits will be overwritten |
 | `ProcessData` has public fields | Optimization, programmer's responsibility |
-| `DateTimeTimer` has no Pause/Resume | `freezePoint` declared but unused |
+| `DateTimeTimer` has no Pause/Resume | Fixed Start/End only |
 | `IProcess.WaitingFor()` returns types | Not instances, but `Type[]` for topological sorting |
 
 ---

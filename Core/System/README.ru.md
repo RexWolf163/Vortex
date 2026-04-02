@@ -109,6 +109,10 @@ SetDriver(driver)
 
 Автогенерированный файл. Содержит `Dictionary<string, string>` — пары `AssemblyQualifiedName` системного контроллера → `AssemblyQualifiedName` допустимого драйвера. `SetDriver` отклоняет драйверы, не присутствующие в списке.
 
+`SystemController` загружает WhiteList через рефлексию (`Type.GetType("Vortex.Core.System.DriversGenericList")`) при первом вызове `SetDriver`, результат кешируется в статическом поле.
+
+Специальное значение `"[off]"` вместо имени драйвера — система отключена, ни один драйвер не будет принят.
+
 ### ISystemDriver
 
 ```
@@ -126,10 +130,11 @@ ReactiveValue<T> : IReactiveData
   ├── OnUpdate: Action<T>                    ← типизированное событие
   ├── OnUpdateData: Action                   ← нетипизированное событие (IReactiveData)
   ├── Set(T value) → Value = value, fire events
+  ├── CallOnUpdate() (protected)             ← вызов событий без Set (для наследников)
   └── implicit operator T → Value
 ```
 
-Обёртка значения с двумя событиями: `OnUpdate` (типизированное) и `OnUpdateData` (общее). `Set()` всегда вызывает оба события, без проверки на изменение. Implicit operator позволяет использовать `ReactiveValue<T>` как `T`.
+Обёртка значения с двумя событиями: `OnUpdate` (типизированное) и `OnUpdateData` (общее). `Set()` всегда вызывает оба события, без проверки на изменение. `CallOnUpdate()` — protected метод для вызова событий из наследников без переназначения `Value`. Implicit operator позволяет использовать `ReactiveValue<T>` как `T`.
 
 #### Конкретные реализации
 
@@ -138,7 +143,7 @@ ReactiveValue<T> : IReactiveData
 | `IntData` | `ReactiveValue<int>` | `IntData(int value)` |
 | `FloatData` | `ReactiveValue<float>` | `FloatData(float value)` |
 | `BoolData` | `ReactiveValue<bool>` | `BoolData(bool value)` |
-| `StringData` | `ReactiveValue<string>` | `StringData(string value)` |
+| `StringData` | `ReactiveValue<string>` | `StringData(string value)`, `ToString() → Value` |
 
 ### IProcess / ProcessData
 
@@ -166,7 +171,8 @@ DateTimeTimer
   ├── IsComplete() → End <= UtcNow
   ├── IsStarted() → Start <= UtcNow
   ├── GetTimeRemains() → TimeSpan            ← 0 если завершён, Duration если не начат
-  └── GetTimeLeft() → TimeSpan               ← Duration если завершён, 0 если не начат
+  ├── GetTimeLeft() → TimeSpan               ← Duration если завершён, 0 если не начат
+  └── ToString()                             ← "DateTimeTimer from {Start} to {End} (duration: {Duration})"
 ```
 
 Таймер на основе `DateTime.UtcNow`. Работает offline — не зависит от Update-цикла. Три конструктора: `(DateTime end)`, `(TimeSpan duration)`, `(DateTime start, DateTime end)`.
@@ -217,7 +223,7 @@ DateTimeTimer
 | `Set()` без проверки дублирования | Может вызвать лишние обновления UI |
 | `DriversGenericList` — автогенерация | Ручное редактирование будет перезаписано |
 | `ProcessData` — public fields | Оптимизация, контроль на программисте |
-| `DateTimeTimer` — без Pause/Resume | `freezePoint` объявлен, но не используется |
+| `DateTimeTimer` — без Pause/Resume | Только фиксированные Start/End |
 | `IProcess.WaitingFor()` — типы контроллеров | Не экземпляры, а `Type[]` для топологической сортировки |
 
 ---

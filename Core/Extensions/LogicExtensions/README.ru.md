@@ -29,7 +29,10 @@ LogicExtensions/
 ├── Crypto.cs                 → SHA256, генерация GUID
 ├── DateTimeExtConvert.cs     → Unix-время
 ├── DictionaryExtAdding.cs    → безопасные операции словаря
-├── ListExt.cs                → AddOnce
+├── IndexFabric.cs            → фабрика case-insensitive словарей
+├── ListExt.cs                → AddOnce, IndexOfItem
+├── ObjectExtDeepClone.cs     → глубокое клонирование объектов
+├── SimpleTypeMarker.cs       → partial-маркер платформенных примитивов для DeepCopy
 ├── StringExtCompress.cs      → сжатие строк
 ├── StringExtCommons.cs       → IsNullOrWhitespace
 ├── ObjectExtCopy.cs          → копирование свойств через рефлексию
@@ -210,11 +213,23 @@ string original = Crypto.GetCryptoPack(packed, "my_secret");
 
 ---
 
+## IndexFabric
+
+Фабрика для создания `Dictionary<string, T>` с `StringComparer.InvariantCultureIgnoreCase`.
+
+| Метод | Описание |
+|-------|----------|
+| `IndexFabric.Create<T>()` | Пустой case-insensitive словарь |
+| `IndexFabric.Create<T>(source)` | Case-insensitive словарь, заполненный из `IDictionary<string, T>` |
+
+---
+
 ## ListExt
 
 | Метод | Описание |
 |-------|----------|
 | `list.AddOnce(data)` | Добавить элемент, если его нет в списке (`Contains`-проверка) |
+| `list.IndexOfItem(value)` | Индекс элемента в `IReadOnlyList<T>` (возвращает `-1` если не найден) |
 
 ---
 
@@ -241,6 +256,46 @@ string original = Crypto.GetCryptoPack(packed, "my_secret");
 | Метод | Описание |
 |-------|----------|
 | `str.IsNullOrWhitespace()` | `string.IsNullOrEmpty(str?.Trim())` |
+
+---
+
+## ObjectExtDeepClone
+
+Глубокое клонирование объектов через рефлексию с обнаружением циклических ссылок.
+
+### API
+
+| Метод | Описание |
+|-------|----------|
+| `source.DeepCopy<T>(returnOriginalOnError)` | Глубокая копия объекта. При `returnOriginalOnError = true` — возвращает оригинал вместо `null` при ошибке |
+
+### Порядок обработки типов
+
+| Приоритет | Тип | Поведение |
+|-----------|-----|-----------|
+| 1 | `null` | `default(T)` |
+| 2 | Примитивы, `string`, `decimal`, `DateTime`, `DateTimeOffset`, `TimeSpan`, `Guid`, `Uri`, `Version`, `enum` | Возврат as-is |
+| 3 | Платформенные примитивы (`SimpleTypeMarker`) | Возврат по ссылке (не клонируются) |
+| 4 | Объект уже в `visited` | Возврат ранее созданной копии (защита от циклов) |
+| 5 | `Array` | Поэлементное рекурсивное копирование |
+| 6 | `IDictionary` | Рекурсивное копирование ключей и значений |
+| 7 | `IList` | Рекурсивное копирование элементов |
+| 8 | `ICloneable` | Вызов `Clone()`. **Контракт: реализация должна выполнять deep copy** |
+| 9 | Прочие объекты | `Activator.CreateInstance` + копирование всех полей (включая private и наследованные) |
+
+### SimpleTypeMarker — платформенные примитивы
+
+`SimpleTypeMarker` — partial-класс. В Core пуст. Unity-partial добавляет типы (`Sprite`, `GameObject`), которые не должны клонироваться — передаются по ссылке. Типы кешируются при первом вызове через рефлексию по статическим полям класса.
+
+### Граничные случаи
+
+- Циклические ссылки обнаруживаются через `ReferenceEqualityComparer` — повторный объект возвращает уже созданную копию
+- `ICloneable`: если `Clone()` делает shallow copy — вложенные ссылки будут разделяться с оригиналом
+- `returnOriginalOnError = true` подмешивает оригинал в граф копии — мутации оригинала будут видны через "копию"
+- `Activator.CreateInstance` требует конструктор без параметров; при отсутствии — ошибка или возврат оригинала
+- `readonly` поля копируются через `SetValue` (рефлексия обходит readonly)
+- Кеш `FieldInfo[]` и платформенных типов — статический, не очищается
+- `null` на входе → `default(T)`
 
 ---
 

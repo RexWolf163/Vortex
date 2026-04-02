@@ -12,14 +12,33 @@ namespace Vortex.Core.Extensions.LogicExtensions
     public static class ObjectExtDeepClone
     {
         private static readonly Dictionary<Type, FieldInfo[]> FieldsCache = new();
+        private static Type[] _platformPrimitives;
 
         /// <summary>
-        /// Создает глубокую копию объекта.
+        /// Создает глубокую копию объекта через рефлексию.
+        ///
+        /// Порядок обработки типов:
+        /// 1. null → default(T)
+        /// 2. Примитивы, string, decimal, DateTime, DateTimeOffset, TimeSpan, Guid, Uri, Version, enum → возврат as-is
+        /// 3. Платформенные примитивы (SimpleTypeMarker: Sprite, GameObject и т.д.) → возврат по ссылке
+        /// 4. Циклические ссылки → возврат ранее созданной копии из visited
+        /// 5. Array → поэлементное рекурсивное копирование
+        /// 6. IDictionary → рекурсивное копирование ключей и значений
+        /// 7. IList → рекурсивное копирование элементов
+        /// 8. ICloneable → Clone(). Контракт: реализация Clone() ДОЛЖНА выполнять deep copy.
+        ///    Если Clone() делает shallow copy — вложенные ссылки будут разделяться с оригиналом
+        /// 9. Прочие объекты → Activator.CreateInstance + копирование всех полей (включая private и наследованные)
+        ///
+        /// Граничные случаи:
+        /// - Тип без конструктора без параметров: returnOriginalOnError=true → оригинал, false → null + LogError
+        /// - returnOriginalOnError подмешивает оригинал в граф копии — мутации оригинала будут видны
+        /// - readonly поля копируются через рефлексию (SetValue обходит readonly)
+        /// - FieldInfo[] кешируется статически по типу, не очищается
         /// </summary>
-        /// <param name="source"></param>
-        /// <param name="returnOriginalOnError"></param>
-        /// <typeparam name="T"></typeparam>
-        /// <returns></returns>
+        /// <param name="source">Исходный объект</param>
+        /// <param name="returnOriginalOnError">При ошибке создания экземпляра вернуть оригинал вместо null</param>
+        /// <typeparam name="T">Тип объекта</typeparam>
+        /// <returns>Глубокая копия или default при null</returns>
         public static T DeepCopy<T>(this T source, bool returnOriginalOnError = false)
         {
             if (ReferenceEquals(source, null))
@@ -219,7 +238,8 @@ namespace Vortex.Core.Extensions.LogicExtensions
         }
 
         private static Type[] GetPlatformPrimitives() =>
-            typeof(SimpleTypeMarker).GetFields(BindingFlags.Public | BindingFlags.Static)
+            _platformPrimitives ??= typeof(SimpleTypeMarker)
+                .GetFields(BindingFlags.Public | BindingFlags.Static)
                 .Select(f => f.FieldType)
                 .ToArray();
     }
