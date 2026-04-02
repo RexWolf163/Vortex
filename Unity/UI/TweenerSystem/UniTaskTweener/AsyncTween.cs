@@ -22,6 +22,7 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
         private EaseType _ease = EaseType.Linear;
         private AnimationCurve _customCurve;
         private Action _onComplete;
+        private Action _onKill;
         private Action<float> _onUpdate;
         private CancellationToken _externalToken;
 
@@ -64,6 +65,15 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
         public AsyncTween OnComplete(Action action)
         {
             _onComplete = action;
+            return this;
+        }
+
+        /// <summary>
+        /// Колбэк при прерывании через Kill
+        /// </summary>
+        public AsyncTween OnKill(Action action)
+        {
+            _onKill = action;
             return this;
         }
 
@@ -287,6 +297,7 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
             try
             {
                 await animation(token);
+                _onKill = null;
                 onComplete?.Invoke();
                 if (Settings.Data().AsyncTweenerDebugMode)
                     Debug.Log($"[AsyncTween] Animation #{id} completed");
@@ -310,6 +321,7 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
             _ease = EaseType.Linear;
             _customCurve = null;
             _onComplete = null;
+            //_onKill = null;
             _onUpdate = null;
             _externalToken = default;
             _instantApply = null;
@@ -329,11 +341,14 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
         public void Kill()
         {
             if (_cts == null) return;
+            var onKill = _onKill;
+            _onKill = null;
             _cts.Cancel();
             _cts.Dispose();
             _cts = null;
             if (Settings.Data().AsyncTweenerDebugMode)
                 Debug.LogWarning($"[AsyncTween] Animation #{_id} was Canceled");
+            onKill?.Invoke();
         }
 
         #endregion

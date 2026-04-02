@@ -52,11 +52,6 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             _statisticsData ??= GameController.Get<MiniGamesStatisticsData>();
 
         /// <summary>
-        /// Кеширование последней запущенной игры
-        /// </summary>
-        private static string _lastStartedMiniGame;
-
-        /// <summary>
         /// Возвращает зарегистрированный контроллер для миниигры
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -95,27 +90,36 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
 
         internal static void StartGame(string miniGameKey)
         {
+            if (!_index.TryGetValue(miniGameKey, out var observer))
+            {
+                Debug.LogError($"[MiniGamesController] MiniGame {miniGameKey} is not registered.");
+                return;
+            }
+
+            var newGameController = observer.GetHub().GetController();
+
             //Если есть запущенная миниигра - она должна быть остановлена (засчитывается в статистике как Failed)
             foreach (var gameController in _controllersIndex.Values)
             {
                 if (gameController.GetData().State == MiniGameStates.Off)
                     continue;
-                if (miniGameKey.Equals(_lastStartedMiniGame))
+                if (newGameController == gameController)
                     continue;
+
                 gameController.Exit();
             }
 
             if (!StatisticsData.Index.TryGetValue(miniGameKey, out var data))
             {
-                StatisticsData.Index.Add(miniGameKey, new MiniGameStatisticData
+                StatisticsData.index.Add(miniGameKey, new MiniGameStatisticData
                 {
                     MiniGameKey = miniGameKey,
                     StartedGames = 1
                 });
+                OnStartMiniGame?.Invoke();
                 return;
             }
 
-            _lastStartedMiniGame = miniGameKey;
             data.StartedGames++;
 
             OnStartMiniGame?.Invoke();
@@ -147,8 +151,6 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
 
         internal static void ExitGame(string miniGameKey)
         {
-            if (miniGameKey.Equals(_lastStartedMiniGame))
-                _lastStartedMiniGame = null;
             if (!StatisticsData.Index.TryGetValue(miniGameKey, out var data))
             {
                 Debug.LogError($"[MiniGameController] MiniGame {miniGameKey} is not registered.");

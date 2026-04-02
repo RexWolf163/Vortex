@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-
 using Vortex.Sdk.Core.GameCore;
 
 namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model.Statistics
@@ -10,12 +9,9 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model.Statistics
     /// </summary>
     public class MiniGamesStatisticsData : GameModel.IGameData
     {
-        private Dictionary<string, MiniGameStatisticData> _index;
+        internal Dictionary<string, MiniGameStatisticData> index;
 
-        public Dictionary<string, MiniGameStatisticData> Index
-        {
-            get => _index ??= new Dictionary<string, MiniGameStatisticData>();
-            internal set => _index = value;
-        }
+        public IReadOnlyDictionary<string, MiniGameStatisticData> Index =>
+            index ??= new Dictionary<string, MiniGameStatisticData>();
     }
 }

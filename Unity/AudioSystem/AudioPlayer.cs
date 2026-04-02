@@ -45,6 +45,12 @@ namespace Vortex.Unity.AudioSystem
         private static bool _needCoverFadingEnd;
 
         /// <summary>
+        /// Флаг состояния для основного канала музыки, чтобы
+        /// рефлексировать при обработке команды на сутуативную музыку
+        /// </summary>
+        private static bool _isMusicPlaying;
+
+        /// <summary>
         /// Кешированная ссылка на текущую ситуативную музыку
         /// </summary>
         private AudioClip _coverMusic;
@@ -149,6 +155,10 @@ namespace Vortex.Unity.AudioSystem
             string overrideChannel = null)
         {
             _needFadingStart = fadingStart;
+            _isMusicPlaying = true;
+
+            if (Instance == null)
+                return;
 
             var clip = GetMusicClip(music, overrideChannel);
             Instance._music = clip.GetClip();
@@ -177,6 +187,7 @@ namespace Vortex.Unity.AudioSystem
         /// </summary>
         internal static void StopMusic()
         {
+            _isMusicPlaying = false;
             if (Instance == null)
                 return;
             Instance._music = null;
@@ -203,7 +214,7 @@ namespace Vortex.Unity.AudioSystem
         {
             if (Instance.musicCoverPlayer.IsPlay() && Instance.musicCoverPlayer.GetVolumeMultiplier() > 0)
             {
-                FadeTween.Kill();
+                FadeCoverTween.Kill();
                 if (_needCoverFadingEnd)
                 {
                     FadeCoverTween.Set(Instance.musicCoverPlayer.GetVolumeMultiplier,
@@ -216,12 +227,13 @@ namespace Vortex.Unity.AudioSystem
 
                 Instance.musicCoverPlayer.SetVolumeMultiplier(0);
             }
-            else if (Instance.musicPlayer.IsPlay() && Instance.musicPlayer.GetVolumeMultiplier() > 0)
+            else if (_isMusicPlaying && Instance.musicPlayer.GetVolumeMultiplier() > 0)
             {
                 FadeTween.Kill();
                 if (_needFadingEnd)
                 {
-                    FadeTween.Set(Instance.musicPlayer.GetVolumeMultiplier, Instance.musicPlayer.SetVolumeMultiplier,
+                    FadeTween.Set(Instance.musicPlayer.GetVolumeMultiplier,
+                            Instance.musicPlayer.SetVolumeMultiplier,
                             0f, Instance.musicFadeTime)
                         .SetEase(EaseType.Linear)
                         .OnComplete(callback)
@@ -245,6 +257,9 @@ namespace Vortex.Unity.AudioSystem
         internal static void PlayCoverMusic(object music, bool fadingStart = true, bool fadingEnd = true,
             string defaultChannel = null)
         {
+            if (Instance == null)
+                return;
+
             var clip = GetMusicClip(music, defaultChannel);
 
             Instance._coverMusic = clip.GetClip();
@@ -253,7 +268,7 @@ namespace Vortex.Unity.AudioSystem
                 return;
 
             _needCoverFadingEnd = fadingEnd;
-            FadeTween.Kill();
+            FadeCoverTween.Kill();
             if (fadingStart)
                 FadeCoverTween.Set(() => 0f, Instance.musicCoverPlayer.SetVolumeMultiplier, 1f, Instance.musicFadeTime)
                     .SetEase(EaseType.Linear)
@@ -274,7 +289,7 @@ namespace Vortex.Unity.AudioSystem
                 return;
 
             Instance._coverMusic = null;
-            FadeTween.Kill();
+            FadeCoverTween.Kill();
             if (_needCoverFadingEnd)
                 FadeCoverTween.Set(Instance.musicCoverPlayer.GetVolumeMultiplier,
                         Instance.musicCoverPlayer.SetVolumeMultiplier, 0f, Instance.musicFadeTime)
@@ -296,16 +311,18 @@ namespace Vortex.Unity.AudioSystem
 
         private static void RestoreMainMusic()
         {
-            if (Instance.musicPlayer.IsPlay())
-            {
-                FadeTween.Kill();
-                if (_needFadingStart)
-                    FadeTween.Set(() => 0f, Instance.musicPlayer.SetVolumeMultiplier, 1f, Instance.musicFadeTime)
-                        .SetEase(EaseType.Linear)
-                        .Run();
-                else
-                    Instance.musicPlayer.SetVolumeMultiplier(1);
-            }
+            if (Instance == null)
+                return;
+
+            if (!_isMusicPlaying) return;
+
+            FadeTween.Kill();
+            if (_needFadingStart)
+                FadeTween.Set(() => 0f, Instance.musicPlayer.SetVolumeMultiplier, 1f, Instance.musicFadeTime)
+                    .SetEase(EaseType.Linear)
+                    .Run();
+            else
+                Instance.musicPlayer.SetVolumeMultiplier(1);
         }
 
         #endregion

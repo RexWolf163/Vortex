@@ -46,5 +46,11 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Controllers
         {
             MiniGamesController.ExitGame(_gameHub.GetType().FullName);
         }
+
+        /// <summary>
+        /// Возвращает связанный при регистрации IMiniGameHub
+        /// </summary>
+        /// <returns></returns>
+        public IMiniGameHub GetHub() => _gameHub;
     }
 }

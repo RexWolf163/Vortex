@@ -19,6 +19,7 @@ namespace Vortex.NaniExtensions.Core
         private static IChoiceHandlerManager _choiceHandlerManager;
         private static IUnlockableManager _unlockableManager;
         private static IUIManager _uiManager;
+        private static ICustomVariableManager _variablesManager;
 
         public static IAudioManager AudioManager => _audioManager ??= Engine.GetService<IAudioManager>();
         public static IStateManager StateManager => _stateManager ??= Engine.GetService<IStateManager>();
@@ -46,6 +47,9 @@ namespace Vortex.NaniExtensions.Core
             _unlockableManager ??= Engine.GetService<IUnlockableManager>();
 
         public static IUIManager UIManager => _uiManager ??= Engine.GetService<IUIManager>();
+
+        public static ICustomVariableManager VariablesManager =>
+            _variablesManager ??= Engine.GetService<ICustomVariableManager>();
 
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
@@ -80,6 +84,7 @@ namespace Vortex.NaniExtensions.Core
             AudioManager.StopAllBgm();
             AudioManager.StopAllSfx();
             AudioManager.StopVoice();
+            VariablesManager.ResetAllVariables();
 
             var bgs = BackgroundManager.Actors;
             var tween = new Tween(0);
