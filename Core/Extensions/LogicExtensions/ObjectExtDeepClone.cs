@@ -11,16 +11,16 @@ namespace Vortex.Core.Extensions.LogicExtensions
     {
         private static readonly Dictionary<Type, FieldInfo[]> FieldsCache = new();
 
-        public static T DeepCopy<T>(this T source, bool givePointerOnError = false)
+        public static T DeepCopy<T>(this T source, bool returnOriginalOnError = false)
         {
             if (ReferenceEquals(source, null))
                 return default;
 
             var visited = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
-            return (T)CopyInternal(source, visited, givePointerOnError);
+            return (T)CopyInternal(source, visited, returnOriginalOnError);
         }
 
-        private static object CopyInternal(object obj, Dictionary<object, object> visited, bool givePointerOnError)
+        private static object CopyInternal(object obj, Dictionary<object, object> visited, bool returnOriginalOnError)
         {
             if (obj == null)
                 return null;
@@ -37,19 +37,23 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
             // arrays
             if (type.IsArray)
-                return CopyArray((Array)obj, visited, givePointerOnError);
-
-            // lists / collections
-            if (typeof(IList).IsAssignableFrom(type))
-                return CopyList((IList)obj, visited, givePointerOnError);
+                return CopyArray((Array)obj, visited, returnOriginalOnError);
 
             // dictionaries
             if (typeof(IDictionary).IsAssignableFrom(type))
-                return CopyDictionary((IDictionary)obj, visited, givePointerOnError);
+                return CopyDictionary((IDictionary)obj, visited, returnOriginalOnError);
+
+            // lists / collections
+            if (typeof(IList).IsAssignableFrom(type))
+                return CopyList((IList)obj, visited, returnOriginalOnError);
 
             // ICloneable support
             if (obj is ICloneable cloneable)
-                return cloneable.Clone();
+            {
+                var c = cloneable.Clone();
+                visited.Add(obj, c);
+                return c;
+            }
 
             // create instance
             object copy;
@@ -59,7 +63,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
             }
             catch (Exception e)
             {
-                if (!givePointerOnError)
+                if (!returnOriginalOnError)
                 {
                     Log.Print(LogLevel.Error, $"DeepCopy failed for {type.Name}: {e.Message}.",
                         obj);
@@ -76,22 +80,35 @@ namespace Vortex.Core.Extensions.LogicExtensions
             // copy fields
             if (!FieldsCache.TryGetValue(type, out var fields))
             {
-                fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var allFields = new List<FieldInfo>();
+
+                for (var t = type; t != null && t != typeof(object); t = t.BaseType)
+                {
+                    allFields.AddRange(t.GetFields(
+                        BindingFlags.Instance |
+                        BindingFlags.Public |
+                        BindingFlags.NonPublic |
+                        BindingFlags.DeclaredOnly));
+                }
+
+                fields = allFields.ToArray();
+                //fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 FieldsCache[type] = fields;
             }
 
             foreach (var field in fields)
             {
+                /*
                 if (field.IsInitOnly) continue; // readonly skip
-
+                */
                 var value = field.GetValue(obj);
-                field.SetValue(copy, CopyInternal(value, visited, givePointerOnError));
+                field.SetValue(copy, CopyInternal(value, visited, returnOriginalOnError));
             }
 
             return copy;
         }
 
-        private static object CopyArray(Array array, Dictionary<object, object> visited, bool givePointerOnError)
+        private static object CopyArray(Array array, Dictionary<object, object> visited, bool returnOriginalOnError)
         {
             var elementType = array.GetType().GetElementType();
             var clone = Array.CreateInstance(elementType, array.Length);
@@ -100,13 +117,13 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
             for (int i = 0; i < array.Length; i++)
             {
-                clone.SetValue(CopyInternal(array.GetValue(i), visited, givePointerOnError), i);
+                clone.SetValue(CopyInternal(array.GetValue(i), visited, returnOriginalOnError), i);
             }
 
             return clone;
         }
 
-        private static object CopyList(IList list, Dictionary<object, object> visited, bool givePointerOnError)
+        private static object CopyList(IList list, Dictionary<object, object> visited, bool returnOriginalOnError)
         {
             IList copy;
             try
@@ -115,7 +132,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
             }
             catch (Exception e)
             {
-                if (!givePointerOnError)
+                if (!returnOriginalOnError)
                 {
                     Log.Print(LogLevel.Error,
                         $"DeepCopy failed for {list.GetType().Name}: {e.Message}.",
@@ -134,14 +151,14 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
             foreach (var item in list)
             {
-                copy.Add(CopyInternal(item, visited, givePointerOnError));
+                copy.Add(CopyInternal(item, visited, returnOriginalOnError));
             }
 
             return copy;
         }
 
         private static object CopyDictionary(IDictionary dict, Dictionary<object, object> visited,
-            bool givePointerOnError)
+            bool returnOriginalOnError)
         {
             IDictionary copy;
             try
@@ -150,7 +167,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
             }
             catch (Exception e)
             {
-                if (!givePointerOnError)
+                if (!returnOriginalOnError)
                 {
                     Log.Print(LogLevel.Error,
                         $"DeepCopy failed for {dict.GetType().Name}: {e.Message}.",
@@ -169,8 +186,8 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
             foreach (DictionaryEntry entry in dict)
             {
-                var key = CopyInternal(entry.Key, visited, givePointerOnError);
-                var value = CopyInternal(entry.Value, visited, givePointerOnError);
+                var key = CopyInternal(entry.Key, visited, returnOriginalOnError);
+                var value = CopyInternal(entry.Value, visited, returnOriginalOnError);
 
                 copy.Add(key, value);
             }
