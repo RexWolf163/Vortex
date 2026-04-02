@@ -252,7 +252,10 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 .Select(f => f.FieldType)
                 .ToArray();
 
-            return _platformPrimitives.Any(type => type.IsAssignableFrom(target));
+            for (int i = 0; i < _platformPrimitives.Length; i++)
+                if (_platformPrimitives[i].IsAssignableFrom(target))
+                    return true;
+            return false;
         }
     }
 
