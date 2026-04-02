@@ -205,7 +205,21 @@ var preset = driver?.GetPresetForRecord(guid);
 - `DbRecordAttribute` — picker с фильтрацией по типу и режиму
 - `IDriverEditor.ReloadDatabase()` — обновление кеша без перезапуска
 - `IDriverEditor.GetPresetForRecord(guid)` — получение пресета по GUID
-- Кодогенерация: `Assets/Create/Vortex/Record`, `Assets/Create/Vortex/Preset for Record`
+- Кодогенерация: `Assets/Create/Vortex Templates/Record`, `Assets/Create/Vortex Templates/Preset for Record`
+
+### Preset for Record — генерация свойств
+
+Контракт иммутабельности сгенерированных свойств:
+
+| Тип свойства Record | Поле Preset | Свойство Preset |
+|---------------------|-------------|-----------------|
+| Примитив / иммутабельный | `T field` | `=> field` |
+| `List<T>` (T иммутабельный) | `T[] field` | `=> new List<T>(field)` |
+| `List<T>` (T ссылочный) | `T[] field` | `=> new List<T>(Array.ConvertAll(field, e => e.DeepCopy()))` |
+| Массив иммутабельных (`T[]`) | `T[] field` | `=> (T[])field.Clone()` |
+| Массив ссылочных / прочие ссылочные | `T field` | `=> field.DeepCopy()` |
+
+Иммутабельность определяется через `ObjectExtDeepClone.IsImmutable` (примитивы + платформенные типы `SimpleTypeMarker`).
 
 ## Граничные случаи
 

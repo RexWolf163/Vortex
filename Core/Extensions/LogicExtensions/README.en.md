@@ -268,6 +268,9 @@ Deep object cloning via reflection with cycle detection.
 | Method | Description |
 |--------|-------------|
 | `source.DeepCopy<T>(returnOriginalOnError)` | Deep copy of an object. With `returnOriginalOnError = true` — returns original instead of `null` on failure |
+| `IsImmutable(Type)` | Combined check: primitive/immutable OR platform primitive |
+| `IsPrimitive(Type)` | Check for primitive/immutable type (string, decimal, DateTime, enum, etc.) |
+| `IsPlatformPrimitive(Type)` | Check for platform primitive via `SimpleTypeMarker` (`IsAssignableFrom`) |
 
 ### Type Processing Order
 

@@ -268,7 +268,13 @@ namespace Vortex.Core.Extensions.LogicExtensions
             return copy;
         }
 
-        private static bool IsPrimitive(Type type)
+        /// <summary>
+        /// Проверяет, является ли тип примитивом или иммутабельным (не требует глубокого копирования).
+        /// Включает проверку платформенных примитивов (SimpleTypeMarker).
+        /// </summary>
+        public static bool IsImmutable(Type type) => IsPrimitive(type) || IsPlatformPrimitive(type);
+
+        public static bool IsPrimitive(Type type)
         {
             return type.IsPrimitive ||
                    type == typeof(string) ||
@@ -282,7 +288,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
                    type.IsEnum;
         }
 
-        private static bool IsPlatformPrimitive(Type target)
+        public static bool IsPlatformPrimitive(Type target)
         {
             _platformPrimitives ??= typeof(SimpleTypeMarker)
                 .GetFields(BindingFlags.Public | BindingFlags.Static)

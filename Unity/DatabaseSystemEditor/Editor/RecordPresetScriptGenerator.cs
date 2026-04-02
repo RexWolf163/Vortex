@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,12 +8,18 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Model;
+using Vortex.Core.Extensions.LogicExtensions;
 
 namespace Vortex.Unity.DatabaseSystemEditor.Editor
 {
     /// <summary>
     /// Генератор Preset-скриптов для существующих Record.
     /// Доступен через контекстное меню Project: ПКМ по .cs файлу Record > Create Preset for Record
+    ///
+    /// Контракт генерации свойств:
+    /// - List&lt;T&gt; в Record → T[] поле в Preset, свойство возвращает new List&lt;T&gt;(field) или с DeepCopy элементов для ссылочных T
+    /// - Примитивные и платформенные типы (ObjectExtDeepClone.IsImmutable) → прямой возврат
+    /// - Прочие ссылочные типы → свойство возвращает field.DeepCopy() (гарантия иммутабельности)
     ///
     /// AI-код
     /// </summary>
@@ -108,8 +115,15 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
             var sb = new StringBuilder();
 
             // Usings
+            var needsDeepCopy = properties.Any(p => NeedsDeepCopy(p.PropertyType));
+            var needsListConversion = properties.Any(p => IsListType(p.PropertyType));
+
             sb.AppendLine("using UnityEngine;");
             sb.AppendLine("using Vortex.Unity.DatabaseSystem.Presets;");
+            if (needsDeepCopy)
+                sb.AppendLine("using Vortex.Core.Extensions.LogicExtensions;");
+            if (needsListConversion)
+                sb.AppendLine("using System.Collections.Generic;");
             if (!string.IsNullOrEmpty(recordNamespace))
                 sb.AppendLine($"using {recordNamespace};");
             sb.AppendLine();
@@ -129,12 +143,46 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                 foreach (var prop in properties)
                 {
                     var fieldName = ToCamelCase(prop.Name);
-                    var typeName = GetFriendlyTypeName(prop.PropertyType);
+                    var propType = prop.PropertyType;
+                    var propTypeName = GetFriendlyTypeName(propType);
 
-                    sb.AppendLine($"    [SerializeField]");
-                    sb.AppendLine($"    private {typeName} {fieldName};");
-                    sb.AppendLine();
-                    sb.AppendLine($"    public {typeName} {prop.Name} => {fieldName};");
+                    if (IsListType(propType))
+                    {
+                        var elementType = propType.GetGenericArguments()[0];
+                        var elementTypeName = GetFriendlyTypeName(elementType);
+                        var needsElementCopy = NeedsDeepCopy(elementType);
+
+                        sb.AppendLine($"    [SerializeField]");
+                        sb.AppendLine($"    private {elementTypeName}[] {fieldName};");
+                        sb.AppendLine();
+
+                        if (needsElementCopy)
+                            sb.AppendLine($"    public {propTypeName} {prop.Name} => new {propTypeName}(System.Array.ConvertAll({fieldName}, e => e.DeepCopy()));");
+                        else
+                            sb.AppendLine($"    public {propTypeName} {prop.Name} => new {propTypeName}({fieldName});");
+                    }
+                    else if (propType.IsArray && ObjectExtDeepClone.IsImmutable(propType.GetElementType()))
+                    {
+                        sb.AppendLine($"    [SerializeField]");
+                        sb.AppendLine($"    private {propTypeName} {fieldName};");
+                        sb.AppendLine();
+                        sb.AppendLine($"    public {propTypeName} {prop.Name} => ({propTypeName}){fieldName}.Clone();");
+                    }
+                    else if (NeedsDeepCopy(propType))
+                    {
+                        sb.AppendLine($"    [SerializeField]");
+                        sb.AppendLine($"    private {propTypeName} {fieldName};");
+                        sb.AppendLine();
+                        sb.AppendLine($"    public {propTypeName} {prop.Name} => {fieldName}.DeepCopy();");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"    [SerializeField]");
+                        sb.AppendLine($"    private {propTypeName} {fieldName};");
+                        sb.AppendLine();
+                        sb.AppendLine($"    public {propTypeName} {prop.Name} => {fieldName};");
+                    }
+
                     sb.AppendLine();
                 }
             }
@@ -155,6 +203,28 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
         {
             return
                 "#if UNITY_EDITOR\n    //Раскомментируйте нужное при необходимости \n    //private void OnValidate() => type = RecordTypes.Singleton;\n    //private void OnValidate() => type = RecordTypes.MultiInstance;\n#endif";
+        }
+
+        private static bool IsListType(Type type)
+        {
+            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>);
+        }
+
+        private static bool NeedsDeepCopy(Type type)
+        {
+            if (IsListType(type))
+                return false; // List обрабатывается отдельно через Array
+
+            if (type.IsArray)
+                return true;
+
+            if (ObjectExtDeepClone.IsImmutable(type))
+                return false;
+
+            if (type.IsValueType)
+                return false;
+
+            return true;
         }
 
         private static string ToCamelCase(string name)

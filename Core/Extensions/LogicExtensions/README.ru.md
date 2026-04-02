@@ -268,6 +268,9 @@ string original = Crypto.GetCryptoPack(packed, "my_secret");
 | Метод | Описание |
 |-------|----------|
 | `source.DeepCopy<T>(returnOriginalOnError)` | Глубокая копия объекта. При `returnOriginalOnError = true` — возвращает оригинал вместо `null` при ошибке |
+| `IsImmutable(Type)` | Комбинированная проверка: примитив/иммутабельный ИЛИ платформенный примитив |
+| `IsPrimitive(Type)` | Проверка на примитив/иммутабельный тип (string, decimal, DateTime, enum и др.) |
+| `IsPlatformPrimitive(Type)` | Проверка на платформенный примитив через `SimpleTypeMarker` (`IsAssignableFrom`) |
 
 ### Порядок обработки типов
 

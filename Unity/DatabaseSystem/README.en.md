@@ -205,7 +205,21 @@ var preset = driver?.GetPresetForRecord(guid);
 - `DbRecordAttribute` — picker with type and mode filtering
 - `IDriverEditor.ReloadDatabase()` — cache refresh without restart
 - `IDriverEditor.GetPresetForRecord(guid)` — get preset by GUID
-- Code generation: `Assets/Create/Vortex/Record`, `Assets/Create/Vortex/Preset for Record`
+- Code generation: `Assets/Create/Vortex Templates/Record`, `Assets/Create/Vortex Templates/Preset for Record`
+
+### Preset for Record — Property Generation
+
+Immutability contract for generated properties:
+
+| Record Property Type | Preset Field | Preset Property |
+|---------------------|-------------|-----------------|
+| Primitive / immutable | `T field` | `=> field` |
+| `List<T>` (T immutable) | `T[] field` | `=> new List<T>(field)` |
+| `List<T>` (T reference) | `T[] field` | `=> new List<T>(Array.ConvertAll(field, e => e.DeepCopy()))` |
+| Immutable array (`T[]`) | `T[] field` | `=> (T[])field.Clone()` |
+| Reference array / other reference | `T field` | `=> field.DeepCopy()` |
+
+Immutability is determined via `ObjectExtDeepClone.IsImmutable` (primitives + platform types from `SimpleTypeMarker`).
 
 ## Edge Cases
 
