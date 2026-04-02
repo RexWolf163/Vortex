@@ -36,7 +36,7 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         public bool Autorun => autorun;
 
-        [SerializeReference] private QuestLogic[] logic;
+        [SerializeReference] private QuestLogic[] logic = new QuestLogic[0];
 
         /// <summary>
         /// Логика квеста.
@@ -48,7 +48,7 @@ namespace Vortex.Sdk.Quests
         /// <summary>
         /// Награды за выполнение квеста
         /// </summary>
-        [SerializeReference] private QuestRewardLogic[] rewards;
+        [SerializeReference] private QuestRewardLogic[] rewards = new QuestRewardLogic[0];
 
         public QuestRewardLogic[] Rewards => rewards;
 
