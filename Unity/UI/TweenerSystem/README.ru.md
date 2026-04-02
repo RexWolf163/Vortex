@@ -136,11 +136,12 @@ new AsyncTween()
 |-------|----------|
 | `Set(getter, setter, target, duration)` | Конфигурация (float, Vector2, Vector3, Color) |
 | `SetEase(EaseType)` / `SetEase(AnimationCurve)` | Кривая анимации |
-| `OnComplete(Action)` | Callback завершения |
+| `OnComplete(Action)` | Callback завершения (не вызывается при `Kill`) |
+| `OnKill(Action)` | Callback при прерывании через `Kill` (не вызывается при нормальном завершении) |
 | `OnUpdate(Action<float>)` | Callback каждого кадра (progress 0..1) |
 | `SetToken(CancellationToken)` | Внешний токен отмены |
-| `Run()` | Запуск (возвращает self для цепочки) |
-| `Kill()` | Отмена анимации |
+| `Run()` | Запуск (возвращает self для цепочки). Параметры сбрасываются после запуска |
+| `Kill()` | Отмена анимации, вызывает `OnKill` |
 
 Свойства: `Progress` (float 0..1), `IsPlaying` (bool).
 
@@ -180,4 +181,6 @@ new AsyncTween().SetPivot(rectTransform, newPivot, 0.3f).Run();
 | `Forward(skip: true)` | Мгновенный переход без анимации |
 | `Pulse()` во время анимации | Очередь Pulse после текущего tween |
 | `CanvasOpacityLogic` Forward→Back | `blocksRaycasts` управляется асимметрично |
-| `Kill()` на `AsyncTween` | Отмена через `CancellationTokenSource`, `OnComplete` не вызывается |
+| `Kill()` на `AsyncTween` | Отмена через `CancellationTokenSource`, `OnComplete` не вызывается, `OnKill` вызывается |
+| `Run()` после `Set()` | Параметры fluent-цепочки сбрасываются (`ResetParams`), но `OnKill` сохраняется до завершения или следующего `Kill` |
+| Повторный `Run()` без `Set()` | Мгновенное применение (`duration = 0`), `OnComplete` вызывается |

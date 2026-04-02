@@ -30,7 +30,7 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 
 ### Available Services
 
-`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`
+`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`, `VariablesManager`
 
 ### Lifecycle
 
@@ -42,7 +42,7 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 
 | Method | Description |
 |--------|-------------|
-| `ResetNani()` | Stop all audio, hide backgrounds, characters, text printers, reset choices |
+| `ResetNani()` | Stop all audio, reset variables, hide backgrounds, characters, text printers, reset choices |
 | `NaniIsPlaying()` | `true` if ScriptPlayer is playing or choice handler is visible |
 
 ---

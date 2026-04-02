@@ -288,7 +288,7 @@ Deep object cloning via reflection with cycle detection.
 
 ### SimpleTypeMarker — Platform Primitives
 
-`SimpleTypeMarker` is a partial class. Empty in Core. Unity partial adds types (`Sprite`, `GameObject`) that should not be cloned — passed by reference. Check uses `IsAssignableFrom` — subclasses of marker types are also treated as platform primitives. Types are cached on first call via reflection over static fields of the class.
+`SimpleTypeMarker` is a partial class. Empty in Core. Unity partial adds types (e.g. `UnityEngine.Object`) that should not be cloned — passed by reference. Check uses `IsAssignableFrom` — subclasses of marker types are also treated as platform primitives. Types are cached on first call via reflection over static fields of the class.
 
 ### Edge Cases
 

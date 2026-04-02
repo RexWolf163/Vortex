@@ -30,7 +30,7 @@
 
 ### Доступные сервисы
 
-`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`
+`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`, `VariablesManager`
 
 ### Жизненный цикл
 
@@ -42,7 +42,7 @@
 
 | Метод | Описание |
 |-------|----------|
-| `ResetNani()` | Остановка всего аудио, скрытие бэкграундов, персонажей, текстовых принтеров, сброс выборов |
+| `ResetNani()` | Остановка всего аудио, сброс переменных, скрытие бэкграундов, персонажей, текстовых принтеров, сброс выборов |
 | `NaniIsPlaying()` | `true` если ScriptPlayer играет или видим хэндлер выбора |
 
 ---

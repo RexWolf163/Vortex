@@ -136,11 +136,12 @@ new AsyncTween()
 |--------|-------------|
 | `Set(getter, setter, target, duration)` | Configuration (float, Vector2, Vector3, Color) |
 | `SetEase(EaseType)` / `SetEase(AnimationCurve)` | Animation curve |
-| `OnComplete(Action)` | Completion callback |
+| `OnComplete(Action)` | Completion callback (not called on `Kill`) |
+| `OnKill(Action)` | Callback on cancellation via `Kill` (not called on normal completion) |
 | `OnUpdate(Action<float>)` | Per-frame callback (progress 0..1) |
 | `SetToken(CancellationToken)` | External cancellation token |
-| `Run()` | Start (returns self for chaining) |
-| `Kill()` | Cancel animation |
+| `Run()` | Start (returns self for chaining). Parameters reset after launch |
+| `Kill()` | Cancel animation, invokes `OnKill` |
 
 Properties: `Progress` (float 0..1), `IsPlaying` (bool).
 
@@ -180,4 +181,6 @@ new AsyncTween().SetPivot(rectTransform, newPivot, 0.3f).Run();
 | `Forward(skip: true)` | Instant transition without animation |
 | `Pulse()` during animation | Pulse queued after current tween |
 | `CanvasOpacityLogic` Forward→Back | `blocksRaycasts` managed asymmetrically |
-| `Kill()` on `AsyncTween` | Cancelled via `CancellationTokenSource`, `OnComplete` not called |
+| `Kill()` on `AsyncTween` | Cancelled via `CancellationTokenSource`, `OnComplete` not called, `OnKill` invoked |
+| `Run()` after `Set()` | Fluent chain parameters reset (`ResetParams`), but `OnKill` preserved until completion or next `Kill` |
+| Re-`Run()` without `Set()` | Instant apply (`duration = 0`), `OnComplete` called |
