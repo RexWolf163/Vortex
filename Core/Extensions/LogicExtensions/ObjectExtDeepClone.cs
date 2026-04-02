@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
 
@@ -59,7 +60,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
             if (IsPrimitive(type))
                 return obj;
 
-            if (GetPlatformPrimitives().Contains(type))
+            if (IsPlatformPrimitive(type))
                 return obj;
 
             // cycle check
@@ -93,18 +94,25 @@ namespace Vortex.Core.Extensions.LogicExtensions
             {
                 copy = Activator.CreateInstance(type);
             }
-            catch (Exception e)
+            catch
             {
-                if (!returnOriginalOnError)
+                try
                 {
-                    Log.Print(LogLevel.Error, $"DeepCopy failed for {type.Name}: {e.Message}.",
-                        obj);
-                    return null;
+                    copy = FormatterServices.GetUninitializedObject(type);
                 }
+                catch (Exception e)
+                {
+                    if (!returnOriginalOnError)
+                    {
+                        Log.Print(LogLevel.Error, $"DeepCopy failed for {type.Name}: {e.Message}.",
+                            obj);
+                        return null;
+                    }
 
-                Log.Print(LogLevel.Common, $"DeepCopy failed for {type.Name}: {e.Message}. Pointer was return.",
-                    obj);
-                return obj;
+                    Log.Print(LogLevel.Common, $"DeepCopy failed for {type.Name}: {e.Message}. Pointer was return.",
+                        obj);
+                    return obj;
+                }
             }
 
             visited[obj] = copy;
@@ -214,7 +222,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
             foreach (DictionaryEntry entry in dict)
             {
-                var key = CopyInternal(entry.Key, visited, returnOriginalOnError);
+                var key = entry.Key; //Ключ копируется AS-IS
                 var value = CopyInternal(entry.Value, visited, returnOriginalOnError);
 
                 copy.Add(key, value);
@@ -237,11 +245,15 @@ namespace Vortex.Core.Extensions.LogicExtensions
                    type.IsEnum;
         }
 
-        private static Type[] GetPlatformPrimitives() =>
+        private static bool IsPlatformPrimitive(Type target)
+        {
             _platformPrimitives ??= typeof(SimpleTypeMarker)
                 .GetFields(BindingFlags.Public | BindingFlags.Static)
                 .Select(f => f.FieldType)
                 .ToArray();
+
+            return _platformPrimitives.Any(type => type.IsAssignableFrom(target));
+        }
     }
 
     public sealed class ReferenceEqualityComparer : IEqualityComparer<object>
