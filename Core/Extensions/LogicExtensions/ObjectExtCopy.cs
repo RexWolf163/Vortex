@@ -9,27 +9,31 @@ namespace Vortex.Core.Extensions.LogicExtensions
     public static class ObjectExtCopy
     {
         /// <summary>
-        /// Метод для переноса данных из пресета в модель.
-        /// Подразумевается копирование конкретного пула данных, ограниченного свойствами
-        /// принимающего объекта.
-        /// Подразумевается чистое set поле без логики на принимающем объекте
-        /// Подразумевается, что иммутабельность должна обеспечиваться в источнике данных
+        /// Создает глубокую копию объекта через рефлексию.
         ///
-        /// Заполняет свои свойства имеющимися в объекте данными
-        /// Рассматривает только поля в source которые отвечают флагам
-        /// BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.Instance
+        /// Порядок обработки типов:
+        /// 1. null → default(T)
+        /// 2. Примитивы, string, decimal, DateTime, DateTimeOffset, TimeSpan, Guid, Uri, Version, enum → возврат as-is
+        /// 3. Платформенные примитивы (SimpleTypeMarker: Sprite, GameObject и т.д.) → возврат по ссылке
+        /// 4. Циклические ссылки → возврат ранее созданной копии из visited
+        /// 5. Array → поэлементное рекурсивное копирование
+        /// 6. IDictionary → ключи as-is, значения рекурсивно
+        /// 7. IList → рекурсивное копирование элементов
+        /// 8. ICloneable → Clone(). Контракт: реализация Clone() ДОЛЖНА выполнять deep copy.
+        ///    Если Clone() делает shallow copy — вложенные ссылки будут разделяться с оригиналом
+        /// 9. Прочие объекты → Activator.CreateInstance (fallback: FormatterServices.GetUninitializedObject)
+        ///    + копирование всех полей (включая private и наследованные)
         ///
-        /// Чтобы провести запись в другой объект, свойство у этого объекта должно быть CanWrite
-        ///
-        /// Можно записывать не однотипные объекты друг в друга.
-        /// 
-        /// При несовпадении свойств исключения в нормальном случае не выбрасывается
-        ///
-        /// Вложенные ссылочные типы передаются AS-IS.
+        /// Граничные случаи:
+        /// - Создание экземпляра: Activator → FormatterServices fallback; оба провалились → returnOriginalOnError
+        /// - returnOriginalOnError подмешивает оригинал в граф копии — мутации оригинала будут видны
+        /// - readonly поля копируются через рефлексию (SetValue обходит readonly)
+        /// - FieldInfo[] кешируется статически по типу, не очищается
         /// </summary>
-        /// <param name="target"></param>
-        /// <param name="source"></param>
-        /// <returns>TRUE при удачном результате записи</returns>
+        /// <param name="source">Исходный объект</param>
+        /// <param name="returnOriginalOnError">При ошибке создания экземпляра вернуть оригинал вместо null</param>
+        /// <typeparam name="T">Тип объекта</typeparam>
+        /// <returns>Глубокая копия или default при null</returns>
         public static bool CopyFrom(this Object target, Object source)
         {
             try

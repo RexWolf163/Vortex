@@ -278,21 +278,22 @@ Deep object cloning via reflection with cycle detection.
 | 3 | Platform primitives (`SimpleTypeMarker`) | Returned by reference (not cloned) |
 | 4 | Object already in `visited` | Returns previously created copy (cycle protection) |
 | 5 | `Array` | Element-wise recursive copying |
-| 6 | `IDictionary` | Recursive key and value copying |
+| 6 | `IDictionary` | Recursive value copying; keys passed as-is |
 | 7 | `IList` | Recursive element copying |
 | 8 | `ICloneable` | Calls `Clone()`. **Contract: implementation must perform deep copy** |
-| 9 | Other objects | `Activator.CreateInstance` + all fields copied (including private and inherited) |
+| 9 | Other objects | `Activator.CreateInstance` (fallback: `FormatterServices.GetUninitializedObject`) + all fields copied (including private and inherited) |
 
 ### SimpleTypeMarker — Platform Primitives
 
-`SimpleTypeMarker` is a partial class. Empty in Core. Unity partial adds types (`Sprite`, `GameObject`) that should not be cloned — passed by reference. Types are cached on first call via reflection over static fields of the class.
+`SimpleTypeMarker` is a partial class. Empty in Core. Unity partial adds types (`Sprite`, `GameObject`) that should not be cloned — passed by reference. Check uses `IsAssignableFrom` — subclasses of marker types are also treated as platform primitives. Types are cached on first call via reflection over static fields of the class.
 
 ### Edge Cases
 
 - Cyclic references detected via `ReferenceEqualityComparer` — revisited objects return the already-created copy
 - `ICloneable`: if `Clone()` performs shallow copy — nested references will be shared with the original
 - `returnOriginalOnError = true` mixes the original into the copy graph — mutations to the original will be visible through the "copy"
-- `Activator.CreateInstance` requires parameterless constructor; missing → error or original returned
+- Instance creation: `Activator.CreateInstance`, on failure falls back to `FormatterServices.GetUninitializedObject` (no constructor call); if both fail — error or original returned
+- Dictionary keys passed as-is (not cloned) — protects `GetHashCode`/`Equals` contract
 - `readonly` fields are copied via `SetValue` (reflection bypasses readonly)
 - `FieldInfo[]` and platform type caches are static, never cleared
 - `null` input → `default(T)`

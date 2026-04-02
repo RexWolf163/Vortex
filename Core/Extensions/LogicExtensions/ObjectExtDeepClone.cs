@@ -147,16 +147,53 @@ namespace Vortex.Core.Extensions.LogicExtensions
         private static object CopyArray(Array array, Dictionary<object, object> visited, bool returnOriginalOnError)
         {
             var elementType = array.GetType().GetElementType();
-            var clone = Array.CreateInstance(elementType, array.Length);
+            var rank = array.Rank;
 
-            visited[array] = clone;
-
-            for (int i = 0; i < array.Length; i++)
+            if (rank == 1)
             {
-                clone.SetValue(CopyInternal(array.GetValue(i), visited, returnOriginalOnError), i);
+                var clone = Array.CreateInstance(elementType, array.Length);
+                visited[array] = clone;
+
+                for (int i = 0; i < array.Length; i++)
+                    clone.SetValue(CopyInternal(array.GetValue(i), visited, returnOriginalOnError), i);
+
+                return clone;
             }
 
-            return clone;
+            // multidimensional
+            var lengths = new int[rank];
+            var lowerBounds = new int[rank];
+            for (int d = 0; d < rank; d++)
+            {
+                lengths[d] = array.GetLength(d);
+                lowerBounds[d] = array.GetLowerBound(d);
+            }
+
+            var mdClone = Array.CreateInstance(elementType, lengths, lowerBounds);
+            visited[array] = mdClone;
+
+            var indices = new int[rank];
+            CopyArrayRecursive(array, mdClone, indices, lowerBounds, lengths, 0, visited, returnOriginalOnError);
+
+            return mdClone;
+        }
+
+        private static void CopyArrayRecursive(
+            Array source, Array target, int[] indices, int[] lowerBounds, int[] lengths,
+            int dimension, Dictionary<object, object> visited, bool returnOriginalOnError)
+        {
+            var lower = lowerBounds[dimension];
+            var upper = lower + lengths[dimension];
+
+            for (int i = lower; i < upper; i++)
+            {
+                indices[dimension] = i;
+
+                if (dimension == indices.Length - 1)
+                    target.SetValue(CopyInternal(source.GetValue(indices), visited, returnOriginalOnError), indices);
+                else
+                    CopyArrayRecursive(source, target, indices, lowerBounds, lengths, dimension + 1, visited, returnOriginalOnError);
+            }
         }
 
         private static object CopyList(IList list, Dictionary<object, object> visited, bool returnOriginalOnError)
