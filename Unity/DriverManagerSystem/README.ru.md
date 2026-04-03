@@ -5,7 +5,7 @@
 
 ## Назначение
 
-Централизованная конфигурация и валидация соответствия между системами ядра (`AudioProvider`, `Database`, `SaveController`) и их платформозависимыми драйверами (`AudioDriver`, `DatabaseDriver`, `SaveSystemDriver`).
+Централизованная конфигурация и валидация соответствия между системами ядра (`AudioController`, `Database`, `SaveController`) и их платформозависимыми драйверами (`AudioDriver`, `DatabaseDriver`, `SaveSystemDriver`).
 
 Возможности:
 - Таблица соответствий «Система → Драйвер» в одном ScriptableObject-ассете

@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Centralized configuration and validation of mappings between core systems (`AudioProvider`, `Database`, `SaveController`) and their platform-dependent drivers (`AudioDriver`, `DatabaseDriver`, `SaveSystemDriver`).
+Centralized configuration and validation of mappings between core systems (`AudioController`, `Database`, `SaveController`) and their platform-dependent drivers (`AudioDriver`, `DatabaseDriver`, `SaveSystemDriver`).
 
 Capabilities:
 - A "System → Driver" mapping table in a single ScriptableObject asset

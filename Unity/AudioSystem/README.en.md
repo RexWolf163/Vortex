@@ -4,7 +4,7 @@ Unity driver implementation for the audio system.
 
 ## Purpose
 
-Platform adaptation of `AudioProvider`: sound and music playback via `AudioSource`, sound pooling, fade transitions, situational music, channel system, settings persistence, scene-oriented components.
+Platform adaptation of `AudioController`: sound and music playback via `AudioSource`, sound pooling, fade transitions, situational music, channel system, settings persistence, scene-oriented components.
 
 - Sound playback through a pool with automatic release
 - Music playback with fade in/out via `AsyncTween`
@@ -17,7 +17,7 @@ Out of scope: spatial audio (3D), simultaneous mixing of multiple music tracks, 
 
 ## Dependencies
 
-- `Vortex.Core.AudioSystem` — `AudioProvider` bus, models, `IDriver`
+- `Vortex.Core.AudioSystem` — `AudioController` bus, models, `IDriver`
 - `Vortex.Core.DatabaseSystem` — `Database`, `Record`
 - `Vortex.Unity.AppSystem.System.TimeSystem` — `TimeController` (deferred calls, pool cleanup)
 - `Vortex.Unity.UI.PoolSystem` — `Pool` (sound source pool)
@@ -49,7 +49,7 @@ AudioDriver (Singleton<AudioDriver>, IDriver)
 - Channel loading from `AudioChannelsConfig` (Resources)
 
 **Output:**
-- Populated `IndexSound` / `IndexMusic` registries in `AudioProvider`
+- Populated `IndexSound` / `IndexMusic` registries in `AudioController`
 - Populated `Settings.Channels` from `AudioChannelsConfig`
 - `OnInit` event after index population
 - Settings in `PlayerPrefs` (key `AudioSettings`)
@@ -65,13 +65,13 @@ Example: `Y;0.8;Y;1;Y;1;dialog:Y:0.7;ambient:Y:0.5`
 `MuteFlag` values: `Y` — not muted, `N` — muted. Numbers use `CultureInfo.InvariantCulture`.
 
 **Guarantees:**
-- Settings are saved on every change via subscription to `AudioProvider.OnSettingsChanged`
+- Settings are saved on every change via subscription to `AudioController.OnSettingsChanged`
 - Settings loading from `PlayerPrefs` with `try/catch` — on corrupt data, defaults are restored
 - Channels from `PlayerPrefs` not matching the current `AudioChannelsConfig` are ignored
 - `TimeController.RemoveCall(this)` on `Destroy()` — deferred call cleanup
 
 **Limitations:**
-- If `AudioProvider.SetDriver` returns `false` — instance is destroyed (`Dispose()`)
+- If `AudioController.SetDriver` returns `false` — instance is destroyed (`Dispose()`)
 - Depends on `Database.OnInit` — indices are empty until database initialization
 
 ---
@@ -89,7 +89,7 @@ Menu: `Vortex/Configs/Audio Channels Settings` — navigate to config.
 
 ### AudioChannelNameAttribute
 
-`[AudioChannelName]` attribute for `string` fields. Renders a dropdown with channel list from `AudioProvider.GetChannelsList()`.
+`[AudioChannelName]` attribute for `string` fields. Renders a dropdown with channel list from `AudioController.GetChannelsList()`.
 
 ### AudioChannelVolumeSlider
 
@@ -171,7 +171,7 @@ Music playback component. Single `AudioSource`.
 - `Stop()` — stop playback
 - `IsPlay()` — state check
 - `SetVolumeMultiplier(float)` / `GetVolumeMultiplier()` — volume multiplier (for fade)
-- On `OnEnable` — subscribe to `AudioProvider.OnSettingsChanged`, apply settings
+- On `OnEnable` — subscribe to `AudioController.OnSettingsChanged`, apply settings
 - On `OnDisable` — unsubscribe, stop
 - Mute/unmute toggles automatically on settings change. On unmute (`mute → !mute`), `audioSource.Play()` is called to resume playback
 - Final volume: `GetMusicVolume(channel) × clip.volume × volumeMultiplier`
@@ -182,10 +182,10 @@ Music playback component. Single `AudioSource`.
 
 ### SoundClip
 
-Audio clip with pitch and volume ranges. Each playback uses random values from ranges.
+Audio clip with pitch and volume ranges. Implements `ICloneable`. Each playback uses random values from ranges.
 
 ```
-SoundClip
+SoundClip (ICloneable)
 ├── AudioClips    — AudioClip[] (clip array for randomization)
 ├── PitchRange    — Vector2
 ├── ValueRange    — Vector2
@@ -193,10 +193,11 @@ SoundClip
 ├── Loop          — bool
 ├── GetPitch()    → Random.Range(PitchRange.x, PitchRange.y)
 ├── GetVolume()   → Random.Range(ValueRange.x, ValueRange.y)
-└── GetClip()     → random from array (or the only one)
+├── GetClip()     → random from array (or the only one)
+└── Clone()       → deep clone (new SoundClip with same parameters)
 ```
 
-Constructors accept `string channelName` or `AudioChannel channel`. With `channelName` — resolved via `AudioProvider.GetChannel()`.
+Constructors accept `string channelName` or `AudioChannel channel`. With `channelName` — resolved via `AudioController.GetChannel()`.
 
 ### SoundClipFixed
 
@@ -229,13 +230,13 @@ Sound playback component. Works with a personal `AudioSource` or relays to `Audi
 
 - Sample GUID via `[DbRecord(typeof(Sound))]`
 - Channel via `[AudioChannelName]` — used for volume calculation with personal `AudioSource`
-- On `Play()`: if `audioSource != null` — `PlayOneShot`; otherwise — `AudioProvider.PlaySound`
+- On `Play()`: if `audioSource != null` — `PlayOneShot`; otherwise — `AudioController.PlaySound`
 - `SetVolumeMultiplier(float)` / `GetVolumeMultiplier()` — volume multiplier
 - Final volume: `GetSoundVolume(channel) × clip.volume × volumeMultiplier`
 - Final mute: `!GetSoundOn(channel)`
-- `OnEnable` — subscribes to `AudioProvider.OnSettingsChanged`, applies settings
+- `OnEnable` — subscribes to `AudioController.OnSettingsChanged`, applies settings
 - `OnDisable` — unsubscribes, stops playback
-- Initialization deferred until `AudioProvider.OnInit` via `TimeController.Accumulate`
+- Initialization deferred until `AudioController.OnInit` via `TimeController.Accumulate`
 
 ### MusicHandler
 
@@ -246,7 +247,7 @@ Music playback component triggered on GameObject activation.
 - `OnDisable` → deferred stop via `TimeController.Call` (bypass "hot restart")
 - `isCoverMusic` field — switch between main and situational music
 - `fadeStart` / `fadeEnd` fields — fade transition control
-- Initialization deferred until `AudioProvider.OnInit` via `TimeController.Accumulate`
+- Initialization deferred until `AudioController.OnInit` via `TimeController.Accumulate`
 
 ### AudioSourceHandler
 
@@ -307,7 +308,7 @@ UI volume slider.
 
 1. Create `AudioChannelsConfig` in Resources
 2. Define channel names: `dialog`, `ui`, `ambient`, `sfx`, etc.
-3. Channels become available in `[AudioChannelName]` dropdown and `AudioProvider` API
+3. Channels become available in `[AudioChannelName]` dropdown and `AudioController` API
 
 ### 2. Creating Presets
 
@@ -319,18 +320,18 @@ UI volume slider.
 
 ```csharp
 // Sound by GUID
-AudioProvider.PlaySound("explosion_01");
+AudioController.PlaySound("explosion_01");
 
 // Sound by instance
-var sound = AudioProvider.GetSample("explosion_01") as Sound;
-AudioProvider.PlaySound(sound);
+var sound = AudioController.GetSample("explosion_01") as Sound;
+AudioController.PlaySound(sound);
 
 // Music
-AudioProvider.PlayMusic("main_theme");
+AudioController.PlayMusic("main_theme");
 
 // Situational music
-AudioProvider.PlayCoverMusic("battle_theme");
-AudioProvider.StopCoverMusic(); // main theme restores
+AudioController.PlayCoverMusic("battle_theme");
+AudioController.StopCoverMusic(); // main theme restores
 ```
 
 ### 4. Sound Component
@@ -362,7 +363,7 @@ Add `MusicHandler` to a GameObject, assign GUID via `[DbRecord(typeof(Music))]`.
 |-----------|----------|
 | `PlaySound` with non-existent GUID | Log `[AudioPlayer] Unknown sound ID`, sound not played |
 | `AudioHandler` with empty GUID | Log `[AudioHandler] Empty Sample data.` on initialization |
-| `AudioHandler` without `AudioSource` | Sound relayed through `AudioProvider.PlaySound` (pool) |
+| `AudioHandler` without `AudioSource` | Sound relayed through `AudioController.PlaySound` (pool) |
 | `PlayMusic` while music is playing | Current track fades out → new track fades in |
 | `PlayCoverMusic` while main is playing | Main fades out, situational starts |
 | `StopCoverMusic` | Situational fades out, main restores with fade in |

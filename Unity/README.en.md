@@ -44,7 +44,7 @@ Each Core system built on `SystemController<T, TD>` gets a driver here — a Mon
 | `SettingsDriver` | `Settings` | Loads `SettingsPreset` from Resources, copies via Reflection |
 | `SaveSystemDriver` | `SaveController` | PlayerPrefs + XML + GZip compression |
 | `MappedParametersDriver` | `ParameterMaps` | Loads parameter maps from Resources |
-| `AudioDriver` | `AudioProvider` | AudioSource, mixing, preset handling |
+| `AudioDriver` | `AudioController` | AudioSource, mixing, preset handling |
 | `LocalizationDriver` | `Localization` | Loads locales, switches languages |
 | `LogDriver` | `Log` | Routes to `Debug.Log` / `Debug.LogError` |
 

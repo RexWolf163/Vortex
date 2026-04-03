@@ -16,7 +16,7 @@ In practice, Core solves three problems:
 
 1. **Defines contracts.** Interfaces like `IProcess`, `ISaveable`, `ISystemDriver` are promises that the platform layer must fulfill. Core says "what is needed", Unity answers "how to do it".
 
-2. **Implements domain-neutral logic.** The data bus (`Database`), loader (`Loader`), saves (`SaveController`), settings (`Settings`), UI provider (`UIProvider`), audio (`AudioProvider`), logic chains (`LogicChains`), parameter maps (`ParameterMaps`) — all of this works at the abstraction level, without binding to specific assets or an engine.
+2. **Implements domain-neutral logic.** The data bus (`Database`), loader (`Loader`), saves (`SaveController`), settings (`Settings`), UI provider (`UIProvider`), audio (`AudioController`), logic chains (`LogicChains`), parameter maps (`ParameterMaps`) — all of this works at the abstraction level, without binding to specific assets or an engine.
 
 3. **Provides foundational primitives.** `Singleton<T>`, `SystemController<T, TD>`, `ReactiveValue<T>`, `ActionExt` — building blocks from which systems are assembled at every level.
 
@@ -75,7 +75,7 @@ Each module implements `IProcess`: `RunAsync()` for loading and `WaitingFor()` f
 | **SaveSystem** | Saves | `SaveController`, `ISaveable`, `SaveData`, `SaveFolder` |
 | **SettingsSystem** | Settings | `Settings`, `SettingsModel` (partial, extended by other systems) |
 | **UIProviderSystem** | UI management | `UIProvider`, `UserInterfaceData`, `UserInterfaceCondition` |
-| **AudioSystem** | Audio | `AudioProvider`, `AudioSample`, `MusicSample`, `SoundSample` |
+| **AudioSystem** | Audio | `AudioController`, `AudioSample`, `MusicSample`, `SoundSample` |
 | **LocalizationSystem** | Localization | `Localization`, `StringExt` |
 | **LoggerSystem** | Logging | `Log`, `LogData`, `LogLevel` |
 | **LogicChainsSystem** | Logic chains | `LogicChains`, `LogicChain`, `ChainStep`, `Connector` |
