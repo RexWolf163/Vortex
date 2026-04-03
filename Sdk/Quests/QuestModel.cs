@@ -43,9 +43,21 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         public QuestRewardLogic[] Rewards { get; internal set; }
 
-        public override string GetDataForSave() => this.SerializeProperties();
+        public override string GetDataForSave()
+        {
+            return $"{State};{Step}";
+        }
 
-        public override void LoadFromSaveData(string data) => this.CopyFrom(data.DeserializeProperties<QuestModel>());
+        public override void LoadFromSaveData(string data)
+        {
+            var ar = data.Split(';');
+            State = QuestState.Locked;
+            Step = 0;
+            if (ar.Length != 2)
+                return;
+            State = (QuestState)Enum.Parse(typeof(QuestState), ar[0]);
+            Step = (byte)int.Parse(ar[1]);
+        }
 
         internal void CallOnUpdated() => OnStateUpdated?.Invoke();
     }

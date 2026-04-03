@@ -88,12 +88,10 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             if (slotButton != null)
             {
                 _focused = Storage.GetData<StringData>();
+                _focused.OnUpdateData += RefreshFocus;
                 var callback = Storage.GetData<Action<string>>();
                 slotButton.SetAction(() => callback?.Invoke(_data.Guid));
-
-                //Переключение состояния "в фокусе"
-                var b = _focused != null && _focused.Value.Equals(_data.Guid);
-                slotButton.SetSwitcher(b ? SwitcherState.On : SwitcherState.Off);
+                RefreshFocus();
             }
 
             timestamp?.SetText(_data.Summary.Date.ToString(timestampPattern, CultureInfo.InvariantCulture));
@@ -118,8 +116,17 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             slotName?.SetText(labelText);
         }
 
+        private void RefreshFocus()
+        {
+            //Переключение состояния "в фокусе"
+            var b = _focused != null && _focused.Value.Equals(_data.Guid);
+            slotButton.SetSwitcher(b ? SwitcherState.On : SwitcherState.Off);
+        }
+
         private void DeInit()
         {
+            if (_focused != null)
+                _focused.OnUpdateData -= RefreshFocus;
             _data = null;
             slotName?.SetText("");
             if (slotImage != null)

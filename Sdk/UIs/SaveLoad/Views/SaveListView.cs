@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Abstraction;
@@ -35,19 +36,30 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
         private StringData _focused;
 
         /// <summary>
-        /// Данные выбранного сейва
-        /// </summary>
-        private SaveSlotData _focusedSlotData;
-
-        /// <summary>
         /// Ссылка на индекс сейвов
         /// </summary>
-        private Dictionary<string, SaveSummary> _index;
+        private IDictionary<string, SaveSummary> _index;
+
+        /// <summary>
+        /// токен-ресурс прерывания
+        /// </summary>
+        private CancellationTokenSource _cts = new();
+
+        /// <summary>
+        /// Токен прерывания
+        /// </summary>
+        private CancellationToken Token => _cts.Token;
+
+        /// <summary>
+        /// Кеш созданных контейнеров, чтобы потом удалить
+        /// </summary>
+        private Dictionary<string, SaveSlotData> _saveSlots = new();
 
         private void OnEnable()
         {
             TimeController.RemoveCall(this);
-            Init().Forget(Debug.LogException);
+
+            Init(Token).Forget(Debug.LogException);
         }
 
         private void OnDisable()
@@ -58,42 +70,69 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
         /// <summary>
         /// Асинхронная инициализация, для того чтобы растянуть формирование превью из строки
         /// </summary>
-        private async UniTask Init()
+        private async UniTask Init(CancellationToken token)
         {
             if (_isInit)
                 return;
-            _isInit = true;
 
+            SaveController.OnSaveComplete += Refresh;
+            SaveController.OnLoadComplete += Refresh;
+            SaveController.OnRemove += Refresh;
+
+            _isInit = true;
+            _saveSlots.Clear();
             _index = SaveController.GetIndex();
 
             pool.Clear();
 
-            var first = _index.First();
-            _focused.Set(first.Key);
+            if (_index == null || _index.Count == 0)
+                return;
 
-            _focusedSlotData = new SaveSlotData(first.Key, first.Value);
-            storageFocusedSlot.SetData(_focusedSlotData);
+            var first = _index.First();
+            _focused = new StringData(null);
+            _focused.Set(first.Key);
 
             foreach (var guid in _index.Keys)
             {
+                await UniTask.Yield(token);
+                if (token.IsCancellationRequested)
+                    return;
                 var summary = _index[guid];
                 var slotData = new SaveSlotData(guid, summary);
+                _saveSlots[guid] = slotData;
                 pool.AddItem(slotData, _focused, (Action<string>)SetFocus);
-                await UniTask.Yield();
             }
+
+            storageFocusedSlot.SetData(_saveSlots[first.Key]);
+        }
+
+        private void Refresh()
+        {
+            Dispose();
+            Init(Token).Forget(Debug.LogException);
         }
 
         private void Dispose()
         {
+            SaveController.OnSaveComplete -= Refresh;
+            SaveController.OnLoadComplete -= Refresh;
+            SaveController.OnRemove -= Refresh;
+
+            _cts.Cancel();
+            _cts.Dispose();
+            _cts = new CancellationTokenSource();
             _isInit = false;
             _focused = null;
+            storageFocusedSlot.SetData(null);
+            foreach (var slot in _saveSlots.Values)
+                slot.Dispose();
             pool.Clear();
         }
 
         private void SetFocus(string guid)
         {
             _focused.Set(guid);
-            _focusedSlotData = new SaveSlotData(guid, _index[guid]);
+            storageFocusedSlot.SetData(_saveSlots[guid]);
         }
     }
 }

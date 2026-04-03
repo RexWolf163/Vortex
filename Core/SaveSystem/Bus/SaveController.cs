@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+using Cysharp.Threading.Tasks;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
@@ -79,11 +80,11 @@ namespace Vortex.Core.SaveSystem.Bus
         /// </summary>
         /// <param name="name">Название для сейва</param>
         /// <param name="guid"></param>
-        public static async void Save(string name, string guid = null)
+        public static async UniTask<string> Save(string name, string guid = null)
         {
             //Замок от перезапуска
             if (State == SaveControllerStates.Saving)
-                return;
+                return null;
             State = SaveControllerStates.Saving;
             OnSaveStart?.Invoke();
             try
@@ -110,6 +111,7 @@ namespace Vortex.Core.SaveSystem.Bus
 
             State = SaveControllerStates.Idle;
             OnSaveComplete?.Invoke();
+            return guid;
         }
 
         /// <summary>

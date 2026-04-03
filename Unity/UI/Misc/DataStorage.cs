@@ -30,6 +30,8 @@ namespace Vortex.Unity.UI.Misc
         private List<Object> _data = new();
         public event Action OnUpdateLink;
 
+        private void OnEnable() => dataSwitcher?.Set(IsEmpty() ? SwitcherState.Off : SwitcherState.On);
+
         public void SetData(Object data)
         {
             _data.Clear();
@@ -64,7 +66,7 @@ namespace Vortex.Unity.UI.Misc
 
         private bool IsEmpty()
         {
-            if (_data == null)
+            if (_data == null || _data.Count == 0)
                 return true;
             foreach (var o in _data)
                 if (o == null)

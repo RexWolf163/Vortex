@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 using Vortex.Core.SaveSystem;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Core.System.ProcessInfo;
@@ -20,6 +21,9 @@ namespace Vortex.Sdk.Core.GameCore
         private static readonly ProcessData ProcessData = new(name: SaveKey);
 
         public string GetSaveId() => SaveKey;
+
+        [RuntimeInitializeOnLoadMethod]
+        private static void Init() => SaveController.Register(Instance);
 
         public async UniTask<Dictionary<string, string>> GetSaveData(CancellationToken cancellationToken)
         {
