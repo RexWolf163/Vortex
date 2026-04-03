@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.IO.Compression;
 using UnityEngine;
 
 namespace Vortex.Core.Extensions.LogicExtensions
@@ -15,11 +17,14 @@ namespace Vortex.Core.Extensions.LogicExtensions
         /// <param name="encodingRules"></param>
         /// <returns></returns>
         public static string TextureToBase64(this Texture2D texture,
-            TextureEncodingRules encodingRules = TextureEncodingRules.PNG)
+            TextureEncodingRules encodingRules = TextureEncodingRules.PNG,
+            bool compress = false)
         {
             try
             {
                 var bytes = EncodeTexture(texture, encodingRules);
+                if (compress)
+                    bytes = Compress(bytes);
                 return Convert.ToBase64String(bytes);
             }
             catch (Exception ex)
@@ -45,6 +50,8 @@ namespace Vortex.Core.Extensions.LogicExtensions
                     throw new ArgumentException("Base64 string is null or empty");
 
                 var bytes = Convert.FromBase64String(base64);
+                if (IsGZip(bytes))
+                    bytes = Decompress(bytes);
 
                 if (!texture.LoadImage(bytes))
                     throw new Exception("Failed to load image from bytes");
@@ -80,6 +87,25 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 TextureEncodingRules.JPEGMax => texture.EncodeToJPG(100),
                 _ => throw new ArgumentOutOfRangeException(nameof(encodingRules), $"Unknown encoding: {encodingRules}")
             };
+        }
+
+        private static bool IsGZip(byte[] data) => data.Length > 2 && data[0] == 0x1F && data[1] == 0x8B;
+
+        private static byte[] Compress(byte[] data)
+        {
+            using var output = new MemoryStream();
+            using (var gzip = new GZipStream(output, CompressionLevel.Optimal))
+                gzip.Write(data, 0, data.Length);
+            return output.ToArray();
+        }
+
+        private static byte[] Decompress(byte[] data)
+        {
+            using var input = new MemoryStream(data);
+            using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            gzip.CopyTo(output);
+            return output.ToArray();
         }
     }
 }
