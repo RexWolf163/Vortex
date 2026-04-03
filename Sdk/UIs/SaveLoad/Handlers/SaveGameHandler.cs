@@ -1,4 +1,5 @@
 ﻿using Cysharp.Threading.Tasks;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Unity.EditorTools.Attributes;
@@ -23,8 +24,11 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             uiComponent.SetAction(null);
         }
 
+        [Button]
         private async UniTask SaveGame()
         {
+            await UniTask.WaitForEndOfFrame(this);
+            var texture = CameraCaptureHandler.Capture();
             var guid = await SaveController.Save(GetSaveName());
             if (guid == null)
             {
@@ -32,7 +36,8 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
                 return;
             }
 
-            SavePreviewController.SavePreview(CameraCaptureHandler.Capture(), guid);
+            SavePreviewController.SavePreview(texture, guid);
+            Destroy(texture);
         }
 
         private string GetSaveName() => $"{SavingSystemConstants.ManualName}_{SaveController.GetNumberLastSave() + 1}";

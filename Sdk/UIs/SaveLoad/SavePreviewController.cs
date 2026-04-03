@@ -35,6 +35,7 @@ namespace Vortex.Sdk.UIs.SaveLoad
         {
             var data = preview.TextureToBase64(TextureEncodingRules.JPEGMedium);
             PlayerPrefs.SetString(GetSaveKey(guid), data);
+            PlayerPrefs.Save();
         }
     }
 }

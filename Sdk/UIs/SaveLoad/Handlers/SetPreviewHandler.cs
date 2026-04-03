@@ -14,5 +14,12 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         {
             image.texture = CameraCaptureHandler.Capture();
         }
+
+        [Button]
+        private void Transition()
+        {
+            SavePreviewController.SavePreview((Texture2D)image.texture, "test");
+            image.texture = SavePreviewController.GetPreview("test");
+        }
     }
 }

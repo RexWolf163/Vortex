@@ -82,6 +82,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             _isInit = true;
             _saveSlots.Clear();
             _index = SaveController.GetIndex();
+            _index = _index.OrderByDescending(s => s.Value.UnixTimestamp).ToDictionary(s => s.Key, s => s.Value);
 
             pool.Clear();
 

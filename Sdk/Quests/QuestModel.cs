@@ -1,8 +1,6 @@
 ﻿using System;
 using Vortex.Sdk.Quests.Conditions;
 using Vortex.Core.DatabaseSystem.Model;
-using Vortex.Core.Extensions.LogicExtensions;
-using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 using Vortex.Sdk.Quests.QuestRewardLogics;
 using Vortex.Sdk.Quests.QuestsLogics;
 

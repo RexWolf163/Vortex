@@ -85,21 +85,30 @@ namespace Vortex.Unity.SaveSystem
                 PlayerPrefs.SetInt(SaveIncrementKey, _increment);
             }
 
-            var xmls = new XmlSerializer(typeof(SavePreset));
-            var sw = new StringWriter();
-            xmls.Serialize(sw, save);
-            var saveData = sw.ToString();
-            PlayerPrefs.SetString(GetSaveName(guid), saveData.Compress(guid));
+            try
+            {
+                var xmls = new XmlSerializer(typeof(SavePreset));
+                var sw = new StringWriter();
+                xmls.Serialize(sw, save);
+                var saveData = sw.ToString();
+                PlayerPrefs.SetString(GetSaveName(guid), saveData.Compress(guid));
 
-            var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc());
-            xmls = new XmlSerializer(typeof(SaveSummary));
-            sw = new StringWriter();
-            xmls.Serialize(sw, summary);
-            saveData = sw.ToString();
-            PlayerPrefs.SetString(GetSaveSummaryName(guid), saveData);
+                var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc());
+                xmls = new XmlSerializer(typeof(SaveSummary));
+                sw = new StringWriter();
+                xmls.Serialize(sw, summary);
+                saveData = sw.ToString();
+                PlayerPrefs.SetString(GetSaveSummaryName(guid), saveData);
 
-            Saves.Add(guid, summary);
-            PlayerPrefs.SetString(SaveKey, string.Join(";", Saves.Keys));
+                Saves.Add(guid, summary);
+                PlayerPrefs.SetString(SaveKey, string.Join(";", Saves.Keys));
+                PlayerPrefs.Save();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                _increment--;
+            }
         }
 
         /// <summary>
@@ -193,7 +202,7 @@ namespace Vortex.Unity.SaveSystem
         /// Возвращает все существующие сейвы
         /// </summary>
         /// <returns></returns>
-        public Dictionary<string, SaveSummary> GetIndex() => Saves;
+        public Dictionary<string, SaveSummary> GetIndex() => Saves.ToDictionary(s => s.Key, s => s.Value);
 
         /// <summary>
         /// Возвращает номер-инкремент последнего сейва
@@ -203,7 +212,7 @@ namespace Vortex.Unity.SaveSystem
         public int GetNumberLastSave()
         {
             if (_increment < 0)
-                _increment = PlayerPrefs.GetInt(GetSaveName(SaveIncrementKey), 0);
+                _increment = PlayerPrefs.GetInt(SaveIncrementKey, 0);
             return _increment;
         }
     }
