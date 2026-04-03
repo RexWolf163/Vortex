@@ -2,6 +2,7 @@
 using System.IO;
 using System.IO.Compression;
 using UnityEngine;
+using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace Vortex.Core.Extensions.LogicExtensions
 {
