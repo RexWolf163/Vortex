@@ -151,6 +151,7 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 | `SaveController.GetIndex()` | Все сохранения |
 | `SaveController.Register(ISaveable)` | Регистрация модуля |
 | `SaveController.UnRegister(ISaveable)` | Отмена регистрации |
+| `SaveController.GetNumberLastSave()` | Номер-инкремент последнего сохранения |
 | `SaveController.GetProcessData()` | Данные прогресса |
 
 ### Ограничения

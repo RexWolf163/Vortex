@@ -24,7 +24,11 @@ namespace Vortex.Sdk.UIs.SaveLoad.Models
 
         public void Dispose()
         {
-            _preview = null;
+            if (_preview != null)
+            {
+                UnityEngine.Object.Destroy(_preview);
+                _preview = null;
+            }
         }
     }
 }

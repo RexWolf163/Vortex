@@ -151,6 +151,7 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 | `SaveController.GetIndex()` | All saves |
 | `SaveController.Register(ISaveable)` | Register module |
 | `SaveController.UnRegister(ISaveable)` | Unregister module |
+| `SaveController.GetNumberLastSave()` | Last save increment number |
 | `SaveController.GetProcessData()` | Progress data |
 
 ### Constraints
