@@ -158,7 +158,7 @@ namespace Vortex.Unity.DriverManagerSystem.Base
             var sb = new StringBuilder();
             sb.AppendLine("//Автогенерированный конфиг файл. Не изменять в ручную!");
             sb.Append(
-                "using System.Collections.Generic;\n\nnamespace Vortex.Core.System\n{\n    public static class DriversGenericList\n    {\n        public static Dictionary<string, string> WhiteList { get; } = new()\n        {");
+                "using System.Collections.Generic;\nusing UnityEngine.Scripting;\n\nnamespace Vortex.Core.System\n{\n    [Preserve]\n    public static class DriversGenericList\n    {\n        [Preserve]\n        public static Dictionary<string, string> WhiteList { get; } = new()\n        {");
 
             foreach (var driver in drivers)
                 sb.Append(

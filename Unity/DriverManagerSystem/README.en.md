@@ -77,7 +77,6 @@ Used in `SystemController<T, TD>.SetDriver()` for runtime validation: only the d
 
 ### Output
 - `DriversGenericList.cs` — compile-time whitelist for runtime validation
-- `DriverConfig.GetDriverForSystem(systemName)` — runtime query for the assigned driver
 
 ### Guarantees
 - Cannot save configuration with empty assignments
