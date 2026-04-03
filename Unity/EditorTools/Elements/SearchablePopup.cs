@@ -84,6 +84,19 @@ namespace Vortex.Unity.EditorTools.Elements
         private bool _showSearch;
         private bool _needFocusSearch;
 
+        // ── Кешированные стили ──
+        private static GUIStyle _boldLabelStyle;
+        private static GUIStyle _groupArrowStyle;
+
+        private static GUIStyle BoldLabelStyle =>
+            _boldLabelStyle ??= new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Bold };
+
+        private static GUIStyle GroupArrowStyle => _groupArrowStyle ??= new GUIStyle(EditorStyles.miniLabel)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = 8
+        };
+
         // Плоский список строк для отрисовки (группы + элементы, отсортированные)
         private List<RowData> _allRows;
 
@@ -104,6 +117,13 @@ namespace Vortex.Unity.EditorTools.Elements
         }
 
         private static SearchablePopupWindow currentInstance;
+
+        [InitializeOnLoadMethod]
+        private static void ResetStyles()
+        {
+            _boldLabelStyle = null;
+            _groupArrowStyle = null;
+        }
 
         private void OnEnable()
         {
@@ -540,9 +560,7 @@ namespace Vortex.Unity.EditorTools.Elements
             }
 
             var lr = new Rect(rect.x + 6f, rect.y, rect.width - 12f, rect.height);
-            GUI.Label(lr, text, selected
-                ? new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Bold }
-                : EditorStyles.label);
+            GUI.Label(lr, text, selected ? BoldLabelStyle : EditorStyles.label);
 
             if (Event.current.type == EventType.MouseUp && Event.current.button == 0 &&
                 rect.Contains(Event.current.mousePosition))
@@ -561,12 +579,9 @@ namespace Vortex.Unity.EditorTools.Elements
             EditorGUI.DrawRect(rect, bg);
 
             var ar = new Rect(rect.x + 2f, rect.y, FoldoutArrowWidth, rect.height);
-            GUI.Label(ar, collapsed ? "▶" : "▼", new GUIStyle(EditorStyles.miniLabel)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 8,
-                normal = { textColor = ToolsSettings.GetLineColor(DefaultColors.TextColorInactive) }
-            });
+            var arrowStyle = GroupArrowStyle;
+            arrowStyle.normal.textColor = ToolsSettings.GetLineColor(DefaultColors.TextColorInactive);
+            GUI.Label(ar, collapsed ? "▶" : "▼", arrowStyle);
 
             var lr = new Rect(rect.x + FoldoutArrowWidth + 2f, rect.y,
                 rect.width - FoldoutArrowWidth - 4f, rect.height);

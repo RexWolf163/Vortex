@@ -25,9 +25,10 @@ namespace Vortex.Unity.EditorTools.Bus
     public static partial class InspectorController
     {
         /// <summary>
-        /// Таймаут для пересборки страницы
+        /// Флаг необходимости полной пересборки DOM.
+        /// Устанавливается при Undo, domain reload, внешних изменениях.
         /// </summary>
-        private const int PageLifeTime = 100;
+        private static bool _isDirty;
 
         /// <summary>
         /// Индекс страниц по InstanceID целевого объекта.
@@ -111,21 +112,20 @@ namespace Vortex.Unity.EditorTools.Bus
                     Pages[pageId] = page;
                 }
 
-                // Инвалидация при resize окна
-                if (Math.Abs(page.ViewWidth - currentWidth) > 1f
-                    || page.CalculatedAtTime.AddMilliseconds(PageLifeTime) < DateTime.Now
-                   )
+                // Инвалидация при resize окна или dirty-флаге
+                if (Math.Abs(page.ViewWidth - currentWidth) > 1f || _isDirty)
                 {
                     page.ViewWidth = currentWidth;
                     page.IsCalculated = false;
                 }
 
-                // Первый доступ или resize — строим структуру и сразу считаем ширины
+                // Первый доступ, resize или dirty — строим структуру и сразу считаем ширины
                 if (!page.IsCalculated)
                 {
                     BuildPageStructure(page);
                     RecomputeAllHeights(page);
                     page.LastComputedFrame = currentFrame;
+                    _isDirty = false;
                 }
                 // Новый фрейм — пересчитываем ширины (условия видимости, foldout-ы)
                 else if (page.LastComputedFrame != currentFrame && !_isRecomputing)
@@ -352,6 +352,7 @@ namespace Vortex.Unity.EditorTools.Bus
             foreach (var page in Pages.Values)
                 page.Dispose();
             Pages.Clear();
+            _isDirty = true;
         }
 
         [InitializeOnLoadMethod]
