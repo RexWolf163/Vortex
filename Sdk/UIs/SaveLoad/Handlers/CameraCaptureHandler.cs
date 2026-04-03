@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
@@ -6,20 +6,51 @@ using Vortex.Unity.EditorTools.Attributes;
 namespace Vortex.Sdk.UIs.SaveLoad.Handlers
 {
     /// <summary>
-    /// AI generation
+    /// Многослойный захват экрана: рендерит камеры и канвасы в отдельные слои
+    /// и компонует их через src_over блендинг (шейдер Hidden/AlphaBlit).
+    ///
+    /// Каждый экземпляр представляет один слой (Camera или Canvas).
+    /// Приоритет определяет порядок композитинга: меньше — ниже.
+    ///
+    /// Важно: при вызове из контекста EventSystem (gameplay-кнопки)
+    /// необходимо дождаться конца кадра (WaitForEndOfFrame) перед вызовом Capture(),
+    /// чтобы рендер-пайплайн был в консистентном состоянии.
+    /// Из Inspector/Editor-контекста вызов безопасен без ожидания.
     /// </summary>
     public class CameraCaptureHandler : MonoBehaviour
     {
+        /// <summary>
+        /// Реестр всех активных хэндлеров. Заполняется автоматически через OnEnable/OnDisable.
+        /// </summary>
         public static readonly HashSet<CameraCaptureHandler> Handlers = new();
 
+        /// <summary>
+        /// Приоритет слоя при композитинге. Меньше — рендерится раньше (ниже в стеке).
+        /// </summary>
         [SerializeField, Range(0, 10)] private int priority;
 
+        /// <summary>
+        /// Камера для захвата 3D-сцены. Взаимоисключающе с canvas.
+        /// </summary>
         [SerializeField, AutoLink] private Camera camera;
+
+        /// <summary>
+        /// Канвас для захвата UI. Взаимоисключающе с camera.
+        /// Поддерживает ScreenSpaceOverlay (через временную камеру) и ScreenSpaceCamera.
+        /// </summary>
         [SerializeField, AutoLink] private Canvas canvas;
 
+        /// <summary>
+        /// Промежуточный RT для рендера этого слоя перед композитингом.
+        /// </summary>
         private RenderTexture _renderTexture;
 
         private static Material _blendMaterial;
+
+        /// <summary>
+        /// Материал src_over блендинга. Использует шейдер Hidden/AlphaBlit.
+        /// Шейдер должен быть включён в Always Included Shaders (Project Settings → Graphics).
+        /// </summary>
         private static Material BlendMaterial => _blendMaterial ??= new Material(Shader.Find("Hidden/AlphaBlit"));
 
         // ──────────────────────────────────────────────
@@ -62,9 +93,12 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         // Screen size
         // ──────────────────────────────────────────────
 
+        /// <summary>
+        /// Определяет размер экрана для захвата.
+        /// Приоритет: первая активная камера по приоритету → основной Display → Screen.
+        /// </summary>
         private static (int width, int height) GetScreenSize()
         {
-            // Приоритет: первая активная камера → Display → Screen
             var cam = Handlers
                 .Where(h => h != null && h.isActiveAndEnabled && h.camera != null)
                 .OrderBy(h => h.priority)
@@ -85,7 +119,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         // ──────────────────────────────────────────────
 
         /// <summary>
-        /// Блендит layer поверх result через src_over.
+        /// Композитит layer поверх result через src_over (Porter-Duff).
         /// </summary>
         private static void BlitLayer(RenderTexture layer, RenderTexture result)
         {
@@ -102,13 +136,16 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
                 RenderTexture.ReleaseTemporary(temp);
             }
         }
+
         // ──────────────────────────────────────────────
         // Render
         // ──────────────────────────────────────────────
 
         /// <summary>
-        /// Рендерит этот слой поверх result.
+        /// Рендерит этот слой и композитит поверх result.
+        /// Пересоздаёт промежуточный RT при изменении размера экрана.
         /// </summary>
+        /// <param name="result">Целевой RT для композитинга</param>
         public void Render(RenderTexture result)
         {
             var (w, h) = GetScreenSize();
@@ -131,6 +168,9 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             }
         }
 
+        /// <summary>
+        /// Рендерит камеру в промежуточный RT и композитит поверх result.
+        /// </summary>
         private void RenderCamera(RenderTexture result)
         {
             var prevActive = RenderTexture.active;
@@ -154,6 +194,10 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
                 RenderCameraCanvas(result);
         }
 
+        /// <summary>
+        /// Захват Overlay-канваса: временно переключает в ScreenSpaceCamera,
+        /// рендерит через временную камеру, затем восстанавливает исходный режим.
+        /// </summary>
         private void RenderOverlayCanvas(RenderTexture result)
         {
             var prevMode = canvas.renderMode;
@@ -164,7 +208,6 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
 
             canvas.renderMode = RenderMode.ScreenSpaceCamera;
             canvas.worldCamera = tempCam;
-            //canvas.planeDistance = 1f;
 
             Canvas.ForceUpdateCanvases();
 
@@ -188,6 +231,9 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             BlitLayer(_renderTexture, result);
         }
 
+        /// <summary>
+        /// Захват канваса в режиме ScreenSpaceCamera через его worldCamera.
+        /// </summary>
         private void RenderCameraCanvas(RenderTexture result)
         {
             var canvasCamera = canvas.worldCamera;
@@ -211,6 +257,10 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             BlitLayer(_renderTexture, result);
         }
 
+        /// <summary>
+        /// Создаёт временную ортографическую камеру для захвата Overlay-канваса.
+        /// Камера рендерит только слой канваса с прозрачным фоном.
+        /// </summary>
         private Camera CreateTempCanvasCamera()
         {
             var go = new GameObject("__TempCanvasCamera__")
@@ -232,8 +282,14 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         // ──────────────────────────────────────────────
 
         /// <summary>
-        /// Делает финальный скриншот, компонуя все активные хендлеры по приоритету (меньше = ниже).
+        /// Делает финальный скриншот, компонуя все активные хэндлеры по приоритету (меньше = ниже).
+        /// Возвращает Texture2D, которую вызывающий код должен уничтожить через Destroy().
+        ///
+        /// Важно: при вызове из gameplay-контекста (EventSystem, кнопки UI)
+        /// необходимо предварительно выполнить await UniTask.WaitForEndOfFrame(),
+        /// чтобы рендер-пайплайн завершил текущий кадр.
         /// </summary>
+        /// <returns>Скомпонованная текстура или null если нет активных хэндлеров</returns>
         public static Texture2D Capture()
         {
             var list = Handlers
