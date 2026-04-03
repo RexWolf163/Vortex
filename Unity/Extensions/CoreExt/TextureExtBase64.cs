@@ -3,16 +3,10 @@ using UnityEngine;
 
 namespace Vortex.Core.Extensions.LogicExtensions
 {
-    public enum TextureEncodingRules
-    {
-        PNG,
-        JPEGLow, // quality 25
-        JPEGMedium, // quality 50
-        JPEGHigh, // quality 75
-        JPEGMax // quality 100
-    }
-
-    public static class TextureConverter
+    /// <summary>
+    /// Расширение функционала работы с текстурами
+    /// </summary>
+    public static class TextureExtBase64
     {
         /// <summary>
         /// Кодирование текстуры в строку
