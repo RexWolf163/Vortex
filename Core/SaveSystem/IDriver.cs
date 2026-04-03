@@ -37,5 +37,12 @@ namespace Vortex.Core.SaveSystem
         /// </summary>
         /// <returns></returns>
         public Dictionary<string, SaveSummary> GetIndex();
+
+        /// <summary>
+        /// Возвращает номер-инкремент последнего сейва
+        /// Индексация идет непрерывно
+        /// </summary>
+        /// <returns></returns>
+        public int GetNumberLastSave();
     }
 }

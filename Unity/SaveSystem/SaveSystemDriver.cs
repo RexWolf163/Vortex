@@ -15,6 +15,7 @@ namespace Vortex.Unity.SaveSystem
     public partial class SaveSystemDriver : IDriver
     {
         private const string SaveKey = "SavesData";
+        private const string SaveIncrementKey = "SavesCount";
         private const string SavePrefix = "Save-";
         private const string SaveSummaryPrefix = "SaveSummary-";
 
@@ -23,6 +24,11 @@ namespace Vortex.Unity.SaveSystem
         private static Dictionary<string, Dictionary<string, string>> _saveDataIndex;
 
         public event Action OnInit;
+
+        /// <summary>
+        /// Номер-Инкремент последнего сейва
+        /// </summary>
+        private int _increment = -1;
 
         public void Init()
         {
@@ -71,6 +77,12 @@ namespace Vortex.Unity.SaveSystem
                 }
 
                 save.Data.Add(xmlStruct);
+            }
+
+            if (!Saves.ContainsKey(guid))
+            {
+                _increment++;
+                PlayerPrefs.SetInt(SaveIncrementKey, _increment);
             }
 
             var xmls = new XmlSerializer(typeof(SavePreset));
@@ -182,5 +194,17 @@ namespace Vortex.Unity.SaveSystem
         /// </summary>
         /// <returns></returns>
         public Dictionary<string, SaveSummary> GetIndex() => Saves;
+
+        /// <summary>
+        /// Возвращает номер-инкремент последнего сейва
+        /// Индексация идет непрерывно
+        /// </summary>
+        /// <returns></returns>
+        public int GetNumberLastSave()
+        {
+            if (_increment < 0)
+                _increment = PlayerPrefs.GetInt(GetSaveName(SaveIncrementKey), 0);
+            return _increment;
+        }
     }
 }

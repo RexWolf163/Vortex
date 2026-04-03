@@ -6,6 +6,7 @@ using Vortex.Unity.EditorTools.Abstraction;
 using Vortex.Unity.EditorTools.AttributeDrawers;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.EditorTools.EditorSettings;
+using Vortex.Unity.Extensions.Editor;
 using Object = UnityEngine.Object;
 
 namespace Vortex.Unity.EditorTools.Elements
@@ -115,7 +116,8 @@ namespace Vortex.Unity.EditorTools.Elements
             textHeight = Mathf.Min(textHeight, 120f);
 
             var boxRect = new Rect(position.x, position.y, position.width, textHeight);
-            EditorGUI.HelpBox(boxRect, displayText, hasError ? MessageType.Error : msgType);
+            RichTextHelpBox.Create(boxRect, displayText, hasError ? MessageType.Error : msgType);
+            //EditorGUI.HelpBox(boxRect, displayText, hasError ? MessageType.Error : msgType);
 
             if (hasError)
             {

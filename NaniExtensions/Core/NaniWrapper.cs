@@ -77,6 +77,7 @@ namespace Vortex.NaniExtensions.Core
         {
             ScriptPlayer.Stop();
             ResetNani();
+            VariablesManager.ResetAllVariables();
         }
 
         public static void ResetNani()
@@ -84,7 +85,6 @@ namespace Vortex.NaniExtensions.Core
             AudioManager.StopAllBgm();
             AudioManager.StopAllSfx();
             AudioManager.StopVoice();
-            VariablesManager.ResetAllVariables();
 
             var bgs = BackgroundManager.Actors;
             var tween = new Tween(0);

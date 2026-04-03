@@ -159,6 +159,13 @@ namespace Vortex.Core.SaveSystem.Bus
         }
 
         /// <summary>
+        /// Возвращает номер-инкремент последнего сейва
+        /// Индексация идет непрерывно
+        /// </summary>
+        /// <returns></returns>
+        public static int GetNumberLastSave() => Driver.GetNumberLastSave();
+
+        /// <summary>
         /// Получить JSON данные по ключу
         /// </summary>
         /// <param name="id"></param>

@@ -2,7 +2,8 @@
     "name": "ru.vortex.unity.editortools",
     "rootNamespace": "",
     "references": [
-        "GUID:909c85e22a6433743bbdc4735bbe1b04"
+        "GUID:909c85e22a6433743bbdc4735bbe1b04",
+        "GUID:826a37b90dd7f8849a995e26104dd48e"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

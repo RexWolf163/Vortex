@@ -23,6 +23,9 @@ namespace Vortex.Core.Extensions.LogicExtensions
         {
             try
             {
+                if (!texture.isReadable)
+                    throw new Exception("Texture is not readable");
+
                 var bytes = EncodeTexture(texture, encodingRules);
                 if (compress)
                     bytes = Compress(bytes);

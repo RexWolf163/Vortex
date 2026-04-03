@@ -1,0 +1,25 @@
+{
+    "name": "ru.vortex.sdk.game.uis.saveload",
+    "rootNamespace": "",
+    "references": [
+        "GUID:e3ec030c80e9423408d9ae1a925ae80d",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b",
+        "GUID:f1e680f843d477b4982469a7325c2f44",
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:865e31c772c77e64cb48f0792a7a6a0c",
+        "GUID:6115ef0c63bd0604eb3dcd1b03e2e7da",
+        "GUID:ec37981827cc88c419565420343ee58c",
+        "GUID:66c3850540390be44aa49f25786b3c3a",
+        "GUID:107a1ae24d335a64783f6777158a6259",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
