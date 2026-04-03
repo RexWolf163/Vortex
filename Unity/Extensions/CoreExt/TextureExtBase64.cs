@@ -20,12 +20,12 @@ namespace Vortex.Core.Extensions.LogicExtensions
         /// <param name="texture"></param>
         /// <param name="encodingRules"></param>
         /// <returns></returns>
-        public static string TextureToBase64(Texture2D texture,
+        public static string TextureToBase64(this Texture2D texture,
             TextureEncodingRules encodingRules = TextureEncodingRules.PNG)
         {
             try
             {
-                byte[] bytes = EncodeTexture(texture, encodingRules);
+                var bytes = EncodeTexture(texture, encodingRules);
                 return Convert.ToBase64String(bytes);
             }
             catch (Exception ex)
@@ -38,29 +38,29 @@ namespace Vortex.Core.Extensions.LogicExtensions
         /// <summary>
         /// Восстановление Текстуры из строки
         /// </summary>
+        /// <param name="texture">Текстура под заливку данными</param>
         /// <param name="base64"></param>
-        /// <returns></returns>
+        /// <returns>TRUE при успешном перекодировании</returns>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="Exception"></exception>
-        public static Texture2D Base64ToTexture(string base64)
+        public static bool Base64ToTexture(this Texture2D texture, string base64)
         {
             try
             {
                 if (string.IsNullOrEmpty(base64))
                     throw new ArgumentException("Base64 string is null or empty");
 
-                byte[] bytes = Convert.FromBase64String(base64);
-                Texture2D texture = new Texture2D(2, 2);
+                var bytes = Convert.FromBase64String(base64);
 
                 if (!texture.LoadImage(bytes))
                     throw new Exception("Failed to load image from bytes");
 
-                return texture;
+                return true;
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[TextureConverter] Base64ToTexture failed: {ex.Message}");
-                return null;
+                return false;
             }
         }
 
