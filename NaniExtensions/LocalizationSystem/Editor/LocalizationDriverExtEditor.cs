@@ -52,6 +52,15 @@ namespace Vortex.NaniExtensions.LocalizationSystem
             RefreshIndex();
         }
 
+        [MenuItem("Vortex/Localization/Set Preset default Locale", false, 1)]
+        public static void SetDefaultLocale()
+        {
+            if (Instance == null)
+                return;
+            var currentLang = Instance.GetPresetDefaultLanguage();
+            Localization.SetCurrentLanguage(currentLang);
+        }
+
         private void LoadData()
         {
             var resources = Resources.LoadAll<LocalizationPreset>(Path);
@@ -100,6 +109,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem
         }
 
         [MenuItem("Vortex/Localization/(Nani) Load data", true)]
+        [MenuItem("Vortex/Localization/Set Preset default Locale", true)]
         private static bool CheckDriver() => _isSet;
     }
 }

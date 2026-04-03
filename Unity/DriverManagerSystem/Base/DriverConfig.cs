@@ -28,6 +28,7 @@ namespace Vortex.Unity.DriverManagerSystem.Base
         [InfoBox("Искать драйверы только в ru.vortex* пакетах")] [SerializeField]
         private bool onlyInVortexSearch = true;
 
+        /*
         /// <summary>
         /// Возвращает назначенный указанной системе драйвер
         /// </summary>
@@ -41,6 +42,7 @@ namespace Vortex.Unity.DriverManagerSystem.Base
             return rec.DriverType;
         }
 
+*/
 #if UNITY_EDITOR
 
         private static bool _verified = false;
@@ -112,7 +114,6 @@ namespace Vortex.Unity.DriverManagerSystem.Base
             drivers = result.ToArray();
         }
 
-        private const string SystemPackageRoute = @"Vortex\Core\System";
         private const string CfgFileName = "DriversGenericList.cs";
 
         [InfoBox("Сохраняет текущий конфиг в файл DriversGenericList.cs в режиме кодогенерации")]
@@ -132,7 +133,7 @@ namespace Vortex.Unity.DriverManagerSystem.Base
 
             if (allFiles.Length <= 0)
             {
-                File.Create(Path.Combine(assetsPath, SystemPackageRoute, CfgFileName)).Close();
+                File.Create(Path.Combine(assetsPath, CfgFileName)).Close();
                 allFiles = Directory.GetFiles(assetsPath, CfgFileName, SearchOption.AllDirectories);
             }
 

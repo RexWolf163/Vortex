@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Vortex.Core.System.Abstractions
 {
@@ -56,7 +57,16 @@ namespace Vortex.Core.System.Abstractions
                 //Чтобы избежать ошибок компиляции, первый раз список вынимаем через рефлексию
                 if (whiteList == null)
                 {
-                    var type = Type.GetType("Vortex.Core.System.DriversGenericList");
+                    var type = Type.GetType(
+                        "Vortex.Core.System.DriversGenericList, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+                    if (type == null)
+                    {
+                        var domain = AppDomain.CurrentDomain;
+                        var assemblies = domain.GetAssemblies();
+                        type = assemblies.SelectMany(a => a.GetTypes())
+                            .FirstOrDefault(t => t.FullName == "Vortex.Core.System.DriversGenericList");
+                    }
+
                     var property = type.GetProperty("WhiteList");
                     whiteList = (Dictionary<string, string>)property.GetValue(null);
                 }

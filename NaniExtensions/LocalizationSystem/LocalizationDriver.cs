@@ -75,6 +75,18 @@ namespace Vortex.NaniExtensions.LocalizationSystem
         }
 
         /// <summary>
+        /// Получить дефолтный язык настроек локализации
+        /// </summary>
+        /// <returns></returns>
+        internal string GetPresetDefaultLanguage()
+        {
+            var defaultLang = _resource.GetDefaultLanguage();
+            if (defaultLang.IsNullOrWhitespace() && _resource.langsKeys.Length > 0)
+                defaultLang = _resource.langsKeys[0];
+            return defaultLang;
+        }
+
+        /// <summary>
         /// Установить язык для приложения
         /// </summary>
         /// <param name="language"></param>
