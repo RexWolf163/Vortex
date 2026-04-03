@@ -109,9 +109,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         /// <summary>
         /// Рендерит этот слой поверх result.
         /// </summary>
-        /// <param name="result">Целевой RT для композитинга</param>
-        /// <param name="isBase">true для первого (нижнего) слоя — блит без альфа-блендинга</param>
-        public void Render(RenderTexture result, bool isBase = false)
+        public void Render(RenderTexture result)
         {
             var (w, h) = GetScreenSize();
 
@@ -123,7 +121,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             }
 
             if (camera != null)
-                RenderCamera(result, isBase);
+                RenderCamera(result);
             else if (canvas != null)
                 RenderCanvas(result);
             else
@@ -133,7 +131,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             }
         }
 
-        private void RenderCamera(RenderTexture result, bool isBase)
+        private void RenderCamera(RenderTexture result)
         {
             var prevActive = RenderTexture.active;
             RenderTexture.active = _renderTexture;
@@ -145,10 +143,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             camera.Render();
             camera.targetTexture = prevTarget;
 
-            if (isBase)
-                Graphics.Blit(_renderTexture, result);
-            else
-                BlitLayer(_renderTexture, result);
+            BlitLayer(_renderTexture, result);
         }
 
         private void RenderCanvas(RenderTexture result)
@@ -259,8 +254,8 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             RenderTexture.active = resultRT;
             GL.Clear(true, true, Color.clear);
 
-            for (var i = 0; i < list.Count; i++)
-                list[i].Render(resultRT, isBase: i == 0);
+            foreach (var handler in list)
+                handler.Render(resultRT);
 
             var tex = new Texture2D(width, height, TextureFormat.ARGB32, false);
             tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
