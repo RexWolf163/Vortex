@@ -965,12 +965,12 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 if (key != null)
                 {
                     if (!targetDict.Contains(key))
-                        dict.Add(key, DeserializeClass(valueType, valueText));
+                        targetDict.Add(key, DeserializeClass(valueType, valueText));
                     else
                     {
                         var value = targetDict[key];
                         UploadClass(value, valueText);
-                        dict.Add(key, value);
+                        targetDict[key] = value;
                     }
 
                     listKeys.Add(key);
@@ -978,14 +978,6 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 }
 
                 Log.Print(LogLevel.Error, $"Error deserialization for key: {name}", type);
-            }
-
-            foreach (DictionaryEntry kvp in targetDict)
-            {
-                if (!dict.Contains(kvp.Key))
-                {
-                    dict.Add(kvp.Key, kvp.Value);
-                }
             }
         }
 
