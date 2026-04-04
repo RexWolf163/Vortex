@@ -16,6 +16,7 @@ Capabilities:
 - Reactive listeners — subscribe to `IReactiveData` for automatic condition re-checks
 - `UnFailable` mode — on failure, quest returns to `Locked` instead of `Failed`
 - Cancellation of all active quests via `CancellationToken` on new game
+- Quest restoration on load — skips logics up to the saved `SavePoint`
 
 Out of scope:
 - Specific quest logic (implemented in `QuestLogic` subclasses)
@@ -46,6 +47,7 @@ QuestController (static, partial)
 │       ├── State: QuestState
 │       ├── StartConditions[]                     ← AND-groups of conditions
 │       ├── Logics[]                              ← sequential queue
+│       ├── Step: byte                             ← SavePoint key for restoration
 │       ├── Autorun                               ← auto-start when Ready
 │       └── UnFailable                            ← return to Locked on failure
 ├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
@@ -65,6 +67,18 @@ Locked ──[conditions met]──→ Ready ──[Run()]──→ InProgress
                                └────────────────────└──[logic Failed]──→ Failed
 ```
 
+### Restoration on Load
+
+On `LoadGame()`, quests in `InProgress` state are restored via `RestoreQuest`:
+
+```
+Run(quest) ──[State == InProgress]──→ RestoreQuest()
+                                        ├── Step != 0 → skip logics until SavePoint with Key == Step
+                                        └── Step == 0 → execute from the beginning
+```
+
+`SavePoint` is a marker logic that saves its `Key` to `QuestModel.Step` during execution. On restoration, all logics up to and including the matching `SavePoint` are skipped.
+
 ### Components
 
 | Class | Type | Purpose |
@@ -77,6 +91,7 @@ Locked ──[conditions met]──→ Ready ──[Run()]──→ InProgress
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject preset for Database |
 | `QuestState` | `enum` | Locked, Ready, InProgress, Reward, Completed, Failed |
 | `QuestLogic` | `abstract` | Atomic logic: `UniTask<bool> Run(CancellationToken)` |
+| `SavePoint` | `QuestLogic` | Save point marker: stores `Key` in `QuestModel.Step` |
 | `QuestConditionLogic` | `abstract` | Condition: `bool Check()` |
 | `QuestConditions` | `Serializable` | AND-group of conditions |
 | `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID is complete |
@@ -100,7 +115,7 @@ Locked ──[conditions met]──→ Ready ──[Run()]──→ InProgress
 - On `NewGame()` and `LoadGame()`, all active quests are cancelled via `CancellationToken`
 - Recursive condition re-check limited to depth 10
 - `UnFailable` quest on failure returns to `Locked` and does not enter `CompletedQuests` — can be restarted
-- `Run()` on a quest with state `!= Ready` — error logged, call ignored
+- `Run()` on a quest with state `Ready` — launches `RunQuest`; with state `InProgress` — launches `RestoreQuest`; other states — error logged, call ignored
 
 ### Constraints
 - Quests are strictly MultiInstance records (each game gets fresh copies)
@@ -167,5 +182,5 @@ Place `QuestDataStorage` on the scene, specify the quest GUID. View components a
 | Logic returns `false`, `UnFailable = false` | State → `Failed`, quest in `CompletedQuests` |
 | `NewGame()` / `LoadGame()` with active quests | All cancelled via `CancellationToken` |
 | Condition recursion > 10 levels | Interrupted (guard) |
-| `Run()` on quest in `InProgress` | `LogError`, duplication prevented by `ActiveQuests` check |
+| `Run()` on quest in `InProgress` | Restoration via `RestoreQuest` — skips logics up to `SavePoint` |
 | Quest completes → another quest's conditions depend on it | Recursive re-check via `CheckQuestStartConditions` |

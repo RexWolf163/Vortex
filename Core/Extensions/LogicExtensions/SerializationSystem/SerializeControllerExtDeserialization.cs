@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
 using Vortex.Core.SettingsSystem.Bus;
@@ -91,7 +92,16 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 return null;
             }
 
-            var model = Activator.CreateInstance(type);
+            object model;
+            try
+            {
+                model = Activator.CreateInstance(type);
+            }
+            catch
+            {
+                model = FormatterServices.GetUninitializedObject(type);
+            }
+
             if (model == null)
             {
                 Log.Print(LogLevel.Error, $"Deserialization error for {type}", type);

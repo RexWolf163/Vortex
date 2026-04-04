@@ -16,6 +16,7 @@
 - Реактивные слушатели — подписка на `IReactiveData` для автоматической перепроверки условий
 - Режим `UnFailable` — при провале квест возвращается в `Locked` вместо `Failed`
 - Отмена всех активных квестов через `CancellationToken` при новой игре
+- Восстановление квестов при загрузке — пропуск логик до сохранённого `SavePoint`
 
 Вне ответственности:
 - Конкретная логика квестов (реализуется в наследниках `QuestLogic`)
@@ -46,6 +47,7 @@ QuestController (static, partial)
 │       ├── State: QuestState
 │       ├── StartConditions[]                     ← AND-группы условий
 │       ├── Logics[]                              ← последовательная очередь
+│       ├── Step: byte                             ← ключ SavePoint для восстановления
 │       ├── Autorun                               ← автозапуск при Ready
 │       └── UnFailable                            ← возврат в Locked при провале
 ├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
@@ -65,6 +67,18 @@ Locked ──[условия выполнены]──→ Ready ──[Run()]─
                                   └────────────────────└──[логика Failed]──→ Failed
 ```
 
+### Восстановление при загрузке
+
+При `LoadGame()` квесты в состоянии `InProgress` восстанавливаются через `RestoreQuest`:
+
+```
+Run(quest) ──[State == InProgress]──→ RestoreQuest()
+                                        ├── Step != 0 → пропуск логик до SavePoint с Key == Step
+                                        └── Step == 0 → выполнение с начала
+```
+
+`SavePoint` — маркерная логика, которая при выполнении сохраняет свой `Key` в `QuestModel.Step`. При восстановлении все логики до соответствующего `SavePoint` (включительно) пропускаются.
+
 ### Компоненты
 
 | Класс | Тип | Назначение |
@@ -77,6 +91,7 @@ Locked ──[условия выполнены]──→ Ready ──[Run()]─
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject-пресет для Database |
 | `QuestState` | `enum` | Locked, Ready, InProgress, Reward, Completed, Failed |
 | `QuestLogic` | `abstract` | Атомарная логика: `UniTask<bool> Run(CancellationToken)` |
+| `SavePoint` | `QuestLogic` | Маркер точки сохранения: сохраняет `Key` в `QuestModel.Step` |
 | `QuestConditionLogic` | `abstract` | Условие: `bool Check()` |
 | `QuestConditions` | `Serializable` | AND-группа условий |
 | `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён |
@@ -100,7 +115,7 @@ Locked ──[условия выполнены]──→ Ready ──[Run()]─
 - При `NewGame()` и `LoadGame()` все активные квесты отменяются через `CancellationToken`
 - Рекурсивная перепроверка условий ограничена глубиной 10
 - `UnFailable`-квест при провале возвращается в `Locked` и не попадает в `CompletedQuests` — может быть перезапущен
-- `Run()` на квест в состоянии `!= Ready` — логируется ошибка, вызов игнорируется
+- `Run()` на квест в состоянии `Ready` — запускает `RunQuest`; в состоянии `InProgress` — запускает `RestoreQuest`; в ином состоянии — логируется ошибка, вызов игнорируется
 
 ### Ограничения
 - Квесты — строго MultiInstance записи (каждая игра получает свежие копии)
@@ -167,5 +182,5 @@ QuestController.RemoveListener(this);
 | Логика возвращает `false`, `UnFailable = false` | Состояние → `Failed`, квест в `CompletedQuests` |
 | `NewGame()` / `LoadGame()` при активных квестах | Все отменяются через `CancellationToken` |
 | Рекурсия условий > 10 уровней | Прерывается (предохранитель) |
-| `Run()` на квест в `InProgress` | `LogError`, дублирование предотвращено проверкой `ActiveQuests` |
+| `Run()` на квест в `InProgress` | Восстановление через `RestoreQuest` — пропуск логик до `SavePoint` |
 | Квест завершён → условия другого квеста зависят от него | Рекурсивная перепроверка через `CheckQuestStartConditions` |
