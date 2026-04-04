@@ -101,7 +101,8 @@ namespace Vortex.Core.ComplexModelSystem
                 return;
             }
 
-            Index = data.DeserializeProperties<Dictionary<Type, T>>();
+            //Index = data.DeserializeProperties<Dictionary<Type, T>>();
+            data.UploadProperties(Index);
             AfterDeserialization();
         }
 

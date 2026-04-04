@@ -160,5 +160,15 @@ namespace Vortex.Core.DatabaseSystem.Bus
         /// <returns></returns>
         public static string[] GetMultiInstancePresets<T>() where T : Record => Instance._multiInstanceRecords
             .Where(guid => Driver.CheckPresetType<T>(guid)).ToArray();
+
+        /// <summary>
+        /// Сбрасывает параметры записи до исходных из пресета
+        /// Влияет только на поля указанные в пресете
+        /// </summary>
+        /// <param name="record"></param>
+        public static void Reset(Record record)
+        {
+            
+        }
     }
 }

@@ -10,7 +10,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
     {
         /// <summary>
         /// Создает глубокую копию объекта через рефлексию.
-        ///
+        /// 
         /// Порядок обработки типов:
         /// 1. null → default(T)
         /// 2. Примитивы, string, decimal, DateTime, DateTimeOffset, TimeSpan, Guid, Uri, Version, enum → возврат as-is
@@ -23,16 +23,15 @@ namespace Vortex.Core.Extensions.LogicExtensions
         ///    Если Clone() делает shallow copy — вложенные ссылки будут разделяться с оригиналом
         /// 9. Прочие объекты → Activator.CreateInstance (fallback: FormatterServices.GetUninitializedObject)
         ///    + копирование всех полей (включая private и наследованные)
-        ///
+        /// 
         /// Граничные случаи:
         /// - Создание экземпляра: Activator → FormatterServices fallback; оба провалились → returnOriginalOnError
         /// - returnOriginalOnError подмешивает оригинал в граф копии — мутации оригинала будут видны
         /// - readonly поля копируются через рефлексию (SetValue обходит readonly)
         /// - FieldInfo[] кешируется статически по типу, не очищается
         /// </summary>
+        /// <param name="target">Целевой объект</param>
         /// <param name="source">Исходный объект</param>
-        /// <param name="returnOriginalOnError">При ошибке создания экземпляра вернуть оригинал вместо null</param>
-        /// <typeparam name="T">Тип объекта</typeparam>
         /// <returns>Глубокая копия или default при null</returns>
         public static bool CopyFrom(this Object target, Object source)
         {
@@ -43,7 +42,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
                 var targetProperties = modelType.GetProperties()
                     .Where(p => p.CanWrite)
                     .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
-                
+
                 foreach (var sourceProp in properties)
                 {
                     if (!targetProperties.TryGetValue(sourceProp.Name, out var prop))
@@ -60,16 +59,6 @@ namespace Vortex.Core.Extensions.LogicExtensions
                     else
                         prop.SetValue(target, value.DeepCopy());
                 }
-                /*foreach (var sourceProp in properties)
-                {
-                    if (!targetProperties.TryGetValue(sourceProp.Name, out var prop))
-                        continue;
-                    if (prop == null || !prop.CanWrite)
-                        continue;
-
-                    var value = sourceProp.GetValue(source);
-                    prop.SetValue(target, value);
-                }*/
 
                 return true;
             }

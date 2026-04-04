@@ -8,7 +8,6 @@ namespace Vortex.Core.DatabaseSystem.Model
         /// <summary>
         /// Глобально уникальный идентификатор 
         /// </summary>
-        [NotPOCO]
         public string GuidPreset { get; protected set; }
 
         /// <summary>

@@ -5,6 +5,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
+using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.System.Abstractions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.Quests.QuestsLogics;
@@ -60,17 +61,14 @@ namespace Vortex.Sdk.Quests
         private static void NewGameLogic()
         {
             ResetController();
-
-            //First filling index
-            var index = Database.GetNewRecords<QuestModel>();
-            _data.Index = index.ToDictionary(q => q.GuidPreset, q => q);
-
             CheckQuestStartConditions();
         }
 
         private static void LoadGameLogic()
         {
             ResetController();
+            //RestorePresetData();
+
             foreach (var quest in _data.Index.Values)
             {
                 switch (quest.State)
@@ -96,6 +94,18 @@ namespace Vortex.Sdk.Quests
 
             CheckQuestStartConditions();
         }
+
+        /*
+        private static void RestorePresetData()
+        {
+            foreach (var guid in _data.Index.Keys)
+                Database.Reset(_data.Index[guid]);
+
+            //First filling index
+            var index = Database.GetNewRecords<QuestModel>();
+            _data.Index = index.ToDictionary(q => q.GuidPreset, q => q);
+        }
+        */
 
         private static void ResetController()
         {

@@ -41,6 +41,8 @@ namespace Vortex.Sdk.Core.GameCore
             await UniTask.Yield();
             SetGameState(GameStates.Loading);
 
+            _data.Init();
+
             var slot = SaveController.GetData(SaveKey);
             if (!slot.TryGetValue("data", out var data))
                 return;
@@ -50,7 +52,6 @@ namespace Vortex.Sdk.Core.GameCore
             ProcessData.Progress++;
             await UniTask.Yield();
 
-            _data.Init();
             SetGameState(GameStates.Play);
             OnLoadGame?.Invoke();
         }
