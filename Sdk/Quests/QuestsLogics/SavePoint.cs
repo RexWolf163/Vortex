@@ -1,5 +1,7 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace Vortex.Sdk.Quests.QuestsLogics
 {
@@ -7,8 +9,13 @@ namespace Vortex.Sdk.Quests.QuestsLogics
     /// Маркерная логика.
     /// QuestController обработает ее сохранив Step в квест-хозяин
     /// </summary>
+    [Serializable]
     public class SavePoint : QuestLogic
     {
+        [SerializeField, Range(1, 255)] private byte key = 1;
+
+        public byte Key => key;
+
         public override async UniTask<bool> Run(CancellationToken token)
         {
             await UniTask.Yield();

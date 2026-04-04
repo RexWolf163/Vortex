@@ -144,7 +144,7 @@ namespace Vortex.Sdk.Quests
                         continue;
                     if (ActiveQuests.ContainsKey(quest))
                     {
-                        Debug.LogError("Нарушение логики. Попытка перезапуска активного квеста!");
+                        Debug.LogError("[QuestController] Нарушение логики. Попытка перезапуска активного квеста!");
                         continue;
                     }
 
@@ -168,11 +168,8 @@ namespace Vortex.Sdk.Quests
                 quest.State = QuestState.InProgress;
                 quest.CallOnUpdated();
 
-                byte step = 0;
                 foreach (var logic in quest.Logics)
                 {
-                    if (++step <= quest.Step)
-                        continue;
                     if (token.IsCancellationRequested)
                         return;
 
@@ -181,7 +178,92 @@ namespace Vortex.Sdk.Quests
                     {
                         //Сохранение этапа квеста
                         case SavePoint sp:
-                            quest.Step = step;
+                            quest.Step = sp.Key;
+                            break;
+                    }
+
+                    var b = await logic.Run(token);
+                    if (b) continue;
+                    quest.State = !quest.UnFailable
+                        ? QuestState.Failed
+                        : QuestState.Locked;
+                    return;
+                }
+
+                quest.State = QuestState.Reward;
+                //Если пустая награда, то сразу завершаем
+                if (quest.Rewards.Length == 0)
+                {
+                    await UniTask.Yield();
+                    quest.State = QuestState.Completed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                if (!token.IsCancellationRequested)
+                {
+                    switch (quest.State)
+                    {
+                        case QuestState.Locked:
+                            break;
+                        case QuestState.Ready:
+                        case QuestState.InProgress:
+                            Debug.LogError(
+                                $"[Quest Controller] Ошибка в логике. Квест завершен в состоянии «{quest.State}». Принудительно переведен в «Completed»");
+                            quest.State = QuestState.Completed;
+                            CompletedQuests.Add(quest.GuidPreset, quest);
+                            break;
+                        case QuestState.Reward:
+                        case QuestState.Completed:
+                        case QuestState.Failed:
+                            CompletedQuests.Add(quest.GuidPreset, quest);
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+
+                    ActiveQuests.Remove(quest);
+                    quest.CallOnUpdated();
+                    OnUpdateData?.Invoke();
+                    CheckQuestStartConditions();
+                }
+            }
+        }
+
+        private static async UniTask RestoreQuest(QuestModel quest, CancellationToken token)
+        {
+            if (quest.State != QuestState.InProgress)
+            {
+                Debug.LogError(
+                    $"[QuestController] Некорректная попытка восстановления квеста «{quest.Name}» is «{quest.State}»");
+                return;
+            }
+
+            try
+            {
+                var search = quest.Step != 0;
+                quest.CallOnUpdated();
+                foreach (var logic in quest.Logics)
+                {
+                    if (search)
+                    {
+                        if (logic is SavePoint s && quest.Step == s.Key)
+                            search = false;
+                        continue;
+                    }
+
+                    if (token.IsCancellationRequested)
+                        return;
+                    //Обработка уникальных маркерных логик
+                    switch (logic)
+                    {
+                        //Сохранение этапа квеста
+                        case SavePoint sp:
+                            quest.Step = sp.Key;
                             break;
                     }
 
@@ -251,14 +333,17 @@ namespace Vortex.Sdk.Quests
         /// <param name="quest"></param>
         public static void Run(this QuestModel quest)
         {
-            if (quest.State != QuestState.Ready)
+            if (quest.State != QuestState.Ready && quest.State != QuestState.InProgress)
             {
                 Debug.LogError(
                     $"[QuestController] Попытка запуска неготового квеста «{quest.Name}» is «{quest.State}»");
                 return;
             }
 
-            ActiveQuests[quest] = RunQuest(quest, Token);
+            if (quest.State == QuestState.InProgress)
+                ActiveQuests[quest] = RestoreQuest(quest, Token);
+            else
+                ActiveQuests[quest] = RunQuest(quest, Token);
         }
 
         /// <summary>
