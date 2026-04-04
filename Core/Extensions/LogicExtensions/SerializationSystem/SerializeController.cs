@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
+using Vortex.Core.SettingsSystem.Bus;
 
 namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 {
@@ -140,9 +141,10 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             {
                 if (!IsPOCO(type))
                 {
-                    Log.Print(LogLevel.Warning,
-                        $"Type {type?.Name} is not marked [POCO], skipping serialization",
-                        "SerializeController");
+                    if (Settings.Data().DebugMode)
+                        Log.Print(LogLevel.Warning,
+                            $"Type {type?.Name} is not marked [POCO], skipping serialization",
+                            "SerializeController");
                     return "null";
                 }
 
@@ -329,9 +331,10 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
             if (!IsPOCO(type))
             {
-                Log.Print(LogLevel.Warning,
-                    $"Type {type.Name} is not marked [POCO], skipping deserialization",
-                    "SerializeController");
+                if (Settings.Data().DebugMode)
+                    Log.Print(LogLevel.Warning,
+                        $"Type {type.Name} is not marked [POCO], skipping deserialization",
+                        "SerializeController");
                 return null;
             }
 
@@ -350,9 +353,10 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 var props = type.GetProperty(name);
                 if (props == null)
                 {
-                    Log.Print(LogLevel.Warning,
-                        $"Property {type.Name}.{name} not found, skipping",
-                        "SerializeController");
+                    if (Settings.Data().DebugMode)
+                        Log.Print(LogLevel.Warning,
+                            $"Property {type.Name}.{name} not found, skipping",
+                            "SerializeController");
                     continue;
                 }
 
@@ -365,9 +369,10 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 }
                 else
                 {
-                    Log.Print(LogLevel.Warning,
-                        $"Property {type.Name}.{name} has no setter, skipping",
-                        "SerializeController");
+                    if (Settings.Data().DebugMode)
+                        Log.Print(LogLevel.Warning,
+                            $"Property {type.Name}.{name} has no setter, skipping",
+                            "SerializeController");
                 }
             }
 

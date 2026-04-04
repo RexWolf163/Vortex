@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Vortex.Core.ComplexModelSystem;
+using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 
 namespace Vortex.Sdk.Core.GameCore
 {
@@ -15,6 +16,7 @@ namespace Vortex.Sdk.Core.GameCore
         /// <summary>
         /// Интерфейс-маркер
         /// </summary>
+        [POCO]
         public interface IGameData
         {
         }

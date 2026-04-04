@@ -137,7 +137,8 @@ namespace Vortex.Core.SaveSystem.Bus
             }
             catch (Exception e)
             {
-                Log.Print(new LogData(LogLevel.Error, $"Error while loading data\n{e.Message}", "SaveController"));
+                Log.Print(new LogData(LogLevel.Error, $"Error while loading data\n{e.Message}\n{e.StackTrace}",
+                    "SaveController"));
             }
 
             State = SaveControllerStates.Idle;

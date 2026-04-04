@@ -1,4 +1,5 @@
-﻿using Vortex.Core.System.Abstractions.SystemControllers;
+﻿using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
+using Vortex.Core.System.Abstractions.SystemControllers;
 
 namespace Vortex.Core.DatabaseSystem.Model
 {
@@ -7,16 +8,19 @@ namespace Vortex.Core.DatabaseSystem.Model
         /// <summary>
         /// Глобально уникальный идентификатор 
         /// </summary>
+        [NotPOCO]
         public string GuidPreset { get; protected set; }
 
         /// <summary>
         /// Наименование элемента БД
         /// </summary>
+        [NotPOCO]
         public string Name { get; protected set; }
 
         /// <summary>
         /// Описание элемента БД
         /// </summary>
+        [NotPOCO]
         public string Description { get; protected set; }
 
         /// <summary>

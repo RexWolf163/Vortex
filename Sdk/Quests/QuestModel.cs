@@ -1,12 +1,14 @@
 ﻿using System;
 using Vortex.Sdk.Quests.Conditions;
 using Vortex.Core.DatabaseSystem.Model;
+using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 using Vortex.Sdk.Quests.QuestRewardLogics;
 using Vortex.Sdk.Quests.QuestsLogics;
 
 namespace Vortex.Sdk.Quests
 {
-    [Serializable]
+    [Serializable, POCO]
     public class QuestModel : Record
     {
         public event Action OnStateUpdated;
@@ -22,11 +24,13 @@ namespace Vortex.Sdk.Quests
         /// <summary>
         /// Квест запускает автоматически если все условия запуска выполнены
         /// </summary>
+        [NotPOCO]
         public bool Autorun { get; private set; }
 
         /// <summary>
         /// Квест не может закончиться как Failed. В этом случае его состояние вернется в Locked
         /// </summary>
+        [NotPOCO]
         public bool UnFailable { get; internal set; }
 
         /// <summary>
@@ -41,21 +45,9 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         public QuestRewardLogic[] Rewards { get; internal set; }
 
-        public override string GetDataForSave()
-        {
-            return $"{State};{Step}";
-        }
+        public override string GetDataForSave() => this.SerializeProperties();
 
-        public override void LoadFromSaveData(string data)
-        {
-            var ar = data.Split(';');
-            State = QuestState.Locked;
-            Step = 0;
-            if (ar.Length != 2)
-                return;
-            State = (QuestState)Enum.Parse(typeof(QuestState), ar[0]);
-            Step = (byte)int.Parse(ar[1]);
-        }
+        public override void LoadFromSaveData(string data) => this.CopyFrom(data.DeserializeProperties<QuestModel>());
 
         internal void CallOnUpdated() => OnStateUpdated?.Invoke();
     }
