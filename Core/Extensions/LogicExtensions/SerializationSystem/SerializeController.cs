@@ -44,14 +44,15 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         #region POCO Validation
 
         /// <summary>
-        /// Проверяет наличие атрибута [POCO] на типе (с кешированием)
+        /// Проверяет наличие атрибута [POCO] на типе или его интерфейсах (с кешированием)
         /// </summary>
         private static bool IsPOCO(Type type)
         {
             if (type == null) return false;
             if (!CachePOCO.TryGetValue(type, out var result))
             {
-                result = type.GetCustomAttribute<POCOAttribute>() != null;
+                result = type.GetCustomAttribute<POCOAttribute>() != null
+                         || type.GetInterfaces().Any(i => i.GetCustomAttribute<POCOAttribute>() != null);
                 CachePOCO[type] = result;
             }
 

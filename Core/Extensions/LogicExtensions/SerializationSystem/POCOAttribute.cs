@@ -4,10 +4,12 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 {
     /// <summary>
     /// Маркер сериализуемого типа данных.
-    /// Сериализатор обрабатывает только классы/структуры помеченные этим атрибутом.
+    /// Сериализатор обрабатывает только типы помеченные этим атрибутом.
+    /// Допускается на классе, структуре или интерфейсе.
+    /// При размещении на интерфейсе все его реализации считаются сериализуемыми.
     /// Простые типы (примитивы, string, enum, DateTime, Guid) сериализуются всегда.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface, Inherited = false)]
     public class POCOAttribute : Attribute { }
 
     /// <summary>
