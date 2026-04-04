@@ -1,4 +1,4 @@
-﻿namespace Vortex.Core.System.Abstractions.ReactiveValues
+﻿namespace Vortex.Core.Extensions.ReactiveValues
 {
     public class BoolData : ReactiveValue<bool>
     {

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Globalization;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
-using Vortex.Core.System.Abstractions.ReactiveValues;
 
 namespace Vortex.Core.AudioSystem.Model
 {

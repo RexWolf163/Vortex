@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Vortex.Core.System.Abstractions.ReactiveValues
+namespace Vortex.Core.Extensions.ReactiveValues
 {
     public abstract class ReactiveValue<T> : IReactiveData
     {

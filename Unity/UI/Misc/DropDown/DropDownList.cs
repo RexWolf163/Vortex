@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
-using Vortex.Core.System.Abstractions.ReactiveValues;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Unity.UI.PoolSystem;
 
 namespace Vortex.Unity.UI.Misc.DropDown

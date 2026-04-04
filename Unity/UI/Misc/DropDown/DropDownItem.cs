@@ -1,8 +1,8 @@
 ﻿using System;
 using UnityEngine;
 using Vortex.Core.Extensions.DefaultEnums;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.System.Abstractions;
-using Vortex.Core.System.Abstractions.ReactiveValues;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.UI.UIComponents;
 

@@ -6,7 +6,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
-using Vortex.Core.System.Abstractions.ReactiveValues;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.Quests.QuestsLogics;
 

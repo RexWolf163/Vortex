@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Naninovel;
 using UnityEngine;
@@ -51,6 +52,18 @@ namespace Vortex.NaniExtensions.Core
         public static ICustomVariableManager VariablesManager =>
             _variablesManager ??= Engine.GetService<ICustomVariableManager>();
 
+        /// <summary>
+        /// Nani script player Запущен
+        /// </summary>
+        public static event Action OnNaniStart;
+
+        /// <summary>
+        /// Nani script player Остановился и не ожидается Choice или иных действий 
+        /// </summary>
+        public static event Action OnNaniStop;
+
+        private static bool _isPlaying;
+
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
         {
@@ -82,6 +95,9 @@ namespace Vortex.NaniExtensions.Core
 
         public static void ResetNani()
         {
+            ScriptPlayer.OnPlay -= OnScriptEvent;
+            ScriptPlayer.OnStop -= OnScriptEvent;
+
             AudioManager.StopAllBgm();
             AudioManager.StopAllSfx();
             AudioManager.StopVoice();
@@ -107,6 +123,20 @@ namespace Vortex.NaniExtensions.Core
             }
 
             ChoiceHandlerManager.ResetService();
+
+            ScriptPlayer.OnPlay += OnScriptEvent;
+            ScriptPlayer.OnStop += OnScriptEvent;
+        }
+
+        private static void OnScriptEvent(Script obj)
+        {
+            if (_isPlaying == NaniIsPlaying())
+                return;
+            _isPlaying = NaniIsPlaying();
+            if (_isPlaying)
+                OnNaniStart?.Invoke();
+            else
+                OnNaniStop?.Invoke();
         }
 
         public static bool NaniIsPlaying()

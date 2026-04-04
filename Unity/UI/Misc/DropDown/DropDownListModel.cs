@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using Vortex.Core.System.Abstractions.ReactiveValues;
+using Vortex.Core.Extensions.ReactiveValues;
 
 namespace Vortex.Unity.UI.Misc.DropDown
 {
