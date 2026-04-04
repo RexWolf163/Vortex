@@ -67,8 +67,11 @@ namespace Vortex.NaniExtensions.Core
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
         {
+            GameController.OnNewGame -= OnNewGame;
+            GameController.OnLoadGame -= OnLoadGame;
+            GameController.OnGameStateChanged -= OnStateChanged;
             GameController.OnNewGame += OnNewGame;
-            GameController.OnLoadGame += OnNewGame;
+            GameController.OnLoadGame += OnLoadGame;
             GameController.OnGameStateChanged += OnStateChanged;
         }
 
@@ -91,6 +94,12 @@ namespace Vortex.NaniExtensions.Core
             ScriptPlayer.Stop();
             ResetNani();
             VariablesManager.ResetAllVariables();
+        }
+
+        private static void OnLoadGame()
+        {
+            ScriptPlayer.Stop();
+            ResetNani();
         }
 
         public static void ResetNani()
