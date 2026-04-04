@@ -43,7 +43,16 @@
 
 ## Архитектура
 
-Статический класс с двумя extension-методами и два атрибута для управления сериализацией.
+Partial-класс `SerializeController` разбит на 4 файла:
+
+| Файл | Назначение |
+|------|-----------|
+| `SerializeController.cs` | Общая инфраструктура: кеши, POCO-валидация, парсинг JSON, простые типы |
+| `SerializeControllerExtSerialization.cs` | Сериализация объектов в JSON-строку |
+| `SerializeControllerExtDeserialization.cs` | Десериализация JSON-строки в новые объекты |
+| `SerializeControllerExtUploading.cs` | Загрузка данных из JSON в существующие объекты |
+
+Дополнительно — два атрибута в `POCOAttribute.cs`.
 
 ### Атрибуты
 
@@ -90,6 +99,22 @@ DeserializeProperties<T>(string)
     Object         -> SeparateText() -> читает "__" маркер
                       Type.GetType() -> IsPOCO? -> Activator.CreateInstance()
                       -> рекурсия по свойствам (пропуск [NotPOCO])
+```
+
+### Процесс загрузки (Upload)
+
+В отличие от десериализации, не создаёт новые экземпляры, а обновляет существующие.
+Ключи словарей, которых нет в данных, сохраняются (мерж).
+
+```
+UploadProperties<T>(string, T)
+  IDictionary?    -> UploadDictionary()  (мерж: существующие обновляются, новые добавляются)
+  Array?          -> UploadArray()       (пересоздаёт массив)
+  IList?          -> UploadCollection()  (clear + заполнение)
+  Object          -> UploadClass()       (обновляет свойства target)
+    пустые данные -> ClearClass()        (сброс свойств в default/null)
+    свойство null -> fallback на DeserializeClass() (создание нового)
+    свойство есть -> рекурсивный Upload в существующий объект
 ```
 
 ### Формат JSON

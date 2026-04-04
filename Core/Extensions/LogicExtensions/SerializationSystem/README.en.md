@@ -43,7 +43,16 @@ Out of scope:
 
 ## Architecture
 
-Static class with two extension methods and two attributes for serialization control.
+Partial class `SerializeController` split into 4 files:
+
+| File | Purpose |
+|------|---------|
+| `SerializeController.cs` | Common infrastructure: caches, POCO validation, JSON parsing, simple types |
+| `SerializeControllerExtSerialization.cs` | Object serialization to JSON string |
+| `SerializeControllerExtDeserialization.cs` | JSON string deserialization into new objects |
+| `SerializeControllerExtUploading.cs` | Loading data from JSON into existing objects |
+
+Additionally — two attributes in `POCOAttribute.cs`.
 
 ### Attributes
 
@@ -90,6 +99,22 @@ DeserializeProperties<T>(string)
     Object         -> SeparateText() -> read "__" marker
                       Type.GetType() -> IsPOCO? -> Activator.CreateInstance()
                       -> recurse over properties (skip [NotPOCO])
+```
+
+### Upload flow
+
+Unlike deserialization, does not create new instances — updates existing ones.
+Dictionary keys not present in the data are preserved (merge).
+
+```
+UploadProperties<T>(string, T)
+  IDictionary?    -> UploadDictionary()  (merge: existing updated, new added)
+  Array?          -> UploadArray()       (recreates array)
+  IList?          -> UploadCollection()  (clear + fill)
+  Object          -> UploadClass()       (updates target properties)
+    empty data    -> ClearClass()        (reset properties to default/null)
+    property null -> fallback to DeserializeClass() (create new)
+    property set  -> recursive Upload into existing object
 ```
 
 ### JSON format
