@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,24 +10,29 @@ using Vortex.Core.LoggerSystem.Model;
 namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 {
     /// <summary>
-    /// Контроллер сериализации и десериализации
-    /// Обрабатывает публичные свойства с 'public' геттером и любым сеттером ('public', 'protected' или 'private').
-    /// Поля игнорируются.
-    /// Результат выводит в виде JSON строки, содержащей маркеры типов классов.
-    /// Обрабатывает словари с ключами в виде простых объектов (string, int, Type и т.п.)
+    /// Контроллер сериализации и десериализации.
+    /// Обрабатывает публичные свойства с 'public' геттером и любым сеттером.
     ///
-    /// Если в нескольких полях содержится указатель на одну сущность, при сериализации выдаст исключение (защита от зацикливания)
+    /// Сложные типы сериализуются только если помечены атрибутом [POCO].
+    /// Простые типы (примитивы, string, enum, DateTime, Guid) — всегда.
+    /// Свойства с атрибутом [NotPOCO] исключаются из сериализации.
     ///
-    /// Примечание: Решение спорное и находится в тестировании! Применять на свой страх и риск
+    /// Если в нескольких свойствах содержится указатель на одну сущность,
+    /// при сериализации выдаст ошибку (защита от зацикливания).
     /// </summary>
     public static class SerializeController
     {
         #region Parameters
 
         /// <summary>
-        /// Кеширование сериализуемых полей
+        /// Кеширование сериализуемых свойств (с учётом [NotPOCO] и IsSerializableType)
         /// </summary>
         private static readonly Dictionary<Type, PropertyInfo[]> CacheFields = new();
+
+        /// <summary>
+        /// Кеш проверки [POCO] атрибута на типах
+        /// </summary>
+        private static readonly Dictionary<Type, bool> CachePOCO = new();
 
         private static readonly HashSet<object> VisitedObjects = new();
 
@@ -35,14 +40,60 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
         #endregion
 
+        #region POCO Validation
+
+        /// <summary>
+        /// Проверяет наличие атрибута [POCO] на типе (с кешированием)
+        /// </summary>
+        private static bool IsPOCO(Type type)
+        {
+            if (type == null) return false;
+            if (!CachePOCO.TryGetValue(type, out var result))
+            {
+                result = type.GetCustomAttribute<POCOAttribute>() != null;
+                CachePOCO[type] = result;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Определяет, может ли тип быть сериализован.
+        /// Простые типы — всегда. Коллекции — если элемент сериализуем. Остальные — только с [POCO].
+        /// </summary>
+        private static bool IsSerializableType(Type type)
+        {
+            if (type == null) return false;
+            if (IsSimpleType(type)) return true;
+
+            if (typeof(IDictionary).IsAssignableFrom(type))
+            {
+                var args = type.GetGenericArguments();
+                if (args.Length < 2) return false;
+                if (!IsSimpleType(args[0]) && args[0] != typeof(Type)) return false;
+                return IsSerializableType(args[1]);
+            }
+
+            if (type.IsArray)
+                return IsSerializableType(type.GetElementType());
+
+            if (typeof(IList).IsAssignableFrom(type) && type != typeof(string))
+            {
+                var args = type.GetGenericArguments();
+                return args.Length > 0 && IsSerializableType(args[0]);
+            }
+
+            return IsPOCO(type);
+        }
+
+        #endregion
+
         #region Serialization
 
         /// <summary>
-        /// Сериализует модель в строку JSON стандарта
-        /// Сериализуются только публичные свойства с 'public' геттером и любым сеттером ('public', 'protected' или 'private').
-        /// Поля игнорируются.
-        ///
-        /// Примечание: Решение спорное (свойства, а не поля) и находится в тестировании! Применять на свой страх и риск
+        /// Сериализует модель в строку JSON.
+        /// Сериализуются только публичные свойства с getter и setter.
+        /// Сложные типы должны быть помечены [POCO], иначе пропускаются.
         /// </summary>
         public static string SerializeProperties(this object model)
         {
@@ -87,6 +138,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
             else
             {
+                if (!IsPOCO(type))
+                {
+                    Log.Print(LogLevel.Warning,
+                        $"Type {type?.Name} is not marked [POCO], skipping serialization",
+                        "SerializeController");
+                    return "null";
+                }
+
                 var props = GetReadablePropertiesList(type);
                 ar.Add($"\"{ClassTypeField}\" : \"{type.AssemblyQualifiedName}\"");
                 foreach (var prop in props)
@@ -202,13 +261,9 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
         /// <summary>
         /// Десериализатор данных из строки JSON выполненной сериализацией этого же контроллера.
-        /// Десериализуются только публичные свойства с 'public' геттером и любым сеттером ('public', 'protected' или 'private').
-        /// Есть проверка на соответствие десериализуемого типа свойству в которое должны поместиться данные
-        ///
-        /// Примечание: Решение спорное (свойства, а не поля) и находится в тестировании! Применять на свой страх и риск
+        /// Десериализуются только публичные свойства с getter и setter.
+        /// Сложные типы должны быть помечены [POCO].
         /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
         public static T DeserializeProperties<T>(this string data)
         {
             var type = typeof(T);
@@ -272,6 +327,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
             type = typeId;
 
+            if (!IsPOCO(type))
+            {
+                Log.Print(LogLevel.Warning,
+                    $"Type {type.Name} is not marked [POCO], skipping deserialization",
+                    "SerializeController");
+                return null;
+            }
+
             var model = Activator.CreateInstance(type);
             if (model == null)
             {
@@ -287,9 +350,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 var props = type.GetProperty(name);
                 if (props == null)
                 {
-                    Log.Print(LogLevel.Error, $"Deserialization error for {type}.{name}()", type);
-                    return null;
+                    Log.Print(LogLevel.Warning,
+                        $"Property {type.Name}.{name} not found, skipping",
+                        "SerializeController");
+                    continue;
                 }
+
+                if (props.GetCustomAttribute<NotPOCOAttribute>() != null)
+                    continue;
 
                 if (props.SetMethod != null)
                 {
@@ -297,8 +365,9 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 }
                 else
                 {
-                    Log.Print(LogLevel.Error, $"Deserialization error for {type}.{name}()", type);
-                    return null;
+                    Log.Print(LogLevel.Warning,
+                        $"Property {type.Name}.{name} has no setter, skipping",
+                        "SerializeController");
                 }
             }
 
@@ -356,14 +425,12 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
             else
             {
-                // Не поддерживаемый тип словаря
                 Log.Print(LogLevel.Error, $"Unsupported dictionary type for deserialization: {type}", type);
                 return null;
             }
 
             if (!IsSimpleType(keyType) && keyType != typeof(Type))
             {
-                // Не поддерживаемый тип словаря
                 Log.Print(LogLevel.Error, $"Unsupported dictionary type for deserialization: {type}", type);
                 return null;
             }
@@ -414,11 +481,9 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         }
 
         /// <summary>
-        /// разделитель текста по блокам.
+        /// Разделитель текста по блокам.
         /// Считает закрывающие и открывающие скобки, а так же кавычки
         /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
         private static List<string> SeparateText(string data)
         {
             var result = new List<string>();
@@ -479,7 +544,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             var end = l;
             var endPartStart = l;
             var wasDivider = false;
-            //Нет кавычек - значит специальное значение 
+            //Нет кавычек - значит специальное значение
             if (text[0] != '"')
                 return text;
 
@@ -553,9 +618,6 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         /// Заполняет простой тип строковыми данными.
         /// Поддерживает все типы, возвращающие true в IsSimpleType.
         /// </summary>
-        /// <param name="type">Целевой тип</param>
-        /// <param name="valueStr">Строковое представление значения</param>
-        /// <returns>Десериализованное значение или null</returns>
         private static object SetSimple(Type type, string valueStr)
         {
             if (valueStr == "null") return null;
@@ -627,8 +689,6 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         /// <summary>
         /// Проверка на принадлежность к "простым" типам данных
         /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
         private static bool IsSimpleType(Type type)
         {
             if (type == null) return true;
@@ -648,21 +708,24 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         }
 
         /// <summary>
-        /// Возвращает список свойств подлежащих сериализации
+        /// Возвращает список свойств подлежащих сериализации.
+        /// Фильтрует: публичный getter, наличие setter, отсутствие [NotPOCO], тип сериализуем.
         /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
         private static PropertyInfo[] GetReadablePropertiesList(Type type)
         {
-            if (!CacheFields.ContainsKey(type))
+            if (!CacheFields.TryGetValue(type, out var props))
             {
-                CacheFields[type] = type
+                props = type
                     .GetProperties(BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.Instance)
-                    .Where(p => p.CanRead && p.SetMethod != null)
+                    .Where(p => p.CanRead
+                                && p.SetMethod != null
+                                && p.GetCustomAttribute<NotPOCOAttribute>() == null
+                                && IsSerializableType(p.PropertyType))
                     .ToArray();
+                CacheFields[type] = props;
             }
 
-            return CacheFields[type];
+            return props;
         }
 
         private static string JsonEncode(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
