@@ -1,5 +1,6 @@
 using System;
 using Vortex.Core.Extensions.LogicExtensions.Actions;
+using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 
 namespace Vortex.Core.MappedParametersSystem.Base
 {
@@ -9,7 +10,7 @@ namespace Vortex.Core.MappedParametersSystem.Base
     /// Родитель параметра определяется при помощи управляющего контроллера
     /// Логика определяется управляющим контроллером
     /// </summary>
-    [Serializable]
+    [Serializable, POCO]
     public class GenericParameter
     {
         public event Action OnUpdate;

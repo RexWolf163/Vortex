@@ -60,6 +60,11 @@ namespace Vortex.Sdk.Quests
         private static void NewGameLogic()
         {
             ResetController();
+
+            //First filling index
+            var index = Database.GetNewRecords<QuestModel>();
+            _data.Index = index.ToDictionary(q => q.GuidPreset, q => q);
+
             CheckQuestStartConditions();
         }
 
@@ -104,8 +109,6 @@ namespace Vortex.Sdk.Quests
             }
 
             _data = GameController.Get<QuestModels>();
-            var index = Database.GetNewRecords<QuestModel>();
-            _data.Index = index.ToDictionary(q => q.GuidPreset, q => q);
         }
 
         /// <summary>

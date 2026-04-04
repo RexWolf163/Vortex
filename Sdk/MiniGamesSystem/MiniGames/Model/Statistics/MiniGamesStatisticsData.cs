@@ -11,6 +11,12 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model.Statistics
     {
         internal Dictionary<string, MiniGameStatisticData> index;
 
+        private Dictionary<string, MiniGameStatisticData> IndexData
+        {
+            get => index;
+            set => index = value;
+        }
+
         public IReadOnlyDictionary<string, MiniGameStatisticData> Index =>
             index ??= new Dictionary<string, MiniGameStatisticData>();
     }

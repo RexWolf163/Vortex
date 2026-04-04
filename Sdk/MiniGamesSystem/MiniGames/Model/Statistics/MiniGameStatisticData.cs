@@ -1,8 +1,11 @@
+using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
+
 namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model.Statistics
 {
     /// <summary>
     /// Статистические данные миниигры
     /// </summary>
+    [POCO]
     public class MiniGameStatisticData
     {
         /// <summary>

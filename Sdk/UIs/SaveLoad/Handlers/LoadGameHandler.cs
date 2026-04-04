@@ -21,13 +21,13 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         private IDataStorage _storage;
         private IDataStorage Storage => _storage ??= source as IDataStorage;
 
-        [SerializeField, AutoLink] private UIComponent button;
+        [SerializeField] private UIComponent button;
 
-        private void OnEnable() => button.SetAction(LoadGame);
+        private void OnEnable() => button?.SetAction(LoadGame);
 
-        private void OnDisable() => button.SetAction(null);
+        private void OnDisable() => button?.SetAction(null);
 
-        private void LoadGame()
+        public void LoadGame()
         {
             var saveSlot = Storage.GetData<SaveSlotData>();
             if (saveSlot == null)
