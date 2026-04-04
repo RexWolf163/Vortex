@@ -162,10 +162,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             else if (canvas != null)
                 RenderCanvas(result);
             else
-            {
                 Debug.LogWarning($"[CameraCaptureHandler] '{name}' has no Camera or Canvas assigned.");
-                return;
-            }
         }
 
         /// <summary>
