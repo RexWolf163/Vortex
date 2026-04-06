@@ -48,6 +48,12 @@ namespace Vortex.Unity.EditorTools.DomModel
         public int ComponentCount;
 
         /// <summary>
+        /// Фрейм последней пересборки по причине «узел не найден».
+        /// Не чаще одного раза за кадр — защита от бесконечного цикла.
+        /// </summary>
+        public int LastRebuiltFrame = -1;
+
+        /// <summary>
         /// Владелец страницы
         /// </summary>
         public GameObject Owner { get; private set; }

@@ -150,9 +150,14 @@ namespace Vortex.Unity.EditorTools.Bus
                     return !IsPropertyValid(node.Data.Property) ? null : node;
 
                 // Узел не найден — структура изменилась (добавлен элемент в коллекцию и т.п.)
-                BuildPageStructure(page);
-                RecomputeAllHeights(page);
-                page.LastComputedFrame = currentFrame;
+                // Пересборка не чаще одного раза за кадр
+                if (page.LastRebuiltFrame != currentFrame)
+                {
+                    page.LastRebuiltFrame = currentFrame;
+                    BuildPageStructure(page);
+                    RecomputeAllHeights(page);
+                    page.LastComputedFrame = currentFrame;
+                }
 
                 return page.Nodes.TryGetValue(nodeKey, out node) ? node : null;
             }
