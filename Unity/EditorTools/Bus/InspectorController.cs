@@ -308,9 +308,10 @@ namespace Vortex.Unity.EditorTools.Bus
                 order += attrPos.Priority;
             }
 
-            // Элемент массива: имеет FieldInfo массива (для атрибутов), но рендерится как контейнер
+            // Элемент массива: имеет FieldInfo массива (для атрибутов).
+            // Сложные элементы (struct/class с children) — контейнеры; простые (enum, int) — нет.
             var isArrayElement = property.propertyPath.EndsWith("]");
-            if (isArrayElement)
+            if (isArrayElement && property.hasVisibleChildren)
                 return new DomNode(page, parent, property, label) { IsContainer = true, Order = order };
 
             return new DomNode(page, parent, property, label) { Order = order };
