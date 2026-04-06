@@ -132,6 +132,9 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         private static void CheckQuestStartConditions(int counter)
         {
+            var state = GameController.GetState();
+            if (state == GameStates.Off || state == GameStates.Loading)
+                return;
             var list = _data.Index.Values.Where(q => q.State == QuestState.Locked);
             var updated = false;
             foreach (var quest in list)

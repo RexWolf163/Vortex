@@ -22,6 +22,8 @@ namespace Vortex.NaniExtensions.AudioSystem
         private static string _voiceCutsceneChannel;
         private static bool _cutsceneMode;
 
+        private static bool _wasStarted;
+
         [RuntimeInitializeOnLoadMethod]
         private static void Run()
         {
@@ -40,6 +42,8 @@ namespace Vortex.NaniExtensions.AudioSystem
 
         private static void Init()
         {
+            if (_wasStarted) return;
+            _wasStarted = true;
             var channelConfigs = Resources.LoadAll<AudioChannelsConfig>("");
             var channelConfig = channelConfigs.Length > 0 ? channelConfigs[0] : null;
             if (channelConfig == null)

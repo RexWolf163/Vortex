@@ -12,17 +12,22 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
     /// </summary>
     public class SaveGameHandler : MonoBehaviour
     {
-        [SerializeField, AutoLink] private UIComponent uiComponent;
+        [SerializeField] private UIComponent uiComponent;
 
         private void OnEnable()
         {
-            uiComponent.SetAction(() => SaveGame().Forget(Debug.LogException));
+            uiComponent?.SetAction(() => SaveGame().Forget(Debug.LogException));
         }
 
         private void OnDisable()
         {
-            uiComponent.SetAction(null);
+            uiComponent?.SetAction(null);
         }
+
+        /// <summary>
+        /// Запуск сохранения игры
+        /// </summary>
+        public void Save() => SaveGame().Forget(Debug.LogException);
 
         [Button]
         private async UniTask SaveGame()
