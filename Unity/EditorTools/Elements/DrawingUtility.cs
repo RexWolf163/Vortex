@@ -275,8 +275,15 @@ namespace Vortex.Unity.EditorTools.Elements
                 case SerializedPropertyType.Enum:
                     var enumType = data.FieldInfo?.FieldType;
 
-                    if (enumType != null && Nullable.GetUnderlyingType(enumType) is { } underlyingType)
-                        enumType = underlyingType;
+                    if (enumType != null && !enumType.IsEnum)
+                    {
+                        if (Nullable.GetUnderlyingType(enumType) is { } nullable)
+                            enumType = nullable;
+                        else if (enumType.IsArray)
+                            enumType = enumType.GetElementType();
+                        else if (enumType.IsGenericType)
+                            enumType = enumType.GetGenericArguments()[0];
+                    }
 
                     if (enumType != null && enumType.IsEnum)
                     {
