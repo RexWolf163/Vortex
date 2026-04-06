@@ -273,10 +273,21 @@ namespace Vortex.Unity.EditorTools.Elements
                     break;
 
                 case SerializedPropertyType.Enum:
-                    var enumType = data.FieldInfo.FieldType;
-                    var enumValue = Enum.ToObject(enumType, property.intValue);
-                    var newValue = EditorGUI.EnumPopup(position, (Enum)enumValue);
-                    property.intValue = Convert.ToInt32(newValue);
+                    var enumType = data.FieldInfo?.FieldType;
+
+                    if (enumType != null && Nullable.GetUnderlyingType(enumType) is { } underlyingType)
+                        enumType = underlyingType;
+
+                    if (enumType != null && enumType.IsEnum)
+                    {
+                        var enumValue = Enum.ToObject(enumType, property.intValue);
+                        var newValue = EditorGUI.EnumPopup(position, (Enum)enumValue);
+                        property.intValue = Convert.ToInt32(newValue);
+                    }
+                    else
+                    {
+                        property.intValue = EditorGUI.IntField(position, property.intValue);
+                    }
                     break;
 
                 case SerializedPropertyType.Color:
