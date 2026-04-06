@@ -13,8 +13,17 @@ namespace Vortex.Sdk.Quests.Conditions.Logics
         public override bool Check()
         {
             var result = QuestController.IsComplete(quest);
-            //Подписки не нужны, так как контроллер проверит сам  
             return result;
+        }
+
+        public override void DisposeListeners()
+        {
+            //Подписки не нужны, так как контроллер проверит сам  
+        }
+
+        public override void InitListeners()
+        {
+            //Подписки не нужны, так как контроллер проверит сам  
         }
     }
 }

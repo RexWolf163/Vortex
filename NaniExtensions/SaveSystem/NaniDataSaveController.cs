@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using Naninovel;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;

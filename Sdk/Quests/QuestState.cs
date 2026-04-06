@@ -2,6 +2,7 @@
 {
     public enum QuestState
     {
+        Unset, //Не инициирован
         Locked, //Неготов к запуску по условиям
         Ready, //Готов к запуску
         InProgress, //В процессе

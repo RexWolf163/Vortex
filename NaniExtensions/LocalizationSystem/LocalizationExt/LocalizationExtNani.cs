@@ -66,14 +66,14 @@ namespace Vortex.Core.LocalizationSystem.Bus
         {
             _currentVoiceLanguage = language;
             ChDriver?.SetChannelLanguage((byte)LocaleChannels.Voice, language)
-                .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "[Localization]"));
+                .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "Localization"));
         }
 
         public static void SetCurrentDialogueLanguage(string language)
         {
             _currentDialogueLanguage = language;
             ChDriver?.SetChannelLanguage((byte)LocaleChannels.Dialogue, language)
-                .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "[Localization]"));
+                .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "Localization"));
         }
     }
 }

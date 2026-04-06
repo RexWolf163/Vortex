@@ -4,8 +4,6 @@ using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using Vortex.Core.DatabaseSystem.Bus;
-using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.Quests.QuestsLogics;
@@ -61,6 +59,14 @@ namespace Vortex.Sdk.Quests
         private static void NewGameLogic()
         {
             ResetController();
+
+            //Инициализация квестов
+            var list = _data.Index.Values.Where(q => q.State == QuestState.Unset);
+            //безусловное переключение, но сам по себе этап может быть
+            //полезен для отлова новых квестов на сейве, например
+            foreach (var quest in list)
+                quest.State = QuestState.Locked;
+
             CheckQuestStartConditions();
         }
 
@@ -73,6 +79,11 @@ namespace Vortex.Sdk.Quests
             {
                 switch (quest.State)
                 {
+                    case QuestState.Unset:
+                        //безусловное переключение, но сам по себе этап может быть
+                        //полезен для отлова новых квестов на сейве, например
+                        quest.State = QuestState.Locked;
+                        break;
                     case QuestState.Locked:
                     case QuestState.Ready:
                         break;
@@ -133,8 +144,17 @@ namespace Vortex.Sdk.Quests
         private static void CheckQuestStartConditions(int counter)
         {
             var state = GameController.GetState();
-            if (state == GameStates.Off || state == GameStates.Loading)
-                return;
+            switch (state)
+            {
+                case GameStates.Off:
+                {
+                    foreach (var quest in _data.Index.Values) quest.Reset();
+                    return;
+                }
+                case GameStates.Loading:
+                    return;
+            }
+
             var list = _data.Index.Values.Where(q => q.State == QuestState.Locked);
             var updated = false;
             foreach (var quest in list)
@@ -168,6 +188,9 @@ namespace Vortex.Sdk.Quests
         {
             try
             {
+                foreach (var condition in quest.StartConditions)
+                    condition.DisposeListeners();
+
                 quest.State = QuestState.InProgress;
                 quest.CallOnUpdated();
 
@@ -211,6 +234,7 @@ namespace Vortex.Sdk.Quests
                 {
                     switch (quest.State)
                     {
+                        case QuestState.Unset:
                         case QuestState.Locked:
                             break;
                         case QuestState.Ready:
@@ -296,6 +320,7 @@ namespace Vortex.Sdk.Quests
                 {
                     switch (quest.State)
                     {
+                        case QuestState.Unset:
                         case QuestState.Locked:
                             break;
                         case QuestState.Ready:

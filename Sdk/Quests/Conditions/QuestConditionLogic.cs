@@ -14,5 +14,24 @@ namespace Vortex.Sdk.Quests.Conditions
         /// </summary>
         /// <returns></returns>
         public abstract bool Check();
+
+        /// <summary>
+        /// Подписка на проверки срабатывания
+        ///
+        /// Пример:
+        ///   public override void SubscribeOnUpdate()
+        ///     {
+        ///        NaniWrapper.OnNaniStart += QuestController.CheckQuestStartConditions;
+        ///
+        ///        Альтернативная подписка для IReactiveData
+        ///        QuestController.SetListener(GameController.Instance, this); 
+        ///     }
+        /// </summary>
+        public abstract void InitListeners();
+
+        /// <summary>
+        /// Отписка от проверок на срабатывание
+        /// </summary>
+        public abstract void DisposeListeners();
     }
 }

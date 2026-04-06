@@ -50,5 +50,15 @@ namespace Vortex.Sdk.Quests
         public override void LoadFromSaveData(string data) => this.CopyFrom(data.DeserializeProperties<QuestModel>());
 
         internal void CallOnUpdated() => OnStateUpdated?.Invoke();
+
+        public void Reset()
+        {
+            State = QuestState.Unset;
+            Step = 0;
+            foreach (var condition in StartConditions)
+                condition.DisposeListeners();
+
+            // Logics останавливаются по токену 
+        }
     }
 }
