@@ -1,8 +1,10 @@
 using System;
 using UnityEngine;
 using Vortex.NaniExtensions.Core;
+using Vortex.Sdk.Quests;
+using Vortex.Sdk.Quests.Conditions;
 
-namespace Vortex.Sdk.Quests.Conditions.Logics
+namespace Vortex.NaniExtensions.QuestSystem.Conditions
 {
     [Serializable]
     public class NaniPlayerState : QuestConditionLogic
