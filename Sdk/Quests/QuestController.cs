@@ -156,10 +156,12 @@ namespace Vortex.Sdk.Quests
             switch (state)
             {
                 case GameStates.Off:
+                /*
                 {
                     foreach (var quest in _data.Index.Values) quest.Reset();
                     return;
                 }
+                */
                 case GameStates.Loading:
                     return;
             }
