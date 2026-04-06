@@ -42,6 +42,12 @@ namespace Vortex.Unity.EditorTools.DomModel
         public bool HasScrollbar;
 
         /// <summary>
+        /// Количество компонентов при последнем построении.
+        /// При изменении — структура пересобирается.
+        /// </summary>
+        public int ComponentCount;
+
+        /// <summary>
         /// Владелец страницы
         /// </summary>
         public GameObject Owner { get; private set; }

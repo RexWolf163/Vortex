@@ -112,10 +112,12 @@ namespace Vortex.Unity.EditorTools.Bus
                     Pages[pageId] = page;
                 }
 
-                // Инвалидация при resize окна или dirty-флаге
-                if (Math.Abs(page.ViewWidth - currentWidth) > 1f || _isDirty)
+                // Инвалидация при resize окна, dirty-флаге или изменении количества компонентов
+                var componentCount = gameObject != null ? gameObject.GetComponents<Component>().Length : 1;
+                if (Math.Abs(page.ViewWidth - currentWidth) > 1f || _isDirty || page.ComponentCount != componentCount)
                 {
                     page.ViewWidth = currentWidth;
+                    page.ComponentCount = componentCount;
                     page.IsCalculated = false;
                 }
 
