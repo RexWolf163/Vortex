@@ -98,6 +98,7 @@ DeserializeProperties<T>(string)
     IList?         -> DeserializeCollection()
     Object         -> SeparateText() -> читает "__" маркер
                       Type.GetType() -> IsPOCO? -> Activator.CreateInstance()
+                      fallback -> FormatterServices.GetUninitializedObject()
                       -> рекурсия по свойствам (пропуск [NotPOCO])
 ```
 
@@ -341,3 +342,4 @@ public class GameModel : ComplexModel<IGameData>
 | Пустая строка при десериализации | `null` |
 | `null`-элемент в коллекции | Пропускается при десериализации |
 | `[POCO]` на интерфейсе | Все реализации считаются сериализуемыми |
+| Тип без конструктора по умолчанию | Fallback на `FormatterServices.GetUninitializedObject()` — поля не инициализируются конструктором |

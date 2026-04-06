@@ -8,12 +8,12 @@
 Система квестов с асинхронным выполнением. Управляет жизненным циклом квестов: проверка условий старта, последовательное выполнение логик, завершение с результатом.
 
 Возможности:
-- Жизненный цикл: `Locked` → `Ready` → `InProgress` → `Reward` → `Completed` / `Failed`
-- Условия старта — AND-группы произвольных проверок
+- Жизненный цикл: `Unset` → `Locked` → `Ready` → `InProgress` → `Reward` → `Completed` / `Failed`
+- Условия старта — AND-группы произвольных проверок с автоподпиской (`InitListeners`/`DisposeListeners`)
 - Асинхронное последовательное выполнение логик через UniTask
 - Автозапуск квестов при выполнении условий
 - Рекурсивная перепроверка условий при завершении квестов (с предохранителем глубины)
-- Реактивные слушатели — подписка на `IReactiveData` для автоматической перепроверки условий
+- Защита от проверки в неактивных состояниях игры (`GameStates.Off`, `Loading`)
 - Режим `UnFailable` — при провале квест возвращается в `Locked` вместо `Failed`
 - Отмена всех активных квестов через `CancellationToken` при новой игре
 - Восстановление квестов при загрузке — пропуск логик до сохранённого `SavePoint`
@@ -27,8 +27,9 @@
 ## Зависимости
 
 ### Core
-- `Vortex.Core.DatabaseSystem` — `Database`, `Record`, `RecordPreset`
-- `Vortex.Core.System.Abstractions` — `IDataStorage`, `IReactiveData`
+- `Vortex.Core.DatabaseSystem` — `Record`, `RecordPreset`
+- `Vortex.Core.System.Abstractions` — `IDataStorage`
+- `Vortex.Core.Extensions.ReactiveValues` — `IReactiveData` (для `SetListener`)
 - `Vortex.Core.Extensions.LogicExtensions` — сериализация
 
 ### SDK
@@ -44,28 +45,31 @@
 QuestController (static, partial)
 ├── QuestModels : IGameData                       ← регистрируется в GameModel
 │   └── Dictionary<string, QuestModel> Index      ← multi-instance копии из Database
-│       ├── State: QuestState
-│       ├── StartConditions[]                     ← AND-группы условий
+│       ├── State: QuestState (Unset→Locked→Ready→InProgress→...)
+│       ├── StartConditions[]                     ← AND-группы с InitListeners/DisposeListeners
 │       ├── Logics[]                              ← последовательная очередь
 │       ├── Step: byte                             ← ключ SavePoint для восстановления
 │       ├── Autorun                               ← автозапуск при Ready
 │       └── UnFailable                            ← возврат в Locked при провале
 ├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
 ├── CompletedQuests                               ← Dictionary<string, QuestModel>
-└── Listeners                                     ← IReactiveData → автоперепроверка
+├── Listeners                                     ← IReactiveData → автоперепроверка (альтернативный API)
+└── CheckState()                                  ← подписка на OnGameStateChanged (Reset при Off/Loading)
 ```
 
 ### Жизненный цикл квеста
 
 ```
-Locked ──[условия выполнены]──→ Ready ──[Run()]──→ InProgress
-  ↑                               │                    │
-  │                               │ (Autorun)          ├──[все логики OK, есть награды]──→ Reward ──[GiveRewards()]──→ Completed
-  │                               │                    │
-  └────────────────────[UnFailable]├──[логика Failed]  ├──[все логики OK, нет наград]──→ Completed
-                                  │                    │
-                                  └────────────────────└──[логика Failed]──→ Failed
+Unset ──[NewGame/LoadGame]──→ Locked ──[условия выполнены]──→ Ready ──[Run()]──→ InProgress
+                                ↑                               │                    │
+                                │                               │ (Autorun)          ├──[все логики OK, есть награды]──→ Reward ──[GiveRewards()]──→ Completed
+                                │                               │                    │
+                                └────────────────────[UnFailable]├──[логика Failed]  ├──[все логики OK, нет наград]──→ Completed
+                                                                │                    │
+                                                                └────────────────────└──[логика Failed]──→ Failed
 ```
+
+`Unset` — начальное состояние после создания из пресета. При `NewGame`/`LoadGame` безусловно переводится в `Locked`. Полезен для отлова новых квестов на существующих сейвах.
 
 ### Восстановление при загрузке
 
@@ -89,11 +93,11 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 | `QuestModel` | `Record` | Модель квеста: состояние, условия, логики |
 | `QuestModels` | `IGameData` | Контейнер индекса квестов |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject-пресет для Database |
-| `QuestState` | `enum` | Locked, Ready, InProgress, Reward, Completed, Failed |
+| `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed |
 | `QuestLogic` | `abstract` | Атомарная логика: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Маркер точки сохранения: сохраняет `Key` в `QuestModel.Step` |
-| `QuestConditionLogic` | `abstract` | Условие: `bool Check()` |
-| `QuestConditions` | `Serializable` | AND-группа условий |
+| `QuestConditionLogic` | `abstract` | Условие: `Check()`, `InitListeners()`, `DisposeListeners()` |
+| `QuestConditions` | `Serializable` | AND-группа условий с управлением подписками |
 | `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | Привязка UI к квесту по GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Запуск квеста через `IDataStorage` |
@@ -113,9 +117,11 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 ### Гарантии
 - Логики выполняются строго последовательно
 - При `NewGame()` и `LoadGame()` все активные квесты отменяются через `CancellationToken`
+- `CheckQuestStartConditions` блокируется при `GameStates.Off` (вызывает `Reset()` на всех квестах) и `Loading`
 - Рекурсивная перепроверка условий ограничена глубиной 10
 - `UnFailable`-квест при провале возвращается в `Locked` и не попадает в `CompletedQuests` — может быть перезапущен
 - `Run()` на квест в состоянии `Ready` — запускает `RunQuest`; в состоянии `InProgress` — запускает `RestoreQuest`; в ином состоянии — логируется ошибка, вызов игнорируется
+- При запуске квеста подписки условий снимаются (`DisposeListeners`)
 
 ### Ограничения
 - Квесты — строго MultiInstance записи (каждая игра получает свежие копии)
@@ -160,13 +166,50 @@ public class LevelReached : QuestConditionLogic
 
 ### Реактивная перепроверка условий
 
-```csharp
-// Подписка: при изменении данных — автоперепроверка условий квестов
-QuestController.SetListener(GameController.Instance, this);
+Каждый `QuestConditionLogic` управляет своими подписками через `InitListeners()`/`DisposeListeners()`:
 
-// Отписка
-QuestController.RemoveListener(this);
+```csharp
+[Serializable]
+public class NaniStarted : QuestConditionLogic
+{
+    public override bool Check() => NaniWrapper.IsPlaying;
+
+    public override void InitListeners()
+    {
+        NaniWrapper.OnNaniStart += QuestController.CheckQuestStartConditions;
+    }
+
+    public override void DisposeListeners()
+    {
+        NaniWrapper.OnNaniStart -= QuestController.CheckQuestStartConditions;
+    }
+}
 ```
+
+`QuestConditions.Check()` автоматически вызывает `DisposeListeners` перед проверкой и `InitListeners` только для условий, вернувших `false` — подписки живут только пока условие не выполнено.
+
+Альтернативный путь — `SetListener`/`RemoveListener` для `IReactiveData`:
+
+```csharp
+[Serializable]
+public class NaniVariableCondition : QuestConditionLogic
+{
+    public override bool Check() => /* ... */;
+
+    public override void InitListeners()
+    {
+        QuestController.SetListener(GameController.Instance, this);
+        QuestController.SetListener(NaniListener.Instance, this);
+    }
+
+    public override void DisposeListeners()
+    {
+        QuestController.RemoveListener(this);
+    }
+}
+```
+
+`SetListener` подписывается на `IReactiveData.OnUpdateData` с подсчётом ссылок — одна подписка на `IReactiveData` независимо от количества условий. `RemoveListener` снимает подписку когда источников не осталось.
 
 ### Привязка UI
 
@@ -176,11 +219,14 @@ QuestController.RemoveListener(this);
 
 | Ситуация | Поведение |
 |----------|-----------|
+| Новый квест на существующем сейве | Состояние `Unset`, при `LoadGame` переводится в `Locked` и участвует в проверке условий |
 | Все условия пусты | Квест сразу получает `Ready` |
 | `Autorun` + условия выполнены | Квест запускается автоматически при `NewGame`, `LoadGame` или вызове `CheckQuestStartConditions()` |
 | Логика возвращает `false`, `UnFailable = true` | Состояние → `Locked`, в `CompletedQuests` не добавляется (перезапуск возможен) |
 | Логика возвращает `false`, `UnFailable = false` | Состояние → `Failed`, квест в `CompletedQuests` |
-| `NewGame()` / `LoadGame()` при активных квестах | Все отменяются через `CancellationToken` |
+| `NewGame()` / `LoadGame()` при активных квестах | Все отменяются через `CancellationToken`, подписки снимаются |
+| `GameStates.Off` | `CheckQuestStartConditions` вызывает `Reset()` на всех квестах, проверка не выполняется |
+| `GameStates.Loading` | `CheckQuestStartConditions` пропускается |
 | Рекурсия условий > 10 уровней | Прерывается (предохранитель) |
 | `Run()` на квест в `InProgress` | Восстановление через `RestoreQuest` — пропуск логик до `SavePoint` |
 | Квест завершён → условия другого квеста зависят от него | Рекурсивная перепроверка через `CheckQuestStartConditions` |

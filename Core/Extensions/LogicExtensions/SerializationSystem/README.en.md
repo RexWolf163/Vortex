@@ -98,6 +98,7 @@ DeserializeProperties<T>(string)
     IList?         -> DeserializeCollection()
     Object         -> SeparateText() -> read "__" marker
                       Type.GetType() -> IsPOCO? -> Activator.CreateInstance()
+                      fallback -> FormatterServices.GetUninitializedObject()
                       -> recurse over properties (skip [NotPOCO])
 ```
 
@@ -341,3 +342,4 @@ public class GameModel : ComplexModel<IGameData>
 | Empty string on deserialization | `null` |
 | `null` element in collection | Skipped on deserialization |
 | `[POCO]` on interface | All implementations are considered serializable |
+| Type without default constructor | Fallback to `FormatterServices.GetUninitializedObject()` — fields are not initialized by constructor |

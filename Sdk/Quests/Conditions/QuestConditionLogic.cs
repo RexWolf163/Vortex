@@ -21,7 +21,7 @@ namespace Vortex.Sdk.Quests.Conditions
         /// изменения реактивных данных
         ///
         /// Пример:
-        ///   public override void SubscribeOnUpdate()
+        ///   public override void InitListeners()
         ///     {
         ///        NaniWrapper.OnNaniStart += QuestController.CheckQuestStartConditions;
         ///

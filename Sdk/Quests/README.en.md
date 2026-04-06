@@ -8,12 +8,12 @@
 Quest system with asynchronous execution. Manages quest lifecycle: start condition checks, sequential logic execution, completion with result.
 
 Capabilities:
-- Lifecycle: `Locked` → `Ready` → `InProgress` → `Reward` → `Completed` / `Failed`
-- Start conditions — AND-groups of arbitrary checks
+- Lifecycle: `Unset` → `Locked` → `Ready` → `InProgress` → `Reward` → `Completed` / `Failed`
+- Start conditions — AND-groups of arbitrary checks with auto-subscription (`InitListeners`/`DisposeListeners`)
 - Asynchronous sequential logic execution via UniTask
 - Quest autorun when conditions are met
 - Recursive condition re-check on quest completion (with depth guard)
-- Reactive listeners — subscribe to `IReactiveData` for automatic condition re-checks
+- Protection against checks in inactive game states (`GameStates.Off`, `Loading`)
 - `UnFailable` mode — on failure, quest returns to `Locked` instead of `Failed`
 - Cancellation of all active quests via `CancellationToken` on new game
 - Quest restoration on load — skips logics up to the saved `SavePoint`
@@ -27,8 +27,9 @@ Out of scope:
 ## Dependencies
 
 ### Core
-- `Vortex.Core.DatabaseSystem` — `Database`, `Record`, `RecordPreset`
-- `Vortex.Core.System.Abstractions` — `IDataStorage`, `IReactiveData`
+- `Vortex.Core.DatabaseSystem` — `Record`, `RecordPreset`
+- `Vortex.Core.System.Abstractions` — `IDataStorage`
+- `Vortex.Core.Extensions.ReactiveValues` — `IReactiveData` (for `SetListener`)
 - `Vortex.Core.Extensions.LogicExtensions` — serialization
 
 ### SDK
@@ -44,28 +45,31 @@ Out of scope:
 QuestController (static, partial)
 ├── QuestModels : IGameData                       ← registered in GameModel
 │   └── Dictionary<string, QuestModel> Index      ← multi-instance copies from Database
-│       ├── State: QuestState
-│       ├── StartConditions[]                     ← AND-groups of conditions
+│       ├── State: QuestState (Unset→Locked→Ready→InProgress→...)
+│       ├── StartConditions[]                     ← AND-groups with InitListeners/DisposeListeners
 │       ├── Logics[]                              ← sequential queue
 │       ├── Step: byte                             ← SavePoint key for restoration
 │       ├── Autorun                               ← auto-start when Ready
 │       └── UnFailable                            ← return to Locked on failure
 ├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
 ├── CompletedQuests                               ← Dictionary<string, QuestModel>
-└── Listeners                                     ← IReactiveData → auto re-check
+├── Listeners                                     ← IReactiveData → auto re-check (alternative API)
+└── CheckState()                                  ← subscribes to OnGameStateChanged (Reset on Off/Loading)
 ```
 
 ### Quest Lifecycle
 
 ```
-Locked ──[conditions met]──→ Ready ──[Run()]──→ InProgress
-  ↑                            │                    │
-  │                            │ (Autorun)          ├──[all logics OK, has rewards]──→ Reward ──[GiveRewards()]──→ Completed
-  │                            │                    │
-  └────────────────[UnFailable]├──[logic Failed]    ├──[all logics OK, no rewards]──→ Completed
-                               │                    │
-                               └────────────────────└──[logic Failed]──→ Failed
+Unset ──[NewGame/LoadGame]──→ Locked ──[conditions met]──→ Ready ──[Run()]──→ InProgress
+                                ↑                            │                    │
+                                │                            │ (Autorun)          ├──[all logics OK, has rewards]──→ Reward ──[GiveRewards()]──→ Completed
+                                │                            │                    │
+                                └────────────────[UnFailable]├──[logic Failed]    ├──[all logics OK, no rewards]──→ Completed
+                                                             │                    │
+                                                             └────────────────────└──[logic Failed]──→ Failed
 ```
+
+`Unset` — initial state after creation from preset. On `NewGame`/`LoadGame` unconditionally transitions to `Locked`. Useful for detecting new quests on existing saves.
 
 ### Restoration on Load
 
@@ -89,11 +93,11 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 | `QuestModel` | `Record` | Quest model: state, conditions, logics |
 | `QuestModels` | `IGameData` | Quest index container |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject preset for Database |
-| `QuestState` | `enum` | Locked, Ready, InProgress, Reward, Completed, Failed |
+| `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed |
 | `QuestLogic` | `abstract` | Atomic logic: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Save point marker: stores `Key` in `QuestModel.Step` |
-| `QuestConditionLogic` | `abstract` | Condition: `bool Check()` |
-| `QuestConditions` | `Serializable` | AND-group of conditions |
+| `QuestConditionLogic` | `abstract` | Condition: `Check()`, `InitListeners()`, `DisposeListeners()` |
+| `QuestConditions` | `Serializable` | AND-group of conditions with subscription management |
 | `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID is complete |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | UI binding to quest by GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Quest launch via `IDataStorage` |
@@ -113,9 +117,11 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 ### Guarantees
 - Logics execute strictly sequentially
 - On `NewGame()` and `LoadGame()`, all active quests are cancelled via `CancellationToken`
+- `CheckQuestStartConditions` is blocked during `GameStates.Off` (calls `Reset()` on all quests) and `Loading`
 - Recursive condition re-check limited to depth 10
 - `UnFailable` quest on failure returns to `Locked` and does not enter `CompletedQuests` — can be restarted
 - `Run()` on a quest with state `Ready` — launches `RunQuest`; with state `InProgress` — launches `RestoreQuest`; other states — error logged, call ignored
+- On quest start, condition subscriptions are removed (`DisposeListeners`)
 
 ### Constraints
 - Quests are strictly MultiInstance records (each game gets fresh copies)
@@ -160,13 +166,50 @@ public class LevelReached : QuestConditionLogic
 
 ### Reactive Condition Re-checks
 
-```csharp
-// Subscribe: on data change — automatic quest condition re-check
-QuestController.SetListener(GameController.Instance, this);
+Each `QuestConditionLogic` manages its own subscriptions via `InitListeners()`/`DisposeListeners()`:
 
-// Unsubscribe
-QuestController.RemoveListener(this);
+```csharp
+[Serializable]
+public class NaniStarted : QuestConditionLogic
+{
+    public override bool Check() => NaniWrapper.IsPlaying;
+
+    public override void InitListeners()
+    {
+        NaniWrapper.OnNaniStart += QuestController.CheckQuestStartConditions;
+    }
+
+    public override void DisposeListeners()
+    {
+        NaniWrapper.OnNaniStart -= QuestController.CheckQuestStartConditions;
+    }
+}
 ```
+
+`QuestConditions.Check()` automatically calls `DisposeListeners` before checking and `InitListeners` only for conditions that returned `false` — subscriptions only live while the condition is unmet.
+
+Alternative path — `SetListener`/`RemoveListener` for `IReactiveData`:
+
+```csharp
+[Serializable]
+public class NaniVariableCondition : QuestConditionLogic
+{
+    public override bool Check() => /* ... */;
+
+    public override void InitListeners()
+    {
+        QuestController.SetListener(GameController.Instance, this);
+        QuestController.SetListener(NaniListener.Instance, this);
+    }
+
+    public override void DisposeListeners()
+    {
+        QuestController.RemoveListener(this);
+    }
+}
+```
+
+`SetListener` subscribes to `IReactiveData.OnUpdateData` with reference counting — one subscription per `IReactiveData` regardless of the number of conditions. `RemoveListener` unsubscribes when no sources remain.
 
 ### UI Binding
 
@@ -176,11 +219,14 @@ Place `QuestDataStorage` on the scene, specify the quest GUID. View components a
 
 | Situation | Behavior |
 |-----------|----------|
+| New quest on existing save | State is `Unset`, on `LoadGame` transitions to `Locked` and participates in condition checks |
 | All conditions empty | Quest immediately becomes `Ready` |
 | `Autorun` + conditions met | Quest starts automatically on `NewGame`, `LoadGame`, or `CheckQuestStartConditions()` call |
 | Logic returns `false`, `UnFailable = true` | State → `Locked`, not added to `CompletedQuests` (restart possible) |
 | Logic returns `false`, `UnFailable = false` | State → `Failed`, quest in `CompletedQuests` |
-| `NewGame()` / `LoadGame()` with active quests | All cancelled via `CancellationToken` |
+| `NewGame()` / `LoadGame()` with active quests | All cancelled via `CancellationToken`, subscriptions removed |
+| `GameStates.Off` | `CheckQuestStartConditions` calls `Reset()` on all quests, check skipped |
+| `GameStates.Loading` | `CheckQuestStartConditions` skipped |
 | Condition recursion > 10 levels | Interrupted (guard) |
 | `Run()` on quest in `InProgress` | Restoration via `RestoreQuest` — skips logics up to `SavePoint` |
 | Quest completes → another quest's conditions depend on it | Recursive re-check via `CheckQuestStartConditions` |
