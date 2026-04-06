@@ -112,6 +112,7 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         private static void CheckState()
         {
+            if (_data == null) return;
             var state = GameController.GetState();
             switch (state)
             {
