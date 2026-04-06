@@ -52,6 +52,7 @@ namespace Vortex.Sdk.Quests
             GameController.OnNewGame += NewGameLogic;
             GameController.OnLoadGame -= LoadGameLogic;
             GameController.OnLoadGame += LoadGameLogic;
+            GameController.OnGameStateChanged += CheckState;
         }
 
         private static QuestModels _data;
@@ -106,17 +107,25 @@ namespace Vortex.Sdk.Quests
             CheckQuestStartConditions();
         }
 
-        /*
-        private static void RestorePresetData()
+        /// <summary>
+        /// Сброс подписок квестов в точках останова игры
+        /// </summary>
+        private static void CheckState()
         {
-            foreach (var guid in _data.Index.Keys)
-                Database.Reset(_data.Index[guid]);
-
-            //First filling index
-            var index = Database.GetNewRecords<QuestModel>();
-            _data.Index = index.ToDictionary(q => q.GuidPreset, q => q);
+            var state = GameController.GetState();
+            switch (state)
+            {
+                case GameStates.Win:
+                case GameStates.Fail:
+                    //Сброс квестов не делаем. данные могут быть нужны для статистики
+                    break;
+                case GameStates.Off:
+                case GameStates.Loading:
+                    foreach (var quest in _data.Index.Values)
+                        quest.Reset();
+                    break;
+            }
         }
-        */
 
         private static void ResetController()
         {

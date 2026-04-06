@@ -51,6 +51,11 @@ namespace Vortex.Sdk.Quests
 
         internal void CallOnUpdated() => OnStateUpdated?.Invoke();
 
+
+        /// <summary>
+        /// Очистка подписок квестов
+        /// Перевод в состояние Unset
+        /// </summary>
         public void Reset()
         {
             State = QuestState.Unset;
