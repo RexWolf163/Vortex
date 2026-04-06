@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -164,8 +165,20 @@ namespace Vortex.Unity.UI.Misc
         /// </summary>
         public void Release() => OnPointerUp(null);
 
-        public void AddOnClick(UnityAction currentAction) => OnClick += currentAction.Invoke;
+        private Dictionary<UnityAction, Action> _wrappedActions;
 
-        public void RemoveOnClick(UnityAction currentAction) => OnClick -= currentAction.Invoke;
+        public void AddOnClick(UnityAction currentAction)
+        {
+            _wrappedActions ??= new Dictionary<UnityAction, Action>();
+            Action wrapper = currentAction.Invoke;
+            _wrappedActions[currentAction] = wrapper;
+            OnClick += wrapper;
+        }
+
+        public void RemoveOnClick(UnityAction currentAction)
+        {
+            if (_wrappedActions == null || !_wrappedActions.Remove(currentAction, out var wrapper)) return;
+            OnClick -= wrapper;
+        }
     }
 }
