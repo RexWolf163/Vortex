@@ -16,7 +16,9 @@ namespace Vortex.Sdk.Quests.Conditions
         public abstract bool Check();
 
         /// <summary>
-        /// Подписка на проверки срабатывания
+        /// Подписка на проверки срабатывания.
+        /// Предназначена для автоматизированного запуска проверок условий квестов на
+        /// изменения реактивных данных
         ///
         /// Пример:
         ///   public override void SubscribeOnUpdate()

@@ -74,37 +74,48 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
         {
             if (_isInit)
                 return;
-
-            SaveController.OnSaveComplete += Refresh;
-            SaveController.OnLoadComplete += Refresh;
-            SaveController.OnRemove += Refresh;
-
-            _isInit = true;
-            _saveSlots.Clear();
-            _index = SaveController.GetIndex();
-            _index = _index.OrderByDescending(s => s.Value.UnixTimestamp).ToDictionary(s => s.Key, s => s.Value);
-
-            pool.Clear();
-
-            if (_index == null || _index.Count == 0)
-                return;
-
-            var first = _index.First();
-            _focused = new StringData(null);
-            _focused.Set(first.Key);
-
-            foreach (var guid in _index.Keys)
+            try
             {
-                await UniTask.Yield(token);
-                if (token.IsCancellationRequested)
-                    return;
-                var summary = _index[guid];
-                var slotData = new SaveSlotData(guid, summary);
-                _saveSlots[guid] = slotData;
-                pool.AddItem(slotData, _focused, (Action<string>)SetFocus);
-            }
+                SaveController.OnSaveComplete += Refresh;
+                SaveController.OnLoadComplete += Refresh;
+                SaveController.OnRemove += Refresh;
 
-            storageFocusedSlot.SetData(_saveSlots[first.Key]);
+                _isInit = true;
+                _saveSlots.Clear();
+                _index = SaveController.GetIndex();
+                _index = _index.OrderByDescending(s => s.Value.UnixTimestamp).ToDictionary(s => s.Key, s => s.Value);
+
+                pool.Clear();
+
+                if (_index == null || _index.Count == 0)
+                    return;
+
+                var first = _index.First();
+                _focused = new StringData(null);
+                _focused.Set(first.Key);
+
+                foreach (var guid in _index.Keys)
+                {
+                    await UniTask.Yield(token);
+                    if (token.IsCancellationRequested)
+                        return;
+                    var summary = _index[guid];
+                    var slotData = new SaveSlotData(guid, summary);
+                    _saveSlots[guid] = slotData;
+                    pool.AddItem(slotData, _focused, (Action<string>)SetFocus);
+                }
+
+                storageFocusedSlot.SetData(_saveSlots[first.Key]);
+            }
+            catch (OperationCanceledException)
+            {
+                Dispose();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                Dispose();
+            }
         }
 
         private void Refresh()

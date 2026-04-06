@@ -34,6 +34,7 @@ namespace Vortex.Unity.AudioSystem.Model
         public SoundClipFixed(SoundClip clip, bool loop = false, string channelOverrideName = null)
         {
             AudioClip = clip.GetClip();
+            Channel = clip.Channel;
             _currentPitch = clip.GetPitch();
             _currentVolume = clip.GetVolume();
             _duration = _currentPitch == 0 ? float.MaxValue : AudioClip.length / Mathf.Abs(_currentPitch);
@@ -47,6 +48,7 @@ namespace Vortex.Unity.AudioSystem.Model
         public SoundClipFixed(SoundClip clip, bool loop = false, AudioChannel channelOverride = null)
         {
             AudioClip = clip.GetClip();
+            Channel = clip.Channel;
             _currentPitch = clip.GetPitch();
             _currentVolume = clip.GetVolume();
             _duration = _currentPitch == 0 ? float.MaxValue : AudioClip.length / Mathf.Abs(_currentPitch);

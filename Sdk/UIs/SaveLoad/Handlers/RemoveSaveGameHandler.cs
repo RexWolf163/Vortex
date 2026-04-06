@@ -21,7 +21,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         private IDataStorage _storage;
         private IDataStorage Storage => _storage ??= source as IDataStorage;
 
-        [SerializeField, AutoLink] private UIComponent button;
+        [SerializeField] private UIComponent button;
 
         /// <summary>
         /// Модель данных из хранилища
@@ -45,13 +45,13 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             _data = Storage.GetData<SaveSlotData>();
             if (_data == null)
                 return;
-            button.SetAction(RemoveSave);
+            button?.SetAction(RemoveSave);
         }
 
         private void DeInit()
         {
             _data = null;
-            button.SetAction(null);
+            button?.SetAction(null);
         }
 
         private void UpdateLink()
@@ -60,6 +60,6 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             Init();
         }
 
-        private void RemoveSave() => SaveController.Remove(_data.Guid);
+        public void RemoveSave() => SaveController.Remove(_data.Guid);
     }
 }

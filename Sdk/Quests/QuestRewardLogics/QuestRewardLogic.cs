@@ -23,5 +23,14 @@ namespace Vortex.Sdk.Quests.QuestRewardLogics
         /// Активируется внутри пакета контроллером.
         /// </summary>
         internal void GiveReward() => RewardLogic();
+        
+#if UNITY_EDITOR
+        /// <summary>
+        /// Лейбл для инспектора
+        /// </summary>
+        /// <returns></returns>
+        protected abstract string GetEditorLabel();
+#endif
+
     }
 }
