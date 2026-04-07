@@ -52,6 +52,7 @@ namespace Vortex.Sdk.Quests
             GameController.OnNewGame += NewGameLogic;
             GameController.OnLoadGame -= LoadGameLogic;
             GameController.OnLoadGame += LoadGameLogic;
+            GameController.OnGameStateChanged -= CheckState;
             GameController.OnGameStateChanged += CheckState;
         }
 
@@ -122,6 +123,7 @@ namespace Vortex.Sdk.Quests
                     break;
                 case GameStates.Off:
                 case GameStates.Loading:
+                    ResetController();
                     foreach (var quest in _data.Index.Values)
                         quest.Reset();
                     break;

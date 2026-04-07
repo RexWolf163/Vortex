@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEditor;
@@ -36,6 +35,7 @@ namespace Vortex.Unity.EditorTools.EditorSettings
 #endif
         [SerializeField, ToggleBox("isProSkin", 1)]
         private ThemeColors proColors = ThemeColors.CreatePro();
+#if UNITY_EDITOR
 
         public bool GlobalCollectionRendering => globalCollectionRendering;
 
@@ -94,6 +94,6 @@ namespace Vortex.Unity.EditorTools.EditorSettings
             _instance = AssetDatabase.LoadAssetAtPath<ToolsSettings>(path);
             return _instance;
         }
+#endif
     }
 }
-#endif
