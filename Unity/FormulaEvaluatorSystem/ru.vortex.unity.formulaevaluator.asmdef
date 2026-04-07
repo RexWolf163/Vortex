@@ -1,0 +1,16 @@
+{
+    "name": "ru.vortex.unity.formulaevaluator",
+    "rootNamespace": "",
+    "references": [
+        "GUID:865e31c772c77e64cb48f0792a7a6a0c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
