@@ -31,6 +31,17 @@ namespace Vortex.Unity.AudioSystem.Model
         /// </summary>
         public AudioClip AudioClip { get; protected set; }
 
+
+        public SoundClipFixed(SoundClip clip)
+        {
+            AudioClip = clip.GetClip();
+            Channel = clip.Channel;
+            _currentPitch = clip.GetPitch();
+            _currentVolume = clip.GetVolume();
+            _duration = _currentPitch == 0 ? float.MaxValue : AudioClip.length / Mathf.Abs(_currentPitch);
+            Loop = false;
+        }
+
         public SoundClipFixed(SoundClip clip, bool loop = false, string channelOverrideName = null)
         {
             AudioClip = clip.GetClip();

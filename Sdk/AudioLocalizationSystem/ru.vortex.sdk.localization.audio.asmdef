@@ -1,0 +1,28 @@
+{
+    "name": "ru.vortex.sdk.localization.audio",
+    "rootNamespace": "",
+    "references": [
+        "GUID:7c6d3de99517c0549ae82af52cb16906",
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:cad4de33a6235bb42a7e0f3710a4ae0d",
+        "GUID:02b574238dac1c642a506184679b46c4",
+        "GUID:ec37981827cc88c419565420343ee58c",
+        "GUID:61328ee0671b5b5429f7ef2e1137c0b5",
+        "GUID:826a37b90dd7f8849a995e26104dd48e",
+        "GUID:6115ef0c63bd0604eb3dcd1b03e2e7da",
+        "GUID:865e31c772c77e64cb48f0792a7a6a0c",
+        "GUID:f1e680f843d477b4982469a7325c2f44",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b",
+        "GUID:e0528c6dc593d8a4683c077db1c991f4",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

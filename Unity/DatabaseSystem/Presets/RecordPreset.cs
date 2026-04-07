@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Model;
@@ -70,6 +71,7 @@ namespace Vortex.Unity.DatabaseSystem.Presets
         private void OnNameChanged()
         {
             var number = 0;
+            nameRecord = CleanFileName(nameRecord);
             var name = nameRecord;
             if (name == string.Empty) name = DefaultName;
 
@@ -90,6 +92,16 @@ namespace Vortex.Unity.DatabaseSystem.Presets
 
             if (number > 0 && nameRecord != string.Empty)
                 Debug.LogError($"[DbRecord] Name {name} for records already exists!");
+        }
+
+        private static string CleanFileName(string fileName)
+        {
+            // Удаляем все знаки препинания и специальные символы
+            var cleanName = Regex.Replace(fileName, @"[^\.\w\s-]", "");
+            // Удаляем множественные подчеркивания
+            cleanName = Regex.Replace(cleanName, @"_+", "_");
+
+            return cleanName;
         }
 #endif
     }

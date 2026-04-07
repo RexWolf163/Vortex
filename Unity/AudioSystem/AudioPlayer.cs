@@ -81,6 +81,9 @@ namespace Vortex.Unity.AudioSystem
             SoundClipFixed clip;
             switch (sound)
             {
+                case SoundClipFixed sf:
+                    clip = sf;
+                    break;
                 case string id:
                     var data = Database.GetRecord<Sound>(id);
                     if (data != null)
