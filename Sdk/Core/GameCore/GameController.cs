@@ -57,6 +57,7 @@ namespace Vortex.Sdk.Core.GameCore
                 return;
             _newGameLock = true;
             SetGameState(GameStates.Off);
+            if (_data == null) GetData();
             _data.Init();
             SetGameState(GameStates.Play);
             OnNewGame?.Invoke();
@@ -76,6 +77,7 @@ namespace Vortex.Sdk.Core.GameCore
         /// <param name="pause"></param>
         public static void SetPause(bool pause)
         {
+            if (_data == null) GetData();
             switch (pause)
             {
                 case true when _data.State == GameStates.Play:
@@ -121,7 +123,11 @@ namespace Vortex.Sdk.Core.GameCore
 
         #region Serialization
 
-        public static string Serialize() => _data.Serialize();
+        public static string Serialize()
+        {
+            if (_data == null) GetData();
+            return _data.Serialize();
+        }
 
         public static void Deserialize(string json)
         {
