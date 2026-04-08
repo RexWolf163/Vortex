@@ -50,7 +50,8 @@ namespace Vortex.Unity.DatabaseSystem.Drivers.AddressablesDriver
             {
                 var op = Addressables.LoadAssetsAsync<IRecordPreset>(label, null);
                 var temp = op.WaitForCompletion();
-                ar.AddRange(temp);
+                if (temp != null)
+                    ar.AddRange(temp);
                 Addressables.Release(op);
             }
 
