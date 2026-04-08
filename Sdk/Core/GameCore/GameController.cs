@@ -185,6 +185,7 @@ namespace Vortex.Sdk.Core.GameCore
 
         private static void SetGameState(GameStates state)
         {
+            if (_data == null) GetData();
             if (state == _data.State)
                 return;
             _data.State = state;
