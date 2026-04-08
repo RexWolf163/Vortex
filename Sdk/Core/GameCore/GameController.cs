@@ -18,6 +18,13 @@ namespace Vortex.Sdk.Core.GameCore
         public static event Action OnGameStateChanged;
         public event Action OnUpdateData;
 
+        public static event Action OnUpdate
+        {
+            add => Instance.OnUpdateData += value;
+            remove => Instance.OnUpdateData -= value;
+        }
+
+
 #if UNITY_EDITOR
         public static event Action OnEditorGetData;
 
@@ -88,6 +95,7 @@ namespace Vortex.Sdk.Core.GameCore
         /// Подписка на обновление данных
         /// </summary>
         /// <param name="action"></param>
+        [Obsolete]
         public static void Subscribe(Action action)
         {
             Instance.OnUpdateData -= action;
