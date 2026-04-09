@@ -108,6 +108,7 @@ namespace Vortex.Sdk.Core.GameCore
         /// Отписка от обновления данных
         /// </summary>
         /// <param name="action"></param>
+        [Obsolete]
         public static void Unsubscribe(Action action)
         {
             Instance.OnUpdateData -= action;
