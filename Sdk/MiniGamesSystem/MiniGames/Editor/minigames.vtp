@@ -1,6 +1,6 @@
 //---{Abstractions/I{!ClassName!}Controller.cs}---
-using MiniGamesSystem.MiniGames.Abstractions;
 using MiniGamesSystem.{!ClassName!}.Models;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions;
 
 namespace MiniGamesSystem.{!ClassName!}.Abstractions
 {
@@ -19,14 +19,292 @@ namespace MiniGamesSystem.{!ClassName!}.Abstractions
     }
 }
 
+//---{{!ClassName!}GameHub.cs}---
+using System;
+using Cysharp.Threading.Tasks;
+using MiniGamesSystem.{!ClassName!}.Abstractions;
+using MiniGamesSystem.{!ClassName!}.Config;
+using MiniGamesSystem.{!ClassName!}.Models;
+using Sirenix.OdinInspector;
+using UnityEngine;
+using Vortex.Core.System.Abstractions;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Bus;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Model;
+using Vortex.Unity.Extensions.Abstractions;
+
+namespace MiniGamesSystem.{!ClassName!}
+{
+    /// <summary>
+    /// Хаб доступа к миниигре
+    /// Содержит логику состояний миниигры, и принимает параметры для запуска
+    /// Логика ограничений для запуска или иная логика не относящаяся к игровому процессу может быть здесь 
+    ///
+    /// Текущая реализация подразумевает строго один экземпляр миниигры на приложение
+    /// Хаб запускает игру по запросу, после чего отслеживает изменение ее состояния по модели данных
+    /// Хаб настраивается на один вариант контроллера через ассет конфигурации (direct DI)
+    /// 
+    /// </summary>
+    public class {!ClassName!}GameHub : MonoBehaviourSingleton<{!ClassName!}GameHub>, IMiniGameHub, IDataStorage
+    {
+        #region Events
+
+        /// <summary>
+        /// Событие победы в игре
+        /// </summary>
+        public event Action OnWin;
+
+        /// <summary>
+        /// Событие поражения в игре
+        /// </summary>
+        public event Action OnFail;
+
+        /// <summary>
+        /// Событие начала игры
+        /// </summary>
+        public event Action OnStart;
+
+        /// <summary>
+        /// Событие конца игры
+        /// </summary>
+        public event Action OnExit;
+
+        #endregion
+
+        /// <summary>
+        /// Модель данных миниигры
+        /// </summary>
+        public static {!ClassName!}GameData Data => Instance?.Controller.GetData();
+
+        [InfoBox("Ассет с базовой конфигурацией минигры")] [SerializeField]
+        private {!ClassName!}GeneralConfig config;
+
+
+        /// <summary>
+        /// Контроллер миниигры с ленивой активацией
+        /// </summary>
+        internal I{!ClassName!}Controller Controller
+        {
+            get
+            {
+                if (_controller != null) return _controller;
+
+                var type = Type.GetType(config.GameController);
+                if (type == null)
+                    throw new NullReferenceException($"The type «{config.GameController}» could not be found.");
+                _controller = Activator.CreateInstance(type) as I{!ClassName!}Controller;
+                _controller?.Init();
+                OnUpdateLink?.Invoke();
+
+                return _controller;
+            }
+        }
+
+        private I{!ClassName!}Controller _controller;
+
+
+        /// <summary>
+        /// Возвращает установленный контроллер миниигры
+        /// </summary>
+        /// <returns></returns>
+        public IMiniGameController<MiniGameData> GetController() => Instance.Controller;
+
+        /// <summary>
+        /// Запуск игры асинхронно, для отслеживания завершения процесса снаружи
+        /// </summary>
+        /// <param name="playConfig">Стартовая конфигурация игры</param>
+        public static async UniTask Play({!ClassName!}PlayConfig? playConfig = null)
+        {
+            //Блок формирования конфига при неопределенном запуске
+            if (playConfig == null)
+            {
+                var difficultyCalc = (byte)(Instance.config.GetDifficultiesCount() / 2);
+                //TODO ???
+                playConfig = new {!ClassName!}PlayConfig
+                {
+                    Difficulty = difficultyCalc,
+                    //TODO ???
+                };
+            }
+
+            var difficulty = playConfig.Value.Difficulty;
+            var fieldSize = Instance.config.GetFieldSize(difficulty);
+
+            //TODO определение и формирование прочих параметры игры
+
+            var timer = Instance.config.GetTimer(difficulty);
+
+            //TODO Instance.Controller.SetGameData( ???, timer);
+
+            Instance.Controller.Play();
+            var old = MiniGameStates.Off;
+            while (Data.State != MiniGameStates.Off)
+            {
+                if (old == Data.State)
+                {
+                    await Task.Yield();
+                    continue;
+                }
+
+                old = Data.State;
+
+                switch (Data.State)
+                {
+                    case MiniGameStates.Off:
+                        Instance.OnExit?.Invoke();
+                        return;
+                    case MiniGameStates.Play:
+                        Instance.OnStart?.Invoke();
+                        break;
+                    case MiniGameStates.Win:
+                        Instance.OnWin?.Invoke();
+                        break;
+                    case MiniGameStates.Fail:
+                        Instance.OnFail?.Invoke();
+                        break;
+                    case MiniGameStates.Paused:
+                        break;
+                    case MiniGameStates.Loading:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+
+                await Task.Yield();
+            }
+        }
+
+        /// <summary>
+        /// Управление паузой
+        /// </summary>
+        /// <param name="pause"></param>
+        public void SetPause(bool pause) => Controller?.SetPause(pause);
+
+        /// <summary>
+        /// Запрос выхода из миниигры
+        /// </summary>
+        public void Exit() => Controller?.Exit();
+
+        /// <summary>
+        /// Глобальный конфиг миниигры
+        /// </summary>
+        public IMiniGameConfig GetConfig() => config;
+
+        /// <summary>
+        /// Возвращает состояние миниигры
+        /// </summary>
+        /// <returns></returns>
+        public static MiniGameStates GetState() => Data.State;
+
+        #region Init/Destroy
+
+        protected override void Awake()
+        {
+            //Валидация данных
+            var error = config == null;
+
+            //TODO проверки прочих параметров
+
+            if (error)
+            {
+                Debug.LogError($"[{!ClassName!}Hub] Configuration incomplete for {gameObject.name} ");
+                return;
+            }
+
+            MiniGamesController.Registration(this);
+            base.Awake();
+        }
+
+        protected override void OnDestroy()
+        {
+            //TODO Отписки!!!
+
+            MiniGamesController.UnRegistration(this);
+            base.OnDestroy();
+        }
+
+        #endregion
+
+        #region IDataStorage
+
+        //Служебный регион реализации логики IDataStorage
+
+        /// <summary>
+        /// Событие обновления данных в контейнере
+        /// </summary>
+        public event Action OnUpdateLink;
+
+        /// <summary>
+        /// Возвращает данные миниигры
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public T GetData<T>() where T : class
+        {
+            var data = Data as T;
+            if (data == null)
+                Debug.LogError("[{!ClassName!}Hub] Wrong data type requested.");
+            return data;
+        }
+
+        #endregion
+
+        #region Debug
+
+        /// <summary>
+        /// Тестовый запуск с дебаг-набором параметров
+        /// </summary>
+        /// <param name="difficulty"></param>
+        internal static void DebugPlay(byte difficulty)
+        {
+            // TODO ???
+            var playConfig = new {!ClassName!}PlayConfig
+            {
+                Difficulty = difficulty,
+                //TODO ???
+            };
+            Play(playConfig).Forget(Debug.LogException);
+        }
+
+
+#if UNITY_EDITOR
+
+        [Button]
+        private void TestRun() => Play().Forget(Debug.LogException);
+
+        [Button, HideIf("ShowButtons")]
+        private void SetWinState()
+        {
+            if (Data.State != MiniGameStates.Off)
+                Data.DebugSetState(MiniGameStates.Win);
+        }
+
+        [Button, HideIf("ShowButtons")]
+        private void SetFailState()
+        {
+            if (Data.State != MiniGameStates.Off)
+                Data.DebugSetState(MiniGameStates.Fail);
+        }
+
+        private bool ShowButtons()
+        {
+            if (Data == null) return true;
+            return Data.State == MiniGameStates.Off;
+        }
+#endif
+
+        #endregion
+    }
+}
+
 //---{Config/{!ClassName!}GeneralConfig.cs}---
 using System;
-using MiniGamesSystem.MiniGames.Abstractions;
-using MiniGamesSystem.MiniGames.Model;
 using MiniGamesSystem.{!ClassName!}.Abstractions;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Model;
 
 #if UNITY_EDITOR
 using Vortex.Unity.Extensions.Editor.Misc;
@@ -93,6 +371,12 @@ namespace MiniGamesSystem.{!ClassName!}.Config
         /// </summary>
         /// <returns></returns>
         public GameObject GetView() => view;
+
+        /// <summary>
+        /// Имя типа контролера игры
+        /// </summary>
+        /// <returns></returns>
+        public string GetController() => gameController;
 
         /// <summary>
         /// Возвращает название уровня сложности
@@ -167,10 +451,10 @@ namespace MiniGamesSystem.{!ClassName!}.Config
 }
 
 //---{Controllers/{!ClassName!}Controller.cs}---
-using MiniGamesSystem.MiniGames.Controllers;
-using MiniGamesSystem.MiniGames.Model;
 using MiniGamesSystem.{!ClassName!}.Abstractions;
 using MiniGamesSystem.{!ClassName!}.Models;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Controllers;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Model;
 
 namespace MiniGamesSystem.{!ClassName!}.Controllers
 {
@@ -334,8 +618,8 @@ namespace MiniGamesSystem.{!ClassName!}.Handler
 
 //---{Models/{!ClassName!}GameData.cs}---
 using System;
-using MiniGamesSystem.MiniGames.Abstractions;
-using MiniGamesSystem.MiniGames.Model;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions;
+using Vortex.Sdk.MiniGamesSystem.MiniGames.Model;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 
 namespace MiniGamesSystem.{!ClassName!}.Models
@@ -419,277 +703,6 @@ namespace MiniGamesSystem.{!ClassName!}.Models
         /// Уровень сложности игры
         /// </summary>
         public byte Difficulty;
-    }
-}
-
-//---{{!ClassName!}GameHub.cs}---
-using System;
-using System.Threading.Tasks;
-using MiniGamesSystem.MiniGames.Abstractions;
-using MiniGamesSystem.MiniGames.Bus;
-using MiniGamesSystem.MiniGames.Model;
-using MiniGamesSystem.{!ClassName!}.Abstractions;
-using MiniGamesSystem.{!ClassName!}.Config;
-using MiniGamesSystem.{!ClassName!}.Models;
-using Sirenix.OdinInspector;
-using UnityEngine;
-using Vortex.Core.System.Abstractions;
-using Vortex.Unity.Extensions.Abstractions;
-
-namespace MiniGamesSystem.{!ClassName!}
-{
-    /// <summary>
-    /// Хаб доступа к миниигре
-    /// Содержит логику состояний миниигры, и принимает параметры для запуска
-    /// Логика ограничений для запуска или иная логика не относящаяся к игровому процессу может быть здесь 
-    ///
-    /// Текущая реализация подразумевает строго один экземпляр миниигры на приложение
-    /// Хаб запускает игру по запросу, после чего отслеживает изменение ее состояния по модели данных
-    /// Хаб настраивается на один вариант контроллера через ассет конфигурации (direct DI)
-    /// 
-    /// </summary>
-    public class {!ClassName!}GameHub : MonoBehaviourSingleton<{!ClassName!}GameHub>, IMiniGameHub, IDataStorage
-    {
-        #region Events
-
-        /// <summary>
-        /// Событие победы в игре
-        /// </summary>
-        public event Action OnWin;
-
-        /// <summary>
-        /// Событие поражения в игре
-        /// </summary>
-        public event Action OnFail;
-
-        /// <summary>
-        /// Событие начала игры
-        /// </summary>
-        public event Action OnStart;
-
-        #endregion
-
-        /// <summary>
-        /// Модель данных миниигры
-        /// </summary>
-        public static {!ClassName!}GameData Data => Instance?.Controller.GetData();
-
-        [InfoBox("Ассет с базовой конфигурацией минигры")] [SerializeField]
-        private {!ClassName!}GeneralConfig config;
-
-
-        /// <summary>
-        /// Контроллер миниигры с ленивой активацией
-        /// </summary>
-        internal I{!ClassName!}Controller Controller
-        {
-            get
-            {
-                if (_controller != null) return _controller;
-
-                var type = Type.GetType(config.GameController);
-                if (type == null)
-                    throw new NullReferenceException($"The type «{config.GameController}» could not be found.");
-                _controller = Activator.CreateInstance(type) as I{!ClassName!}Controller;
-                _controller?.Init();
-                OnUpdateLink?.Invoke();
-
-                return _controller;
-            }
-        }
-
-        private I{!ClassName!}Controller _controller;
-
-
-        /// <summary>
-        /// Возвращает установленный контроллер миниигры
-        /// </summary>
-        /// <returns></returns>
-        public static I{!ClassName!}Controller GetController() => Instance.Controller;
-
-        /// <summary>
-        /// Запуск игры асинхронно, для отслеживания завершения процесса снаружи
-        /// </summary>
-        /// <param name="playConfig">Стартовая конфигурация игры</param>
-        public static async Task Play({!ClassName!}PlayConfig? playConfig = null)
-        {
-            //Блок формирования конфига при неопределенном запуске
-            if (playConfig == null)
-            {
-                var difficultyCalc = (byte)(Instance.config.GetDifficultiesCount() / 2);
-                //TODO ???
-                playConfig = new {!ClassName!}PlayConfig
-                {
-                    Difficulty = difficultyCalc,
-                    //TODO ???
-                };
-            }
-
-            var difficulty = playConfig.Value.Difficulty;
-            var fieldSize = Instance.config.GetFieldSize(difficulty);
-
-            //TODO определение и формирование прочих параметры игры
-
-            var timer = Instance.config.GetTimer(difficulty);
-
-            //TODO Instance.Controller.SetGameData( ???, timer);
-
-            Instance.Controller.Play();
-            var old = MiniGameStates.Off;
-            while (Data.State != MiniGameStates.Off)
-            {
-                if (old == Data.State)
-                {
-                    await Task.Yield();
-                    continue;
-                }
-                old = Data.State;
-
-                switch (Data.State)
-                {
-                    case MiniGameStates.Off:
-                        return;
-                    case MiniGameStates.Play:
-                        Instance.OnStart?.Invoke();
-                        break;
-                    case MiniGameStates.Win:
-                        Instance.OnWin?.Invoke();
-                        break;
-                    case MiniGameStates.Fail:
-                        Instance.OnFail?.Invoke();
-                        break;
-                    case MiniGameStates.Paused:
-                        break;
-                    case MiniGameStates.Loading:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-
-                await Task.Yield();
-            }
-        }
-
-        /// <summary>
-        /// Управление паузой
-        /// </summary>
-        /// <param name="pause"></param>
-        public void SetPause(bool pause) => Controller?.SetPause(pause);
-
-        /// <summary>
-        /// Запрос выхода из миниигры
-        /// </summary>
-        public void Exit() => Controller?.Exit();
-
-        /// <summary>
-        /// Глобальный конфиг миниигры
-        /// </summary>
-        public IMiniGameConfig GetConfig() => config;
-
-        /// <summary>
-        /// Возвращает состояние миниигры
-        /// </summary>
-        /// <returns></returns>
-        public static MiniGameStates GetState() => Data.State;
-
-        #region Init/Destroy
-
-        protected override void Awake()
-        {
-            //Валидация данных
-            var error = config == null;
-
-            //TODO проверки прочих параметров
-
-            if (error)
-            {
-                Debug.LogError($"[{!ClassName!}Hub] Configuration incomplete for {gameObject.name} ");
-                return;
-            }
-
-            MiniGamesController.Registration(this);
-            base.Awake();
-        }
-
-        protected override void OnDestroy()
-        {
-            //TODO Отписки!!!
-
-            MiniGamesController.UnRegistration(this);
-            base.OnDestroy();
-        }
-
-        #endregion
-
-        #region IDataStorage
-
-        //Служебный регион реализации логики IDataStorage
-
-        /// <summary>
-        /// Событие обновления данных в контейнере
-        /// </summary>
-        public event Action OnUpdateLink;
-
-        /// <summary>
-        /// Возвращает данные миниигры
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <returns></returns>
-        public T GetData<T>() where T : class
-        {
-            var data = Data as T;
-            if (data == null)
-                Debug.LogError("[{!ClassName!}Hub] Wrong data type requested.");
-            return data;
-        }
-
-        #endregion
-
-        #region Debug
-
-        /// <summary>
-        /// Тестовый запуск с дебаг-набором параметров
-        /// </summary>
-        /// <param name="difficulty"></param>
-        internal static void DebugPlay(byte difficulty)
-        {
-            // TODO ???
-            var playConfig = new {!ClassName!}PlayConfig
-            {
-                Difficulty = difficulty,
-                //TODO ???
-            };
-            Play(playConfig);
-        }
-
-
-#if UNITY_EDITOR
-
-        [Button]
-        private void TestRun() => Play();
-
-        [Button, HideIf("ShowButtons")]
-        private void SetWinState()
-        {
-            if (Data.State != MiniGameStates.Off)
-                Data.DebugSetState(MiniGameStates.Win);
-        }
-
-        [Button, HideIf("ShowButtons")]
-        private void SetFailState()
-        {
-            if (Data.State != MiniGameStates.Off)
-                Data.DebugSetState(MiniGameStates.Fail);
-        }
-
-        private bool ShowButtons()
-        {
-            if (Data == null) return true;
-            return Data.State == MiniGameStates.Off;
-        }
-#endif
-
-        #endregion
     }
 }
 
