@@ -9,10 +9,11 @@ Central game session bus. Manages game states (`Off`, `Play`, `Win`, `Fail`, `Pa
 
 Capabilities:
 - Game lifecycle management: start, pause, exit
-- Reactive data model with `Subscribe` / `Unsubscribe`
+- Implements `IReactiveData` — subscription via `OnUpdate` / `OnUpdateData`
 - Composite `GameModel` — extensible container via `IGameData`
 - Automatic pause on application focus loss
-- Serialization / deserialization of state
+- Save and load via `ISaveable` / `SaveController`
+- Serialization / deserialization of state (POCO fields via `SerializeController`)
 - Editor mode: model creation without running the application
 
 Out of scope:
@@ -23,32 +24,36 @@ Out of scope:
 ## Dependencies
 
 ### Core
-- `Vortex.Core.System.Abstractions` — `Singleton<T>`, `IReactiveData`
-- `Vortex.Core.System.Abstractions.ReactiveValues` — reactive values
+- `Vortex.Core.System.Abstractions` — `Singleton<T>`
+- `Vortex.Core.Extensions.ReactiveValues` — `IReactiveData`
 - `Vortex.Core.AppSystem.Bus` — `App`, `AppStates`
 - `Vortex.Core.ComplexModelSystem` — `ComplexModel<T>`
+- `Vortex.Core.SaveSystem` — `SaveController`, `ISaveable`
 
 ### Unity
 - `Vortex.Unity.AppSystem.System.TimeSystem` — `TimeController.Accumulate`
+- `Cysharp.Threading.Tasks` — `UniTask` (save/load)
 
 ## Architecture
 
 ```
-GameController (Singleton, static API)
+GameController (Singleton, IReactiveData, ISaveable, static API)
 ├── GameModel (ComplexModel<IGameData>)
 │   ├── State: GameStates
 │   └── Dictionary<Type, IGameData>   ← packages register their data
 ├── OnNewGame                          ← new game event
 ├── OnGameStateChanged                 ← state change event
-├── Subscribe / Unsubscribe            ← reactive data subscription
-└── Serialize / Deserialize            ← JSON model serialization
+├── OnLoadGame                         ← load complete event
+├── OnUpdate / OnUpdateData            ← reactive subscription (IReactiveData)
+├── CallUpdateEvent()                  ← batching via TimeController.Accumulate
+└── Serialize / Deserialize            ← JSON serialization (POCO fields)
 ```
 
 ### Components
 
 | Class | Type | Purpose |
 |-------|------|---------|
-| `GameController` | `Singleton<T>`, partial, static | Game management bus |
+| `GameController` | `Singleton<T>`, `IReactiveData`, `ISaveable`, partial, static | Game management bus |
 | `GameModel` | `ComplexModel<IGameData>` | Composite data model |
 | `GameStates` | `enum` | Off, Play, Win, Fail, Paused, Loading |
 | `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` by game state |
@@ -72,7 +77,9 @@ GameController (Singleton, static API)
 - `GameController.Get<T>()` — access to registered data
 - `GameController.OnGameStateChanged` — state change event
 - `GameController.OnNewGame` — new game event
-- `GameController.Subscribe(Action)` — data update subscription
+- `GameController.OnLoadGame` — load complete event
+- `GameController.OnUpdate` — static data update subscription (proxies `OnUpdateData`)
+- `GameController.CallUpdateEvent()` — invoke `OnUpdateData` with batching via `TimeController.Accumulate`
 
 ### Guarantees
 - `NewGame()` is blocked until `ExitGame()` is called (lock mechanism)
@@ -111,9 +118,12 @@ var data = GameController.Get<MyPackageData>();
 ### Subscribing to Data Changes
 
 ```csharp
-GameController.Subscribe(OnDataUpdated);
-// ...
-GameController.Unsubscribe(OnDataUpdated);
+// Recommended (static event)
+GameController.OnUpdate += OnDataUpdated;
+GameController.OnUpdate -= OnDataUpdated;
+
+// Trigger update with batching (multiple calls per frame collapse into one)
+GameController.CallUpdateEvent();
 ```
 
 ### Subscribing to States
@@ -125,6 +135,19 @@ GameController.OnGameStateChanged += () =>
     // ...
 };
 ```
+
+### Save and Load
+
+`GameController` implements `ISaveable` and auto-registers with `SaveController`.
+
+```
+Load: Off → Loading → Init() → Deserialize(POCO) → Play → OnLoadGame
+```
+
+- `Init()` creates model structure (all `IGameData` implementations via `Activator.CreateInstance`)
+- `Deserialize` loads POCO fields into existing objects (does not recreate the dictionary)
+- Non-POCO fields (events, references) are preserved from `Init()`
+- `GameModel.BeforeDeserialization` creates an `Index` backup in case deserialization fails
 
 ## Edge Cases
 

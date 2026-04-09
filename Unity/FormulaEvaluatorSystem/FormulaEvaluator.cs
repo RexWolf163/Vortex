@@ -19,6 +19,60 @@ namespace Vortex.Unity.FormulaEvaluatorSystem
             typeof(uint), typeof(ulong), typeof(ushort), typeof(sbyte)
         };
 
+        private enum MemberKind : byte { Field, Property, Method }
+
+        private readonly struct MemberAccessor
+        {
+            public readonly MemberKind Kind;
+            public readonly FieldInfo Field;
+            public readonly PropertyInfo Property;
+            public readonly MethodInfo Method;
+            public readonly bool IsStatic;
+
+            public MemberAccessor(FieldInfo f)
+            {
+                Kind = MemberKind.Field;
+                Field = f;
+                Property = null;
+                Method = null;
+                IsStatic = f.IsStatic;
+            }
+
+            public MemberAccessor(PropertyInfo p)
+            {
+                Kind = MemberKind.Property;
+                Field = null;
+                Property = p;
+                Method = null;
+                IsStatic = p.GetGetMethod(true).IsStatic;
+            }
+
+            public MemberAccessor(MethodInfo m)
+            {
+                Kind = MemberKind.Method;
+                Field = null;
+                Property = null;
+                Method = m;
+                IsStatic = m.IsStatic;
+            }
+
+            public double Read(object owner)
+            {
+                var target = IsStatic ? null : owner;
+                switch (Kind)
+                {
+                    case MemberKind.Field: return Convert.ToDouble(Field.GetValue(target));
+                    case MemberKind.Property: return Convert.ToDouble(Property.GetValue(target));
+                    case MemberKind.Method: return Convert.ToDouble(Method.Invoke(target, null));
+                    default: return 0;
+                }
+            }
+        }
+
+        // Cache: (Type, memberName) → accessor
+        private static readonly Dictionary<(Type, string), MemberAccessor> AccessorCache =
+            new Dictionary<(Type, string), MemberAccessor>();
+
         /// <summary>
         /// Вычисляет формулу, подставляя значения из привязок slots объекта owner.
         /// </summary>
@@ -61,33 +115,41 @@ namespace Vortex.Unity.FormulaEvaluatorSystem
             {
                 var name = slots[i].memberName;
                 if (string.IsNullOrEmpty(name)) continue;
-                parameters[i] = ReadNumericMember(type, owner, name);
+                parameters[i] = ReadCached(type, owner, name);
             }
 
             return parameters;
         }
 
-        private static double ReadNumericMember(Type type, object owner, string name)
+        private static double ReadCached(Type type, object owner, string name)
         {
-            // Field
-            var field = FindField(type, name);
-            if (field != null && IsNumeric(field.FieldType))
-                return Convert.ToDouble(field.GetValue(field.IsStatic ? null : owner));
-
-            // Property
-            var prop = FindProperty(type, name);
-            if (prop != null && prop.CanRead && IsNumeric(prop.PropertyType))
+            var key = (type, name);
+            if (!AccessorCache.TryGetValue(key, out var accessor))
             {
-                var getter = prop.GetGetMethod(true);
-                return Convert.ToDouble(prop.GetValue(getter.IsStatic ? null : owner));
+                accessor = BuildAccessor(type, name);
+                AccessorCache[key] = accessor;
             }
 
-            // Method
+            return accessor.Read(owner);
+        }
+
+        private static MemberAccessor BuildAccessor(Type type, string name)
+        {
+            var field = FindField(type, name);
+            if (field != null && IsNumeric(field.FieldType))
+                return new MemberAccessor(field);
+
+            var prop = FindProperty(type, name);
+            if (prop != null && prop.CanRead && IsNumeric(prop.PropertyType))
+                return new MemberAccessor(prop);
+
             var method = FindMethod(type, name);
             if (method != null && method.GetParameters().Length == 0 && IsNumeric(method.ReturnType))
-                return Convert.ToDouble(method.Invoke(method.IsStatic ? null : owner, null));
+                return new MemberAccessor(method);
 
-            return 0;
+            // Fallback: return a field accessor that will return 0
+            throw new InvalidOperationException(
+                $"Numeric member '{name}' not found on type '{type.Name}'");
         }
 
         private static FieldInfo FindField(Type type, string name)
@@ -95,7 +157,6 @@ namespace Vortex.Unity.FormulaEvaluatorSystem
             var result = type.GetField(name, AllMembers);
             if (result != null) return result;
 
-            // Walk base types for private members (FlattenHierarchy doesn't include them)
             var baseType = type.BaseType;
             while (baseType != null && baseType != typeof(object))
             {

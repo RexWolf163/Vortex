@@ -9,10 +9,11 @@
 
 Возможности:
 - Управление жизненным циклом игры: запуск, пауза, выход
-- Реактивная модель данных с подпиской через `Subscribe` / `Unsubscribe`
+- Реализует `IReactiveData` — подписка через `OnUpdate` / `OnUpdateData`
 - Составная модель `GameModel` — расширяемый контейнер через `IGameData`
 - Автоматическая пауза при потере фокуса приложением
-- Сериализация / десериализация состояния
+- Сохранение и загрузка через `ISaveable` / `SaveController`
+- Сериализация / десериализация состояния (POCO-поля через `SerializeController`)
 - Editor-режим: создание модели без запуска приложения
 
 Вне ответственности:
@@ -23,32 +24,36 @@
 ## Зависимости
 
 ### Core
-- `Vortex.Core.System.Abstractions` — `Singleton<T>`, `IReactiveData`
-- `Vortex.Core.System.Abstractions.ReactiveValues` — реактивные значения
+- `Vortex.Core.System.Abstractions` — `Singleton<T>`
+- `Vortex.Core.Extensions.ReactiveValues` — `IReactiveData`
 - `Vortex.Core.AppSystem.Bus` — `App`, `AppStates`
 - `Vortex.Core.ComplexModelSystem` — `ComplexModel<T>`
+- `Vortex.Core.SaveSystem` — `SaveController`, `ISaveable`
 
 ### Unity
 - `Vortex.Unity.AppSystem.System.TimeSystem` — `TimeController.Accumulate`
+- `Cysharp.Threading.Tasks` — `UniTask` (save/load)
 
 ## Архитектура
 
 ```
-GameController (Singleton, static API)
+GameController (Singleton, IReactiveData, ISaveable, static API)
 ├── GameModel (ComplexModel<IGameData>)
 │   ├── State: GameStates
 │   └── Dictionary<Type, IGameData>   ← пакеты регистрируют свои данные
 ├── OnNewGame                          ← событие новой игры
 ├── OnGameStateChanged                 ← событие смены состояния
-├── Subscribe / Unsubscribe            ← реактивная подписка на данные
-└── Serialize / Deserialize            ← JSON сериализация модели
+├── OnLoadGame                         ← событие завершения загрузки
+├── OnUpdate / OnUpdateData            ← реактивная подписка (IReactiveData)
+├── CallUpdateEvent()                  ← батчинг через TimeController.Accumulate
+└── Serialize / Deserialize            ← JSON сериализация (POCO-поля)
 ```
 
 ### Компоненты
 
 | Класс | Тип | Назначение |
 |-------|-----|-----------|
-| `GameController` | `Singleton<T>`, partial, static | Шина управления игрой |
+| `GameController` | `Singleton<T>`, `IReactiveData`, `ISaveable`, partial, static | Шина управления игрой |
 | `GameModel` | `ComplexModel<IGameData>` | Составная модель данных |
 | `GameStates` | `enum` | Off, Play, Win, Fail, Paused, Loading |
 | `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` по состоянию игры |
@@ -72,7 +77,9 @@ GameController (Singleton, static API)
 - `GameController.Get<T>()` — доступ к зарегистрированным данным
 - `GameController.OnGameStateChanged` — событие смены состояния
 - `GameController.OnNewGame` — событие новой игры
-- `GameController.Subscribe(Action)` — подписка на обновление данных
+- `GameController.OnLoadGame` — событие завершения загрузки
+- `GameController.OnUpdate` — static подписка на обновление данных (проксирует `OnUpdateData`)
+- `GameController.CallUpdateEvent()` — вызов `OnUpdateData` с батчингом через `TimeController.Accumulate`
 
 ### Гарантии
 - `NewGame()` блокируется до вызова `ExitGame()` (lock-механизм)
@@ -111,9 +118,12 @@ var data = GameController.Get<MyPackageData>();
 ### Подписка на изменения данных
 
 ```csharp
-GameController.Subscribe(OnDataUpdated);
-// ...
-GameController.Unsubscribe(OnDataUpdated);
+// Рекомендуемый способ (static event)
+GameController.OnUpdate += OnDataUpdated;
+GameController.OnUpdate -= OnDataUpdated;
+
+// Вызов обновления с батчингом (несколько вызовов за кадр схлопываются в один)
+GameController.CallUpdateEvent();
 ```
 
 ### Подписка на состояния
@@ -125,6 +135,19 @@ GameController.OnGameStateChanged += () =>
     // ...
 };
 ```
+
+### Сохранение и загрузка
+
+`GameController` реализует `ISaveable` и автоматически регистрируется в `SaveController`.
+
+```
+Загрузка: Off → Loading → Init() → Deserialize(POCO) → Play → OnLoadGame
+```
+
+- `Init()` создаёт структуру модели (все `IGameData`-реализации через `Activator.CreateInstance`)
+- `Deserialize` загружает POCO-поля поверх существующих объектов (не пересоздаёт словарь)
+- Не-POCO поля (события, ссылки) сохраняются от `Init()`
+- `GameModel.BeforeDeserialization` создаёт backup `Index` на случай ошибки десериализации
 
 ## Граничные случаи
 

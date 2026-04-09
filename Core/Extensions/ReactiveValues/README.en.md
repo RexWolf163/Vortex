@@ -14,6 +14,7 @@ Capabilities:
 - Typed `OnUpdate` event with the new value
 - Untyped `OnUpdateData` event (`IReactiveData` interface)
 - Implicit operator for reading without `.Value`
+- Container ownership — only the owner can modify the value via `Set()`
 - `IReactiveData` interface is marked `[POCO]` — all implementations are automatically serializable via `SerializeController`
 
 Out of scope:
@@ -28,6 +29,7 @@ Out of scope:
 | Dependency | Purpose |
 |------------|---------|
 | `Vortex.Core.Extensions.LogicExtensions.SerializationSystem` | `[POCO]` attribute on `IReactiveData` |
+| `Vortex.Core.LoggerSystem` | `Log.Print` for ownership errors |
 
 ---
 
@@ -47,7 +49,7 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | Class | Purpose |
 |-------|---------|
 | `IReactiveData` | Interface with `event Action OnUpdateData`. Marked `[POCO]` |
-| `ReactiveValue<T>` | Abstract wrapper: `Value`, `Set(T)`, `OnUpdate`, implicit operator |
+| `ReactiveValue<T>` | Abstract wrapper: `Value`, `Set(T, owner)`, `SetOwner()`, `OnUpdate`, implicit operator |
 | `IntData` | `ReactiveValue<int>` |
 | `FloatData` | `ReactiveValue<float>` |
 | `BoolData` | `ReactiveValue<bool>` |
@@ -62,13 +64,17 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | Method / Property | Description |
 |-------------------|-------------|
 | `Value` | Current value (public get, protected set) |
-| `Set(T value)` | Sets the value and fires both events |
+| `Set(T value, object owner = null)` | Sets the value and fires both events. If an owner is assigned, only the owner can modify the value |
+| `SetOwner(object owner)` | Assign container owner. Reassignment is not allowed |
 | `OnUpdate` | `event Action<T>` — typed notification |
 | `OnUpdateData` | `event Action` — untyped notification (from `IReactiveData`) |
 | `implicit operator T` | Read value without `.Value` |
 
 ### Guarantees
 - `Set()` always fires `OnUpdate` and `OnUpdateData`, even if the value hasn't changed
+- `Set()` with a wrong owner logs an error and does not change the value
+- `SetOwner()` prevents reassignment — logs an error on repeated calls
+- Without an owner (`_owner == null`), `Set()` works without restrictions
 - `implicit operator` allows using `ReactiveValue<T>` wherever `T` is expected
 - All subclasses are constructed with an initial value: `new IntData(0)`
 - `[POCO]` on `IReactiveData` makes all implementations serializable via `SerializeController`
@@ -76,6 +82,7 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 ### Constraints
 - No parameterless constructor — deserialization via `FormatterServices.GetUninitializedObject()`
 - `Set()` does not check equality — event on every call
+- Owner is assigned once and cannot be released
 - Not thread-safe
 
 ---
@@ -119,6 +126,18 @@ if (model.IsAlive) { /* ... */ }   // implicit operator
 model.Level.Set(5);   // fires OnUpdate(5) and OnUpdateData
 ```
 
+### Container ownership
+
+```csharp
+// Controller assigns itself as owner
+model.Level.SetOwner(this);
+
+// Only the owner can modify the value
+model.Level.Set(10, this);    // OK
+model.Level.Set(10, other);   // Error: "Trying to change value from outer Object."
+model.Level.Set(10);          // Error: owner = null != this
+```
+
 ### Usage with QuestController
 
 ```csharp
@@ -136,3 +155,6 @@ QuestController.SetListener(model.Level, this);
 | `implicit operator` on null | NRE — `ReactiveValue` is not nullable |
 | Deserialization without constructor | Fallback to `FormatterServices.GetUninitializedObject()` |
 | `[POCO]` on `IReactiveData` | All `ReactiveValue<T>` subclasses are serializable automatically |
+| `Set()` without owner when `_owner` is set | Error — `owner = null` does not equal `_owner` |
+| `SetOwner(null)` | Ignored (early return) |
+| Repeated `SetOwner()` | Error, owner is not reassigned |
