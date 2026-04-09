@@ -37,8 +37,7 @@ namespace Vortex.Core.Extensions.ReactiveValues
             }
 
             Value = value;
-            OnUpdate?.Invoke(Value);
-            OnUpdateData?.Invoke();
+            CallOnUpdate();
         }
 
         /// <summary>
