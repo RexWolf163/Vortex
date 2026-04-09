@@ -3,6 +3,7 @@ using System.Linq;
 using Naninovel;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Sdk.Core.GameCore;
 
 namespace Vortex.NaniExtensions.Core
@@ -142,6 +143,8 @@ namespace Vortex.NaniExtensions.Core
             if (_isPlaying == NaniIsPlaying())
                 return;
             _isPlaying = NaniIsPlaying();
+            if (Settings.Data().DebugMode)
+                Debug.Log(_isPlaying ? "Nani Is Run" : "Nani Is Stopped");
             if (_isPlaying)
                 OnNaniStart?.Invoke();
             else
