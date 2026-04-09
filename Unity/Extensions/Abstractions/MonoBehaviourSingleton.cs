@@ -13,6 +13,14 @@ namespace Vortex.Unity.Extensions.Abstractions
             {
                 if (_instance == null)
                     _instance = FindAnyObjectByType<T>();
+#if UNITY_EDITOR
+                if (_instance == null)
+                {
+                    var stage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
+                    if (stage != null)
+                        _instance = stage.prefabContentsRoot.GetComponentInChildren<T>(true);
+                }
+#endif
                 return _instance;
             }
         }
