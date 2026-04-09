@@ -18,7 +18,7 @@ namespace Vortex.Core.Extensions.ReactiveValues
         /// Владелец объекта
         /// Только он может вносить изменения в данные, если назначен
         /// </summary>
-        protected Object _owner;
+        protected object _owner;
 
         protected void CallOnUpdate()
         {
@@ -28,7 +28,7 @@ namespace Vortex.Core.Extensions.ReactiveValues
 
         public T Value { get; protected set; }
 
-        public void Set(T value, Object owner = null)
+        public void Set(T value, object owner = null)
         {
             if (_owner != null && !_owner.Equals(owner))
             {
@@ -45,7 +45,7 @@ namespace Vortex.Core.Extensions.ReactiveValues
         /// (только он сможет менять содержимое контейнера)
         /// </summary>
         /// <param name="owner"></param>
-        public void SetOwner(Object owner)
+        public void SetOwner(object owner)
         {
             if (owner == null)
                 return;
