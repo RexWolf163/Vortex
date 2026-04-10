@@ -206,7 +206,7 @@ namespace Vortex.Unity.EditorTools
                     continue;
                 }
 
-                var field = ReflectionCache.GetField(type, path[i], AllInstance);
+                var field = ReflectionCache.GetFieldWithBase(type, path[i], AllInstance);
 
                 // SerializeReference: объявленный тип может не содержать поля —
                 // пробуем runtime-тип через managedReferenceFullTypename
@@ -215,7 +215,7 @@ namespace Vortex.Unity.EditorTools
                     var resolvedType = TryResolveManagedReferenceType(serializedObject, propertyPath, path, i);
                     if (resolvedType != null)
                     {
-                        field = ReflectionCache.GetField(resolvedType, path[i], AllInstance);
+                        field = ReflectionCache.GetFieldWithBase(resolvedType, path[i], AllInstance);
                         type = resolvedType;
                     }
                 }
