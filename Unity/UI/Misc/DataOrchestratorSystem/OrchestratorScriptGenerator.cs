@@ -109,6 +109,7 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             var sb = new StringBuilder();
             var usings = new HashSet<string>
             {
+                "Sirenix.OdinInspector",
                 "UnityEngine",
                 "Vortex.Unity.UI.Misc",
                 "Vortex.Unity.UI.Misc.DataOrchestratorSystem"
@@ -206,9 +207,13 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             sb.AppendLine("    // TODO уникальную логику или ситуации нужно прописать отдельно ");
             sb.AppendLine();
 
+            // region start
+            sb.AppendLine("    #region AutoLinks ");
+            sb.AppendLine();
+
             // DataStorage fields
             foreach (var f in fields)
-                sb.AppendLine($"    [SerializeField] private {f.Type} {f.Name};");
+                sb.AppendLine($"    [SerializeField, FoldoutGroup(\"Links\")] private {f.Type} {f.Name};");
 
             // Wrapper fields
             if (wrapperFields.Count > 0)
@@ -219,6 +224,11 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             }
 
             sb.AppendLine();
+            
+            // region end
+            sb.AppendLine("    #endregion ");
+            sb.AppendLine();
+
 
             // Map
             sb.AppendLine("    /// <summary>");

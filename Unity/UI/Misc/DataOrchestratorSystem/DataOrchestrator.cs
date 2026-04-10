@@ -111,7 +111,7 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
         }
 
 #if UNITY_EDITOR
-        [Button("Generate Hierarchy"), PropertyOrder(-1)]
+        [Button("Generate Hierarchy")]
         private void GenerateHierarchy()
         {
             var fields = GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
