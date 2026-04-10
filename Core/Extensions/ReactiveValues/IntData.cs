@@ -3,5 +3,11 @@
     public class IntData : ReactiveValue<int>
     {
         public IntData(int value) => Value = value;
+
+        public IntData(int value, object owner)
+        {
+            Value = value;
+            _owner = owner;
+        }
     }
 }

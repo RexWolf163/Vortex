@@ -1,8 +1,9 @@
 ﻿using System;
+using Vortex.Core.Extensions.ReactiveValues;
 
 namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model
 {
-    public abstract class MiniGameData
+    public abstract class MiniGameData : IReactiveData
     {
         /// <summary>
         /// Изменение конкретно состояния игры
@@ -12,7 +13,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model
         /// <summary>
         /// Общее событие изменения состояния модели данных
         /// </summary>
-        public event Action OnUpdated;
+        public event Action OnUpdateData;
 
         /// <summary>
         /// Текущее состояние миниигры
@@ -32,6 +33,6 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model
         /// <summary>
         /// Вызов события "данные обновились"
         /// </summary>
-        public void CallOnUpdated() => OnUpdated?.Invoke();
+        public void CallOnUpdated() => OnUpdateData?.Invoke();
     }
 }

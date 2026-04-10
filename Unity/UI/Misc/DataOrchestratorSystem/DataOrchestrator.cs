@@ -1,8 +1,8 @@
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.System.Abstractions;
 using Vortex.Unity.EditorTools.Attributes;
 
@@ -21,7 +21,27 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
         private IDataStorage _storage;
         private IDataStorage Storage => _storage ??= source as IDataStorage;
 
+        /// <summary>
+        /// Кеш полей с линками на хранилища данных, полученные рефлексией
+        /// </summary>
+        private DataStorage[] _storagesIndex;
+
         protected T Data { get; private set; }
+
+        protected virtual void Awake()
+        {
+            var fields = GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            var list = new List<DataStorage>();
+            foreach (var field in fields)
+            {
+                if (field.FieldType != typeof(DataStorage))
+                    continue;
+                var storage = field.GetValue(this) as DataStorage;
+                list.Add(storage);
+            }
+
+            _storagesIndex = list.ToArray();
+        }
 
         private void OnEnable()
         {
@@ -40,8 +60,10 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             Data = Storage?.GetData<T>();
             if (Data == null)
                 return;
-            Subscribe(Data);
             Map(Data);
+            if (Data is IReactiveData reactiveData)
+                reactiveData.OnUpdateData += OnDataUpdate;
+            OnDataUpdate();
         }
 
         private void DeInit()
@@ -49,7 +71,8 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             if (Data != null)
             {
                 Unmap();
-                Unsubscribe(Data);
+                if (Data is IReactiveData reactiveData)
+                    reactiveData.OnUpdateData -= OnDataUpdate;
             }
 
             ClearStorages();
@@ -73,47 +96,18 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
         protected abstract void Unmap();
 
         /// <summary>
-        /// Подписка на события модели данных.
-        /// Переопределите для добавления собственных подписок
-        /// </summary>
-        protected virtual void Subscribe(T data)
-        {
-        }
-
-        /// <summary>
-        /// Отписка от событий модели данных.
-        /// Переопределите для снятия собственных подписок
-        /// </summary>
-        protected virtual void Unsubscribe(T data)
-        {
-        }
-
-        /// <summary>
         /// Модель данных изменилась.
         /// Переопределите для обработки обновлений
         /// </summary>
-        protected virtual void OnDataUpdated()
-        {
-        }
+        protected abstract void OnDataUpdate();
 
         /// <summary>
-        /// Записать данные в контейнер
+        /// Очистка всех данных в связанных контейнерах
         /// </summary>
-        protected void Push(DataStorage storage, object data)
-        {
-            storage?.SetData(data);
-        }
-
         private void ClearStorages()
         {
-            var fields = GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-            foreach (var field in fields)
-            {
-                if (field.FieldType != typeof(DataStorage))
-                    continue;
-                var storage = field.GetValue(this) as DataStorage;
+            foreach (var storage in _storagesIndex)
                 storage?.SetData(null);
-            }
         }
 
 #if UNITY_EDITOR
@@ -136,8 +130,10 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
                 var child = transform.Find(childName)?.gameObject;
                 if (child == null)
                 {
-                    child = new GameObject(childName);
+                    child = new GameObject($"_{childName} [DataStorage]");
                     child.transform.SetParent(transform, false);
+                    child.transform.SetAsFirstSibling();
+
                     RemoveRectTransform(child);
                 }
 

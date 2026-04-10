@@ -23,11 +23,11 @@ namespace Vortex.Unity.UI.Misc
 
         private readonly AsyncTween _tween = new();
 
-        public void Set(float value, float max)
+        public void Set(float value, float max, float min = 0f)
         {
-            //var current = slider.value / slider.maxValue;
             if (Mathf.Approximately(target, value) && Mathf.Approximately(slider.maxValue, max))
                 return;
+            slider.minValue = min;
             slider.maxValue = max;
             target = value;
             _tween.SetSlider(slider, target, duration).SetEase(ease).SetToken(destroyCancellationToken)
