@@ -16,9 +16,10 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
     /// ПКМ по .cs файлу → Create → Vortex Templates → DataOrchestrator
     ///
     /// Контракт:
-    /// - ReactiveValue наследники и ссылочные типы → Push напрямую
-    /// - Значимые типы (int, float, bool, etc.) → оборачиваются в IntData/FloatData/BoolData/StringData
-    /// - Прочие значимые типы → generic обёртка ReactiveValue (TODO: ручная правка)
+    /// - ReactiveValue наследники и ссылочные типы → SetData напрямую
+    /// - Значимые типы (int, float, bool) → оборачиваются в IntData/FloatData/BoolData
+    /// - string → SetData напрямую (ссылочный тип)
+    /// - Прочие значимые типы → TODO с пометкой для ручной обёртки
     /// </summary>
     internal static class OrchestratorScriptGenerator
     {
@@ -99,172 +100,144 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             };
 
             var fields = new List<FieldEntry>();
+            var wrapperFields = new List<string>();
             var mapLines = new List<string>();
             var unmapLines = new List<string>();
-            var needsOnUpdated = false;
-            var extraFields = new List<string>();
+            var updateLines = new List<string>();
+            var hasWrappers = false;
 
             foreach (var prop in properties)
             {
                 var propType = prop.PropertyType;
                 var fieldName = ToCamelCase(prop.Name);
+                fields.Add(new FieldEntry(fieldName, "DataStorage"));
 
                 if (IsReactiveValue(propType))
                 {
-                    fields.Add(new FieldEntry(fieldName, "DataStorage"));
-                    mapLines.Add($"            Push({fieldName}, data.{prop.Name});");
-                }
-                else if (propType.IsClass || propType.IsInterface)
-                {
-                    fields.Add(new FieldEntry(fieldName, "DataStorage"));
-                    mapLines.Add($"            Push({fieldName}, data.{prop.Name});");
+                    mapLines.Add($"        {fieldName}?.SetData(data.{prop.Name});");
                 }
                 else if (propType == typeof(int))
                 {
                     usings.Add("Vortex.Core.Extensions.ReactiveValues");
-                    fields.Add(new FieldEntry(fieldName, "DataStorage"));
-                    var wrapperField = $"_{fieldName}Value";
-                    extraFields.Add($"        private IntData {wrapperField} = new(0);");
-                    mapLines.Add($"            {wrapperField}.Set(data.{prop.Name});");
-                    mapLines.Add($"            Push({fieldName}, {wrapperField});");
-                    needsOnUpdated = true;
-                    unmapLines.Add($"            {wrapperField}.Set(0);");
+                    var wrapper = $"_{fieldName}Value";
+                    wrapperFields.Add($"    private IntData {wrapper} = new(0);");
+                    mapLines.Add($"        {wrapper}.Set(data.{prop.Name});");
+                    mapLines.Add($"        {fieldName}?.SetData({wrapper});");
+                    unmapLines.Add($"        {wrapper}.Set(0);");
+                    updateLines.Add($"        {wrapper}.Set(Data.{prop.Name});");
+                    hasWrappers = true;
                 }
                 else if (propType == typeof(float))
                 {
                     usings.Add("Vortex.Core.Extensions.ReactiveValues");
-                    fields.Add(new FieldEntry(fieldName, "DataStorage"));
-                    var wrapperField = $"_{fieldName}Value";
-                    extraFields.Add($"        private FloatData {wrapperField} = new(0);");
-                    mapLines.Add($"            {wrapperField}.Set(data.{prop.Name});");
-                    mapLines.Add($"            Push({fieldName}, {wrapperField});");
-                    needsOnUpdated = true;
-                    unmapLines.Add($"            {wrapperField}.Set(0);");
+                    var wrapper = $"_{fieldName}Value";
+                    wrapperFields.Add($"    private FloatData {wrapper} = new(0);");
+                    mapLines.Add($"        {wrapper}.Set(data.{prop.Name});");
+                    mapLines.Add($"        {fieldName}?.SetData({wrapper});");
+                    unmapLines.Add($"        {wrapper}.Set(0);");
+                    updateLines.Add($"        {wrapper}.Set(Data.{prop.Name});");
+                    hasWrappers = true;
                 }
                 else if (propType == typeof(bool))
                 {
                     usings.Add("Vortex.Core.Extensions.ReactiveValues");
-                    fields.Add(new FieldEntry(fieldName, "DataStorage"));
-                    var wrapperField = $"_{fieldName}Value";
-                    extraFields.Add($"        private BoolData {wrapperField} = new(false);");
-                    mapLines.Add($"            {wrapperField}.Set(data.{prop.Name});");
-                    mapLines.Add($"            Push({fieldName}, {wrapperField});");
-                    needsOnUpdated = true;
-                    unmapLines.Add($"            {wrapperField}.Set(false);");
+                    var wrapper = $"_{fieldName}Value";
+                    wrapperFields.Add($"    private BoolData {wrapper} = new(false);");
+                    mapLines.Add($"        {wrapper}.Set(data.{prop.Name});");
+                    mapLines.Add($"        {fieldName}?.SetData({wrapper});");
+                    unmapLines.Add($"        {wrapper}.Set(false);");
+                    updateLines.Add($"        {wrapper}.Set(Data.{prop.Name});");
+                    hasWrappers = true;
                 }
-                else if (propType == typeof(string))
+                else if (propType.IsClass || propType.IsInterface || propType == typeof(string))
                 {
-                    usings.Add("Vortex.Core.Extensions.ReactiveValues");
-                    fields.Add(new FieldEntry(fieldName, "DataStorage"));
-                    var wrapperField = $"_{fieldName}Value";
-                    extraFields.Add($"        private StringData {wrapperField} = new(string.Empty);");
-                    mapLines.Add($"            {wrapperField}.Set(data.{prop.Name});");
-                    mapLines.Add($"            Push({fieldName}, {wrapperField});");
-                    needsOnUpdated = true;
-                    unmapLines.Add($"            {wrapperField}.Set(string.Empty);");
+                    mapLines.Add($"        {fieldName}?.SetData(data.{prop.Name});");
                 }
                 else
                 {
-                    // Прочие значимые типы — помечаем TODO
-                    fields.Add(new FieldEntry(fieldName, "DataStorage"));
-                    mapLines.Add($"            // TODO: {prop.Name} ({GetFriendlyTypeName(propType)}) — требует ручной обёртки");
+                    mapLines.Add($"        // TODO: {prop.Name} ({GetFriendlyTypeName(propType)}) — требует ручной обёртки");
                 }
             }
 
             if (!string.IsNullOrEmpty(dataNamespace))
                 usings.Add(dataNamespace);
 
-            // Write usings
+            // Usings
             foreach (var u in usings.OrderBy(s => s))
                 sb.AppendLine($"using {u};");
             sb.AppendLine();
 
-            // Namespace — берём из модели данных, если есть
-            var ns = !string.IsNullOrEmpty(dataNamespace) ? dataNamespace : null;
-            if (ns != null)
-            {
-                sb.AppendLine($"namespace {ns}");
-                sb.AppendLine("{");
-            }
+            // Class summary
+            sb.AppendLine("/// <summary>");
+            sb.AppendLine("/// Автогенерированный класс");
+            sb.AppendLine("/// Оркестратор для данных. Позволяет быстро воспроизвести структуру данных на уровне GameObject");
+            sb.AppendLine("/// и пробросить связи данные-контейнер ");
+            sb.AppendLine("/// </summary>");
+            sb.AppendLine($"public class {className} : DataOrchestrator<{dataClassName}>");
+            sb.AppendLine("{");
 
-            var indent = ns != null ? "    " : "";
-
-            // Class
-            sb.AppendLine($"{indent}public class {className} : DataOrchestrator<{dataClassName}>");
-            sb.AppendLine($"{indent}{{");
+            // TODO
+            sb.AppendLine("    // TODO уникальную логику или ситуации нужно прописать отдельно ");
+            sb.AppendLine();
 
             // DataStorage fields
             foreach (var f in fields)
-                sb.AppendLine($"{indent}    [SerializeField] private {f.Type} {f.Name};");
-
-            if (fields.Count > 0 && extraFields.Count > 0)
-                sb.AppendLine();
+                sb.AppendLine($"    [SerializeField] private {f.Type} {f.Name};");
 
             // Wrapper fields
-            foreach (var line in extraFields)
-                sb.AppendLine($"{indent}{line}");
+            if (wrapperFields.Count > 0)
+            {
+                sb.AppendLine();
+                foreach (var line in wrapperFields)
+                    sb.AppendLine(line);
+            }
 
             sb.AppendLine();
 
             // Map
-            sb.AppendLine($"{indent}    protected override void Map({dataClassName} data)");
-            sb.AppendLine($"{indent}    {{");
+            sb.AppendLine("    /// <summary>");
+            sb.AppendLine("    /// Автогенерированный метод");
+            sb.AppendLine("    /// ");
+            sb.AppendLine("    /// Мэппинг данных по контейнерам");
+            sb.AppendLine("    /// </summary>");
+            sb.AppendLine("    /// <param name=\"data\"></param>");
+            sb.AppendLine($"    protected override void Map({dataClassName} data)");
+            sb.AppendLine("    {");
             foreach (var line in mapLines)
-                sb.AppendLine($"{indent}{line}");
-            sb.AppendLine($"{indent}    }}");
+                sb.AppendLine(line);
+            sb.AppendLine("    }");
             sb.AppendLine();
 
             // Unmap
-            sb.AppendLine($"{indent}    protected override void Unmap()");
-            sb.AppendLine($"{indent}    {{");
+            sb.AppendLine("    /// <summary>");
+            sb.AppendLine("    /// Автогенерированный метод");
+            sb.AppendLine("    /// ");
+            sb.AppendLine("    /// Сброс данных упакованных в контейнер");
+            sb.AppendLine("    /// </summary>");
+            sb.AppendLine("    protected override void Unmap()");
+            sb.AppendLine("    {");
             foreach (var line in unmapLines)
-                sb.AppendLine($"{indent}{line}");
-            sb.AppendLine($"{indent}    }}");
+                sb.AppendLine(line);
+            sb.AppendLine("    }");
             sb.AppendLine();
 
-            // Subscribe
-            sb.AppendLine($"{indent}    protected override void Subscribe({dataClassName} data)");
-            sb.AppendLine($"{indent}    {{");
-            sb.AppendLine($"{indent}        // TODO: подпишитесь на события модели данных");
-            if (needsOnUpdated)
-                sb.AppendLine($"{indent}        // data.OnUpdated += OnDataUpdated;");
-            sb.AppendLine($"{indent}    }}");
-            sb.AppendLine();
-
-            // Unsubscribe
-            sb.AppendLine($"{indent}    protected override void Unsubscribe({dataClassName} data)");
-            sb.AppendLine($"{indent}    {{");
-            sb.AppendLine($"{indent}        // TODO: отпишитесь от событий модели данных");
-            if (needsOnUpdated)
-                sb.AppendLine($"{indent}        // data.OnUpdated -= OnDataUpdated;");
-            sb.AppendLine($"{indent}    }}");
-
-            // OnDataUpdated
-            if (needsOnUpdated)
+            // OnDataUpdate
+            sb.AppendLine("    /// <summary>");
+            sb.AppendLine("    /// Автогенерированный метод");
+            sb.AppendLine("    ///");
+            sb.AppendLine("    /// На обновление данных модели стоит провести обновление данных");
+            sb.AppendLine("    /// упакованных в контейнер");
+            sb.AppendLine("    /// </summary>");
+            sb.AppendLine("    protected override void OnDataUpdate()");
+            sb.AppendLine("    {");
+            if (hasWrappers)
             {
-                sb.AppendLine();
-                sb.AppendLine($"{indent}    protected override void OnDataUpdated()");
-                sb.AppendLine($"{indent}    {{");
-
-                foreach (var prop in properties)
-                {
-                    var propType = prop.PropertyType;
-                    if (propType != typeof(int) && propType != typeof(float)
-                        && propType != typeof(bool) && propType != typeof(string))
-                        continue;
-
-                    var fieldName = ToCamelCase(prop.Name);
-                    var wrapperField = $"_{fieldName}Value";
-                    sb.AppendLine($"{indent}        {wrapperField}.Set(Data.{prop.Name});");
-                }
-
-                sb.AppendLine($"{indent}    }}");
+                foreach (var line in updateLines)
+                    sb.AppendLine(line);
             }
+            sb.AppendLine("    }");
 
-            sb.AppendLine($"{indent}}}");
-
-            if (ns != null)
-                sb.AppendLine("}");
+            sb.AppendLine("}");
 
             return sb.ToString();
         }
