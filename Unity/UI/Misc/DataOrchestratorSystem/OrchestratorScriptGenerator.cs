@@ -17,9 +17,11 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
     ///
     /// Контракт:
     /// - ReactiveValue наследники и ссылочные типы → SetData напрямую
-    /// - Значимые типы (int, float, bool) → оборачиваются в IntData/FloatData/BoolData
+    /// - int, float, bool → оборачиваются в IntData/FloatData/BoolData
+    /// - enum → оборачивается в IntData с кастом к int
     /// - string → SetData напрямую (ссылочный тип)
-    /// - Прочие значимые типы → TODO с пометкой для ручной обёртки
+    /// - Func, Action, делегаты → пропускаются
+    /// - struct (не примитивы, не enum) → пропускаются
     /// </summary>
     internal static class OrchestratorScriptGenerator
     {
@@ -82,7 +84,20 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
         private static bool IsExcluded(PropertyInfo p)
         {
             var name = p.Name;
-            return name is "Value" or "State";
+            if (name is "Value" or "State")
+                return true;
+
+            var type = p.PropertyType;
+
+            // Func<>, Action<>, делегаты
+            if (typeof(Delegate).IsAssignableFrom(type))
+                return true;
+
+            // struct (кроме примитивов и enum — они обрабатываются отдельно)
+            if (type.IsValueType && !type.IsPrimitive && !type.IsEnum)
+                return true;
+
+            return false;
         }
 
         private static string GenerateScript(
@@ -147,6 +162,17 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
                     mapLines.Add($"        {fieldName}?.SetData({wrapper});");
                     unmapLines.Add($"        {wrapper}.Set(false);");
                     updateLines.Add($"        {wrapper}.Set(Data.{prop.Name});");
+                    hasWrappers = true;
+                }
+                else if (propType.IsEnum)
+                {
+                    usings.Add("Vortex.Core.Extensions.ReactiveValues");
+                    var wrapper = $"_{fieldName}Value";
+                    wrapperFields.Add($"    private IntData {wrapper} = new(0);");
+                    mapLines.Add($"        {wrapper}.Set((int)data.{prop.Name});");
+                    mapLines.Add($"        {fieldName}?.SetData({wrapper});");
+                    unmapLines.Add($"        {wrapper}.Set(0);");
+                    updateLines.Add($"        {wrapper}.Set((int)Data.{prop.Name});");
                     hasWrappers = true;
                 }
                 else if (propType.IsClass || propType.IsInterface || propType == typeof(string))
