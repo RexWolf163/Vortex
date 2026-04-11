@@ -53,6 +53,7 @@ namespace Vortex.Unity.UI.TweenerSystem
             _cts.Dispose();
             _cts = null;
             _tweenTask = default;
+            _onComplete = null;
         }
 
         protected internal virtual void Forward(bool skip = false)
@@ -86,6 +87,7 @@ namespace Vortex.Unity.UI.TweenerSystem
                 _progress = 1f;
                 var eased = preset.curve.Evaluate(1f);
                 SetValue(eased);
+                OnEnd();
                 if (preset.offOnEndPoint)
                     SwitchOff();
             }
@@ -123,6 +125,7 @@ namespace Vortex.Unity.UI.TweenerSystem
                 _progress = 0f;
                 var eased = preset.curve.Evaluate(0f);
                 SetValue(eased);
+                OnStart();
                 if (preset.offOnStartPoint)
                     SwitchOff();
             }

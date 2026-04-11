@@ -65,6 +65,13 @@ namespace Vortex.Unity.UI.Misc
 
         public T GetData<T>() where T : class => _data.FirstOrDefault(o => o is T) as T;
 
+        /// <summary>
+        /// Возвращает TRUE, если имеется хотя бы один NULL элемент в данных
+        /// либо данных вообще нет
+        /// Используется для проверки "отзыва данных".
+        /// По этому сигналу производится переключение состояния UIStateSwitcher
+        /// (показать/скрыть UI, включить/выключить элемент).
+        /// </summary>
         private bool IsEmpty()
         {
             if (_data == null || _data.Count == 0)

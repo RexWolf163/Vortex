@@ -122,15 +122,20 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
                 if (field.FieldType != typeof(DataStorage))
                     continue;
 
+                var childName = field.Name.TrimStart('_');
+                childName = char.ToUpperInvariant(childName[0]) + childName[1..];
+
                 var existing = field.GetValue(this) as DataStorage;
                 if (existing != null)
+                {
+                    existing.name = $"[DataStorage] {childName}: {field.FieldType.Name}";
                     continue;
+                }
 
-                var childName = field.Name.TrimStart('_');
                 var child = transform.Find(childName)?.gameObject;
                 if (child == null)
                 {
-                    child = new GameObject($"_{childName} [DataStorage]");
+                    child = new GameObject($"[DataStorage] {childName}: {field.FieldType.Name}");
                     child.transform.SetParent(transform, false);
                     child.transform.SetAsFirstSibling();
 
