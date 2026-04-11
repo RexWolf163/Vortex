@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
 
@@ -36,6 +37,8 @@ namespace Vortex.Core.Extensions.ReactiveValues
                 return;
             }
 
+            if (EqualityComparer<T>.Default.Equals(Value, value))
+                return;
             Value = value;
             CallOnUpdate();
         }
@@ -59,5 +62,11 @@ namespace Vortex.Core.Extensions.ReactiveValues
         }
 
         public static implicit operator T(ReactiveValue<T> reactive) => reactive.Value;
+
+        /// <summary>
+        /// Принудительный запуск события обновления
+        /// Использовать аккуратно!
+        /// </summary>
+        public void ForceUpdate() => CallOnUpdate();
     }
 }

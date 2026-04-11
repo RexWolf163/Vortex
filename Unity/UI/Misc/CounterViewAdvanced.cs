@@ -86,18 +86,24 @@ namespace Vortex.Unity.UI.Misc
 
         private void OnEnable()
         {
-            StorageValue.OnUpdateLink += UpdateLink;
-            StorageMin.OnUpdateLink += UpdateLink;
-            StorageMax.OnUpdateLink += UpdateLink;
+            if (StorageValue != null)
+                StorageValue.OnUpdateLink += UpdateLink;
+            if (StorageMin != null)
+                StorageMin.OnUpdateLink += UpdateLink;
+            if (StorageMax != null)
+                StorageMax.OnUpdateLink += UpdateLink;
             Init();
         }
 
         private void OnDisable()
         {
             DeInit();
-            StorageValue.OnUpdateLink -= UpdateLink;
-            StorageMin.OnUpdateLink -= UpdateLink;
-            StorageMax.OnUpdateLink -= UpdateLink;
+            if (StorageValue != null)
+                StorageValue.OnUpdateLink -= UpdateLink;
+            if (StorageMin != null)
+                StorageMin.OnUpdateLink -= UpdateLink;
+            if (StorageMax != null)
+                StorageMax.OnUpdateLink -= UpdateLink;
         }
 
         private void Init()
@@ -112,9 +118,9 @@ namespace Vortex.Unity.UI.Misc
             var minValue = _min?.Value ?? 0f;
             var maxValue = _max?.Value ?? 1f;
             if (slider != null) slider.Set(_cachedValue, maxValue, minValue);
-            value.SetText(string.Format(patternValue, _cachedValue));
-            min.SetText(string.Format(patternMin, minValue));
-            max.SetText(string.Format(patternMax, maxValue));
+            value?.SetText(string.Format(patternValue, _cachedValue));
+            min?.SetText(string.Format(patternMin, minValue));
+            max?.SetText(string.Format(patternMax, maxValue));
         }
 
         private void DeInit()
@@ -143,7 +149,7 @@ namespace Vortex.Unity.UI.Misc
                 && ((newValue > _cachedValue && onUp) || (newValue < _cachedValue && onDawn)))
                 tweenPulsation.Pulse();
             _cachedValue = newValue;
-            value.SetText(string.Format(patternValue, newValue));
+            value?.SetText(string.Format(patternValue, newValue));
             if (slider != null) slider.Set(_cachedValue, _max?.Value ?? 1f, _min?.Value ?? 0f);
         }
 
@@ -152,7 +158,7 @@ namespace Vortex.Unity.UI.Misc
         /// </summary>
         private void OnMinUpdated(int newValue)
         {
-            min.SetText(string.Format(patternMin, newValue));
+            min?.SetText(string.Format(patternMin, newValue));
             if (slider != null) slider.Set(_cachedValue, _max?.Value ?? 1f, _min?.Value ?? 0f);
         }
 
@@ -161,7 +167,7 @@ namespace Vortex.Unity.UI.Misc
         /// </summary>
         private void OnMaxUpdated(int newValue)
         {
-            max.SetText(string.Format(patternMax, newValue));
+            max?.SetText(string.Format(patternMax, newValue));
             if (slider != null) slider.Set(_cachedValue, _max?.Value ?? 1f, _min?.Value ?? 0f);
         }
     }
