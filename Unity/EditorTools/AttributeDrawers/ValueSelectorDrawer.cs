@@ -23,6 +23,7 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
             public int Hash;
             public string Error;
             public bool HasError;
+            public double Timestamp;
         }
 
         private static SelectorCache Resolve(PropertyData data, ValueSelectorAttribute attr)
@@ -34,7 +35,8 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
                        ^ property.propertyPath.GetHashCode();
 
             var cached = data.GetDrawerCache<SelectorCache>(typeof(ValueSelectorAttribute));
-            if (cached != null && cached.Keys != null && cached.Hash == hash)
+            if (cached != null && cached.Keys != null && cached.Hash == hash
+                && EditorApplication.timeSinceStartup - cached.Timestamp < 1.0)
                 return cached;
 
             var entry = new SelectorCache();
@@ -95,6 +97,7 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
             }
 
             entry.Hash = hash;
+            entry.Timestamp = EditorApplication.timeSinceStartup;
             data.SetDrawerCache(typeof(ValueSelectorAttribute), entry);
             return entry;
         }
