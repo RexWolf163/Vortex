@@ -20,7 +20,7 @@
 Вне ответственности:
 - Потокобезопасность
 - Валидация значений
-- Подавление дубликатов (событие при каждом `Set`, даже если значение не изменилось)
+- Потокобезопасная подписка/отписка
 
 ---
 
@@ -49,11 +49,11 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 | Класс | Назначение |
 |-------|-----------|
 | `IReactiveData` | Интерфейс с `event Action OnUpdateData`. Помечен `[POCO]` |
-| `ReactiveValue<T>` | Абстрактная обёртка: `Value`, `Set(T, owner)`, `SetOwner()`, `OnUpdate`, implicit operator |
-| `IntData` | `ReactiveValue<int>` |
-| `FloatData` | `ReactiveValue<float>` |
-| `BoolData` | `ReactiveValue<bool>` |
-| `StringData` | `ReactiveValue<string>`, переопределяет `ToString()` |
+| `ReactiveValue<T>` | Абстрактная обёртка: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
+| `IntData` | `ReactiveValue<int>`. Конструкторы: `(int)`, `(int, object owner)` |
+| `FloatData` | `ReactiveValue<float>`. Конструкторы: `(float)`, `(float, object owner)` |
+| `BoolData` | `ReactiveValue<bool>`. Конструкторы: `(bool)`, `(bool, object owner)` |
+| `StringData` | `ReactiveValue<string>`, `ToString()`. Конструкторы: `(string)`, `(string, object owner)` |
 
 ---
 
@@ -64,24 +64,25 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 | Метод / Свойство | Описание |
 |------------------|----------|
 | `Value` | Текущее значение (public get, protected set) |
-| `Set(T value, object owner = null)` | Устанавливает значение и вызывает оба события. Если назначен владелец — только он может менять значение |
+| `Set(T value, object owner = null)` | Устанавливает значение. Если значение не изменилось — игнорируется. Если назначен владелец — только он может менять значение |
 | `SetOwner(object owner)` | Назначить владельца контейнера. Повторное назначение запрещено |
+| `ForceUpdate()` | Принудительный вызов `OnUpdate` и `OnUpdateData` без изменения значения |
 | `OnUpdate` | `event Action<T>` — типизированное уведомление |
 | `OnUpdateData` | `event Action` — нетипизированное уведомление (из `IReactiveData`) |
 | `implicit operator T` | Чтение значения без `.Value` |
 
 ### Гарантии
-- `Set()` всегда вызывает `OnUpdate` и `OnUpdateData`, даже если значение не изменилось
+- `Set()` вызывает события только при изменении значения (дедупликация через `EqualityComparer<T>.Default`)
 - `Set()` с неверным владельцем логирует ошибку и не меняет значение
 - `SetOwner()` запрещает повторное назначение — логирует ошибку
 - Без владельца (`_owner == null`) `Set()` работает без ограничений
+- `ForceUpdate()` вызывает события без проверки на изменение значения
 - `implicit operator` позволяет использовать `ReactiveValue<T>` везде где ожидается `T`
-- Все наследники конструируются с начальным значением: `new IntData(0)`
+- Все наследники конструируются с начальным значением: `new IntData(0)` или с владельцем: `new IntData(0, owner)`
 - `[POCO]` на `IReactiveData` делает все реализации сериализуемыми через `SerializeController`
 
 ### Ограничения
 - Нет конструктора без параметров — десериализация через `FormatterServices.GetUninitializedObject()`
-- `Set()` не проверяет равенство — событие при каждом вызове
 - Владелец назначается однократно и не может быть снят
 - Не потокобезопасен
 
@@ -124,6 +125,7 @@ if (model.IsAlive) { /* ... */ }   // implicit operator
 
 ```csharp
 model.Level.Set(5);   // вызовет OnUpdate(5) и OnUpdateData
+model.Level.Set(5);   // повторный вызов — значение не изменилось, события НЕ вызываются
 ```
 
 ### Владелец контейнера
@@ -136,6 +138,22 @@ model.Level.SetOwner(this);
 model.Level.Set(10, this);    // OK
 model.Level.Set(10, other);   // Error: "Trying to change value from outer Object."
 model.Level.Set(10);          // Error: owner = null != this
+```
+
+### Конструктор с владельцем
+
+```csharp
+// Контейнер с владельцем сразу при создании
+var hp = new IntData(100, this);
+hp.Set(90, this);    // OK
+hp.Set(90, other);   // Error
+```
+
+### Принудительное обновление
+
+```csharp
+// Вызвать события без изменения значения
+model.Level.ForceUpdate();
 ```
 
 ### Использование с QuestController
@@ -151,7 +169,8 @@ QuestController.SetListener(model.Level, this);
 
 | Ситуация | Поведение |
 |----------|-----------|
-| `Set()` с тем же значением | Событие вызывается |
+| `Set()` с тем же значением | Игнорируется, события не вызываются |
+| `ForceUpdate()` | Вызывает `OnUpdate` и `OnUpdateData` с текущим значением |
 | `implicit operator` на null | NRE — `ReactiveValue` не nullable |
 | Десериализация без конструктора | Fallback на `FormatterServices.GetUninitializedObject()` |
 | `[POCO]` на `IReactiveData` | Все `ReactiveValue<T>` наследники сериализуемы автоматически |

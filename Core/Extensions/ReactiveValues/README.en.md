@@ -20,7 +20,7 @@ Capabilities:
 Out of scope:
 - Thread safety
 - Value validation
-- Duplicate suppression (event fires on every `Set`, even if the value hasn't changed)
+- Thread-safe subscription/unsubscription
 
 ---
 
@@ -49,11 +49,11 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | Class | Purpose |
 |-------|---------|
 | `IReactiveData` | Interface with `event Action OnUpdateData`. Marked `[POCO]` |
-| `ReactiveValue<T>` | Abstract wrapper: `Value`, `Set(T, owner)`, `SetOwner()`, `OnUpdate`, implicit operator |
-| `IntData` | `ReactiveValue<int>` |
-| `FloatData` | `ReactiveValue<float>` |
-| `BoolData` | `ReactiveValue<bool>` |
-| `StringData` | `ReactiveValue<string>`, overrides `ToString()` |
+| `ReactiveValue<T>` | Abstract wrapper: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
+| `IntData` | `ReactiveValue<int>`. Constructors: `(int)`, `(int, object owner)` |
+| `FloatData` | `ReactiveValue<float>`. Constructors: `(float)`, `(float, object owner)` |
+| `BoolData` | `ReactiveValue<bool>`. Constructors: `(bool)`, `(bool, object owner)` |
+| `StringData` | `ReactiveValue<string>`, `ToString()`. Constructors: `(string)`, `(string, object owner)` |
 
 ---
 
@@ -64,24 +64,25 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | Method / Property | Description |
 |-------------------|-------------|
 | `Value` | Current value (public get, protected set) |
-| `Set(T value, object owner = null)` | Sets the value and fires both events. If an owner is assigned, only the owner can modify the value |
+| `Set(T value, object owner = null)` | Sets the value. Ignored if the value hasn't changed. If an owner is assigned, only the owner can modify the value |
 | `SetOwner(object owner)` | Assign container owner. Reassignment is not allowed |
+| `ForceUpdate()` | Force-fires `OnUpdate` and `OnUpdateData` without changing the value |
 | `OnUpdate` | `event Action<T>` — typed notification |
 | `OnUpdateData` | `event Action` — untyped notification (from `IReactiveData`) |
 | `implicit operator T` | Read value without `.Value` |
 
 ### Guarantees
-- `Set()` always fires `OnUpdate` and `OnUpdateData`, even if the value hasn't changed
+- `Set()` fires events only when the value actually changes (deduplication via `EqualityComparer<T>.Default`)
 - `Set()` with a wrong owner logs an error and does not change the value
 - `SetOwner()` prevents reassignment — logs an error on repeated calls
 - Without an owner (`_owner == null`), `Set()` works without restrictions
+- `ForceUpdate()` fires events without checking for value change
 - `implicit operator` allows using `ReactiveValue<T>` wherever `T` is expected
-- All subclasses are constructed with an initial value: `new IntData(0)`
+- All subclasses can be constructed with an initial value: `new IntData(0)` or with an owner: `new IntData(0, owner)`
 - `[POCO]` on `IReactiveData` makes all implementations serializable via `SerializeController`
 
 ### Constraints
 - No parameterless constructor — deserialization via `FormatterServices.GetUninitializedObject()`
-- `Set()` does not check equality — event on every call
 - Owner is assigned once and cannot be released
 - Not thread-safe
 
@@ -124,6 +125,23 @@ if (model.IsAlive) { /* ... */ }   // implicit operator
 
 ```csharp
 model.Level.Set(5);   // fires OnUpdate(5) and OnUpdateData
+model.Level.Set(5);   // repeated call — value unchanged, events are NOT fired
+```
+
+### Constructor with owner
+
+```csharp
+// Container with owner assigned at creation
+var hp = new IntData(100, this);
+hp.Set(90, this);    // OK
+hp.Set(90, other);   // Error
+```
+
+### Forced update
+
+```csharp
+// Fire events without changing the value
+model.Level.ForceUpdate();
 ```
 
 ### Container ownership
@@ -151,7 +169,8 @@ QuestController.SetListener(model.Level, this);
 
 | Situation | Behavior |
 |-----------|----------|
-| `Set()` with the same value | Event fires |
+| `Set()` with the same value | Ignored, events are not fired |
+| `ForceUpdate()` | Fires `OnUpdate` and `OnUpdateData` with the current value |
 | `implicit operator` on null | NRE — `ReactiveValue` is not nullable |
 | Deserialization without constructor | Fallback to `FormatterServices.GetUninitializedObject()` |
 | `[POCO]` on `IReactiveData` | All `ReactiveValue<T>` subclasses are serializable automatically |
