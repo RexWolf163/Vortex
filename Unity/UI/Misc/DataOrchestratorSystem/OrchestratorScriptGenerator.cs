@@ -76,7 +76,7 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             return type
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.CanRead && p.GetMethod.IsPublic)
-                .Where(p => p.DeclaringType == type)
+                .Where(p => p.DeclaringType != typeof(object))
                 .Where(p => !IsExcluded(p))
                 .ToArray();
         }
