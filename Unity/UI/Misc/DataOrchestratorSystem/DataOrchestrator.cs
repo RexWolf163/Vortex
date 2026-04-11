@@ -115,6 +115,7 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
         private void GenerateHierarchy()
         {
             var fields = GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            var dataProperties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
             var created = new List<string>();
 
             foreach (var field in fields)
@@ -125,17 +126,20 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
                 var childName = field.Name.TrimStart('_');
                 childName = char.ToUpperInvariant(childName[0]) + childName[1..];
 
+                var dataTypeName = ResolveDataTypeName(childName, dataProperties);
+                var label = $"[DataStorage] {childName}: {dataTypeName}";
+
                 var existing = field.GetValue(this) as DataStorage;
                 if (existing != null)
                 {
-                    existing.name = $"[DataStorage] {childName}: {field.FieldType.Name}";
+                    existing.name = label;
                     continue;
                 }
 
                 var child = transform.Find(childName)?.gameObject;
                 if (child == null)
                 {
-                    child = new GameObject($"[DataStorage] {childName}: {field.FieldType.Name}");
+                    child = new GameObject(label);
                     child.transform.SetParent(transform, false);
                     child.transform.SetAsFirstSibling();
 
@@ -160,6 +164,17 @@ namespace Vortex.Unity.UI.Misc.DataOrchestratorSystem
             {
                 Debug.Log("[DataOrchestrator] All storages already linked.");
             }
+        }
+
+        private static string ResolveDataTypeName(string fieldName, PropertyInfo[] dataProperties)
+        {
+            foreach (var prop in dataProperties)
+            {
+                if (string.Equals(prop.Name, fieldName, System.StringComparison.OrdinalIgnoreCase))
+                    return prop.PropertyType.Name;
+            }
+
+            return "?";
         }
 
         private static void RemoveRectTransform(GameObject go)
