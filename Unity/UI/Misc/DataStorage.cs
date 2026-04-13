@@ -100,9 +100,11 @@ namespace Vortex.Unity.UI.Misc
                 case BoolData boolData:
                     return $"{name}: {(boolData.Value ? "TRUE" : "FALSE")}";
                 case StringData stringData:
-                    return $"{name}: «{stringData.Value[..12]}»";
+                    var l = Mathf.Min(stringData.Value.Length, 12);
+                    return $"{name}: «{stringData.Value[..l]}»";
                 case string str:
-                    return $"{name}: «{str[..12]}»";
+                    var l2 = Mathf.Min(str.Length, 12);
+                    return $"{name}: «{str[..l2]}»";
             }
 
             return name;

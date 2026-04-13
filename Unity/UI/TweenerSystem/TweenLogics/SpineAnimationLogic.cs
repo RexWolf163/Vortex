@@ -70,32 +70,32 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
             return skeleton.AnimationState.Tracks.Any(t => t.Animation.Name == animationIdle1);
         }
 
-        private bool _isForward;
-        private bool _isRunning;
+        private bool _isForwardState;
+        private bool _isRunningState;
 
         protected override void SetValue(float value)
         {
-            if (value == 0f) _isForward = false;
+            if (value == 0f) _isForwardState = false;
 
-            if (value >= 1f) _isForward = true;
+            if (value >= 1f) _isForwardState = true;
 
-            if (value is <= 0 or >= 1f || _isRunning) return;
+            if (value is <= 0 or >= 1f || _isRunningState) return;
 
-            if (!_isForward && CheckStartAnimationForDirection(true))
+            if (!_isForwardState && CheckStartAnimationForDirection(true))
             {
                 skeleton.AnimationState.SetAnimation(0, animationFrw, false);
                 if (!animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
                     skeleton.AnimationState.AddAnimation(0, animationIdle1, true, 0);
-                _isRunning = true;
-                _isForward = !_isForward;
+                _isRunningState = true;
+                _isForwardState = !_isForwardState;
             }
             else if (CheckStartAnimationForDirection(false))
             {
                 skeleton.AnimationState.SetAnimation(0, animationBack, false);
                 if (!animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
                     skeleton.AnimationState.AddAnimation(0, animationIdle0, true, 0);
-                _isRunning = true;
-                _isForward = !_isForward;
+                _isRunningState = true;
+                _isForwardState = !_isForwardState;
             }
         }
 
@@ -105,16 +105,16 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
 
         protected override void OnStart()
         {
-            if (!_isRunning && !animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
+            if (!_isRunningState && !animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
                 skeleton.AnimationState.SetAnimation(0, animationIdle0, true);
-            _isRunning = false;
+            _isRunningState = false;
         }
 
         protected override void OnEnd()
         {
-            if (!_isRunning && !animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
+            if (!_isRunningState && !animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
                 skeleton.AnimationState.SetAnimation(0, animationIdle1, true);
-            _isRunning = false;
+            _isRunningState = false;
         }
 
 #if UNITY_EDITOR
