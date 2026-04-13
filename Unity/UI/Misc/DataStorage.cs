@@ -85,29 +85,83 @@ namespace Vortex.Unity.UI.Misc
 
 #if UNITY_EDITOR
 
-        private string GetContent() => string.Join('\n', _data?.Select(o => o != null ? GetTypeLabel(o) : "[NULL]"));
+        private string GetContent() => string.Join('\n', _data?.Select(o => o != null ? GetTypeLabel(o, 0) : "[NULL]"));
 
-        private string GetTypeLabel(object o)
+        private string GetTypeLabel(object o, int depth)
         {
+            if (o == null) return "[NULL]";
+            if (depth > 3) return "...";
+
             var type = o.GetType();
             var name = type.Name;
+            var indent = new string(' ', depth * 2);
+
             switch (o)
             {
                 case IntData intData:
-                    return $"{name}: {intData.Value}";
+                    return $"{indent}{name}: {intData.Value}";
                 case FloatData floatData:
-                    return $"{name}: {floatData.Value}";
+                    return $"{indent}{name}: {floatData.Value}";
                 case BoolData boolData:
-                    return $"{name}: {(boolData.Value ? "TRUE" : "FALSE")}";
+                    return $"{indent}{name}: {(boolData.Value ? "TRUE" : "FALSE")}";
                 case StringData stringData:
-                    var l = Mathf.Min(stringData.Value.Length, 12);
-                    return $"{name}: «{stringData.Value[..l]}»";
+                    return $"{indent}{name}: «{Truncate(stringData.Value)}»";
                 case string str:
-                    var l2 = Mathf.Min(str.Length, 12);
-                    return $"{name}: «{str[..l2]}»";
+                    return $"{indent}string: «{Truncate(str)}»";
+                case int or float or double or long or bool or byte or short:
+                    return $"{indent}{name}: {o}";
+                case Enum e:
+                    return $"{indent}{name}: {e}";
             }
 
-            return name;
+            var lines = new List<string> { $"{indent}<b>{name}</b>" };
+            var childIndent = new string(' ', (depth + 1) * 2);
+            const System.Reflection.BindingFlags pub = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
+
+            foreach (var field in type.GetFields(pub))
+            {
+                var value = field.GetValue(o);
+                lines.Add($"{childIndent}{FormatMember(field.Name, value, depth + 1)}");
+            }
+
+            foreach (var prop in type.GetProperties(pub))
+            {
+                if (!prop.CanRead || prop.GetIndexParameters().Length > 0) continue;
+                try
+                {
+                    var value = prop.GetValue(o);
+                    lines.Add($"{childIndent}{FormatMember(prop.Name, value, depth + 1)}");
+                }
+                catch { /* getter threw */ }
+            }
+
+            return string.Join('\n', lines);
+        }
+
+        private string FormatMember(string memberName, object value, int depth)
+        {
+            if (value == null) return $"{memberName}: [NULL]";
+
+            switch (value)
+            {
+                case IntData d: return $"{memberName}: {d.Value}";
+                case FloatData d: return $"{memberName}: {d.Value}";
+                case BoolData d: return $"{memberName}: {(d.Value ? "TRUE" : "FALSE")}";
+                case StringData d: return $"{memberName}: «{Truncate(d.Value)}»";
+                case string s: return $"{memberName}: «{Truncate(s)}»";
+                case int or float or double or long or bool or byte or short:
+                    return $"{memberName}: {value}";
+                case Enum e: return $"{memberName}: {e}";
+            }
+
+            if (depth > 3) return $"{memberName}: ...";
+            return $"{memberName}:\n{GetTypeLabel(value, depth)}";
+        }
+
+        private static string Truncate(string s, int max = 12)
+        {
+            if (string.IsNullOrEmpty(s)) return string.Empty;
+            return s.Length <= max ? s : s[..max];
         }
 
         private bool HideIf() => App.GetState() == AppStates.None;
