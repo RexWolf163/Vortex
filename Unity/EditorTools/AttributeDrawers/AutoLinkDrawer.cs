@@ -65,12 +65,33 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
                 return;
 
             var fieldType = fieldInfo.FieldType;
-            var found = gameObject.GetComponent(fieldType);
+            var classFilter = fieldInfo.GetCustomAttribute<ClassFilterAttribute>();
 
-            if (found != null)
+            if (classFilter != null)
             {
-                property.objectReferenceValue = found;
-                property.serializedObject.ApplyModifiedProperties();
+                // ClassFilter задаёт более точный тип — ищем по нему
+                foreach (var requiredType in classFilter.RequiredTypes)
+                {
+                    var candidates = gameObject.GetComponents(fieldType);
+                    foreach (var candidate in candidates)
+                    {
+                        if (requiredType.IsInstanceOfType(candidate))
+                        {
+                            property.objectReferenceValue = candidate;
+                            property.serializedObject.ApplyModifiedProperties();
+                            return;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                var found = gameObject.GetComponent(fieldType);
+                if (found != null)
+                {
+                    property.objectReferenceValue = found;
+                    property.serializedObject.ApplyModifiedProperties();
+                }
             }
         }
     }
