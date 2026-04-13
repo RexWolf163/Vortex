@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.Extensions.DefaultEnums;
@@ -10,7 +11,6 @@ using Vortex.Core.System.Enums;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.UI.Attributes;
 using Vortex.Unity.UI.StateSwitcher;
-using InfoMessageType = Vortex.Unity.EditorTools.Attributes.InfoMessageType;
 using Object = System.Object;
 
 namespace Vortex.Unity.UI.Misc
@@ -23,7 +23,7 @@ namespace Vortex.Unity.UI.Misc
     public class DataStorage : MonoBehaviour, IDataStorage
     {
         [SerializeField]
-        [InfoBubble("$GetContent", InfoMessageType.None, "HideIf")]
+        [InfoBox("$GetContent", "VisibleIf")]
         [InfoBubble("Переключает свитчер по факту наличия-отсутствия данных в контейнере\n<b>Опционально</b>")]
         [StateSwitcher(typeof(SwitcherState))]
         private UIStateSwitcher dataSwitcher;
@@ -116,7 +116,8 @@ namespace Vortex.Unity.UI.Misc
 
             var lines = new List<string> { $"{indent}<b>{name}</b>" };
             var childIndent = new string(' ', (depth + 1) * 2);
-            const System.Reflection.BindingFlags pub = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
+            const System.Reflection.BindingFlags pub = System.Reflection.BindingFlags.Public |
+                                                       System.Reflection.BindingFlags.Instance;
 
             foreach (var field in type.GetFields(pub))
             {
@@ -132,7 +133,10 @@ namespace Vortex.Unity.UI.Misc
                     var value = prop.GetValue(o);
                     lines.Add($"{childIndent}{FormatMember(prop.Name, value, depth + 1)}");
                 }
-                catch { /* getter threw */ }
+                catch
+                {
+                    /* getter threw */
+                }
             }
 
             return string.Join('\n', lines);
@@ -164,7 +168,7 @@ namespace Vortex.Unity.UI.Misc
             return s.Length <= max ? s : s[..max];
         }
 
-        private bool HideIf() => App.GetState() == AppStates.None;
+        private bool VisibleIf() => App.GetState() == AppStates.None;
 #endif
     }
 }

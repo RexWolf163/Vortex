@@ -6,7 +6,6 @@ using Vortex.Core.Extensions.LogicExtensions;
 
 namespace Vortex.Unity.UI.PoolSystem
 {
-    [Serializable]
     public class Pool : MonoBehaviour
     {
         /// <summary>
@@ -66,6 +65,22 @@ namespace Vortex.Unity.UI.PoolSystem
             _index.AddNew(data, item);
             item.MakeLink(data, this);
         }
+
+        /// <summary>
+        /// Добавить элемент пула для данных
+        /// Вернуть компонент указанного типа из контейнера
+        /// </summary>
+        /// <param name="data"></param>
+        public T AddItem<T>(params object[] data) where T : MonoBehaviour => AddItem<T>(data, false);
+
+        /// <summary>
+        /// Добавить элемент пула для данных
+        /// (в начало списка)
+        /// Вернуть компонент указанного типа из контейнера
+        /// </summary>
+        /// <param name="data"></param>
+        public T AddItemBefore<T>(params object[] data) where T : MonoBehaviour => AddItem<T>(data, true);
+
 
         /// <summary>
         /// Добавить элемент пула для данных.

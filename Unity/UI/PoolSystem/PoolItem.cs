@@ -12,7 +12,6 @@ namespace Vortex.Unity.UI.PoolSystem
     /// Элемент-Контейнер для пула
     /// Реализует интерфейс IDataStorage. Хранит инициализирующие данные
     /// </summary>
-    [Serializable]
     public class PoolItem : MonoBehaviour, IDataStorage
     {
         [ShowInInspector, HideInEditorMode, Multiline(5), ReadOnly]
@@ -55,6 +54,7 @@ namespace Vortex.Unity.UI.PoolSystem
 
         private void OnDisable()
         {
+            TimeController.RemoveCall(this);
             if (_key != null && _owner != null)
                 SelfDestroy();
         }
@@ -66,5 +66,7 @@ namespace Vortex.Unity.UI.PoolSystem
             if (_key != null && _owner != null)
                 _owner.RemoveItem(_key);
         }
+
+        private void OnDestroy() => TimeController.RemoveCall(this);
     }
 }
