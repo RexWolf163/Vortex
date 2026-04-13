@@ -24,7 +24,7 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
             }
 
             var types = filterAttr.RequiredTypes;
-            if (property.boxedValue == null)
+            if (property.objectReferenceValue == null)
                 return;
 
             foreach (var type in types)
