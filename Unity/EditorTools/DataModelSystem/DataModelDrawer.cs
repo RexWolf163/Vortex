@@ -1,5 +1,6 @@
 #if UNITY_EDITOR && ODIN_INSPECTOR
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Sirenix.OdinInspector.Editor;
@@ -11,24 +12,9 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
 {
     public class DataModelDrawer : OdinAttributeDrawer<DataModelAttribute>
     {
+        private const int MaxDepth = 5;
+
         private bool _foldout;
-        private object _cachedValue;
-        private List<PropertyEntry> _properties;
-        private List<MethodEntry> _methods;
-
-        private struct PropertyEntry
-        {
-            public PropertyInfo Info;
-            public string Label;
-            public bool CanWrite;
-            public bool IsReactive;
-        }
-
-        private struct MethodEntry
-        {
-            public MethodInfo Info;
-            public string Label;
-        }
 
         protected override void DrawPropertyLayout(GUIContent label)
         {
@@ -45,228 +31,300 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                 return;
             }
 
-            if (value != _cachedValue)
-            {
-                _cachedValue = value;
-                RebuildEntries(value);
-            }
-
             _foldout = EditorGUILayout.Foldout(_foldout, label?.text ?? Property.Name, true, EditorStyles.foldoutHeader);
             if (!_foldout) return;
 
             EditorGUI.indentLevel++;
-            DrawProperties(value);
-            DrawMethods(value);
+            DrawObject(value, 0);
             EditorGUI.indentLevel--;
         }
 
-        private void RebuildEntries(object target)
+        #region Object
+
+        private static void DrawObject(object target, int depth)
         {
-            _properties = new List<PropertyEntry>();
-            _methods = new List<MethodEntry>();
+            if (target == null || depth > MaxDepth) return;
 
             var type = target.GetType();
             const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
 
             foreach (var prop in type.GetProperties(flags))
             {
-                if (!prop.CanRead) continue;
-                if (prop.GetIndexParameters().Length > 0) continue;
+                if (!prop.CanRead || prop.GetIndexParameters().Length > 0) continue;
 
-                _properties.Add(new PropertyEntry
+                try
                 {
-                    Info = prop,
-                    Label = prop.Name,
-                    CanWrite = prop.CanWrite,
-                    IsReactive = typeof(IReactiveData).IsAssignableFrom(prop.PropertyType)
-                });
+                    var value = prop.GetValue(target);
+                    DrawValue(prop.Name, prop.PropertyType, value, prop.CanWrite ? target : null, prop, depth);
+                }
+                catch (Exception e)
+                {
+                    EditorGUILayout.LabelField(prop.Name, $"[Error: {e.Message}]");
+                }
             }
 
+            // Методы с [DataModelMethod]
             foreach (var method in type.GetMethods(flags | BindingFlags.NonPublic))
             {
                 var attr = method.GetCustomAttribute<DataModelMethodAttribute>();
                 if (attr == null) continue;
-
-                _methods.Add(new MethodEntry
+                var btnLabel = string.IsNullOrEmpty(attr.Label) ? method.Name : attr.Label;
+                if (GUILayout.Button(btnLabel))
                 {
-                    Info = method,
-                    Label = string.IsNullOrEmpty(attr.Label) ? method.Name : attr.Label
-                });
-            }
-        }
-
-        private void DrawProperties(object target)
-        {
-            foreach (var entry in _properties)
-            {
-                try
-                {
-                    var value = entry.Info.GetValue(target);
-
-                    if (entry.IsReactive)
-                    {
-                        DrawReactiveValue(entry, value);
-                        continue;
-                    }
-
-                    if (entry.CanWrite)
-                        DrawEditableProperty(entry, target, value);
-                    else
-                        DrawReadOnlyProperty(entry, value);
-                }
-                catch (Exception e)
-                {
-                    EditorGUILayout.LabelField(entry.Label, $"[Error: {e.Message}]");
+                    try { method.Invoke(target, null); }
+                    catch (Exception e) { Debug.LogWarning($"[DataModel] {btnLabel}: {e.Message}"); }
                 }
             }
         }
 
-        private void DrawReactiveValue(PropertyEntry entry, object reactive)
+        #endregion
+
+        #region Value
+
+        private static void DrawValue(string label, Type type, object value, object writeTarget, PropertyInfo writeProp, int depth)
         {
-            if (reactive == null)
+            // NULL
+            if (value == null)
             {
-                EditorGUILayout.LabelField(entry.Label, "[NULL]");
+                EditorGUILayout.LabelField(label, "[NULL]");
                 return;
             }
 
+            // ReactiveValue
+            if (value is IReactiveData)
+            {
+                DrawReactiveValue(label, value);
+                return;
+            }
+
+            // Примитивы и known-типы
+            if (TryDrawPrimitive(label, type, value, writeTarget, writeProp))
+                return;
+
+            // Коллекции
+            if (value is IDictionary dict)
+            {
+                DrawDictionary(label, dict, depth);
+                return;
+            }
+
+            if (value is IList list)
+            {
+                DrawList(label, list, depth);
+                return;
+            }
+
+            if (value is IEnumerable enumerable && type != typeof(string))
+            {
+                DrawEnumerable(label, enumerable, depth);
+                return;
+            }
+
+            // Сложный объект — рекурсия
+            DrawComplexObject(label, value, depth);
+        }
+
+        #endregion
+
+        #region Primitives
+
+        private static bool TryDrawPrimitive(string label, Type type, object value, object writeTarget, PropertyInfo writeProp)
+        {
+            var canWrite = writeTarget != null && writeProp != null;
+
+            if (type == typeof(int))
+                return DrawPrimitiveField(label, (int)value, canWrite, v => EditorGUILayout.IntField(label, v), writeTarget, writeProp);
+            if (type == typeof(float))
+                return DrawPrimitiveField(label, (float)value, canWrite, v => EditorGUILayout.FloatField(label, v), writeTarget, writeProp);
+            if (type == typeof(bool))
+                return DrawPrimitiveField(label, (bool)value, canWrite, v => EditorGUILayout.Toggle(label, v), writeTarget, writeProp);
+            if (type == typeof(string))
+                return DrawPrimitiveField(label, (string)value ?? "", canWrite, v => EditorGUILayout.TextField(label, v), writeTarget, writeProp);
+            if (type == typeof(long))
+                return DrawPrimitiveField(label, (long)value, canWrite, v => EditorGUILayout.LongField(label, v), writeTarget, writeProp);
+            if (type == typeof(double))
+                return DrawPrimitiveField(label, (double)value, canWrite, v => EditorGUILayout.DoubleField(label, v), writeTarget, writeProp);
+            if (type == typeof(Vector2))
+                return DrawPrimitiveField(label, (Vector2)value, canWrite, v => EditorGUILayout.Vector2Field(label, v), writeTarget, writeProp);
+            if (type == typeof(Vector3))
+                return DrawPrimitiveField(label, (Vector3)value, canWrite, v => EditorGUILayout.Vector3Field(label, v), writeTarget, writeProp);
+            if (type == typeof(Color))
+                return DrawPrimitiveField(label, (Color)value, canWrite, v => EditorGUILayout.ColorField(label, v), writeTarget, writeProp);
+            if (type.IsEnum)
+                return DrawPrimitiveField(label, (Enum)value, canWrite, v => EditorGUILayout.EnumPopup(label, v), writeTarget, writeProp);
+
+            return false;
+        }
+
+        private static bool DrawPrimitiveField<T>(string label, T value, bool canWrite,
+            Func<T, T> drawFunc, object writeTarget, PropertyInfo writeProp)
+        {
+            if (!canWrite)
+            {
+                EditorGUI.BeginDisabledGroup(true);
+                drawFunc(value);
+                EditorGUI.EndDisabledGroup();
+                return true;
+            }
+
+            EditorGUI.BeginChangeCheck();
+            var newValue = drawFunc(value);
+            if (EditorGUI.EndChangeCheck())
+            {
+                try { writeProp.SetValue(writeTarget, newValue); }
+                catch (Exception e) { Debug.LogWarning($"[DataModel] Failed to set {label}: {e.Message}"); }
+            }
+
+            return true;
+        }
+
+        #endregion
+
+        #region Reactive
+
+        private static void DrawReactiveValue(string label, object reactive)
+        {
             switch (reactive)
             {
                 case IntData intData:
-                {
                     EditorGUI.BeginChangeCheck();
-                    var newVal = EditorGUILayout.IntField(entry.Label, intData.Value);
-                    if (EditorGUI.EndChangeCheck())
-                        intData.Set(newVal);
+                    var intVal = EditorGUILayout.IntField(label, intData.Value);
+                    if (EditorGUI.EndChangeCheck()) intData.Set(intVal);
                     break;
-                }
                 case FloatData floatData:
-                {
                     EditorGUI.BeginChangeCheck();
-                    var newVal = EditorGUILayout.FloatField(entry.Label, floatData.Value);
-                    if (EditorGUI.EndChangeCheck())
-                        floatData.Set(newVal);
+                    var floatVal = EditorGUILayout.FloatField(label, floatData.Value);
+                    if (EditorGUI.EndChangeCheck()) floatData.Set(floatVal);
                     break;
-                }
                 case BoolData boolData:
-                {
                     EditorGUI.BeginChangeCheck();
-                    var newVal = EditorGUILayout.Toggle(entry.Label, boolData.Value);
-                    if (EditorGUI.EndChangeCheck())
-                        boolData.Set(newVal);
+                    var boolVal = EditorGUILayout.Toggle(label, boolData.Value);
+                    if (EditorGUI.EndChangeCheck()) boolData.Set(boolVal);
                     break;
-                }
                 case StringData stringData:
-                {
                     EditorGUI.BeginChangeCheck();
-                    var newVal = EditorGUILayout.TextField(entry.Label, stringData.Value);
-                    if (EditorGUI.EndChangeCheck())
-                        stringData.Set(newVal);
+                    var strVal = EditorGUILayout.TextField(label, stringData.Value);
+                    if (EditorGUI.EndChangeCheck()) stringData.Set(strVal);
                     break;
-                }
                 default:
-                    EditorGUILayout.LabelField(entry.Label, reactive.ToString());
+                    EditorGUILayout.LabelField(label, reactive.ToString());
                     break;
             }
         }
 
-        private void DrawEditableProperty(PropertyEntry entry, object target, object value)
+        #endregion
+
+        #region Collections
+
+        private static readonly Dictionary<int, bool> CollectionFoldouts = new();
+
+        private static bool GetFoldout(string label, object collection)
         {
-            var type = entry.Info.PropertyType;
+            var key = (label + collection.GetHashCode()).GetHashCode();
+            CollectionFoldouts.TryGetValue(key, out var state);
+            return state;
+        }
 
-            EditorGUI.BeginChangeCheck();
-            object newValue = value;
+        private static void SetFoldout(string label, object collection, bool state)
+        {
+            var key = (label + collection.GetHashCode()).GetHashCode();
+            CollectionFoldouts[key] = state;
+        }
 
-            if (type == typeof(int))
-                newValue = EditorGUILayout.IntField(entry.Label, (int)(value ?? 0));
-            else if (type == typeof(float))
-                newValue = EditorGUILayout.FloatField(entry.Label, (float)(value ?? 0f));
-            else if (type == typeof(bool))
-                newValue = EditorGUILayout.Toggle(entry.Label, (bool)(value ?? false));
-            else if (type == typeof(string))
-                newValue = EditorGUILayout.TextField(entry.Label, (string)value ?? "");
-            else if (type == typeof(long))
-                newValue = EditorGUILayout.LongField(entry.Label, (long)(value ?? 0L));
-            else if (type == typeof(double))
-                newValue = EditorGUILayout.DoubleField(entry.Label, (double)(value ?? 0.0));
-            else if (type == typeof(Vector2))
-                newValue = EditorGUILayout.Vector2Field(entry.Label, (Vector2)(value ?? Vector2.zero));
-            else if (type == typeof(Vector3))
-                newValue = EditorGUILayout.Vector3Field(entry.Label, (Vector3)(value ?? Vector3.zero));
-            else if (type == typeof(Color))
-                newValue = EditorGUILayout.ColorField(entry.Label, (Color)(value ?? Color.white));
-            else if (type.IsEnum)
-                newValue = EditorGUILayout.EnumPopup(entry.Label, (Enum)(value ?? Enum.ToObject(type, 0)));
-            else
+        private static void DrawList(string label, IList list, int depth)
+        {
+            var foldout = GetFoldout(label, list);
+            foldout = EditorGUILayout.Foldout(foldout, $"{label} [{list.Count}]", true);
+            SetFoldout(label, list, foldout);
+            if (!foldout) return;
+
+            EditorGUI.indentLevel++;
+            for (var i = 0; i < list.Count; i++)
             {
-                EditorGUILayout.LabelField(entry.Label, value?.ToString() ?? "[NULL]");
+                var item = list[i];
+                if (item == null)
+                {
+                    EditorGUILayout.LabelField($"[{i}]", "[NULL]");
+                    continue;
+                }
+
+                DrawValue($"[{i}]", item.GetType(), item, null, null, depth + 1);
+            }
+            EditorGUI.indentLevel--;
+        }
+
+        private static void DrawDictionary(string label, IDictionary dict, int depth)
+        {
+            var foldout = GetFoldout(label, dict);
+            foldout = EditorGUILayout.Foldout(foldout, $"{label} [{dict.Count}]", true);
+            SetFoldout(label, dict, foldout);
+            if (!foldout) return;
+
+            EditorGUI.indentLevel++;
+            foreach (DictionaryEntry entry in dict)
+            {
+                var key = entry.Key?.ToString() ?? "[NULL]";
+                var val = entry.Value;
+                if (val == null)
+                {
+                    EditorGUILayout.LabelField(key, "[NULL]");
+                    continue;
+                }
+
+                DrawValue(key, val.GetType(), val, null, null, depth + 1);
+            }
+            EditorGUI.indentLevel--;
+        }
+
+        private static void DrawEnumerable(string label, IEnumerable enumerable, int depth)
+        {
+            var items = new List<object>();
+            foreach (var item in enumerable)
+                items.Add(item);
+
+            var foldout = GetFoldout(label, enumerable);
+            foldout = EditorGUILayout.Foldout(foldout, $"{label} [{items.Count}]", true);
+            SetFoldout(label, enumerable, foldout);
+            if (!foldout) return;
+
+            EditorGUI.indentLevel++;
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                if (item == null)
+                {
+                    EditorGUILayout.LabelField($"[{i}]", "[NULL]");
+                    continue;
+                }
+
+                DrawValue($"[{i}]", item.GetType(), item, null, null, depth + 1);
+            }
+            EditorGUI.indentLevel--;
+        }
+
+        #endregion
+
+        #region Complex
+
+        private static void DrawComplexObject(string label, object value, int depth)
+        {
+            if (depth >= MaxDepth)
+            {
+                EditorGUILayout.LabelField(label, value.ToString());
                 return;
             }
 
-            if (EditorGUI.EndChangeCheck())
-            {
-                try
-                {
-                    entry.Info.SetValue(target, newValue);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[DataModel] Failed to set {entry.Label}: {e.Message}");
-                }
-            }
+            var foldout = GetFoldout(label, value);
+            foldout = EditorGUILayout.Foldout(foldout, $"{label} ({value.GetType().Name})", true);
+            SetFoldout(label, value, foldout);
+            if (!foldout) return;
+
+            EditorGUI.indentLevel++;
+            DrawObject(value, depth + 1);
+            EditorGUI.indentLevel--;
         }
 
-        private static void DrawReadOnlyProperty(PropertyEntry entry, object value)
-        {
-            EditorGUI.BeginDisabledGroup(true);
-
-            var type = entry.Info.PropertyType;
-
-            if (type == typeof(int))
-                EditorGUILayout.IntField(entry.Label, (int)(value ?? 0));
-            else if (type == typeof(float))
-                EditorGUILayout.FloatField(entry.Label, (float)(value ?? 0f));
-            else if (type == typeof(bool))
-                EditorGUILayout.Toggle(entry.Label, (bool)(value ?? false));
-            else if (type == typeof(string))
-                EditorGUILayout.TextField(entry.Label, (string)value ?? "");
-            else if (type == typeof(long))
-                EditorGUILayout.LongField(entry.Label, (long)(value ?? 0L));
-            else if (type == typeof(double))
-                EditorGUILayout.DoubleField(entry.Label, (double)(value ?? 0.0));
-            else if (type == typeof(Vector2))
-                EditorGUILayout.Vector2Field(entry.Label, (Vector2)(value ?? Vector2.zero));
-            else if (type == typeof(Vector3))
-                EditorGUILayout.Vector3Field(entry.Label, (Vector3)(value ?? Vector3.zero));
-            else if (type == typeof(Color))
-                EditorGUILayout.ColorField(entry.Label, (Color)(value ?? Color.white));
-            else if (type.IsEnum)
-                EditorGUILayout.EnumPopup(entry.Label, (Enum)(value ?? Enum.ToObject(type, 0)));
-            else
-                EditorGUILayout.LabelField(entry.Label, value?.ToString() ?? "[NULL]");
-
-            EditorGUI.EndDisabledGroup();
-        }
-
-        private void DrawMethods(object target)
-        {
-            if (_methods.Count == 0) return;
-
-            EditorGUILayout.Space(4);
-            foreach (var method in _methods)
-            {
-                if (GUILayout.Button(method.Label))
-                {
-                    try
-                    {
-                        method.Info.Invoke(target, null);
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogWarning($"[DataModel] {method.Label}: {e.Message}");
-                    }
-                }
-            }
-        }
+        #endregion
     }
 }
 #endif
