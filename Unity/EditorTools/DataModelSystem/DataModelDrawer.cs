@@ -24,12 +24,14 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                 return;
             }
 
+            // Serialized поле — read-only в play mode
+            EditorGUI.BeginDisabledGroup(true);
+            CallNextDrawer(label);
+            EditorGUI.EndDisabledGroup();
+
             var value = Property.ValueEntry?.WeakSmartValue;
             if (value == null)
-            {
-                EditorGUILayout.LabelField(label?.text ?? Property.Name, "[NULL]");
                 return;
-            }
 
             _foldout = EditorGUILayout.Foldout(_foldout, label?.text ?? Property.Name, true, EditorStyles.foldoutHeader);
             if (!_foldout) return;
