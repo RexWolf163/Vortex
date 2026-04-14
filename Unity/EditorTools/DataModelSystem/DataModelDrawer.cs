@@ -95,7 +95,7 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
             }
 
             // ReactiveValue
-            if (value is IReactiveData)
+            if (IsReactiveValuePrimitive(value))
             {
                 DrawReactiveValue(label, value);
                 return;
@@ -269,6 +269,19 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                 // Сложные объекты — foldout с раскрытием свойств
                 DrawComplexObject($"[{i}] {itemType.Name}", item, depth);
             }
+        }
+
+        private static bool IsReactiveValuePrimitive(object value)
+        {
+            if (value == null) return false;
+            var type = value.GetType();
+            while (type != null)
+            {
+                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ReactiveValue<>))
+                    return true;
+                type = type.BaseType;
+            }
+            return false;
         }
 
         private static bool IsPrimitiveType(Type type)
