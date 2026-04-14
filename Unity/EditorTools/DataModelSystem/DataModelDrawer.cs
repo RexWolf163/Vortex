@@ -258,8 +258,25 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                     continue;
                 }
 
-                DrawValue($"[{i}]", item.GetType(), item, null, null, depth + 1);
+                var itemType = item.GetType();
+                // Примитивы и reactive — inline
+                if (item is IReactiveData || IsPrimitiveType(itemType))
+                {
+                    DrawValue($"[{i}]", itemType, item, null, null, depth + 1);
+                    continue;
+                }
+
+                // Сложные объекты — foldout с раскрытием свойств
+                DrawComplexObject($"[{i}] {itemType.Name}", item, depth);
             }
+        }
+
+        private static bool IsPrimitiveType(Type type)
+        {
+            return type == typeof(int) || type == typeof(float) || type == typeof(bool)
+                || type == typeof(string) || type == typeof(long) || type == typeof(double)
+                || type == typeof(Vector2) || type == typeof(Vector3) || type == typeof(Color)
+                || type.IsEnum;
         }
 
         private static void DrawDictionary(string label, IDictionary dict, int depth)
@@ -286,7 +303,14 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                     continue;
                 }
 
-                DrawValue(key, val.GetType(), val, null, null, depth + 1);
+                var valType = val.GetType();
+                if (val is IReactiveData || IsPrimitiveType(valType))
+                {
+                    DrawValue(key, valType, val, null, null, depth + 1);
+                    continue;
+                }
+
+                DrawComplexObject($"{key} ({valType.Name})", val, depth);
             }
         }
 
