@@ -101,6 +101,20 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                 return;
             }
 
+            // Unity Object (Texture, Sprite, GameObject, Component и т.д.)
+            if (value is UnityEngine.Object unityObj)
+            {
+                var canWrite = writeTarget != null && writeProp != null;
+                EditorGUI.BeginChangeCheck();
+                var newObj = EditorGUILayout.ObjectField(label, unityObj, type, true);
+                if (canWrite && EditorGUI.EndChangeCheck())
+                {
+                    try { writeProp.SetValue(writeTarget, newObj); }
+                    catch (Exception e) { Debug.LogWarning($"[DataModel] Failed to set {label}: {e.Message}"); }
+                }
+                return;
+            }
+
             // Примитивы и known-типы
             if (TryDrawPrimitive(label, type, value, writeTarget, writeProp))
                 return;
@@ -211,9 +225,42 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                     if (EditorGUI.EndChangeCheck()) stringData.Set(strVal);
                     break;
                 default:
-                    EditorGUILayout.LabelField(label, reactive.ToString());
+                    DrawReactiveValueGeneric(label, reactive);
                     break;
             }
+        }
+
+        private static void DrawReactiveValueGeneric(string label, object reactive)
+        {
+            var type = reactive.GetType();
+            var valueProp = type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+            if (valueProp == null)
+            {
+                EditorGUILayout.LabelField(label, reactive.ToString());
+                return;
+            }
+
+            var value = valueProp.GetValue(reactive);
+            var valueType = valueProp.PropertyType;
+
+            // Enum
+            if (valueType.IsEnum && value is Enum enumVal)
+            {
+                EditorGUI.BeginChangeCheck();
+                var newVal = EditorGUILayout.EnumPopup(label, enumVal);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    var setMethod = type.GetMethod("Set", new[] { valueType });
+                    setMethod?.Invoke(reactive, new object[] { newVal });
+                }
+                return;
+            }
+
+            // Другие примитивы через общий путь
+            if (value != null && TryDrawPrimitive(label, valueType, value, null, null))
+                return;
+
+            EditorGUILayout.LabelField(label, value?.ToString() ?? "[NULL]");
         }
 
         #endregion
