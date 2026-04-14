@@ -1,4 +1,5 @@
 using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.System.Abstractions;
@@ -18,7 +19,7 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Ссылка на класс-хранилище модели данных значения
         /// </summary>
-        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink]
+        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink] [BoxGroup("DI fields")]
         private MonoBehaviour sourceValue;
 
         private IDataStorage _storageValue;
@@ -27,7 +28,7 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Ссылка на класс-хранилище модели данных максимального значения
         /// </summary>
-        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink]
+        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink] [BoxGroup("DI fields")]
         private MonoBehaviour sourceMax;
 
         private IDataStorage _storageMax;
@@ -36,20 +37,31 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Ссылка на класс-хранилище модели данных максимального значения
         /// </summary>
-        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink]
+        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink] [BoxGroup("DI fields")]
         private MonoBehaviour sourceMin;
 
         private IDataStorage _storageMin;
         private IDataStorage StorageMin => _storageMin ??= sourceMin as IDataStorage;
 
-        [SerializeField] private UIComponent min;
-        [SerializeField] private string patternMin = "{0}";
+        [BoxGroup("Min Value UI")] [SerializeField]
+        private UIComponent min;
 
-        [SerializeField] private UIComponent max;
-        [SerializeField] private string patternMax = "{0}";
-        [SerializeField] private UIComponent value;
-        [SerializeField] private string patternValue = "{0}";
+        [BoxGroup("Min Value UI")] [SerializeField]
+        private string patternMin = "{0}";
 
+        [BoxGroup("Max Value UI")] [SerializeField]
+        private UIComponent max;
+
+        [BoxGroup("Max Value UI")] [SerializeField]
+        private string patternMax = "{0}";
+
+        [BoxGroup("Current Value UI")] [SerializeField]
+        private UIComponent value;
+
+        [BoxGroup("Current Value UI")] [SerializeField]
+        private string patternValue = "{0}";
+
+        
         [SerializeField] private SliderView slider;
 
         [SerializeField] private TweenerHub tweenPulsation;
