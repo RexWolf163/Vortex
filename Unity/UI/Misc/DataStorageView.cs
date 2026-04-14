@@ -1,7 +1,9 @@
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.System.Abstractions;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.EditorTools.DataModelSystem;
 
 namespace Vortex.Unity.UI.Misc
 {
@@ -24,6 +26,7 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Модель данных из хранилища
         /// </summary>
+        [DataModel, ShowInInspector, HideInEditorMode]
         protected T Data;
 
         #endregion
