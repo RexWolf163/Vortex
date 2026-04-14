@@ -23,7 +23,7 @@ namespace Vortex.Unity.UI.Misc
     public class DataStorage : MonoBehaviour, IDataStorage
     {
         [SerializeField]
-        [InfoBox("$GetContent", "VisibleIf")]
+        [InfoBox("$GetContent", "$VisibleIf")]
         [InfoBubble("Переключает свитчер по факту наличия-отсутствия данных в контейнере\n<b>Опционально</b>")]
         [StateSwitcher(typeof(SwitcherState))]
         private UIStateSwitcher dataSwitcher;
@@ -167,8 +167,11 @@ namespace Vortex.Unity.UI.Misc
             if (string.IsNullOrEmpty(s)) return string.Empty;
             return s.Length <= max ? s : s[..max];
         }
-
-        private bool VisibleIf() => App.GetState() == AppStates.None;
+        private bool VisibleIf()
+        {
+            var state = App.GetState();
+            return state is > AppStates.Starting or AppStates.Unfocused;
+        }
 #endif
     }
 }
