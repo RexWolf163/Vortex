@@ -68,5 +68,18 @@ namespace Vortex.Core.Extensions.ReactiveValues
         /// Использовать аккуратно!
         /// </summary>
         public void ForceUpdate() => CallOnUpdate();
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Установка значения из Editor-инструментов.
+        /// Обходит проверку владельца и дедупликацию.
+        /// Не использовать в runtime-логике!
+        /// </summary>
+        public void EditorSet(T value)
+        {
+            Value = value;
+            CallOnUpdate();
+        }
+#endif
     }
 }

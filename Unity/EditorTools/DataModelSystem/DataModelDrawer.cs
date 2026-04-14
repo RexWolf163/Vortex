@@ -210,22 +210,22 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                 case IntData intData:
                     EditorGUI.BeginChangeCheck();
                     var intVal = EditorGUILayout.IntField(label, intData.Value);
-                    if (EditorGUI.EndChangeCheck()) intData.Set(intVal);
+                    if (EditorGUI.EndChangeCheck()) intData.EditorSet(intVal);
                     break;
                 case FloatData floatData:
                     EditorGUI.BeginChangeCheck();
                     var floatVal = EditorGUILayout.FloatField(label, floatData.Value);
-                    if (EditorGUI.EndChangeCheck()) floatData.Set(floatVal);
+                    if (EditorGUI.EndChangeCheck()) floatData.EditorSet(floatVal);
                     break;
                 case BoolData boolData:
                     EditorGUI.BeginChangeCheck();
                     var boolVal = EditorGUILayout.Toggle(label, boolData.Value);
-                    if (EditorGUI.EndChangeCheck()) boolData.Set(boolVal);
+                    if (EditorGUI.EndChangeCheck()) boolData.EditorSet(boolVal);
                     break;
                 case StringData stringData:
                     EditorGUI.BeginChangeCheck();
                     var strVal = EditorGUILayout.TextField(label, stringData.Value);
-                    if (EditorGUI.EndChangeCheck()) stringData.Set(strVal);
+                    if (EditorGUI.EndChangeCheck()) stringData.EditorSet(strVal);
                     break;
                 default:
                     DrawReactiveValueGeneric(label, reactive);
@@ -253,8 +253,8 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
                 var newVal = EditorGUILayout.EnumPopup(label, enumVal);
                 if (EditorGUI.EndChangeCheck())
                 {
-                    var setMethod = type.GetMethod("Set", new[] { valueType });
-                    setMethod?.Invoke(reactive, new object[] { newVal });
+                    var editorSetMethod = type.GetMethod("EditorSet", new[] { valueType });
+                    editorSetMethod?.Invoke(reactive, new object[] { newVal });
                 }
                 return;
             }
