@@ -45,6 +45,10 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
         {
             if (target == null || depth > MaxDepth) return;
 
+            // Сам объект — коллекция? Рисуем как коллекцию, не как набор свойств
+            if (target is IDictionary dict) { DrawDictionaryItems(dict, depth); return; }
+            if (target is IList list) { DrawListItems(list, depth); return; }
+
             var type = target.GetType();
             const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
 
@@ -239,6 +243,12 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
             if (!foldout) return;
 
             EditorGUI.indentLevel++;
+            DrawListItems(list, depth);
+            EditorGUI.indentLevel--;
+        }
+
+        private static void DrawListItems(IList list, int depth)
+        {
             for (var i = 0; i < list.Count; i++)
             {
                 var item = list[i];
@@ -250,7 +260,6 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
 
                 DrawValue($"[{i}]", item.GetType(), item, null, null, depth + 1);
             }
-            EditorGUI.indentLevel--;
         }
 
         private static void DrawDictionary(string label, IDictionary dict, int depth)
@@ -261,6 +270,12 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
             if (!foldout) return;
 
             EditorGUI.indentLevel++;
+            DrawDictionaryItems(dict, depth);
+            EditorGUI.indentLevel--;
+        }
+
+        private static void DrawDictionaryItems(IDictionary dict, int depth)
+        {
             foreach (DictionaryEntry entry in dict)
             {
                 var key = entry.Key?.ToString() ?? "[NULL]";
@@ -273,7 +288,6 @@ namespace Vortex.Unity.EditorTools.DataModelSystem
 
                 DrawValue(key, val.GetType(), val, null, null, depth + 1);
             }
-            EditorGUI.indentLevel--;
         }
 
         private static void DrawEnumerable(string label, IEnumerable enumerable, int depth)
