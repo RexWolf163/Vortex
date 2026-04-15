@@ -56,7 +56,8 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.View
             var view = config.GetView();
             var go = Instantiate(view, transform);
             _viewStorage = go.GetComponent<DataStorage>();
-            _viewStorage.SetData(Storage.GetData<MiniGameData>());
+            _viewStorage.SetData(new object[]
+                { Storage.GetData<MiniGameData>(), Storage.GetData<IMiniGameController<MiniGameData>>() });
         }
 
         private void OnDestroy()

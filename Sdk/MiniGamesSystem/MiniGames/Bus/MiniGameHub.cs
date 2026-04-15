@@ -184,7 +184,13 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
         /// <returns></returns>
         public T GetData<T>() where T : class
         {
-            var data = Data as T;
+            var type = typeof(T);
+            T data;
+            if (type == typeof(IMiniGameController<MiniGameData>))
+                data = Controller as T;
+            else
+                data = Data as T;
+
             if (data == null)
                 Debug.LogError($"[{GetType().Name}] Wrong data type «{typeof(T).Name}» requested.");
             return data;
