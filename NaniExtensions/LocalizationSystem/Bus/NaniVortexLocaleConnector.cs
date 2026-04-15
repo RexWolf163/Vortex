@@ -57,6 +57,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Bus
             }
 
             var voiceLoader = (LocalizableResourceLoader<AudioClip>)NaniWrapper.AudioManager.VoiceLoader;
+            if (voiceLoader == null) return;
             voiceLoader.OverrideLocale = Localization.GetCurrentVoiceLanguage();
             NaniWrapper.StateManager.SaveGlobal();
         }

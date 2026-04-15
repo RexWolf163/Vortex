@@ -48,10 +48,12 @@ namespace Vortex.Unity.DatabaseSystem.Drivers.AddressablesDriver
             var ar = new List<IRecordPreset>();
             foreach (var label in labels)
             {
-                var op = Addressables.LoadAssetsAsync<IRecordPreset>(label, null);
+                var op = Addressables.LoadAssetsAsync<IRecordPreset>(label, (preset) => ar.Add(preset));
                 var temp = op.WaitForCompletion();
+                /*
                 if (temp != null)
                     ar.AddRange(temp);
+                */
                 Addressables.Release(op);
             }
 
