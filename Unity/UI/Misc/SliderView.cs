@@ -30,8 +30,11 @@ namespace Vortex.Unity.UI.Misc
             slider.minValue = min;
             slider.maxValue = max;
             target = value;
-            _tween.SetSlider(slider, target, duration).SetEase(ease).SetToken(destroyCancellationToken)
-                .Run();
+            if (duration == 0)
+                slider.value = value;
+            else
+                _tween.SetSlider(slider, target, duration).SetEase(ease).SetToken(destroyCancellationToken)
+                    .Run();
         }
 
         private void Awake()

@@ -4,6 +4,8 @@ using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.System.Abstractions;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.UI.Attributes;
+using Vortex.Unity.UI.StateSwitcher;
 using Vortex.Unity.UI.TweenerSystem;
 using Vortex.Unity.UI.UIComponents;
 
@@ -16,6 +18,16 @@ namespace Vortex.Unity.UI.Misc
     /// </summary>
     public class CounterViewAdvanced : MonoBehaviour
     {
+        private enum CounterStates
+        {
+            Empty,
+            Less20,
+            Less50,
+            Less80,
+            Less100,
+            Fill
+        }
+
         /// <summary>
         /// Ссылка на класс-хранилище модели данных значения
         /// </summary>
@@ -61,10 +73,13 @@ namespace Vortex.Unity.UI.Misc
         [BoxGroup("Current Value UI")] [SerializeField]
         private string patternValue = "{0}";
 
-        
+
         [SerializeField] private SliderView slider;
 
         [SerializeField] private TweenerHub tweenPulsation;
+
+        [SerializeField, StateSwitcher(typeof(CounterStates))]
+        private UIStateSwitcher switcher;
 
         /// <summary>
         /// Анимировать при повышении
@@ -120,6 +135,7 @@ namespace Vortex.Unity.UI.Misc
 
         private void Init()
         {
+            switcher?.Set(CounterStates.Empty);
             _value = StorageValue?.GetData<IntData>();
             _cachedValue = _value ?? 0;
             _min = StorageMin?.GetData<IntData>();
@@ -133,6 +149,7 @@ namespace Vortex.Unity.UI.Misc
             value?.SetText(string.Format(patternValue, _cachedValue));
             min?.SetText(string.Format(patternMin, minValue));
             max?.SetText(string.Format(patternMax, maxValue));
+            OnValueUpdated(_cachedValue);
         }
 
         private void DeInit()
@@ -161,8 +178,51 @@ namespace Vortex.Unity.UI.Misc
                 && ((newValue > _cachedValue && onUp) || (newValue < _cachedValue && onDawn)))
                 tweenPulsation.Pulse();
             _cachedValue = newValue;
+            if (_min != null && _min.Value > _cachedValue)
+                _cachedValue = _min.Value;
+            if (_max != null && _max.Value < _cachedValue)
+                _cachedValue = _max.Value;
             value?.SetText(string.Format(patternValue, newValue));
             if (slider != null) slider.Set(_cachedValue, _max?.Value ?? 1f, _min?.Value ?? 0f);
+
+            if (_max != null && switcher != null)
+            {
+                if (_cachedValue == (_min?.Value ?? 0))
+                {
+                    switcher.Set(CounterStates.Empty);
+                    return;
+                }
+
+                if (_cachedValue == _max)
+                {
+                    switcher.Set(CounterStates.Fill);
+                    return;
+                }
+
+                var diapason = _max.Value - _min?.Value ?? 0;
+                if (diapason <= 0)
+                    return;
+                var percent = 100 * _cachedValue / diapason;
+                if (percent < 20)
+                {
+                    switcher.Set(CounterStates.Less20);
+                    return;
+                }
+
+                if (percent < 50)
+                {
+                    switcher.Set(CounterStates.Less50);
+                    return;
+                }
+
+                if (percent < 80)
+                {
+                    switcher.Set(CounterStates.Less80);
+                    return;
+                }
+
+                switcher.Set(CounterStates.Less100);
+            }
         }
 
         /// <summary>
