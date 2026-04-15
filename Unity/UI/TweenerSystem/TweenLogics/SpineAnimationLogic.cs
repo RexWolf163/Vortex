@@ -26,6 +26,8 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
 
         [SerializeField] private SkeletonGraphic skeleton;
 
+        [SerializeField, Range(0, 10)] private byte animationChannel = 1;
+
         [SerializeField, ValueSelector("GetListAnimations")] [InfoBubble("Анимация в положении Back")]
         private string animationIdle0;
 
@@ -65,9 +67,9 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
                 return true;
 
             if (forwardDirection)
-                return skeleton.AnimationState.Tracks.Any(t => t.Animation.Name == animationIdle0);
+                return skeleton.AnimationState.Tracks.Any(t => t?.Animation?.Name == animationIdle0);
 
-            return skeleton.AnimationState.Tracks.Any(t => t.Animation.Name == animationIdle1);
+            return skeleton.AnimationState.Tracks.Any(t => t?.Animation?.Name == animationIdle1);
         }
 
         private bool _isForwardState;
@@ -83,17 +85,22 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
 
             if (!_isForwardState && CheckStartAnimationForDirection(true))
             {
-                skeleton.AnimationState.SetAnimation(0, animationFrw, false);
+                skeleton.AnimationState.SetAnimation(animationChannel, animationFrw, false);
                 if (!animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
-                    skeleton.AnimationState.AddAnimation(0, animationIdle1, true, 0);
+                    skeleton.AnimationState.AddAnimation(animationChannel, animationIdle1, true, 0);
+                else
+                    skeleton.AnimationState.AddEmptyAnimation(animationChannel, 0, 0);
                 _isRunningState = true;
                 _isForwardState = !_isForwardState;
             }
-            else if (CheckStartAnimationForDirection(false))
+            else if (_isForwardState && CheckStartAnimationForDirection(false))
             {
-                skeleton.AnimationState.SetAnimation(0, animationBack, false);
+                skeleton.AnimationState.SetAnimation(animationChannel, animationBack, false);
                 if (!animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
-                    skeleton.AnimationState.AddAnimation(0, animationIdle0, true, 0);
+                    skeleton.AnimationState.AddAnimation(animationChannel, animationIdle0, true, 0);
+                else
+                    skeleton.AnimationState.AddEmptyAnimation(animationChannel, 0, 0);
+
                 _isRunningState = true;
                 _isForwardState = !_isForwardState;
             }
@@ -105,16 +112,30 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
 
         protected override void OnStart()
         {
-            if (!_isRunningState && !animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
-                skeleton.AnimationState.SetAnimation(0, animationIdle0, true);
-            _isRunningState = false;
+            if (_isRunningState)
+            {
+                _isRunningState = false;
+                return;
+            }
+
+            if (!animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
+                skeleton.AnimationState.SetAnimation(animationChannel, animationIdle0, true);
+            else
+                skeleton.AnimationState.SetEmptyAnimation(animationChannel, 0);
         }
 
         protected override void OnEnd()
         {
-            if (!_isRunningState && !animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
-                skeleton.AnimationState.SetAnimation(0, animationIdle1, true);
-            _isRunningState = false;
+            if (_isRunningState)
+            {
+                _isRunningState = false;
+                return;
+            }
+
+            if (!animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
+                skeleton.AnimationState.SetAnimation(animationChannel, animationIdle1, true);
+            else
+                skeleton.AnimationState.SetEmptyAnimation(animationChannel, 0);
         }
 
 #if UNITY_EDITOR
