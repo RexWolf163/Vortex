@@ -1,10 +1,16 @@
 using System.Collections.Generic;
-using AppScripts.Camera.Model;
-using AppScripts.Camera.View;
 using UnityEngine;
+using Vortex.Unity.Camera.Model;
+using Vortex.Unity.Camera.View;
 
-namespace AppScripts.Camera.Controllers
+namespace Vortex.Unity.Camera.Controllers
 {
+    /// <summary>
+    /// Контроллер управления фокусом.
+    /// Можно задавать несколько трансформов как группу. Камера будет позиционироваться по центру этой группы.
+    /// При нескольких группах для фокуса, камера центрируется на последней.
+    /// Если последняя группа удалена, камера вернет фокус на предыдущую.
+    /// </summary>
     public static class CameraFocusController
     {
         /// <summary>
@@ -29,6 +35,8 @@ namespace AppScripts.Camera.Controllers
         /// <param name="objects"></param>
         public static void AddInFocus(this CameraDataStorage storage, ICollection<Transform> objects)
         {
+            if (storage.Data.focusedObjects.Count == 0)
+                storage.Data.focusedObjects.Add(new CameraFocusTarget());
             var group = storage.Data.focusedObjects[^1];
             group.focusTargets.AddRange(objects);
 

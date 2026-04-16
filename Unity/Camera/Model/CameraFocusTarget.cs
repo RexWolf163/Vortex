@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-namespace AppScripts.Camera.Model
+namespace Vortex.Unity.Camera.Model
 {
     /// <summary>
     /// Класс фокусной группы

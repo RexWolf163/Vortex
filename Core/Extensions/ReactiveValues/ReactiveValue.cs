@@ -33,7 +33,10 @@ namespace Vortex.Core.Extensions.ReactiveValues
         {
             if (_owner != null && !_owner.Equals(owner))
             {
-                Log.Print(LogLevel.Error, "Trying to change value from outer Object.", this);
+                if (owner == null)
+                    Log.Print(LogLevel.Error, "Trying to change value without owner key.", this);
+                else
+                    Log.Print(LogLevel.Error, "Trying to change value from outer Object.", this);
                 return;
             }
 

@@ -1,18 +1,22 @@
 using System;
-using AppScripts.Camera.Model;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.System.Abstractions;
+using Vortex.Unity.Camera.Model;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.EditorTools.DataModelSystem;
 using Vortex.Unity.Extensions.ReactiveValues;
 
-namespace AppScripts.Camera.View
+namespace Vortex.Unity.Camera.View
 {
     [RequireComponent(typeof(UnityEngine.Camera))]
     public class CameraDataStorage : MonoBehaviour, IDataStorage
     {
+        /// <summary>
+        /// Пустой ивент. Не вызывается
+        /// </summary>
         public event Action OnUpdateLink;
+
         public event Action<CameraModel> OnUpdateData;
 
         /// <summary>
@@ -28,11 +32,15 @@ namespace AppScripts.Camera.View
 
         private Vector3 _lastPosition;
 
+        private float _size;
+
         private void Awake()
         {
             CameraBus.Registration(this);
 
+            _size = -1;
             Data.OnUpdateData += UpdateData;
+            Data.CameraRect.SetOwner(this);
         }
 
         private void OnDestroy()
@@ -50,11 +58,7 @@ namespace AppScripts.Camera.View
             var type = typeof(T);
             T data;
 
-            if (type == typeof(Vector3))
-                data = Data.Position.Value as T;
-            else if (type == typeof(Vector2))
-                data = Data.Position.Value as T;
-            else if (type == typeof(Vector2Data))
+            if (type == typeof(Vector2Data))
                 data = Data.Position as T;
             else
                 data = Data as T;
@@ -62,20 +66,14 @@ namespace AppScripts.Camera.View
             return data;
         }
 
-        /*
-        private void UpdatePosition()
-        {
-            _lastPosition = transform.position;
-            Data.Position.Set(transform.position);
-            Data.CallOnUpdate();
-        }
-
         private void Update()
         {
-            if (transform.position == _lastPosition)
+            if (Mathf.Approximately(_size, camera.orthographicSize))
                 return;
-            UpdatePosition();
+
+            _size = camera.orthographicSize;
+
+            Data.CameraRect.Set(new Vector2(camera.rect.width, camera.rect.height), this);
         }
-    */
     }
 }

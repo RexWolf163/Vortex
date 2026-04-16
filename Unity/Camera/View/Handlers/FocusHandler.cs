@@ -1,10 +1,10 @@
-﻿using AppScripts.Camera.Controllers;
-using Sirenix.OdinInspector;
+﻿using Sirenix.OdinInspector;
 using UnityEngine;
+using Vortex.Unity.Camera.Controllers;
 
-namespace AppScripts.Camera.View.Handlers
+namespace Vortex.Unity.Camera.View.Handlers
 {
-    public class FocusHandler : MonoBehaviour
+    public class FocusHandler : CameraHandler
     {
         private enum FocusMode
         {
@@ -12,42 +12,25 @@ namespace AppScripts.Camera.View.Handlers
             NewFocus
         }
 
-        [SerializeField] private string cameraName;
-
-        [InfoBox("Если ключ камеры не найден в списке - использовать любую найденную камеру")] [SerializeField]
-        private bool useAnyIfNotFoundKey;
-
         [InfoBox("Способ добавления в фокус")] [SerializeField]
         private FocusMode focusMode = FocusMode.AddToFocus;
 
-        private CameraDataStorage _camera;
-
-        private void OnEnable()
+        protected override void SetData()
         {
-            _camera = CameraBus.Get(cameraName);
-            if (_camera == null && useAnyIfNotFoundKey)
-                _camera = CameraBus.GetAny();
-            if (_camera == null)
-                return;
-
             switch (focusMode)
             {
                 case FocusMode.AddToFocus:
-                    _camera.AddInFocus(transform);
+                    Camera.AddInFocus(transform);
                     break;
                 case FocusMode.NewFocus:
-                    _camera.SetNewFocusGroup(transform);
+                    Camera.SetNewFocusGroup(transform);
                     break;
             }
         }
 
-        private void OnDisable()
+        protected override void RemoveData()
         {
-            if (_camera == null)
-                return;
-
-            _camera.RemoveTargetFromFocus(transform);
-            _camera = null;
+            Camera.RemoveTargetFromFocus(transform);
         }
     }
 }

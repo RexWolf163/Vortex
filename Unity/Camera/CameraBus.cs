@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AppScripts.Camera.View;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Unity.Camera.View;
 
-namespace AppScripts.Camera
+namespace Vortex.Unity.Camera
 {
     /// <summary>
     /// Шина для работы с управляемыми камерами
@@ -37,17 +37,15 @@ namespace AppScripts.Camera
         /// <param name="storage"></param>
         public static void Remove(CameraDataStorage storage)
         {
-            if (Index.ContainsKey(storage.gameObject.name))
-            {
-                Index.Remove(storage.gameObject.name);
+            if (Index.Remove(storage.gameObject.name))
                 OnRemove?.Invoke(storage);
-            }
             else
                 Debug.LogError($"[CameraBus] {storage.gameObject.name} was not registered");
         }
 
         /// <summary>
-        /// Получить объекта данных управляемой камеры
+        /// Получить объекта данных управляемой камеры.
+        /// Если не найдено - выводится лог
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
@@ -59,6 +57,14 @@ namespace AppScripts.Camera
         }
 
         /// <summary>
+        /// Получить объекта данных управляемой камеры, если он существует
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="storage"></param>
+        /// <returns></returns>
+        public static bool TryGet(string key, out CameraDataStorage storage) => Index.TryGetValue(key, out storage);
+
+        /// <summary>
         /// Возвращает список всех зарегистрированных камер
         /// </summary>
         /// <returns></returns>
@@ -68,7 +74,7 @@ namespace AppScripts.Camera
         /// Возвращает любую камеру (первую в списке)
         /// </summary>
         /// <returns></returns>
-        public static CameraDataStorage GetAny() => Index.First().Value;
+        public static CameraDataStorage GetAny() => Index.Count == 0 ? null : Index.First().Value;
 
         /// <summary>
         /// Возвращает все зарегистрированные управляемые камеры

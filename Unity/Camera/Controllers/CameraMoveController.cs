@@ -1,11 +1,11 @@
 ﻿using System.Collections.Generic;
-using AppScripts.Camera.Model;
-using AppScripts.Camera.View;
 using UnityEngine;
 using Vortex.Unity.AppSystem.System.TimeSystem;
+using Vortex.Unity.Camera.Model;
+using Vortex.Unity.Camera.View;
 using Object = System.Object;
 
-namespace AppScripts.Camera.Controllers
+namespace Vortex.Unity.Camera.Controllers
 {
     public static class CameraMoveController
     {
