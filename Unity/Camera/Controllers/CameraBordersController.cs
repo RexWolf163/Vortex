@@ -12,8 +12,6 @@ namespace Vortex.Unity.Camera.Controllers
     /// </summary>
     public static class CameraBordersController
     {
-        private static readonly Object Key = new();
-
         /// <summary>
         /// Добавить новую границу
         /// </summary>
