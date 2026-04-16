@@ -68,6 +68,11 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         /// </summary>
         private static double _nextTimer = double.MaxValue;
 
+        /// <summary>
+        /// Индекс экшенов для запуска в FixUpdate
+        /// </summary>
+        private static readonly List<Action> FixUpdateIndex = new();
+
         #endregion
 
         #region Public
@@ -181,6 +186,22 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
             var time = new DateTime(ticks);
             return TimeZoneInfo.ConvertTimeFromUtc(time, TimeZoneInfo.Local);
         }
+
+        #region FixUpdate
+
+        /// <summary>
+        /// Добавить колбэк для вызова каждый кадр на FixUpdate
+        /// </summary>
+        /// <param name="callback"></param>
+        public static void AddCallback(Action callback) => FixUpdateIndex.Add(callback);
+
+        /// <summary>
+        /// Убрать колбэк из списка вызоваемых каждый кадр на FixUpdate
+        /// </summary>
+        /// <param name="callback"></param>
+        public static void RemoveCallback(Action callback) => FixUpdateIndex.Remove(callback);
+
+        #endregion
 
         #endregion
 
@@ -339,6 +360,24 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
                 return;
             _lastCheckTime = Time;
             CheckQueue();
+        }
+
+        /// <summary>
+        /// Каждый кадр вызываем зарегистрированные колбэки
+        /// </summary>
+        private void FixedUpdate()
+        {
+            foreach (var action in FixUpdateIndex)
+            {
+                try
+                {
+                    action?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
+            }
         }
 
         /// <summary>
