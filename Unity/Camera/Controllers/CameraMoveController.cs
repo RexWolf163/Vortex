@@ -73,9 +73,12 @@ namespace Vortex.Unity.Camera.Controllers
         /// </summary>
         private static void CalcMove()
         {
-            var temp = Cameras.ToArray();
-            foreach (var camera in temp)
+            var c = Cameras.Count;
+            for (var i = 0; i < c; i++)
             {
+                if (i >= Cameras.Count)
+                    return;
+                var camera = Cameras[i];
                 //Если есть фокус, то положение трансформа жестко задается моделью
                 if (camera.Data.FocusedObjects.Count == 0)
                     camera.Data.Position.Set(camera.transform.position, Key);

@@ -30,8 +30,6 @@ namespace Vortex.Unity.Camera.View
 
         internal CameraModel Data => _data ??= new CameraModel();
 
-        private Vector3 _lastPosition;
-
         private float _size;
 
         private void Awake()
@@ -72,8 +70,9 @@ namespace Vortex.Unity.Camera.View
                 return;
 
             _size = camera.orthographicSize;
-
-            Data.CameraRect.Set(new Vector2(camera.rect.width, camera.rect.height), this);
+            var h = camera.orthographicSize * 2;
+            var w = h * camera.aspect;
+            Data.CameraRect.Set(new Vector2(w, h), this);
         }
     }
 }

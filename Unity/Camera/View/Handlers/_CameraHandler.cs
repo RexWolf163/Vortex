@@ -32,7 +32,7 @@ namespace Vortex.Unity.Camera.View.Handlers
 
         private void OnCameraBusChanged(CameraDataStorage newCamera)
         {
-            if (Camera != null && newCamera.gameObject.name != Camera.gameObject.name)
+            if (Camera != null && (newCamera == null || newCamera.gameObject.name != Camera.gameObject.name))
                 return;
 
             if (CameraBus.TryGet(cameraName, out var camera) && camera == Camera)

@@ -33,6 +33,8 @@ namespace Vortex.Unity.Camera.View.Handlers
         private bool _lock;
         private bool _isMove;
 
+        private readonly Vector3[] _corners = new Vector3[4];
+
         protected override void Init()
         {
             base.Init();
@@ -95,14 +97,13 @@ namespace Vortex.Unity.Camera.View.Handlers
             var dX = Data.CameraRect.Value.x / 2;
             var dY = Data.CameraRect.Value.y / 2;
             var borderRect = Data.Borders[^1];
-            var corners = new Vector3[4];
-            borderRect.GetWorldCorners(corners);
+            borderRect.GetWorldCorners(_corners);
 
             var borders = new Rect(
-                corners[0].x + dX,
-                corners[0].y + dY,
-                corners[2].x - corners[0].x - 2 * dX,
-                corners[2].y - corners[0].y - 2 * dY);
+                _corners[0].x + dX,
+                _corners[0].y + dY,
+                _corners[2].x - _corners[0].x - 2 * dX,
+                _corners[2].y - _corners[0].y - 2 * dY);
 
             pos.x = Mathf.Clamp(pos.x, borders.xMin, borders.xMax);
             pos.y = Mathf.Clamp(pos.y, borders.yMin, borders.yMax);
