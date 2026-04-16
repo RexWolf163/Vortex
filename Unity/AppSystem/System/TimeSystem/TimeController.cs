@@ -367,11 +367,14 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         /// </summary>
         private void FixedUpdate()
         {
-            foreach (var action in FixUpdateIndex)
+            var c = FixUpdateIndex.Count;
+            for (var i = 0; i < c; i++)
             {
+                if (i >= FixUpdateIndex.Count)
+                    return;
                 try
                 {
-                    action?.Invoke();
+                    FixUpdateIndex[i]?.Invoke();
                 }
                 catch (Exception ex)
                 {
