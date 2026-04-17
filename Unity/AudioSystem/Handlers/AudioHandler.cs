@@ -30,6 +30,8 @@ namespace Vortex.Unity.AudioSystem.Handlers
 
         private float _volumeMultiplier;
 
+        private bool _isInit;
+
         private void Awake()
         {
             AudioController.OnInit += OnInit;
@@ -46,6 +48,7 @@ namespace Vortex.Unity.AudioSystem.Handlers
 
         private void Init()
         {
+            _isInit = true;
             _sample = AudioController.GetSample(audioSample) as Sound;
             if (_sample == null)
             {
@@ -60,6 +63,8 @@ namespace Vortex.Unity.AudioSystem.Handlers
 
         private void OnEnable()
         {
+            if (!_isInit)
+                Init();
             if (audioSource == null || (audioSource.clip == null && audioSample.IsNullOrWhitespace()))
                 return;
 
