@@ -5,7 +5,7 @@ using UnityEngine;
 using Vortex.Core.DatabaseSystem.Model;
 using Vortex.Core.DatabaseSystem.Model.Enums;
 using Vortex.Core.Extensions.LogicExtensions;
-using Vortex.Core.System.Abstractions.SystemControllers;
+using Vortex.Unity.EditorTools.DataModelSystem;
 using Vortex.Unity.Extensions.Abstractions;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -26,6 +26,12 @@ namespace Vortex.Unity.DatabaseSystem.Presets
 
         [SerializeField] private string description;
         [PreviewField, SerializeField] private Sprite icon;
+
+#if UNITY_EDITOR
+        [ShowInInspector, DataModel, HideIf("@type==RecordTypes.MultiInstance&&!UnityEngine.Application.isPlaying")]
+        [TabGroup("Debug"), PropertyOrder(100)]
+        private T _data;
+#endif
 
         public RecordTypes RecordType => type;
 
@@ -57,6 +63,9 @@ namespace Vortex.Unity.DatabaseSystem.Presets
         {
             var record = new T();
             record.CopyFrom(this);
+#if UNITY_EDITOR
+            _data = record;
+#endif
             return record;
         }
 

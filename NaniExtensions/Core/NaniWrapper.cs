@@ -134,6 +134,19 @@ namespace Vortex.NaniExtensions.Core
 
             ChoiceHandlerManager.ResetService();
 
+            /*
+            try
+            {
+                ScriptPlayer.Stop();
+                ScriptPlayer.ResetService();
+            }
+            catch (Exception ex)
+            {
+                if (Settings.Data().DebugMode)
+                    Debug.LogException(ex);
+            }
+            */
+
             ScriptPlayer.OnPlay += OnScriptEvent;
             ScriptPlayer.OnStop += OnScriptEvent;
         }

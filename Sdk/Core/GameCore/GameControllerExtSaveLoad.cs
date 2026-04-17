@@ -6,6 +6,7 @@ using UnityEngine;
 using Vortex.Core.SaveSystem;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Core.System.ProcessInfo;
+using RuntimeInitializer = Naninovel.RuntimeInitializer;
 
 namespace Vortex.Sdk.Core.GameCore
 {
@@ -51,6 +52,8 @@ namespace Vortex.Sdk.Core.GameCore
             Deserialize(data);
             ProcessData.Progress++;
             await UniTask.Yield();
+
+            await RuntimeInitializer.Initialize();
 
             SetGameState(GameStates.Play);
             OnLoadGame?.Invoke();
