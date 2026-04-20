@@ -23,10 +23,14 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Bus
         {
             App.OnStart -= Init;
 
+            Engine.OnInitializationFinished -= Init;
             Localization.OnLocalizationChanged -= SetNaniDialogueLocale;
             Localization.OnLocalizationChanged += SetNaniDialogueLocale;
 
-            SetNaniDialogueLocale();
+            if (Engine.Initialized)
+                SetNaniDialogueLocale();
+            else
+                Engine.OnInitializationFinished += Init;
             //SetNaniVoiceLocale(); Установка локали диалога запустит каскад
         }
 
@@ -44,7 +48,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Bus
             }
 
             NaniWrapper.L10N.SelectLocale(Localization.GetCurrentDialogueLanguage());
-            NaniWrapper.StateManager.SaveGlobal();
+            NaniWrapper.StateManager.SaveGlobal().Forget(Debug.LogException);
             SetNaniVoiceLocale();
         }
 
@@ -59,7 +63,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Bus
             var voiceLoader = (LocalizableResourceLoader<AudioClip>)NaniWrapper.AudioManager.VoiceLoader;
             if (voiceLoader == null) return;
             voiceLoader.OverrideLocale = Localization.GetCurrentVoiceLanguage();
-            NaniWrapper.StateManager.SaveGlobal();
+            NaniWrapper.StateManager.SaveGlobal().Forget(Debug.LogException);
         }
     }
 }
