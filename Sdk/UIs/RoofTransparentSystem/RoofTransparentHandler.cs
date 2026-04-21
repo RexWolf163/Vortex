@@ -73,7 +73,7 @@ namespace Vortex.Sdk.UIs.RoofTransparentSystem
                 }
             }
             else if (k < 1f)
-                _tween.Set(() => sprite.color.a, (f) => sprite.color = new Color(1, 1, 1, f), 1f, fadeTime / (1f - k))
+                _tween.Set(() => sprite.color.a, (f) => sprite.color = new Color(1, 1, 1, f), 1f, fadeTime * (1f - k))
                     .SetEase(EaseType.Linear)
                     .Run();
         }
