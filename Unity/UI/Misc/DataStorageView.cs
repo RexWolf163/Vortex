@@ -26,7 +26,7 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Модель данных из хранилища
         /// </summary>
-        [DataModel, ShowInInspector, HideInEditorMode]
+        [DataModel, ShowInInspector, HideInEditorMode, FoldoutGroup("DataStorage"), HideReferenceObjectPicker]
         protected T Data;
 
         #endregion

@@ -82,6 +82,7 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             SwitchOff();
             foreach (var gameObject in links)
                 TimeController.RemoveCall(gameObject.transform);
+            base.Dispose();
         }
 
 #if UNITY_EDITOR

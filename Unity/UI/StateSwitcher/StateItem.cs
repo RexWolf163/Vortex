@@ -1,4 +1,5 @@
 using System;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.StateSwitcher
@@ -17,6 +18,7 @@ namespace Vortex.Unity.UI.StateSwitcher
 
         public virtual void Dispose()
         {
+            TimeController.RemoveCall(this);
         }
 
 #if UNITY_EDITOR
