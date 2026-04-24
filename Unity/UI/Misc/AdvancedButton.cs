@@ -137,7 +137,7 @@ namespace Vortex.Unity.UI.Misc
 
             if (clickRegType == ClickRegType.OnClick
                 //&& (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs
-                && (_clickCoords - eventData.position).magnitude < ShiftForClickLess)
+                && (_clickCoords - eventData?.position ?? _clickCoords).magnitude < ShiftForClickLess)
                 Click();
 
             Set(_inBorders ? ButtonVisualState.Hover : ButtonVisualState.Free);
