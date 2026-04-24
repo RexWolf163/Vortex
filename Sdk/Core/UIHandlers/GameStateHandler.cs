@@ -36,6 +36,9 @@ namespace Vortex.Sdk.Core.UIHandlers
             GameController.OnGameStateChanged -= Refresh;
         }
 
-        private void Refresh() => switcher.Set(GameController.GetState());
+        private void Refresh()
+        {
+            switcher.Set(GameController.GetState());
+        }
     }
 }

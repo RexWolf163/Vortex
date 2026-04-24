@@ -40,7 +40,7 @@ namespace Vortex.Sdk.Core.GameCore
         /// </summary>
         private static GameModel _data;
 
-        public static GameStates GetState() => _data.State;
+        public static GameStates GetState() => GetData().State;
 
         public static T Get<T>() where T : class, GameModel.IGameData => GetData().Get<T>();
 

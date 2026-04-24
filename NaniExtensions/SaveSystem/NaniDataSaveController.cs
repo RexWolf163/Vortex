@@ -2,6 +2,7 @@ using System;
 using Naninovel;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
+using Vortex.Core.SettingsSystem.Bus;
 using Vortex.NaniExtensions.Core;
 using Vortex.Sdk.Core.GameCore;
 
@@ -82,27 +83,45 @@ namespace Vortex.NaniExtensions.SaveSystem
             }
         }
 
-        private static void OnLoadGame()
+        private static async void OnLoadGame()
         {
-            _data = GameController.Get<NaniStateData>();
-            NaniWrapper.VariablesManager.ResetAllVariables();
-            foreach (var dataVariable in _data.Variables)
+            try
             {
-                switch (dataVariable.Value)
+                if (Settings.Data().DebugMode)
+                    Debug.Log("[NaniDataSaveController] System loading...");
+
+                while (!Engine.Initialized)
                 {
-                    case StringData stringValue:
-                        NaniWrapper.VariablesManager.SetVariableValue(dataVariable.Key,
-                            new CustomVariableValue(stringValue));
-                        break;
-                    case FloatData floatValue:
-                        NaniWrapper.VariablesManager.SetVariableValue(dataVariable.Key,
-                            new CustomVariableValue(floatValue));
-                        break;
-                    case BoolData boolValue:
-                        NaniWrapper.VariablesManager.SetVariableValue(dataVariable.Key,
-                            new CustomVariableValue(boolValue));
-                        break;
+                    await UniTask.Delay(100);
                 }
+
+                _data = GameController.Get<NaniStateData>();
+                NaniWrapper.VariablesManager.ResetAllVariables();
+                foreach (var dataVariable in _data.Variables)
+                {
+                    switch (dataVariable.Value)
+                    {
+                        case StringData stringValue:
+                            NaniWrapper.VariablesManager.SetVariableValue(dataVariable.Key,
+                                new CustomVariableValue(stringValue));
+                            break;
+                        case FloatData floatValue:
+                            NaniWrapper.VariablesManager.SetVariableValue(dataVariable.Key,
+                                new CustomVariableValue(floatValue));
+                            break;
+                        case BoolData boolValue:
+                            NaniWrapper.VariablesManager.SetVariableValue(dataVariable.Key,
+                                new CustomVariableValue(boolValue));
+                            break;
+                    }
+                }
+
+                if (Settings.Data().DebugMode)
+                    Debug.Log("[NaniDataSaveController] System loaded");
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
             }
         }
     }
