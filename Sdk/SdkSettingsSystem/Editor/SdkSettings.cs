@@ -135,6 +135,18 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
 
         private FieldInfo[] GetFields() =>
             GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+
+
+        private bool _isValidate;
+
+        private void OnValidate()
+        {
+            if (_isValidate)
+                return;
+            _isValidate = true;
+            ResetChanges();
+            Debug.LogError("CHECK");
+        }
     }
 }
 

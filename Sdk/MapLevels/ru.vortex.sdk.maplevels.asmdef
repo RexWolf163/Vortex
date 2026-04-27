@@ -1,20 +1,23 @@
 {
     "name": "ru.vortex.sdk.maplevels",
-    "rootNamespace": "Vortex.Sdk.MapLevels",
+    "rootNamespace": "",
     "references": [
-        "ru.vortex.system",
-        "ru.vortex.database",
-        "ru.vortex.unity.database",
-        "ru.vortex.extensions",
-        "ru.vortex.app",
-        "ru.vortex.unity.app",
-        "ru.vortex.core.complexmodel",
-        "ru.vortex.sdk.game.core",
-        "ru.vortex.unity.editortools",
-        "ui.vortex.unity.components",
-        "ru.vortex.logger",
-        "ru.vortex.settings",
-        "ru.vortex.unity.settings"
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:7c6d3de99517c0549ae82af52cb16906",
+        "GUID:61328ee0671b5b5429f7ef2e1137c0b5",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b",
+        "GUID:9b629820a0db1ee4ebf4641e8cabb0c8",
+        "GUID:107a1ae24d335a64783f6777158a6259",
+        "GUID:13e712a2dcfaff748b078cd405cc9d3d",
+        "GUID:66c3850540390be44aa49f25786b3c3a",
+        "GUID:865e31c772c77e64cb48f0792a7a6a0c",
+        "GUID:5b4a3845135f260418f86033ea7f16b9",
+        "GUID:86f05ea23c6647040884b166bb929c16",
+        "GUID:27ea219928481af49b58521e89020da5",
+        "GUID:51467fb2383481041817716e8215bc1d",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:f1e680f843d477b4982469a7325c2f44",
+        "GUID:826a37b90dd7f8849a995e26104dd48e"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -22,7 +25,9 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "USING_VORTEX_MAP_LEVELS"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }

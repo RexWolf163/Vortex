@@ -6,7 +6,7 @@ using Vortex.Sdk.MapLevels.Interfaces;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.SettingsSystem.Presets;
 
-namespace Vortex.Sdk.MapLevels.Settings
+namespace Vortex.Sdk.MapLevels.Config
 {
     /// <summary>
     /// Настройки пакета MapLevels. Лежит в Resources/Settings/, автоматически загружается

@@ -14,7 +14,7 @@ namespace Vortex.Sdk.MapLevels.Bus
     /// <summary>
     /// Статическая шина пакета MapLevels.
     /// При старте приложения создаёт контроллер согласно типу из настроек
-    /// (Settings.Data().MapLevelsControllerTypeName), резолвимому через рефлексию.
+    /// (Settings.Data().MapLevelsControllerTypeName), получая его через рефлексию.
     /// Init контроллера откладывается до первого события жизненного цикла игры
     /// (GameController.OnNewGame / OnLoadGame).
     /// </summary>
