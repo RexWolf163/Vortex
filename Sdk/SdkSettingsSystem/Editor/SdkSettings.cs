@@ -130,7 +130,14 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
                 Debug.LogError($"[SdkSettings] Ошибка при обработке {group} — {ex.Message}");
             }
 
-            AssetDatabase.SaveAssets();
+            try
+            {
+                AssetDatabase.SaveAssets();
+            }
+            catch (Exception)
+            {
+                //Ignore
+            }
         }
 
         private FieldInfo[] GetFields() =>
@@ -143,9 +150,15 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
         {
             if (_isValidate)
                 return;
-            _isValidate = true;
-            ResetChanges();
-            Debug.LogError("CHECK");
+            try
+            {
+                _isValidate = true;
+                ResetChanges();
+            }
+            catch (Exception)
+            {
+                _isValidate = false;
+            }
         }
     }
 }

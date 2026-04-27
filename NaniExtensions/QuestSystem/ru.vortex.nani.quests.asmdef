@@ -1,4 +1,19 @@
 {
-	"name": "ru.vortex.nani.quests",
-	"references":[ "GUID:4029295060c710347a50c018285ee303", "GUID:5b7bd4fecb085bb41bcf12980f822ca7" ]
+    "name": "ru.vortex.nani.quests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:4029295060c710347a50c018285ee303",
+        "GUID:5b7bd4fecb085bb41bcf12980f822ca7"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_VORTEX_QUESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }
