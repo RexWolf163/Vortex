@@ -1,0 +1,4 @@
+{
+	"name": "sdk.settings.system",
+	"references":[ "GUID:865e31c772c77e64cb48f0792a7a6a0c", "GUID:51467fb2383481041817716e8215bc1d", "GUID:826a37b90dd7f8849a995e26104dd48e", "GUID:909c85e22a6433743bbdc4735bbe1b04" ]
+}

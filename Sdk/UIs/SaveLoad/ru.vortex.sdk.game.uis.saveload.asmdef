@@ -19,7 +19,9 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "USING_VORTEX_SAVE_LOAD_WRAPPER"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }

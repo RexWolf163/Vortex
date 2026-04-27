@@ -21,7 +21,9 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "USING_VORTEX_QUESTS"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }

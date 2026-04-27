@@ -19,7 +19,7 @@ namespace Vortex.Sdk.UIs.RoofTransparentSystem
         /// <summary>
         /// Порог снижения прозрачности
         /// </summary>
-        [SerializeField, InfoBox("Порог прозрачности"), Range(0.01f, 1f)]
+        [SerializeField, InfoBox("Порог прозрачности"), Range(0f, 1f)]
         public float minAlpha = 0.35f;
 
         [SerializeField, AutoLink] private SpriteRenderer sprite;
