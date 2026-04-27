@@ -1,0 +1,28 @@
+{
+    "name": "ru.vortex.sdk.maplevels",
+    "rootNamespace": "Vortex.Sdk.MapLevels",
+    "references": [
+        "ru.vortex.system",
+        "ru.vortex.database",
+        "ru.vortex.unity.database",
+        "ru.vortex.extensions",
+        "ru.vortex.app",
+        "ru.vortex.unity.app",
+        "ru.vortex.core.complexmodel",
+        "ru.vortex.sdk.game.core",
+        "ru.vortex.unity.editortools",
+        "ui.vortex.unity.components",
+        "ru.vortex.logger",
+        "ru.vortex.settings",
+        "ru.vortex.unity.settings"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
