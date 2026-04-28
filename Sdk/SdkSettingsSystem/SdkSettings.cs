@@ -1,18 +1,18 @@
-#if UNITY_EDITOR
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Sirenix.OdinInspector;
 using Sirenix.Utilities;
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.Build;
+#endif
 using UnityEngine;
-using Vortex.Sdk.SdkSettingsSystem.Editor.Attribute;
+using Vortex.Sdk.SdkSettingsSystem.Attribute;
 using Vortex.Unity.CoreAssetsSystem;
 
-namespace Vortex.Sdk.SdkSettingsSystem.Editor
+namespace Vortex.Sdk.SdkSettingsSystem
 {
     /// <summary>
     /// Конфиг подключения пакетов SDK
@@ -20,8 +20,10 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
     /// Берет партиалы из пакетов и проверяет наличие указанных через атрибут DefineSymbol ключей в
     /// настройках проекта. Обновляет данные дефайнов согласно состояния полей в этом ассете  
     /// </summary>
+    [Serializable]
     public partial class SdkSettings : ScriptableObject, ICoreAsset
     {
+#if UNITY_EDITOR
         /// <summary>
         /// Проверка соответствия дефайнов
         /// </summary>
@@ -143,40 +145,34 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
             GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
 
 
-        private bool _isValidate;
-
-        private void OnValidate()
+        /*
+        [InitializeOnLoadMethod]
+        private static void Init()
         {
-            if (_isValidate)
-                return;
-            try
-            {
-                _isValidate = true;
-                ReloadStates();
-            }
-            catch (Exception)
-            {
-                _isValidate = false;
-            }
+            EditorUserBuildSettings.activeBuildTargetChanged -= OnPlatformChanged;
+            EditorUserBuildSettings.activeBuildTargetChanged += OnPlatformChanged;
+
+            // Инициализация при загрузке редактора (на случай, если платформа уже сменилась)
+            EditorApplication.delayCall -= OnPlatformChanged;
+            EditorApplication.delayCall += OnPlatformChanged;
+
+            OnPlatformChanged();
         }
 
-        private static SdkSettings _instance;
-
-        [RuntimeInitializeOnLoadMethod]
-        private static void Bootstrap()
+        private static void OnPlatformChanged()
         {
-            if (_instance != null)
+            var guids = AssetDatabase.FindAssets("t:SdkSettings");
+            if (guids.Length > 1)
+                Debug.LogError("[SdkSettings] Обнаружено несколько ассетов конфигурации! Должен быть только один!");
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var settings = AssetDatabase.LoadAssetAtPath<SdkSettings>(path);
+                settings?.RefreshDefines();
                 return;
-
-            var conf = Resources.LoadAll<SdkSettings>("");
-            if (conf == null || conf.Length == 0)
-                return;
-            _instance = conf[0];
-            _instance.ReloadStates();
-            EditorUtility.SetDirty(_instance);
-            AssetDatabase.SaveAssets();
+            }
         }
+*/
+#endif
     }
 }
-
-#endif

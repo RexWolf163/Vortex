@@ -1,9 +1,7 @@
-#if UNITY_EDITOR
-
 using System;
 using UnityEngine;
 
-namespace Vortex.Sdk.SdkSettingsSystem.Editor.Attribute
+namespace Vortex.Sdk.SdkSettingsSystem.Attribute
 {
     [AttributeUsage(AttributeTargets.Field)]
     public class DefineSymbolAttribute : PropertyAttribute
@@ -16,4 +14,3 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor.Attribute
         }
     }
 }
-#endif
