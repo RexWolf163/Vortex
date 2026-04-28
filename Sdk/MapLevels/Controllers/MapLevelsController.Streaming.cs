@@ -28,6 +28,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
                 {
                     var go = new GameObject("MapVoid");
                     go.SetActive(false);
+                    Object.DontDestroyOnLoad(go);
                     _voidParent = go.transform;
                 }
 
