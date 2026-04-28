@@ -94,16 +94,16 @@ namespace Vortex.Unity.Camera.View.Handlers
                 return;
             }
 
-            var dX = Data.CameraRect.Value.x / 2;
-            var dY = Data.CameraRect.Value.y / 2;
+            var dX = Data.CameraRect.Value.x / 2f;
+            var dY = Data.CameraRect.Value.y / 2f;
             var borderRect = Data.Borders[^1];
             borderRect.GetWorldCorners(_corners);
 
             var borders = new Rect(
                 _corners[0].x + dX,
                 _corners[0].y + dY,
-                _corners[2].x - _corners[0].x - 2 * dX,
-                _corners[2].y - _corners[0].y - 2 * dY);
+                _corners[2].x - _corners[0].x - 2f * dX,
+                _corners[2].y - _corners[0].y - 2f * dY);
 
             pos.x = Mathf.Clamp(pos.x, borders.xMin, borders.xMax);
             pos.y = Mathf.Clamp(pos.y, borders.yMin, borders.yMax);

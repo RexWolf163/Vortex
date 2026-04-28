@@ -3,6 +3,7 @@ using UnityEngine;
 using Vortex.Core.DatabaseSystem.Model;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
+using Vortex.Sdk.MapLevels.Interfaces;
 
 namespace Vortex.Sdk.MapLevels.Model
 {
@@ -10,13 +11,12 @@ namespace Vortex.Sdk.MapLevels.Model
     /// Рабочая копия данных одного уровня карты.
     /// Заполняется из MapLevelPreset через Record.CopyFrom при инициализации БД.
     /// </summary>
-    [Serializable, POCO]
+    [Serializable]
     public sealed class MapLevelModel : Record
     {
         /// <summary>
-        /// Префаб уровня. Прямая ссылка GameObject — стриминг через Addressables не используется.
+        /// Префаб уровня.
         /// </summary>
-        [NotPOCO]
         public GameObject Prefab { get; internal set; }
 
         /// <summary>
@@ -28,5 +28,16 @@ namespace Vortex.Sdk.MapLevels.Model
 
         public override void LoadFromSaveData(string data) =>
             this.CopyFrom(data.DeserializeProperties<MapLevelModel>());
+
+
+#if UNITY_EDITOR
+        public MapGate[] GetMapGates()
+        {
+            var view = Prefab.GetComponent<IMapLevelView>();
+            if (view == null)
+                return new MapGate[0];
+            return view.GetGates();
+        }
+#endif
     }
 }

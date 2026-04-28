@@ -55,8 +55,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
 
             var parent = GetMapsParent();
             container.State.Set(MapContainerState.Loading, this);
-            container.Instance = Object.Instantiate(level.Prefab, new Vector3(1000000f, 1000000f, 0),
-                Quaternion.identity, parent);
+            container.Instance = Object.Instantiate(level.Prefab, Vector3.zero, Quaternion.identity, parent);
             container.Instance.name = level.Name;
             container.State.Set(MapContainerState.Loaded, this);
 
@@ -75,7 +74,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
             container.State.Set(MapContainerState.Unloading, this);
             if (container.Instance != null)
             {
-                UnityEngine.Object.Destroy(container.Instance);
+                Object.Destroy(container.Instance);
                 container.Instance = null;
             }
 

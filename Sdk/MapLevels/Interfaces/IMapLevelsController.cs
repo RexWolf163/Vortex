@@ -26,9 +26,9 @@ namespace Vortex.Sdk.MapLevels.Interfaces
         event Action OnInitialized;
 
         /// <summary>
-        /// Активный уровень изменился. Аргумент — новый GUID.
+        /// Активный уровень изменился. Аргумент — новый GUID и ID гейта через который происходит вход.
         /// </summary>
-        event Action<string> OnActiveLevelChanged;
+        event Action<string, string> OnActiveLevelChanged;
 
         /// <summary>
         /// Префаб уровня инстанцирован.
@@ -51,7 +51,7 @@ namespace Vortex.Sdk.MapLevels.Interfaces
         /// Активировать уровень. Если префаб ещё не инстанцирован — инстанцирует синхронно,
         /// затем переключает активный. Подгрузка соседей (hop=1) запускается в фоне.
         /// </summary>
-        void Enter(string levelGuid);
+        void Enter(string levelGuid, string gateId = null);
 
         /// <summary>
         /// Освобождение всех инстансов и снятие подписок. Идемпотентна.

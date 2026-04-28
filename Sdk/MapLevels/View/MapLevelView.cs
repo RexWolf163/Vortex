@@ -1,7 +1,11 @@
+using System.Linq;
 using UnityEngine;
 using Vortex.Core.Extensions.DefaultEnums;
 using Vortex.Sdk.MapLevels.Bus;
-using Vortex.Sdk.MapLevels.Presets;
+using Vortex.Sdk.MapLevels.Interfaces;
+using Vortex.Sdk.MapLevels.Model;
+using Vortex.Unity.DatabaseSystem.Attributes;
+using Vortex.Unity.UI.Attributes;
 using Vortex.Unity.UI.StateSwitcher;
 
 namespace Vortex.Sdk.MapLevels.View
@@ -13,37 +17,39 @@ namespace Vortex.Sdk.MapLevels.View
     ///
     /// Профильный View — читает шину MapLevelsBus напрямую (доменно связан).
     /// </summary>
-    [DisallowMultipleComponent]
-    public sealed class MapLevelView : MonoBehaviour
+    [DisallowMultipleComponent, RequireComponent(typeof(UIStateSwitcher))]
+    public sealed class MapLevelView : MonoBehaviour, IMapLevelView
     {
-        [SerializeField] private MapLevelPreset preset;
-        [SerializeField] private UIStateSwitcher switcher;
+        [SerializeField, DbRecord(typeof(MapLevelModel))]
+        private string mapId;
+
+        [SerializeField, StateSwitcher(typeof(SwitcherState))]
+        private UIStateSwitcher switcher;
+
+        /// <summary>
+        /// Точки входа/спауна на карту
+        /// </summary>
+        [SerializeField] private MapGate[] gates = new MapGate[0];
 
         private bool _subscribed;
 
         private void OnEnable()
         {
-            if (preset == null)
-            {
-                Debug.LogError($"[MapLevelView] {name}: preset не задан.");
-                return;
-            }
-
             if (switcher == null)
             {
                 Debug.LogError($"[MapLevelView] {name}: UIStateSwitcher не задан.");
                 return;
             }
 
-            MapLevelsBus.OnReady    += TrySubscribe;
-            MapLevelsBus.OnRelease  += Unsubscribe;
+            MapLevelsBus.OnReady.Subscribe(TrySubscribe);
+            MapLevelsBus.OnRelease += Unsubscribe;
             TrySubscribe();
         }
 
         private void OnDisable()
         {
-            MapLevelsBus.OnReady    -= TrySubscribe;
-            MapLevelsBus.OnRelease  -= Unsubscribe;
+            MapLevelsBus.OnReady.Unsubscribe(TrySubscribe);
+            MapLevelsBus.OnRelease -= Unsubscribe;
             Unsubscribe();
         }
 
@@ -70,8 +76,16 @@ namespace Vortex.Sdk.MapLevels.View
 
         private void Apply(string activeGuid)
         {
-            var state = activeGuid == preset.GuidPreset ? SwitcherState.On : SwitcherState.Off;
+            var state = activeGuid == mapId ? SwitcherState.On : SwitcherState.Off;
             switcher.Set(state);
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// получить перечень точек входа/спауна
+        /// </summary>
+        /// <returns></returns>
+        public MapGate[] GetGates() => gates;
+#endif
     }
 }

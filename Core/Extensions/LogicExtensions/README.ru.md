@@ -115,18 +115,18 @@ Create(out openValve)  →  valve += handler  →  openValve()  →  valve += la
 ```csharp
 public class MySystem
 {
-    public InitValve OnReady { get; } = InitValve.Create(out var open);
-    private Action _open = open;
+    public InitValve OnReady { get; } = InitValve.Create(out _open);
+    private Action _open;
 
     public void Initialize()
     {
         // ... инициализация ...
-        _open(); // все накопленные подписки вызываются
+        _open?.Invoke(); // все накопленные подписки вызываются
     }
 }
 
 // Подписчик:
-mySystem.OnReady += () => Debug.Log("System ready");
+mySystem.OnReady.Subscribe(() => Debug.Log("System ready"));
 ```
 
 ### Граничные случаи

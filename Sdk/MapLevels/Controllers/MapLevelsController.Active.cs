@@ -7,9 +7,9 @@ namespace Vortex.Sdk.MapLevels.Controllers
 {
     public partial class MapLevelsController
     {
-        public event Action<string> OnActiveLevelChanged;
+        public event Action<string, string> OnActiveLevelChanged;
 
-        public void Enter(string levelGuid)
+        public void Enter(string levelGuid, string gateId = null)
         {
             if (!IsInitialized)
             {
@@ -44,7 +44,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
             if (data != null)
                 data.CurrentLevelGuid = levelGuid;
 
-            OnActiveLevelChanged?.Invoke(levelGuid);
+            OnActiveLevelChanged?.Invoke(levelGuid, gateId);
 
             // Запускаем фоновый стриминг план: предзагрузка соседей hop=1, выгрузка hop >= X.
             // Async — внутри контура, наружу не торчит.

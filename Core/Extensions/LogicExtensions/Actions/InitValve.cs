@@ -64,7 +64,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.Actions
             action?.Invoke();
         }
 
-        private void Subscribe(Action value)
+        public void Subscribe(Action value)
         {
             var needInvoke = false;
             lock (_lock)
@@ -85,7 +85,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.Actions
                 value.Invoke();
         }
 
-        private void Unsubscribe(Action value)
+        public void Unsubscribe(Action value)
         {
             lock (_lock)
             {
@@ -94,18 +94,6 @@ namespace Vortex.Core.Extensions.LogicExtensions.Actions
                 if (value != null && _action != null)
                     _action -= value;
             }
-        }
-
-        public static InitValve operator +(InitValve sa, Action value)
-        {
-            sa.Subscribe(value);
-            return sa;
-        }
-
-        public static InitValve operator -(InitValve sa, Action value)
-        {
-            sa.Unsubscribe(value);
-            return sa;
         }
 
         public void Dispose()

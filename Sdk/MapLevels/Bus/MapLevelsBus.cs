@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
+using Vortex.Core.Extensions.LogicExtensions.Actions;
 using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Core.SettingsSystem.Model;
 using Vortex.Sdk.MapLevels.Controllers;
@@ -43,7 +44,9 @@ namespace Vortex.Sdk.MapLevels.Bus
         /// <summary>
         /// Контроллер инициализирован.
         /// </summary>
-        public static event Action OnReady;
+        public static InitValve OnReady { get; } = InitValve.Create(out Open);
+
+        private static readonly Action Open;
 
         /// <summary>
         /// Контроллер очищен (Cleanup).
@@ -88,7 +91,7 @@ namespace Vortex.Sdk.MapLevels.Bus
         /// <summary>
         /// Сообщение от контроллера: инициализация завершена.
         /// </summary>
-        internal static void NotifyReady() => OnReady?.Invoke();
+        internal static void NotifyReady() => Open?.Invoke();
 
         /// <summary>
         /// Сообщение от контроллера: ресурсы освобождены.
@@ -120,6 +123,7 @@ namespace Vortex.Sdk.MapLevels.Bus
             }
 
             Controller = (IMapLevelsController)Activator.CreateInstance(resolvedType);
+            Controller.Init();
         }
 
         /// <summary>
