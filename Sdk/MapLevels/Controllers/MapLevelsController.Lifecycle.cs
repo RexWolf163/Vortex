@@ -20,23 +20,43 @@ namespace Vortex.Sdk.MapLevels.Controllers
 
             BuildCatalog();
 
-            GameController.OnNewGame  += OnGameReset;
+            GameController.OnNewGame += OnGameReset;
             GameController.OnLoadGame += OnGameReset;
 
             IsInitialized = true;
             MapLevelsBus.NotifyReady();
             OnInitialized?.Invoke();
 
+            MapLevelsBus.OnMapsContainerRegistered += MoveMaps;
+            MapLevelsBus.OnMapsContainerReleased += MoveMaps;
+
             // Если игра уже идёт (например, контроллер инициализирован после NewGame) —
             // войти в текущий уровень из GameModel.
             EnterCurrentFromGameData();
+        }
+
+        /// <summary>
+        /// Переброска загруженных префабов между контейнерами
+        /// </summary>
+        private void MoveMaps()
+        {
+            var parent = GetMapsParent();
+            var list = Model.Containers.Values;
+            foreach (var mapContainer in list)
+            {
+                if (mapContainer.Instance == null)
+                    continue;
+                mapContainer.Instance.transform.SetParent(parent, false);
+                mapContainer.Instance.transform.localPosition = Vector3.zero;
+                mapContainer.Instance.transform.localRotation = Quaternion.identity;
+            }
         }
 
         public void Cleanup()
         {
             if (!IsInitialized) return;
 
-            GameController.OnNewGame  -= OnGameReset;
+            GameController.OnNewGame -= OnGameReset;
             GameController.OnLoadGame -= OnGameReset;
 
             UnloadAll();
@@ -59,7 +79,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
             foreach (var record in records)
             {
                 if (record == null) continue;
-                Model.Catalog[record.GuidPreset]    = record;
+                Model.Catalog[record.GuidPreset] = record;
                 Model.Containers[record.GuidPreset] = new MapContainer(record.GuidPreset);
             }
         }

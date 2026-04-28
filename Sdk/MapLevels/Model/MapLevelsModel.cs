@@ -30,11 +30,11 @@ namespace Vortex.Sdk.MapLevels.Model
 
         public IReadOnlyDictionary<string, MapLevelModel> GetCatalog() => Catalog;
         public IReadOnlyDictionary<string, MapContainer> GetContainers() => Containers;
-        public MapLevelModel GetLevel(string guid) =>
-            Catalog.TryGetValue(guid, out var level) ? level : null;
-        public MapContainer GetContainer(string guid) =>
-            Containers.TryGetValue(guid, out var container) ? container : null;
 
-        internal void RaiseUpdate() => OnUpdateData?.Invoke();
+        public MapLevelModel GetLevel(string guid) => Catalog.GetValueOrDefault(guid);
+
+        public MapContainer GetContainer(string guid) => Containers.GetValueOrDefault(guid);
+
+        internal void ForceUpdate() => OnUpdateData?.Invoke();
     }
 }

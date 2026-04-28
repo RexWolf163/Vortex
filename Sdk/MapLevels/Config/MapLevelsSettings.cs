@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.SettingsSystem.Model;
 using Vortex.Sdk.MapLevels.Interfaces;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.SettingsSystem.Presets;
@@ -9,9 +11,7 @@ using Vortex.Unity.SettingsSystem.Presets;
 namespace Vortex.Sdk.MapLevels.Config
 {
     /// <summary>
-    /// Настройки пакета MapLevels. Лежит в Resources/Settings/, автоматически загружается
-    /// SettingsDriver и копируется в SettingsModel через CopyFrom.
-    /// Доступ из кода: Settings.Data().MapLevelsControllerTypeName, MapLevelsUnloadDistance.
+    /// Конфигурация системы управления уровнями карты
     /// </summary>
     [Serializable]
     [CreateAssetMenu(fileName = "MapLevelsSettings", menuName = "Vortex/Settings/MapLevels")]
@@ -19,21 +19,21 @@ namespace Vortex.Sdk.MapLevels.Config
     {
         [SerializeField, Range(1, 16)]
         [Tooltip("Глубина выгрузки. Уровни на дистанции >= unloadDistance от активного выгружаются.")]
-        private int mapLevelsUnloadDistance = 3;
+        private int unloadDistance = 3;
 
-        [SerializeField,
-         ValueSelector(nameof(GetControllerTypes), Placeholder = "— Pick Controller —")]
+        [SerializeField, ValueSelector(nameof(GetControllerTypes), Placeholder = "— Pick Controller —")]
         [Tooltip("AssemblyQualifiedName реализации IMapLevelsController. " +
                  "Контроллер создаётся в MapLevelsBus при старте приложения.")]
-        private string mapLevelsControllerTypeName;
+        private string controllerTypeName;
 
-        public int MapLevelsUnloadDistance => mapLevelsUnloadDistance;
-        public string MapLevelsControllerTypeName => mapLevelsControllerTypeName;
+        public MapLevelsConfig MapLevels => new(controllerTypeName, unloadDistance);
+
+        internal string ControllerTypeName => controllerTypeName;
 
 #if UNITY_EDITOR
         /// <summary>
         /// Поставщик типов для ValueSelector — сканирует домены, фильтрует по IMapLevelsController.
-        /// Ключ словаря (отображаемое имя) → значение (AssemblyQualifiedName для надёжной резолвции).
+        /// Ключ словаря (отображаемое имя) → значение (FullName для надёжной резолвции).
         /// </summary>
         private Dictionary<string, string> GetControllerTypes()
         {
@@ -42,8 +42,14 @@ namespace Vortex.Sdk.MapLevels.Config
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 Type[] types;
-                try { types = assembly.GetTypes(); }
-                catch { continue; }
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch
+                {
+                    continue;
+                }
 
                 foreach (var type in types)
                 {
@@ -52,8 +58,8 @@ namespace Vortex.Sdk.MapLevels.Config
                     if (type.GetConstructor(Type.EmptyTypes) == null) continue;
 
                     var displayName = type.FullName ?? type.Name;
-                    if (!dict.ContainsKey(displayName))
-                        dict[displayName] = type.AssemblyQualifiedName;
+                    if (!dict.ContainsKey(displayName) && !type.FullName.IsNullOrWhitespace())
+                        dict[displayName] = type.FullName;
                 }
             }
 

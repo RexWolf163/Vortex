@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
+using System.Linq;
 using UnityEngine;
+using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.SettingsSystem.Bus;
-using Vortex.Core.System.Abstractions;
-using Vortex.Sdk.Core.GameCore;
+using Vortex.Core.SettingsSystem.Model;
 using Vortex.Sdk.MapLevels.Controllers;
 using Vortex.Sdk.MapLevels.Interfaces;
 using Vortex.Sdk.MapLevels.Model;
@@ -31,6 +31,11 @@ namespace Vortex.Sdk.MapLevels.Bus
         public static MapLevelsModel Data => Controller?.Model;
 
         /// <summary>
+        /// Конфиг системы управления уровнями карты
+        /// </summary>
+        public static MapLevelsConfig Config;
+
+        /// <summary>
         /// Контроллер инициализирован и готов к работе.
         /// </summary>
         public static bool IsReady => Controller is { IsInitialized: true };
@@ -46,40 +51,38 @@ namespace Vortex.Sdk.MapLevels.Bus
         public static event Action OnRelease;
 
         /// <summary>
+        /// Снятие регистрации контейнера карт
+        /// </summary>
+        public static event Action OnMapsContainerReleased;
+
+        /// <summary>
+        /// Регистрация контейнера карт
+        /// </summary>
+        public static event Action OnMapsContainerRegistered;
+
+        /// <summary>
+        /// Контейнер-родитель для префабов уровней
+        /// </summary>
+        public static Transform MapsParent { get; private set; }
+
+        /// <summary>
         /// Создание контроллера и подписка на жизненный цикл игры.
         /// Запускается автоматически при загрузке домена.
         /// </summary>
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod]
         private static void Bootstrap()
         {
-            GameController.OnNewGame  -= OnGameLifecycleEvent;
-            GameController.OnLoadGame -= OnGameLifecycleEvent;
-            GameController.OnNewGame  += OnGameLifecycleEvent;
-            GameController.OnLoadGame += OnGameLifecycleEvent;
+            Settings.OnInit -= CreateController;
+            Settings.OnInit += CreateController;
 
-            // Попытка создать контроллер из настроек сразу.
-            // Если SettingsDriver ещё не успел инициализироваться (порядок RuntimeInit между ними
-            // не гарантирован Unity) — повторная попытка случится при первом game-событии.
-            TryCreateController();
+            App.OnExit -= Dispose;
+            App.OnExit += Dispose;
         }
 
-        /// <summary>
-        /// Замена реализации контроллера (для моков в тестах).
-        /// Должна вызываться до первого события жизненного цикла игры.
-        /// </summary>
-        public static void OverrideController(IMapLevelsController controller)
+        private static void Dispose()
         {
-            if (controller == null)
-            {
-                Debug.LogError("[MapLevelsBus] OverrideController получил null. Отмена.");
-                return;
-            }
-            if (Controller is { IsInitialized: true })
-            {
-                Debug.LogError("[MapLevelsBus] OverrideController вызван после Init. Отмена.");
-                return;
-            }
-            Controller = controller;
+            Settings.OnInit -= CreateController;
+            App.OnExit -= Dispose;
         }
 
         /// <summary>
@@ -92,88 +95,82 @@ namespace Vortex.Sdk.MapLevels.Bus
         /// </summary>
         internal static void NotifyReleased() => OnRelease?.Invoke();
 
-        private static void OnGameLifecycleEvent()
-        {
-            // Если контроллер ещё не создан — повторная попытка резолвить тип из настроек.
-            // К моменту первого game-события Settings гарантированно загружен.
-            if (Controller == null)
-                TryCreateController();
-
-            if (Controller == null)
-            {
-                Debug.LogError("[MapLevelsBus] Контроллер не создан — пакет не активирован.");
-                return;
-            }
-
-            // Если контроллер уже инициализирован — он сам отработает событие
-            // через свои внутренние подписки.
-            if (Controller.IsInitialized) return;
-
-            Controller.Init();
-        }
-
         /// <summary>
-        /// Резолвит тип контроллера из Settings.Data().MapLevelsControllerTypeName,
-        /// получает Singleton.Instance через рефлексию и присваивает Controller.
-        /// Идемпотентен: если Controller уже задан (в т.ч. через OverrideController) — не трогает.
+        /// Получает тип контроллера из settingsData.MapLevels.Controller
+        /// и создает экземпляр.
+        ///
+        /// По дефолту, контроллер должен наследоваться от класса Singleton,
+        /// для защиты от мультиинстансинга (логирование ошибки)
         /// </summary>
-        private static void TryCreateController()
+        private static void CreateController()
         {
             if (Controller != null) return;
 
             var settingsData = Settings.Data();
             if (settingsData == null) return;
 
-            var typeName = settingsData.MapLevelsControllerTypeName;
+            Config = settingsData.MapLevels;
+
+            var typeName = Config.Controller;
             var resolvedType = ResolveControllerType(typeName);
             if (resolvedType == null)
             {
-                Debug.LogError(
-                    $"[MapLevelsBus] Тип контроллера \"{typeName}\" не разрешён. " +
-                    "Проверьте MapLevelsSettings в Resources/Settings.");
+                Debug.LogError($"[MapLevelBus] Controller {typeName} not found!");
                 return;
             }
 
-            Controller = ResolveSingletonInstance(resolvedType);
+            Controller = (IMapLevelsController)Activator.CreateInstance(resolvedType);
         }
 
         /// <summary>
-        /// Резолвит тип по AssemblyQualifiedName. Fallback на дефолтный MapLevelsController
-        /// при пустом имени или невалидном/несоответствующем интерфейсу типе.
+        /// Ищет тип по FullName.
         /// </summary>
         private static Type ResolveControllerType(string typeName)
         {
             if (string.IsNullOrEmpty(typeName))
                 return typeof(MapLevelsController);
 
-            var type = Type.GetType(typeName);
-            if (type == null) return null;
-            if (!typeof(IMapLevelsController).IsAssignableFrom(type)) return null;
-            if (type.GetConstructor(Type.EmptyTypes) == null) return null;
-            if (type.IsAbstract || type.IsInterface) return null;
-
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var type = assemblies.SelectMany(a => a.GetTypes())
+                .FirstOrDefault(t => t.FullName == typeName
+                                     && typeof(IMapLevelsController).IsAssignableFrom(t)
+                                     && t.GetConstructor(Type.EmptyTypes) != null
+                                     && !t.IsAbstract
+                                     && !t.IsInterface);
             return type;
         }
 
         /// <summary>
-        /// Получает Singleton&lt;T&gt;.Instance через рефлексию для произвольного T.
-        /// Контракт: тип реализует IMapLevelsController и наследует Singleton&lt;T&gt;.
+        /// Регистрация контейнера карт
         /// </summary>
-        private static IMapLevelsController ResolveSingletonInstance(Type controllerType)
+        /// <param name="parent"></param>
+        /// <returns></returns>
+        public static bool RegisterMapsParent(Transform parent)
         {
-            var singletonOpenType = typeof(Singleton<>);
-            var singletonClosedType = singletonOpenType.MakeGenericType(controllerType);
-            var instanceProp = singletonClosedType.GetProperty(
-                "Instance", BindingFlags.Public | BindingFlags.Static);
-
-            if (instanceProp == null)
+            if (MapsParent != null)
             {
-                Debug.LogError(
-                    $"[MapLevelsBus] Тип \"{controllerType.FullName}\" не наследует Singleton<T>.");
-                return null;
+                Debug.LogError("[MapLevelsBus] Контейнер-родитель для уровней карт уже зарегистрирован!");
+                return false;
             }
 
-            return instanceProp.GetValue(null) as IMapLevelsController;
+            MapsParent = parent;
+            OnMapsContainerRegistered?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// Снятие с регистрации контейнера карт
+        /// </summary>
+        /// <param name="parent"></param>
+        public static void UnregisterMapsParent(Transform parent)
+        {
+            if (MapsParent != parent)
+            {
+                Debug.LogError(
+                    "[MapLevelsBus] Попытка дерегистрации незарегистрированного контейнера-родителя для уровней карт!");
+            }
+
+            OnMapsContainerReleased?.Invoke();
         }
 
 #if UNITY_EDITOR

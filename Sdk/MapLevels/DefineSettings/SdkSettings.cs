@@ -8,7 +8,8 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
 {
     public partial class SdkSettings
     {
-        [SerializeField, ToggleButton(isSingleButton: true)] [DefineSymbol("USING_VORTEX_MAP_LEVELS")]
+        [SerializeField] [DefineSymbol("USING_VORTEX_MAP_LEVELS")]
+        [ToggleButton(isSingleButton: true)]
         private bool mapLevelsSdk;
     }
 }

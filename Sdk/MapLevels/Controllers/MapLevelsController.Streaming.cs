@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using Vortex.Core.SettingsSystem.Bus;
+using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Sdk.MapLevels.Bus;
 using Vortex.Sdk.MapLevels.Model;
+using Object = UnityEngine.Object;
 
 namespace Vortex.Sdk.MapLevels.Controllers
 {
@@ -12,9 +14,31 @@ namespace Vortex.Sdk.MapLevels.Controllers
         public event Action<string> OnLevelLoaded;
         public event Action<string> OnLevelUnloaded;
 
+        private static Transform _voidParent;
+
         /// <summary>
-        /// Гарантирует, что префаб уровня инстанцирован. Синхронная операция —
-        /// прямая ссылка GameObject в пресете не требует async-загрузки ассета.
+        /// Складской контейнер для загруженных префабов.
+        /// Используется если не назначен контейнер-представление MapLevelsBus.MapsParent.  
+        /// </summary>
+        private static Transform VoidParent
+        {
+            get
+            {
+                if (_voidParent is null)
+                {
+                    var go = new GameObject("MapVoid");
+                    go.SetActive(false);
+                    _voidParent = go.transform;
+                }
+
+                return _voidParent;
+            }
+        }
+
+        private static Transform GetMapsParent() => MapLevelsBus.MapsParent ?? VoidParent;
+
+        /// <summary>
+        /// Проверяет наличие загруженного префаба и загружает его при необходимости
         /// </summary>
         private void EnsureLoaded(string levelGuid)
         {
@@ -29,8 +53,10 @@ namespace Vortex.Sdk.MapLevels.Controllers
                 return;
             }
 
+            var parent = GetMapsParent();
             container.State.Set(MapContainerState.Loading, this);
-            container.Instance = UnityEngine.Object.Instantiate(level.Prefab);
+            container.Instance = Object.Instantiate(level.Prefab, new Vector3(1000000f, 1000000f, 0),
+                Quaternion.identity, parent);
             container.Instance.name = level.Name;
             container.State.Set(MapContainerState.Loaded, this);
 
@@ -52,6 +78,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
                 UnityEngine.Object.Destroy(container.Instance);
                 container.Instance = null;
             }
+
             container.State.Set(MapContainerState.Empty, this);
 
             OnLevelUnloaded?.Invoke(levelGuid);
@@ -83,24 +110,24 @@ namespace Vortex.Sdk.MapLevels.Controllers
         {
             // Защита от состояния гонки: если контроллер был очищен пока шёл план — выходим.
             if (!IsInitialized) return;
+            if (Model.ActiveLevelGuid.Value.IsNullOrWhitespace()) return;
             if (Model.ActiveLevelGuid.Value != activeGuid) return;
 
-            var unloadDistance = Mathf.Max(1, Settings.Data()?.MapLevelsUnloadDistance ?? 3);
+            var unloadDistance = MapLevelsBus.Config.UnloadDistance;
 
             // BFS от активного уровня до глубины unloadDistance - 1 — всё что в зоне удержания.
             var distances = ComputeDistances(activeGuid, unloadDistance - 1);
 
-            // Преgрузка прямых соседей (hop=1).
-            foreach (var (guid, distance) in distances)
+            // Загрузка прямых соседей (hop=1).
+            var activeLevel = Model.GetLevel(activeGuid);
+            var neighbors = activeLevel.NeighborGuids;
+            foreach (var neighbor in neighbors)
             {
-                if (!IsInitialized || Model.ActiveLevelGuid.Value != activeGuid) return;
-                if (distance != 1) continue;
-
-                var container = Model.GetContainer(guid);
+                var container = Model.GetContainer(neighbor);
                 if (container == null) continue;
                 if (container.State.Value == MapContainerState.Loaded) continue;
 
-                EnsureLoaded(guid);
+                EnsureLoaded(neighbor);
                 await UniTask.Yield();
             }
 
@@ -141,9 +168,14 @@ namespace Vortex.Sdk.MapLevels.Controllers
 
                 foreach (var neighborGuid in level.NeighborGuids)
                 {
-                    if (string.IsNullOrEmpty(neighborGuid)) continue;
-                    if (result.ContainsKey(neighborGuid)) continue;
+                    if (neighborGuid.IsNullOrWhitespace()) continue;
                     if (!Model.Catalog.ContainsKey(neighborGuid)) continue;
+                    if (result.ContainsKey(neighborGuid))
+                    {
+                        if (result[neighborGuid] <= currentDistance) continue;
+                        result[neighborGuid] = currentDistance + 1;
+                        continue;
+                    }
 
                     result[neighborGuid] = currentDistance + 1;
                     queue.Enqueue(neighborGuid);

@@ -51,6 +51,7 @@ namespace Vortex.Unity.CoreAssetsSystem
                 var so = ScriptableObject.CreateInstance(type);
                 AssetDatabase.CreateAsset(so, $"Assets/{Path}/{type.Name}.asset");
                 Debug.Log($"Create new settings preset {Path}/{type.Name}");
+                AssetDatabase.Refresh();
             }
         }
     }

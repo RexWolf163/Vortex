@@ -11,7 +11,6 @@ using UnityEditor.Build;
 using UnityEngine;
 using Vortex.Sdk.SdkSettingsSystem.Editor.Attribute;
 using Vortex.Unity.CoreAssetsSystem;
-using Vortex.Unity.SettingsSystem.Presets;
 
 namespace Vortex.Sdk.SdkSettingsSystem.Editor
 {
@@ -21,7 +20,7 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
     /// Берет партиалы из пакетов и проверяет наличие указанных через атрибут DefineSymbol ключей в
     /// настройках проекта. Обновляет данные дефайнов согласно состояния полей в этом ассете  
     /// </summary>
-    public partial class SdkSettings : SettingsPreset, ICoreAsset
+    public partial class SdkSettings : ScriptableObject, ICoreAsset
     {
         /// <summary>
         /// Проверка соответствия дефайнов
@@ -91,13 +90,7 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
         }
 
         [Button, HorizontalGroup("btns")]
-        private void ApplyChanges()
-        {
-            RefreshDefines();
-        }
-
-        [Button, HorizontalGroup("btns")]
-        private void ResetChanges()
+        private void ReloadStates()
         {
             var group = EditorUserBuildSettings.selectedBuildTargetGroup;
             if (group == BuildTargetGroup.Unknown) return;
@@ -140,6 +133,12 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
             }
         }
 
+        [Button, HorizontalGroup("btns")]
+        private void ApplyChanges()
+        {
+            RefreshDefines();
+        }
+
         private FieldInfo[] GetFields() =>
             GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
 
@@ -153,12 +152,29 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
             try
             {
                 _isValidate = true;
-                ResetChanges();
+                ReloadStates();
             }
             catch (Exception)
             {
                 _isValidate = false;
             }
+        }
+
+        private static SdkSettings _instance;
+
+        [RuntimeInitializeOnLoadMethod]
+        private static void Bootstrap()
+        {
+            if (_instance != null)
+                return;
+
+            var conf = Resources.LoadAll<SdkSettings>("");
+            if (conf == null || conf.Length == 0)
+                return;
+            _instance = conf[0];
+            _instance.ReloadStates();
+            EditorUtility.SetDirty(_instance);
+            AssetDatabase.SaveAssets();
         }
     }
 }
