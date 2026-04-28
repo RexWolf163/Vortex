@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
+using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.MapLevels.Bus;
 using Vortex.Sdk.MapLevels.Model;
@@ -105,8 +106,8 @@ namespace Vortex.Sdk.MapLevels.Controllers
             if (data == null) return;
 
             var target = data.CurrentLevelGuid;
-            if (string.IsNullOrEmpty(target))
-                target = Model.Catalog.Keys.First();
+            if (target.IsNullOrWhitespace())
+                return;
 
             if (!string.IsNullOrEmpty(target))
                 Enter(target);
