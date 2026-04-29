@@ -27,7 +27,7 @@ namespace Vortex.Unity.DatabaseSystem.Drivers.AddressablesDriver
             if (!Database.SetDriver(Instance))
                 return;
 
-            File.CreateFolders($"{Application.dataPath}/{Path}");
+            FileBus.CreateFolders($"{Application.dataPath}/{Path}");
             Instance.ReloadDatabase();
         }
 

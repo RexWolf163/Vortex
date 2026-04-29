@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Abstraction;
+using Vortex.Unity.FileSystem.Bus;
 
 namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 {
@@ -24,9 +26,19 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
                 return _increment;
 
             var dir = GetSavesDirectory();
-            _increment = !Directory.Exists(dir)
-                ? 0
-                : Directory.GetFiles(dir, $"*{SummaryExtension}").Length;
+            var path = GetIncrementFilePath();
+            if (!File.Exists(path))
+            {
+                _increment = 0;
+                FileBus.CreateFolders(dir);
+                var file = File.CreateText(path);
+                file.Write(0);
+                file.Close();
+                return _increment;
+            }
+
+            var str = File.ReadAllText(path);
+            Int32.TryParse(str, out _increment);
             return _increment;
         }
 
@@ -52,7 +64,7 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
                     var summary = DeserializeSummary(xml);
                     Saves[guid] = summary;
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     Debug.LogError($"[FileSystemDriver] Не удалось прочитать summary {file}: {e.Message}");
                 }

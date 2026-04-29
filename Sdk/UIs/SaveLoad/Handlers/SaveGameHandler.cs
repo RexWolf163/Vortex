@@ -2,7 +2,6 @@
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Bus;
-using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.UI.UIComponents;
 
 namespace Vortex.Sdk.UIs.SaveLoad.Handlers
@@ -34,17 +33,20 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         {
             await UniTask.WaitForEndOfFrame(this);
             var texture = CameraCaptureHandler.Capture();
-            var guid = await SaveController.Save(GetSaveName());
+            var guid = await SaveController.Save(GetSaveName(texture));
             if (guid == null)
             {
                 Debug.LogError("[SaveGameHandler] Couldn't save game");
                 return;
             }
 
-            SavePreviewController.SavePreview(texture, guid);
             Destroy(texture);
         }
 
-        private string GetSaveName() => $"{SavingSystemConstants.ManualName}_{SaveController.GetNumberLastSave() + 1}";
+        private string GetSaveName(Texture2D texture)
+        {
+            return SavePreviewController.GetSaveNameWithPreview(texture,
+                $"{SavingSystemConstants.ManualName}_{SaveController.GetNumberLastSave() + 1}");
+        }
     }
 }

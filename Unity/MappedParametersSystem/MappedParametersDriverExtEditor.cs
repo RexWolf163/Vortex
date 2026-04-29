@@ -18,7 +18,7 @@ namespace Vortex.Unity.MappedParametersSystem
             if (!ParameterMaps.SetDriver(Instance))
                 return;
 
-            File.CreateFolders($"{Application.dataPath}/Resources/{Path}");
+            FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
             Instance.LoadData();
         }
 

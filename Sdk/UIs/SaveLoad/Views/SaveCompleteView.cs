@@ -49,12 +49,13 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
                 return;
             var lastSave = dict.OrderByDescending(p => p.Value.UnixTimestamp).First().Value;
 
-            var saveAr = lastSave.Name.Split('_');
+            var saveName = lastSave.GetSavePureName();
+            var saveAr = saveName.Split('_');
             if (saveAr.Length < 2
                 || !(saveAr[0].StartsWith(SavingSystemConstants.AutoName)
                      || saveAr[0].StartsWith(SavingSystemConstants.ManualName)))
             {
-                componentName?.SetText(lastSave.Name);
+                componentName?.SetText(saveName);
                 return;
             }
 
@@ -68,7 +69,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             componentName?.SetText(labelText);
 
 
-            componentName?.SetText(lastSave.Name);
+            componentName?.SetText(saveName);
             componentTimestamp?.SetText(lastSave.Date.ToString(timestampPattern, CultureInfo.InvariantCulture));
         }
     }

@@ -25,7 +25,7 @@ namespace Vortex.Unity.CoreAssetsSystem
         [MenuItem("Vortex/Debug/Check Core Assets")]
         private static void EditorRegister()
         {
-            File.CreateFolders($"{Application.dataPath}/{Path}");
+            FileBus.CreateFolders($"{Application.dataPath}/{Path}");
 
             //Создание ассетов настроек
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();

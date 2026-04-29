@@ -22,7 +22,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem
                 return;
             }
 
-            File.CreateFolders($"{Application.dataPath}/Resources/{Path}");
+            FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
             var resources = Resources.LoadAll<LocalizationPreset>(Path);
             if (resources == null || resources.Length == 0)
             {

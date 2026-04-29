@@ -20,6 +20,7 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
         private const string SavesFolder = "Saves";
         private const string SaveExtension = ".save";
         private const string SummaryExtension = ".summary";
+        private const string IncrementFile = ".in";
 
         /// <summary>
         /// Локальный реестр существующих сейвов: guid → SaveSummary.
@@ -31,12 +32,6 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
         /// Линк на индекс данных, передаётся SaveController через SetIndexLink.
         /// </summary>
         private static Dictionary<string, Dictionary<string, string>> _saveDataIndex;
-
-        /// <summary>
-        /// One-shot превью, которое будет записано в следующем Save.
-        /// Сбрасывается в null после каждого Save.
-        /// </summary>
-        private static string _pendingPreview;
 
         /// <summary>
         /// Номер-инкремент последнего сейва. -1 = ещё не вычислен.

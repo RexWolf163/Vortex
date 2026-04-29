@@ -8,7 +8,6 @@ using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SaveSystem;
 using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Unity.SaveSystem.Presets;
-using StringExtensions = Sirenix.Utilities.StringExtensions;
 
 namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
 {
@@ -34,7 +33,7 @@ namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
         {
             Saves.Clear();
             var saves = PlayerPrefs.GetString(SaveKey);
-            if (!StringExtensions.IsNullOrWhitespace(saves))
+            if (!saves.IsNullOrWhitespace())
             {
                 var ar = saves.Split(';');
                 if (ar.Length > 0)

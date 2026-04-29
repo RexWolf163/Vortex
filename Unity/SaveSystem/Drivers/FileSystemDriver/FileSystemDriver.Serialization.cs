@@ -1,5 +1,6 @@
 using System.IO;
 using System.Xml.Serialization;
+using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Unity.SaveSystem.Presets;
 
@@ -7,16 +8,17 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 {
     public sealed partial class FileSystemDriver
     {
-        private static string SerializeSavePreset(SavePreset preset)
+        private static string SerializeSavePreset(string guid, SavePreset preset)
         {
             var xmls = new XmlSerializer(typeof(SavePreset));
             using var sw = new StringWriter();
             xmls.Serialize(sw, preset);
-            return sw.ToString();
+            return sw.ToString().Compress(guid);
         }
 
-        private static SavePreset DeserializeSavePreset(string xml)
+        private static SavePreset DeserializeSavePreset(string guid, string xml)
         {
+            xml = xml.Decompress(guid);
             var xmls = new XmlSerializer(typeof(SavePreset));
             using var sr = new StringReader(xml);
             return xmls.Deserialize(sr) as SavePreset;

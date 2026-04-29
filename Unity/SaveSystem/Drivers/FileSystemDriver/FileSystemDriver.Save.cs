@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Abstraction;
@@ -19,23 +20,22 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 
             // Собираем SavePreset из переданного индекса данных.
             var preset = BuildSavePreset();
-            var dataXml = SerializeSavePreset(preset);
-
-            // Превью — обязательная первая строка тела сейва (может быть пустой).
-            var preview = _pendingPreview ?? string.Empty;
-            _pendingPreview = null; // one-shot
+            var dataXml = SerializeSavePreset(guid, preset);
 
             try
             {
                 var savePath = GetSaveFilePath(guid);
-                File.WriteAllText(savePath, $"{preview}\n{dataXml}");
+                File.WriteAllText(savePath, $"{dataXml}");
 
                 var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc());
                 var summaryXml = SerializeSummary(summary);
                 File.WriteAllText(GetSummaryFilePath(guid), summaryXml);
 
                 if (!Saves.ContainsKey(guid))
+                {
                     _increment = GetNumberLastSave() + 1;
+                    File.WriteAllText(GetIncrementFilePath(), _increment.ToString(CultureInfo.InvariantCulture));
+                }
 
                 Saves[guid] = summary;
             }

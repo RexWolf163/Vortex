@@ -4,7 +4,6 @@ using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SettingsSystem;
 using Vortex.Core.SettingsSystem.Model;
 using Vortex.Core.System.Abstractions;
-using Vortex.Core.System.Abstractions.SystemControllers;
 using Vortex.Unity.FileSystem.Bus;
 using Vortex.Unity.SettingsSystem.Presets;
 
@@ -38,7 +37,7 @@ namespace Vortex.Unity.SettingsSystem
             }
         }
 
-        private void CheckPath() => File.CreateFolders($"{Application.dataPath}/Resources/{Path}");
+        private void CheckPath() => FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
 
         private bool LoadData()
         {

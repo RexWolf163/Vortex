@@ -97,12 +97,13 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             timestamp?.SetText(_data.Summary.Date.ToString(timestampPattern, CultureInfo.InvariantCulture));
 
 
-            var saveAr = _data.Summary.Name.Split('_');
+            var saveName = _data.Summary.GetSavePureName();
+            var saveAr = saveName.Split('_');
             if (saveAr.Length < 2
                 || !(saveAr[0].StartsWith(SavingSystemConstants.AutoName)
                      || saveAr[0].StartsWith(SavingSystemConstants.ManualName)))
             {
-                slotName?.SetText(_data.Summary.Name);
+                slotName?.SetText(saveName);
                 return;
             }
 

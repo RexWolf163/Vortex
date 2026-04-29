@@ -13,7 +13,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Models
 
         private Texture2D _preview;
 
-        public Texture2D Preview => _preview ??= SavePreviewController.GetPreview(Guid);
+        public Texture2D Preview => _preview ??= SavePreviewController.GetPreview(Summary);
         public string Guid { get; }
 
         public SaveSlotData(string guid, SaveSummary summary)

@@ -6,7 +6,7 @@ using Vortex.Unity.FileSystem.Controllers;
 
 namespace Vortex.Unity.FileSystem.Bus
 {
-    public static class File
+    public static class FileBus
     {
         /// <summary>
         /// Путь к основному контейнеру для хранения файлов на устройстве
@@ -15,13 +15,15 @@ namespace Vortex.Unity.FileSystem.Bus
 
         private static void MakeAppPath()
         {
+#if UNITY_EDITOR
             var root = Application.dataPath.Split('/', '\\');
             root = root[.. ^1];
             root[0] += Path.DirectorySeparatorChar;
             root[^1] = "_OutputFiles";
             _path = Path.Combine(root);
-#if UNITY_ANDROID && !UNITY_EDITOR
-            _path = AndroidPathResolver.GetAndroidPath();
+#else
+            _path = Application.persistentDataPath;
+            //_path = AndroidPathResolver.GetAndroidPath();
 #endif
         }
 

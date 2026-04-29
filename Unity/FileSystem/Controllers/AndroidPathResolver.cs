@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Vortex.Unity.FileSystem.Controllers
@@ -5,9 +6,10 @@ namespace Vortex.Unity.FileSystem.Controllers
     /// <summary>
     /// Класс для получения пути до хранилища Android
     /// </summary>
+    [Obsolete]
     internal static class AndroidPathResolver
     {
-        /// <summary>
+        /*/// <summary>
         /// Токен разрешения на запись в хранилище
         /// </summary>
         private const string PermissionToken = "android.permission.WRITE_EXTERNAL_STORAGE";
@@ -41,6 +43,6 @@ namespace Vortex.Unity.FileSystem.Controllers
             if (permissionStatus == 0) return;
             var permissions = new[] { PermissionToken };
             currentActivity.Call("requestPermissions", permissions, 0);
-        }
+        }*/
     }
 }

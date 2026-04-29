@@ -1,5 +1,5 @@
 using System.IO;
-using AppFile = Vortex.Unity.FileSystem.Bus.File;
+using Vortex.Unity.FileSystem.Bus;
 
 namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 {
@@ -9,7 +9,7 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
         /// Путь к папке хранения сейвов.
         /// </summary>
         private static string GetSavesDirectory() =>
-            Path.Combine(AppFile.GetAppPath(), SavesFolder);
+            Path.Combine(FileBus.GetAppPath(), SavesFolder);
 
         /// <summary>
         /// Полный путь к файлу тела сейва.
@@ -24,8 +24,14 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
             Path.Combine(GetSavesDirectory(), $"{guid}{SummaryExtension}");
 
         /// <summary>
+        /// Полный путь к файлу инкремента.
+        /// </summary>
+        private static string GetIncrementFilePath() =>
+            Path.Combine(GetSavesDirectory(), IncrementFile);
+
+        /// <summary>
         /// Гарантирует существование папки сейвов.
         /// </summary>
-        private static void EnsureSavesDirectory() => AppFile.CreateFolders(GetSavesDirectory());
+        private static void EnsureSavesDirectory() => FileBus.CreateFolders(GetSavesDirectory());
     }
 }

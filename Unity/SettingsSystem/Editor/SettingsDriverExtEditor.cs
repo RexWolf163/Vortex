@@ -14,7 +14,7 @@ namespace Vortex.Unity.SettingsSystem
         [InitializeOnLoadMethod]
         private static void EditorRegister()
         {
-            File.CreateFolders($"{Application.dataPath}/Resources/{Path}");
+            FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
             //Создание ассетов настроек
             var assetType = typeof(SettingsPreset);
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();

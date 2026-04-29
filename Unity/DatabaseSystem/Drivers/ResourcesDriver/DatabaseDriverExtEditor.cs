@@ -21,7 +21,7 @@ namespace Vortex.Unity.DatabaseSystem.Drivers.ResourcesDriver
             if (!Database.SetDriver(Instance))
                 return;
 
-            File.CreateFolders($"{Application.dataPath}/Resources/{Path}");
+            FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
             Instance.ReloadDatabase();
         }
 

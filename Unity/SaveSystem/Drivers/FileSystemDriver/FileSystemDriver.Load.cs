@@ -22,10 +22,10 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
                 return;
             }
 
-            string body;
+            string dataXml;
             try
             {
-                body = File.ReadAllText(path);
+                dataXml = File.ReadAllText(path);
             }
             catch (System.Exception e)
             {
@@ -33,10 +33,7 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
                 return;
             }
 
-            // Отделяем превью (первая строка) от данных (остальное).
-            var dataXml = SplitPreviewAndBody(body, out _);
-
-            var preset = DeserializeSavePreset(dataXml);
+            var preset = DeserializeSavePreset(guid, dataXml);
             if (preset == null)
             {
                 Debug.LogError($"[FileSystemDriver] Не удалось десериализовать сейв {guid}.");
@@ -77,29 +74,6 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
             {
                 Debug.LogError($"[FileSystemDriver] Ошибка удаления сейва {guid}: {e.Message}");
             }
-        }
-
-        /// <summary>
-        /// Разделяет тело сейва на превью (первая строка) и XML данных (остальное).
-        /// Если переноса строки нет — превью пустое, всё содержимое считается данными.
-        /// </summary>
-        private static string SplitPreviewAndBody(string body, out string preview)
-        {
-            if (string.IsNullOrEmpty(body))
-            {
-                preview = string.Empty;
-                return string.Empty;
-            }
-
-            var newlineIndex = body.IndexOf('\n');
-            if (newlineIndex < 0)
-            {
-                preview = string.Empty;
-                return body;
-            }
-
-            preview = body.Substring(0, newlineIndex);
-            return body.Substring(newlineIndex + 1);
         }
     }
 }
