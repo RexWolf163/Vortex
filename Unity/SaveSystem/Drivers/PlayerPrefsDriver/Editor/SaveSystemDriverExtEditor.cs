@@ -1,8 +1,8 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using UnityEditor;
 using Vortex.Core.SaveSystem.Bus;
 
-namespace Vortex.Unity.SaveSystem
+namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
 {
     public partial class SaveSystemDriver
     {

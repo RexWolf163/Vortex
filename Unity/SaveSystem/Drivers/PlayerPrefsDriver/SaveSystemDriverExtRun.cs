@@ -1,8 +1,8 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Core.System.Abstractions;
 
-namespace Vortex.Unity.SaveSystem
+namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
 {
     public partial class SaveSystemDriver : Singleton<SaveSystemDriver>
     {

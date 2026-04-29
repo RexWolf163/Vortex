@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,7 +10,7 @@ using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Unity.SaveSystem.Presets;
 using StringExtensions = Sirenix.Utilities.StringExtensions;
 
-namespace Vortex.Unity.SaveSystem
+namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
 {
     public partial class SaveSystemDriver : IDriver
     {
