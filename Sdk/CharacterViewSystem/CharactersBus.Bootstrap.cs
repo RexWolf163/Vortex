@@ -10,7 +10,7 @@ namespace AppScripts.CharacterViewSystem
     public partial class CharactersBus
     {
         [RuntimeInitializeOnLoadMethod]
-        public static void Boot()
+        private static void Boot()
         {
             Database.OnInit -= Init;
             Database.OnInit += Init;

@@ -69,14 +69,14 @@ namespace Vortex.Sdk.MapLevels.Model
         {
             if (_targetMapID.IsNullOrWhitespace())
                 MakeSplit();
-            return _targetGateID;
+            return _targetMapID;
         }
 
         public string GetTargetGateID()
         {
             if (_targetGateID.IsNullOrWhitespace())
                 MakeSplit();
-            return _targetMapID;
+            return _targetGateID;
         }
 
 #if UNITY_EDITOR

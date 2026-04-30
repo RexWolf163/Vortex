@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
+using AppScripts.CharacterViewSystem.Controllers;
 using AppScripts.CharacterViewSystem.Models;
 using Cysharp.Threading.Tasks;
 using Vortex.Core.DatabaseSystem.Bus;
@@ -57,17 +58,38 @@ namespace AppScripts.CharacterViewSystem
         public async UniTask OnLoad(CancellationToken cancellationToken)
         {
             var data = SaveController.GetData(SaveKey);
+
+            // — PC Index —
             PcIndex.Clear();
 
             var list = data[PcIndexKey].Split(Divider);
             foreach (var id in list)
-            {
                 PcIndex.AddNew(id, null);
-            }
 
             await UniTask.Yield();
 
+            // — NPC Index —
             NpcIndex.Clear();
+            foreach (var (presetId, savedData) in data)
+            {
+                if (presetId == PcIndexKey) continue;
+
+                var json = savedData.Decompress();
+                var npcDict = json.DeserializeProperties<Dictionary<string, NonPlayableCharacter>>();
+                if (npcDict == null) continue;
+
+                var restored = new Dictionary<string, NonPlayableCharacter>();
+                foreach (var (charId, npc) in npcDict)
+                {
+                    if (npc == null) continue;
+                    npc.Lock();
+                    restored.Add(charId, npc);
+                }
+
+                NpcIndex.Add(presetId, restored);
+            }
+
+            await UniTask.Yield();
         }
     }
 }

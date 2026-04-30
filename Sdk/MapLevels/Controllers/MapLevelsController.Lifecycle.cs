@@ -109,8 +109,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
             if (target.IsNullOrWhitespace())
                 return;
 
-            if (!string.IsNullOrEmpty(target))
-                Enter(target);
+            Enter(target);
         }
     }
 }

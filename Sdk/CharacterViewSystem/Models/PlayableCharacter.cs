@@ -22,7 +22,7 @@ namespace AppScripts.CharacterViewSystem.Models
         /// Закрытие ключом всех контейнеров
         /// </summary>
         /// <param name="key"></param>
-        public void SetOwner(object key)
+        internal void SetOwner(object key)
         {
             IsActive.SetOwner(key);
             IsOwned.SetOwner(key);

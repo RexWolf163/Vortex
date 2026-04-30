@@ -172,8 +172,10 @@ namespace Vortex.Sdk.MapLevels.Bus
             {
                 Debug.LogError(
                     "[MapLevelsBus] Попытка дерегистрации незарегистрированного контейнера-родителя для уровней карт!");
+                return;
             }
 
+            MapsParent = null;
             OnMapsContainerReleased?.Invoke();
         }
 

@@ -3,6 +3,7 @@ using AppScripts.CharacterViewSystem.Abstractions;
 using AppScripts.CharacterViewSystem.Models;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.DatabaseSystem.Model.Enums;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.DatabaseSystem.Presets;
@@ -34,6 +35,12 @@ namespace AppScripts.CharacterViewSystem.Presets
                 for (int i = 0; i < c; i++)
                 {
                     var beh = behaviors[i] as ICharacterBehavior;
+                    if (beh == null)
+                    {
+                        Debug.LogError($"[PcPreset] {name}: behaviors[{i}] не реализует ICharacterBehavior.");
+                        App.Exit();
+                        return Array.Empty<ICharacterBehavior>();
+                    }
                     ar[i] = beh.DeepCopy();
                 }
 

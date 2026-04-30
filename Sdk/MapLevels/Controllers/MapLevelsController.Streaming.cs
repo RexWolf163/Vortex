@@ -120,7 +120,19 @@ namespace Vortex.Sdk.MapLevels.Controllers
 
             // Загрузка прямых соседей (hop=1).
             var activeLevel = Model.GetLevel(activeGuid);
+            if (activeLevel == null)
+            {
+                Debug.LogError($"[MapLevelsController] ApplyStreamingPlan: уровень \"{activeGuid}\" не найден в каталоге.");
+                return;
+            }
+
             var neighbors = activeLevel.NeighborGuids;
+            if (neighbors == null)
+            {
+                Debug.LogError($"[MapLevelsController] ApplyStreamingPlan: NeighborGuids уровня \"{activeGuid}\" равен null.");
+                return;
+            }
+
             foreach (var neighbor in neighbors)
             {
                 var container = Model.GetContainer(neighbor);
