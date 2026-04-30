@@ -145,16 +145,11 @@ namespace Vortex.Sdk.SdkSettingsSystem
             GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
 
 
-        /*
         [InitializeOnLoadMethod]
         private static void Init()
         {
             EditorUserBuildSettings.activeBuildTargetChanged -= OnPlatformChanged;
             EditorUserBuildSettings.activeBuildTargetChanged += OnPlatformChanged;
-
-            // Инициализация при загрузке редактора (на случай, если платформа уже сменилась)
-            EditorApplication.delayCall -= OnPlatformChanged;
-            EditorApplication.delayCall += OnPlatformChanged;
 
             OnPlatformChanged();
         }
@@ -172,7 +167,6 @@ namespace Vortex.Sdk.SdkSettingsSystem
                 return;
             }
         }
-*/
 #endif
     }
 }
