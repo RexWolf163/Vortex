@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.FileSystem.Bus;
@@ -20,7 +21,16 @@ namespace Vortex.Unity.SettingsSystem
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             var typeList = new List<Type>();
             foreach (var assembly in assemblies)
-                typeList.AddRange(assembly.GetTypes());
+            {
+                try
+                {
+                    typeList.AddRange(assembly.GetTypes());
+                }
+                catch (ReflectionTypeLoadException e)
+                {
+                    typeList.AddRange(e.Types.Where(t => t != null));
+                }
+            }
             var resources = Resources.LoadAll<SettingsPreset>(Path)?.Select(x => x.GetType()).ToArray() ??
                             Type.EmptyTypes;
             foreach (var type in typeList)
