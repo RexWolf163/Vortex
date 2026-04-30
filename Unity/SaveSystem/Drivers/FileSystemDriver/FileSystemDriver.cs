@@ -8,12 +8,11 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 {
     /// <summary>
     /// Драйвер сохранения в файлы на диске.
-    /// Корневой путь — File.GetAppPath()/Saves/.
+    /// Корневой путь — FileBus.GetAppPath()/Saves/.
     /// На каждый сейв пишет два файла:
-    ///   - {guid}.save    — первая строка base64-превью + перенос строки + XML SavePreset с данными.
+    ///   - {guid}.save    — XML SavePreset с данными, сжатый через Compress(guid).
     ///   - {guid}.summary — XML SaveSummary (для быстрого индекса без чтения тела сейва).
-    /// Превью передаётся через driver-specific API SetPendingPreview перед вызовом Save и
-    /// читается через GetPreview(guid). На уровне L1 IDriver не расширяется.
+    /// Дополнительно — файл .in в корне Saves/ хранит инкремент-счётчик последнего сейва.
     /// </summary>
     public sealed partial class FileSystemDriver : Singleton<FileSystemDriver>, IDriver
     {

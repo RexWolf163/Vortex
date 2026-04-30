@@ -9,7 +9,7 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
     {
         /// <summary>
         /// Загрузить сейв по guid в индекс данных.
-        /// Первая строка файла — base64 превью, отбрасывается при загрузке data.
+        /// Читает {guid}.save, распаковывает и десериализует SavePreset.
         /// </summary>
         public void Load(string guid)
         {

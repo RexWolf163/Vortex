@@ -11,8 +11,8 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
     public sealed partial class FileSystemDriver
     {
         /// <summary>
-        /// Сохранить сейв по guid. Превью берётся из _pendingPreview (one-shot)
-        /// и записывается первой строкой тела файла.
+        /// Сохранить сейв по guid. Пишет {guid}.save (сжатое тело) и {guid}.summary.
+        /// При новом GUID — увеличивает инкремент и обновляет файл .in.
         /// </summary>
         public void Save(string name, string guid)
         {
