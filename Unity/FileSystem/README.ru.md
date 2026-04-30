@@ -1,22 +1,22 @@
 # FileSystem
 
-**Namespace:** `Vortex.Unity.FileSystem`
+**Namespace:** `Vortex.Unity.FileSystem.Bus`
 **Сборка:** `ru.vortex.unity.filesystem`
 
 ## Назначение
 
-Платформонезависимое определение и создание директории для файлового вывода приложения.
+Платформонезависимое определение пути файлового вывода приложения и создание директорий.
 
 Возможности:
 - Автоматическое определение пути хранения при старте приложения
-- На Android — доступ к папке Downloads через Java-интероп с запросом разрешений
-- На остальных платформах — папка `_OutputFiles` рядом с корнем приложения
+- В редакторе — папка `_OutputFiles` рядом с корнем проекта
+- На устройстве — `Application.persistentDataPath`
 - Создание директорий по произвольному пути
 
 Вне ответственности:
 - Чтение и запись файлов
-- Управление правами доступа (кроме `WRITE_EXTERNAL_STORAGE` на Android)
-- Работа с `Application.persistentDataPath`
+- Управление правами доступа
+- Разрешение платформенных путей (кроме `GetAppPath`)
 
 ## Зависимости
 
@@ -29,25 +29,24 @@
 ```
 FileSystem/
 ├── Bus/
-│   └── File.cs                    # Статический API: GetAppPath(), CreateFolders()
+│   └── FileBus.cs                 # Статический API: GetAppPath(), CreateFolders()
 └── Controllers/
-    └── AndroidPathResolver.cs     # Android-интероп: Downloads, WRITE_EXTERNAL_STORAGE
+    └── AndroidPathResolver.cs     # [Obsolete] Android-интероп (не используется)
 ```
 
-### File (статический класс)
+### FileBus (статический класс)
 
 Шина доступа к файловой системе. Инициализируется автоматически через `[RuntimeInitializeOnLoadMethod]`.
 
 Определение пути:
-- Берёт `Application.dataPath`, отбрасывает последний компонент
-- Заменяет его на `_OutputFiles`
-- На Android (не в редакторе) — переопределяет путь через `AndroidPathResolver.GetAndroidPath()`
+- **В редакторе:** берёт `Application.dataPath`, отбрасывает последний компонент, заменяет его на `_OutputFiles`
+- **На устройстве:** `Application.persistentDataPath`
 
-Путь вычисляется один раз и кэшируется.
+Путь вычисляется один раз и кэшируется в `_path`. При вызове `GetAppPath()` до инициализации — ленивая инициализация.
 
-### AndroidPathResolver (internal)
+### AndroidPathResolver (internal, Obsolete)
 
-Активен только при `#if UNITY_ANDROID && !UNITY_EDITOR`. Через `AndroidJavaClass` обращается к `android.os.Environment.getExternalStoragePublicDirectory("Download")`. Перед обращением проверяет и запрашивает `android.permission.WRITE_EXTERNAL_STORAGE`.
+Помечен `[Obsolete]`. Код полностью закомментирован. Не используется.
 
 ---
 
@@ -55,8 +54,8 @@ FileSystem/
 
 | Метод | Сигнатура | Описание |
 |-------|-----------|----------|
-| `File.GetAppPath()` | `public static string` | Путь к директории вывода (кэшированный) |
-| `File.CreateFolders(directory)` | `public static void` | Создаёт директорию, если не существует |
+| `FileBus.GetAppPath()` | `public static string` | Путь к директории вывода (кэшированный) |
+| `FileBus.CreateFolders(directory)` | `public static void` | Создаёт директорию, если не существует |
 
 ---
 
@@ -64,9 +63,8 @@ FileSystem/
 
 | Платформа | Путь |
 |-----------|------|
-| Windows / macOS / Linux | `{AppRoot}/_OutputFiles` |
-| Android (устройство) | `/storage/emulated/0/Download` (или аналог) |
-| Android (редактор) | `{AppRoot}/_OutputFiles` |
+| Редактор (все платформы) | `{ProjectRoot}/_OutputFiles` |
+| Устройство (все платформы) | `Application.persistentDataPath` |
 
 ---
 
@@ -77,5 +75,4 @@ FileSystem/
 | `GetAppPath()` до инициализации | Ленивая инициализация при первом вызове |
 | `_path` остался `null` после инициализации | Возвращает пустую строку |
 | `CreateFolders()` — директория существует | Идемпотентно, ничего не происходит |
-| Android — разрешение уже выдано | `checkSelfPermission` возвращает 0, запрос пропускается |
-| Android — разрешение отклонено | `requestPermissions` вызывается, путь всё равно возвращается |
+| `CreateFolders()` — вложенные директории | `Directory.CreateDirectory` создаёт всю цепочку |
