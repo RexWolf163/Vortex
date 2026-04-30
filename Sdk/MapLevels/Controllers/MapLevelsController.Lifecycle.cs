@@ -61,7 +61,16 @@ namespace Vortex.Sdk.MapLevels.Controllers
             GameController.OnNewGame -= OnGameReset;
             GameController.OnLoadGame -= OnGameReset;
 
+            MapLevelsBus.OnMapsContainerRegistered -= MoveMaps;
+            MapLevelsBus.OnMapsContainerReleased -= MoveMaps;
+
             UnloadAll();
+
+            if (_voidParent != null)
+            {
+                Object.Destroy(_voidParent.gameObject);
+                _voidParent = null;
+            }
 
             Model = null;
             IsInitialized = false;

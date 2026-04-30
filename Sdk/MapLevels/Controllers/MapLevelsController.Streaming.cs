@@ -24,7 +24,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
         {
             get
             {
-                if (_voidParent is null)
+                if (_voidParent == null)
                 {
                     var go = new GameObject("MapVoid");
                     go.SetActive(false);
