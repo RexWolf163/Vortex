@@ -21,9 +21,8 @@ namespace Vortex.Unity.SettingsSystem
                         "[SettingsDriver] не удалось задать драйвер для сервиса Settings. Драйвер уже установлен");
                 if (!Settings.HasDriver() && Application.isPlaying)
                     Debug.LogWarning("[SettingsDriver] не удалось задать драйвер для сервиса Settings");
-            }
-            else
                 Dispose();
+            }
         }
     }
 }

@@ -12,7 +12,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
     public static class StringExtCompress
     {
         /// <summary>
-        /// Сжатие строки
+        /// Сжатие строки в base64 формат
         /// </summary>
         /// <param name="data"></param>
         /// <param name="key"></param>
