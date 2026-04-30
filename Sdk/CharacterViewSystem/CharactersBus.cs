@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using AppScripts.CharacterViewSystem.Controllers;
-using AppScripts.CharacterViewSystem.Models;
+using Vortex.Sdk.CharacterViewSystem.Controllers;
+using Vortex.Sdk.CharacterViewSystem.Models;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.System.Abstractions;
 
-namespace AppScripts.CharacterViewSystem
+namespace Vortex.Sdk.CharacterViewSystem
 {
     /// <summary>
     /// Шина доступа к данным персонажей

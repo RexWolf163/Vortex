@@ -1,4 +1,4 @@
-﻿namespace AppScripts.CharacterViewSystem.Models
+﻿namespace Vortex.Sdk.CharacterViewSystem.Models
 {
     /// <summary>
     /// Класс персонажа неуправляемого игроком

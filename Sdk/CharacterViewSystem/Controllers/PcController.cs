@@ -1,6 +1,6 @@
-﻿using AppScripts.CharacterViewSystem.Models;
+﻿using Vortex.Sdk.CharacterViewSystem.Models;
 
-namespace AppScripts.CharacterViewSystem.Controllers
+namespace Vortex.Sdk.CharacterViewSystem.Controllers
 {
     /// <summary>
     /// Контроллер логики управления персонажем на карте

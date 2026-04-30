@@ -1,6 +1,6 @@
 ﻿using Vortex.Core.Extensions.ReactiveValues;
 
-namespace AppScripts.CharacterViewSystem.Models
+namespace Vortex.Sdk.CharacterViewSystem.Models
 {
     /// <summary>
     /// Класс персонажа управляемого игроком

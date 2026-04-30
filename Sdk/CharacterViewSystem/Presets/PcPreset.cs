@@ -1,6 +1,6 @@
 ﻿using System;
-using AppScripts.CharacterViewSystem.Abstractions;
-using AppScripts.CharacterViewSystem.Models;
+using Vortex.Sdk.CharacterViewSystem.Abstractions;
+using Vortex.Sdk.CharacterViewSystem.Models;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
@@ -8,7 +8,7 @@ using Vortex.Core.DatabaseSystem.Model.Enums;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.DatabaseSystem.Presets;
 
-namespace AppScripts.CharacterViewSystem.Presets
+namespace Vortex.Sdk.CharacterViewSystem.Presets
 {
     [CreateAssetMenu(fileName = "PcPreset", menuName = "Database/PcPreset")]
     [Serializable]

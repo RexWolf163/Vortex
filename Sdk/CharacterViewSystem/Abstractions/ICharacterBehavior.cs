@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AppScripts.CharacterViewSystem.Abstractions
+namespace Vortex.Sdk.CharacterViewSystem.Abstractions
 {
     /// <summary>
     /// Интерфейс модели поведения персонажа

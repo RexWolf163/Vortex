@@ -1,4 +1,4 @@
-﻿namespace AppScripts.CharacterViewSystem.Models.States
+﻿namespace Vortex.Sdk.CharacterViewSystem.Models.States
 {
     public enum DirectionState
     {

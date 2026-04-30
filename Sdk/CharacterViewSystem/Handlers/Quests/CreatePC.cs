@@ -1,13 +1,13 @@
 using System;
 using System.Threading;
-using AppScripts.CharacterViewSystem.Models;
+using Vortex.Sdk.CharacterViewSystem.Models;
 using Cysharp.Threading.Tasks;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Sdk.Quests.QuestsLogics;
 using Vortex.Unity.DatabaseSystem.Attributes;
 
-namespace AppScripts.CharacterViewSystem.Handlers.Quests
+namespace Vortex.Sdk.CharacterViewSystem.Handlers.Quests
 {
     [Serializable]
     public class CreatePC : QuestLogic
@@ -20,7 +20,7 @@ namespace AppScripts.CharacterViewSystem.Handlers.Quests
 
         public override async UniTask<bool> Run(CancellationToken token)
         {
-            var pc = CharactersBus.SpawnPc(id);
+            var pc = Vortex.Sdk.CharacterViewSystem.CharactersBus.SpawnPc(id);
             await UniTask.Yield();
             return softControl || pc != null;
         }

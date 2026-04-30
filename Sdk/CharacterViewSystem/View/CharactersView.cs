@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using AppScripts.CharacterViewSystem.Models;
+using Vortex.Sdk.CharacterViewSystem.Models;
 using UnityEngine;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.MapLevels.Bus;
 
-namespace AppScripts.CharacterViewSystem.View
+namespace Vortex.Sdk.CharacterViewSystem.View
 {
     public class CharactersView : MonoBehaviour
     {
@@ -54,7 +54,7 @@ namespace AppScripts.CharacterViewSystem.View
         private void Init()
         {
             MapLevelsBus.Controller.OnActiveLevelChanged += OnMapChanged;
-            _index = CharactersBus.GetPlayableCharacters();
+            _index = Vortex.Sdk.CharacterViewSystem.CharactersBus.GetPlayableCharacters();
         }
 
         private void OnMapChanged(string mapId, string gateId)

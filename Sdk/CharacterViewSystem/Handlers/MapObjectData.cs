@@ -1,7 +1,7 @@
 ﻿using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.MapLevels.Abstractions;
 
-namespace AppScripts.CharacterViewSystem.Handlers
+namespace Vortex.Sdk.CharacterViewSystem.Handlers
 {
     /// <summary>
     /// Реактивный контейнер для хранения данных объекта карты, например как цели персонажа  

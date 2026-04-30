@@ -1,11 +1,11 @@
-﻿using AppScripts.CharacterViewSystem.Controllers;
-using AppScripts.CharacterViewSystem.Models;
+﻿using Vortex.Sdk.CharacterViewSystem.Controllers;
+using Vortex.Sdk.CharacterViewSystem.Models;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SaveSystem.Bus;
 
-namespace AppScripts.CharacterViewSystem
+namespace Vortex.Sdk.CharacterViewSystem
 {
     public partial class CharactersBus
     {

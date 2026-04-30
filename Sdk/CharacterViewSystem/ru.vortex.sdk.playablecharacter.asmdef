@@ -1,5 +1,5 @@
 {
-  "name": "app.playablecharacter",
+  "name": "ru.vortex.sdk.playablecharacter",
   "references": [
   "GUID:19e54615edd1fc64ebf81cbad7bc37d8",
   "GUID:826a37b90dd7f8849a995e26104dd48e",
@@ -10,5 +10,6 @@
   "GUID:e3ec030c80e9423408d9ae1a925ae80d",
   "GUID:f51ebe6a0ceec4240a699833d6309b23",
   "GUID:4029295060c710347a50c018285ee303",
-  "GUID:66c3850540390be44aa49f25786b3c3a"]
+  "GUID:66c3850540390be44aa49f25786b3c3a",
+  "GUID:9b629820a0db1ee4ebf4641e8cabb0c8"]
 }

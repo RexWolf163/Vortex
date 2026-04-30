@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AppScripts.CharacterViewSystem.Abstractions
+namespace Vortex.Sdk.CharacterViewSystem.Abstractions
 {
     [Serializable]
     public abstract class CharacterBehavior : ICharacterBehavior

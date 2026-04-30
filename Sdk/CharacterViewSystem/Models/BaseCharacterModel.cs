@@ -1,6 +1,6 @@
-﻿using AppScripts.CharacterViewSystem.Abstractions;
-using AppScripts.CharacterViewSystem.Handlers;
-using AppScripts.CharacterViewSystem.Models.States;
+﻿using Vortex.Sdk.CharacterViewSystem.Abstractions;
+using Vortex.Sdk.CharacterViewSystem.Handlers;
+using Vortex.Sdk.CharacterViewSystem.Models.States;
 using Vortex.Core.DatabaseSystem.Model;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
@@ -8,7 +8,7 @@ using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.MapLevels.Abstractions;
 using Vortex.Unity.Extensions.ReactiveValues;
 
-namespace AppScripts.CharacterViewSystem.Models
+namespace Vortex.Sdk.CharacterViewSystem.Models
 {
     /// <summary>
     /// Класс модели данных персонажа, представленного на карте
