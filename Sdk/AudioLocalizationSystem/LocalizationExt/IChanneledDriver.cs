@@ -1,9 +1,15 @@
-﻿using Cysharp.Threading.Tasks;
+﻿using System;
+using Cysharp.Threading.Tasks;
 
 namespace Vortex.Core.LocalizationSystem.Bus
 {
     public interface IChanneledDriver
     {
+        /// <summary>
+        /// Событие смены языка локали по каналу
+        /// </summary>
+        public event Action<byte> OnLocalizationInChannelChanged;
+
         /// <summary>
         /// Сохранить настройку языка для указанного канала
         /// </summary>

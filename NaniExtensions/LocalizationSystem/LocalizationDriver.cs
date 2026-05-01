@@ -25,6 +25,11 @@ namespace Vortex.NaniExtensions.LocalizationSystem
         public event Action OnLocalizationChanged;
 
         /// <summary>
+        /// Событие смены языка локали по каналу
+        /// </summary>
+        public event Action<byte> OnLocalizationInChannelChanged;
+
+        /// <summary>
         /// Событие вызывается после завершения асинхронной загрузки данных
         /// </summary>
         public event Action OnInit;
@@ -118,6 +123,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem
             if (channel == 0)
                 await Loader.RunAlone(this);
             CallOnLocalizationChanged();
+            OnLocalizationInChannelChanged?.Invoke(channel);
         }
 
         public string GetChannelLanguage(byte channel)

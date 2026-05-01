@@ -1,6 +1,4 @@
 ﻿using UnityEngine;
-using Vortex.Core.AudioSystem.Bus;
-using Vortex.Core.AudioSystem.Model;
 using Vortex.Unity.AudioSystem.Attributes;
 
 namespace Vortex.Unity.AudioSystem.Presets
