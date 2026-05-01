@@ -1,11 +1,13 @@
 using System;
-using System.Linq;
 using UnityEngine;
+using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.System.Enums;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.MapLevels.Bus;
 using Vortex.Sdk.MapLevels.Model;
+using Object = UnityEngine.Object;
 
 namespace Vortex.Sdk.MapLevels.Controllers
 {
@@ -25,6 +27,8 @@ namespace Vortex.Sdk.MapLevels.Controllers
             GameController.OnNewGame += OnGameReset;
             GameController.OnLoadGame += OnGameReset;
 
+            _ = VoidParent;
+
             IsInitialized = true;
             MapLevelsBus.NotifyReady();
             OnInitialized?.Invoke();
@@ -42,8 +46,20 @@ namespace Vortex.Sdk.MapLevels.Controllers
         /// </summary>
         private void MoveMaps()
         {
-            var parent = GetMapsParent();
             var list = Model.Containers.Values;
+            if (App.GetState() == AppStates.Stopping)
+            {
+                foreach (var mapContainer in list)
+                {
+                    if (mapContainer.Instance == null)
+                        continue;
+                    Object.Destroy(mapContainer.Instance);
+                }
+
+                return;
+            }
+
+            var parent = GetMapsParent();
             foreach (var mapContainer in list)
             {
                 if (mapContainer.Instance == null)
