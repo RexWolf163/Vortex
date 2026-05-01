@@ -53,6 +53,12 @@ namespace Vortex.Core.LocalizationSystem.Bus
         {
             var ch = (byte)channel;
             CurrentChannelLanguage[ch] = language;
+            if (channel == LocaleChannels.Default)
+            {
+                Driver.SetLanguage(language);
+                return;
+            }
+
             ChDriver?.SetChannelLanguage(ch, language)
                 .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "Localization"));
         }
