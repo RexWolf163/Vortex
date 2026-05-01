@@ -172,7 +172,11 @@ namespace Vortex.Sdk.SdkSettingsSystem
             EditorUserBuildSettings.activeBuildTargetChanged -= OnPlatformChanged;
             EditorUserBuildSettings.activeBuildTargetChanged += OnPlatformChanged;
 
-            OnPlatformChanged();
+            // delayCall — чтобы первый прогон случился ПОСЛЕ всех остальных
+            // [InitializeOnLoadMethod] (в т.ч. CoreAssetsController, который и создаёт ассет).
+            // Прямой вызов OnPlatformChanged() здесь race с порядком инициализации:
+            // при старте на пустом проекте ассета может ещё не существовать.
+            EditorApplication.delayCall += OnPlatformChanged;
         }
 
         private static void OnPlatformChanged()
@@ -192,10 +196,8 @@ namespace Vortex.Sdk.SdkSettingsSystem
 
             if (!settings._initialized)
             {
-                settings.ReloadStates();
                 settings._initialized = true;
-                EditorUtility.SetDirty(settings);
-                AssetDatabase.SaveAssets();
+                settings.ReloadStates(); // внутри сделает SetDirty + SaveAssets — флаг попадёт в сохранение
                 return;
             }
 
