@@ -1,4 +1,5 @@
 ﻿using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
@@ -27,12 +28,12 @@ namespace Vortex.Unity.InputBusSystem.Handlers
         [SerializeField] private UnityEvent onPressed;
         [SerializeField] private UnityEvent onReleased;
 
-        [InfoBubble("Отдельные клавиши вызывающие активацию логики")] [SerializeField, VortexCollection]
+        [InfoBox("Отдельные клавиши вызывающие активацию логики")] [SerializeField]
         private Key[] buttonCode;
 
-        [InfoBubble(
+        [InfoBox(
             "Комбинации клавиш вызывающие активацию логики. Активирующей считается только последняя. Остальные - модификаторы")]
-        [SerializeField, VortexCollection]
+        [SerializeField]
         private KeyCombination[] buttonsCombinations;
 
         private InputAction _inputAction;

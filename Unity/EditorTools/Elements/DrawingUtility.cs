@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using Sirenix.OdinInspector;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Abstraction;
@@ -295,6 +296,7 @@ namespace Vortex.Unity.EditorTools.Elements
                     {
                         property.intValue = EditorGUI.IntField(position, property.intValue);
                     }
+
                     break;
 
                 case SerializedPropertyType.Color:

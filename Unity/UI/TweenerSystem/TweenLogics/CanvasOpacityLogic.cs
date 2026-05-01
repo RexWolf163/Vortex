@@ -1,6 +1,6 @@
 ﻿using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
-using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
 {
@@ -14,10 +14,10 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
     [Serializable]
     public class CanvasOpacityLogic : TweenLogic
     {
-        [SerializeField, InfoBubble("Raycast в начале и в движении")]
+        [SerializeField, InfoBox("Raycast в начале и в движении")]
         private bool raycastOnStart = true;
 
-        [SerializeField, InfoBubble("Raycast в конце")]
+        [SerializeField, InfoBox("Raycast в конце")]
         private bool raycastOnEnd = true;
 
         [SerializeField] private CanvasGroup[] canvasGroup;

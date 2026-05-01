@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System.IO;
 #endif
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
 
@@ -11,7 +12,7 @@ namespace Vortex.Steam.SteamConnectionSystem
         /// <summary>
         /// ID проекта на платформе стим
         /// </summary>
-        [OnChanged("OnAppUdChanged")] [SerializeField]
+        [OnValueChanged("OnAppUdChanged")] [SerializeField]
         private uint steamAppId = 480;
 
         /// <summary>
@@ -22,7 +23,7 @@ namespace Vortex.Steam.SteamConnectionSystem
         /// <summary>
         /// Активация пакетов коннектора Steam
         /// </summary>
-        [OnChanged("OnSteamEnabledChanged")] [ToggleButton(isSingleButton: true)] [SerializeField]
+        [OnValueChanged("OnSteamEnabledChanged")] [ToggleButton(isSingleButton: true)] [SerializeField]
         private bool isEnabled;
 
         /// <summary>

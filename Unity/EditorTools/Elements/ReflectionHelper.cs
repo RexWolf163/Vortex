@@ -104,46 +104,6 @@ namespace Vortex.Unity.EditorTools.Elements
         }
 
         /// <summary>
-        /// Вызывает OnValueChanged-метод если на поле есть атрибут [OnValueChanged].
-        /// Поддерживает сигнатуры: () и (T value).
-        /// </summary>
-        internal static void InvokeOnValueChanged(SerializedProperty property)
-        {
-            var fieldInfo = InspectorHandler.GetFieldInfo(property);
-            if (fieldInfo == null) return;
-
-            var attr = fieldInfo.GetCustomAttribute<OnChangedAttribute>();
-            if (attr == null) return;
-
-            var owner = InspectorHandler.GetFieldOwner(property);
-            if (owner == null) return;
-
-            var method = ReflectionCache.GetMethod(owner.GetType(), attr.MethodName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-
-            if (method == null) return;
-
-            try
-            {
-                var parameters = method.GetParameters();
-                if (parameters.Length == 0)
-                {
-                    method.Invoke(owner, null);
-                }
-                else if (parameters.Length == 1)
-                {
-                    var value = InspectorHandler.GetPropertyValue(property);
-                    if (value != null && parameters[0].ParameterType.IsInstanceOfType(value))
-                        method.Invoke(owner, new[] { value });
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[OnValueChanged] Error invoking '{attr.MethodName}': {e.Message}");
-            }
-        }
-
-        /// <summary>
         /// Резолвит $MethodName на объекте-владельце (не SerializedProperty).
         /// Поддерживает опциональный int-параметр (index).
         /// Используется CollectionRenderer для ClassLabel.

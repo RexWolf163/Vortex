@@ -1,16 +1,16 @@
 using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
-using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
 {
     [Serializable]
     public class PivotLogic : TweenLogic
     {
-        [SerializeField, InfoBubble("Позиция при скрытие")]
+        [SerializeField, InfoBox("Позиция при скрытие")]
         private Vector2 startPos;
 
-        [SerializeField, InfoBubble("Позиция при показе")]
+        [SerializeField, InfoBox("Позиция при показе")]
         private Vector2 endPos;
 
         [SerializeField] private RectTransform rect;

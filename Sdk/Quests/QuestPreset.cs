@@ -20,7 +20,7 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         public QuestConditions[] StartConditions => startConditions;
 
-        [InfoBubble("Квест не может закончиться как Failed. В этом случае его состояние вернется в Locked")]
+        [InfoBox("Квест не может закончиться как Failed. В этом случае его состояние вернется в Locked")]
         [SerializeField]
         private bool unFailable;
 

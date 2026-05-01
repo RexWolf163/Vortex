@@ -1,11 +1,11 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.System.Abstractions;
 using Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions;
 using Vortex.Sdk.MiniGamesSystem.MiniGames.Model;
 using Vortex.Unity.AppSystem.System.TimeSystem;
-using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.Extensions.Abstractions;
 
 namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
@@ -61,7 +61,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
         /// </summary>
         public static TD Data => Instance?.Controller.GetData();
 
-        [InfoBubble("Ассет с базовой конфигурацией минигры")] [SerializeField]
+        [InfoBox("Ассет с базовой конфигурацией минигры")] [SerializeField]
         protected TCf config;
 
         /// <summary>

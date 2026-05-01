@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Sirenix.OdinInspector;
 using Sirenix.Utilities;
 using UnityEngine;
 using UnityEngine.Events;
-using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.UI.UIComponents;
 
 namespace Vortex.Unity.UI.Misc.DropDown
@@ -21,15 +21,15 @@ namespace Vortex.Unity.UI.Misc.DropDown
             Opened,
         }
 
-        [InfoBubble("Компонент с кнопкой"), SerializeField]
+        [InfoBox("Компонент с кнопкой"), SerializeField]
         private UIComponent uiComponent;
 
         [SerializeField] private GameObject dropDownList;
 
-        [InfoBubble("Точка открытия списка")] [SerializeField]
+        [InfoBox("Точка открытия списка")] [SerializeField]
         private Transform target;
 
-        [SerializeField] [InfoBubble("Может задаваться снаружи через метод SetList")]
+        [SerializeField] [InfoBox("Может задаваться снаружи через метод SetList")]
         private string[] dataList;
 
         [SerializeField] private UnityEvent<int> onSelected;

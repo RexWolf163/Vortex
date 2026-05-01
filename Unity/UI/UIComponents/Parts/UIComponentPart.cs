@@ -8,7 +8,7 @@ namespace Vortex.Unity.UI.UIComponents.Parts
 {
     public abstract class UIComponentPart : MonoBehaviour
     {
-        [InfoBubble(
+        [InfoBox(
             "Editor-параметр. Если включить, инспектор перестанет менять настройки rectTransform под заполнение контейнера")]
         [SerializeField]
         private bool onlyNativeSize = false;

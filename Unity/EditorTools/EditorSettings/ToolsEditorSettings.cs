@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEditor;
 using Vortex.Unity.CoreAssetsSystem;
 using Vortex.Unity.EditorTools.Attributes;
@@ -9,35 +10,19 @@ namespace Vortex.Unity.EditorTools.EditorSettings
     [CreateAssetMenu(menuName = "Vortex/EditorTools Settings", fileName = "ToolsSettings")]
     public class ToolsSettings : ScriptableObject, ICoreAsset
     {
-#if ODIN_INSPECTOR
-        [Hide]
-#endif
-        [InfoBubble(
-            "При включении параметра, кастомный редактор применяет стили списков Vortex ко всем MonoBehaviour.\nПри отключенном - только к реализаторам интерфейса IUseVortexCollectionRendering")]
-        [SerializeField, ToggleButton(isSingleButton: true)]
-        private bool globalCollectionRendering = true;
-
         [SerializeField, ToggleButton("Labels", "Colors"), HideLabel]
         private bool isProSkin;
 
-#if ODIN_INSPECTOR
         private bool ShowNoProSkin() => isProSkin;
 
-        [Hide("ShowNoProSkin"), HideLabel]
-#endif
-        [SerializeField, ToggleBox("isProSkin", 0)]
+        [HideLabel] [SerializeField]
         private ThemeColors lightColors = ThemeColors.CreateLight();
 
-#if ODIN_INSPECTOR
         private bool ShowProSkin() => !isProSkin;
 
-        [Hide("ShowProSkin"), HideLabel]
-#endif
-        [SerializeField, ToggleBox("isProSkin", 1)]
+        [HideLabel] [SerializeField]
         private ThemeColors proColors = ThemeColors.CreatePro();
 #if UNITY_EDITOR
-
-        public bool GlobalCollectionRendering => globalCollectionRendering;
 
         public Color GetColor(DefaultColors key)
         {

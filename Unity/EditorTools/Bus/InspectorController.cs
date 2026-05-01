@@ -301,12 +301,6 @@ namespace Vortex.Unity.EditorTools.Bus
                 return null;
 
             var order = parent.Childrens.Count;
-            var attributes = ReflectionCache.GetCustomAttributes(fieldInfo, true);
-            foreach (var attribute in attributes)
-            {
-                if (attribute is not PositionAttribute attrPos) continue;
-                order += attrPos.Priority;
-            }
 
             // Элемент массива: имеет FieldInfo массива (для атрибутов).
             // Сложные элементы (struct/class с children) — контейнеры; простые (enum, int) — нет.

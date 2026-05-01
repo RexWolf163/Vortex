@@ -16,13 +16,13 @@ namespace Vortex.Unity.UI.TweenerSystem
         /// <summary>
         /// Задержка анимации в секундах
         /// </summary>
-        [InfoBubble("Задержка анимации в секундах для Forward")] [SerializeField]
+        [InfoBox("Задержка анимации в секундах для Forward")] [SerializeField]
         protected float offset;
 
         /// <summary>
         /// Задержка анимации в секундах для Back
         /// </summary>
-        [InfoBubble("Задержка анимации в секундах для Back")] [SerializeField]
+        [InfoBox("Задержка анимации в секундах для Back")] [SerializeField]
         protected float offsetBack;
 
         [SerializeField] protected TweenPreset preset;

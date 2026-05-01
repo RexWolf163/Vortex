@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Sirenix.OdinInspector;
 using Spine.Unity;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
@@ -28,20 +29,20 @@ namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
 
         [SerializeField, Range(0, 10)] private byte animationChannel = 1;
 
-        [SerializeField, ValueSelector("GetListAnimations")] [InfoBubble("Анимация в положении Back")]
+        [SerializeField, ValueSelector("GetListAnimations")] [InfoBox("Анимация в положении Back")]
         private string animationIdle0;
 
-        [SerializeField, ValueSelector("GetListAnimations")] [InfoBubble("Анимация в положении Forward")]
+        [SerializeField, ValueSelector("GetListAnimations")] [InfoBox("Анимация в положении Forward")]
         private string animationIdle1;
 
-        [SerializeField, ValueSelector("GetListAnimations")] [InfoBubble("Анимация перехода в Forward")]
+        [SerializeField, ValueSelector("GetListAnimations")] [InfoBox("Анимация перехода в Forward")]
         private string animationFrw;
 
-        [SerializeField, ValueSelector("GetListAnimations")] [InfoBubble("Анимация перехода в Back")]
+        [SerializeField, ValueSelector("GetListAnimations")] [InfoBox("Анимация перехода в Back")]
         private string animationBack;
 
         [SerializeField,
-         InfoBubble(
+         InfoBox(
              "Играть анимацию только на совпадающей исходной анимации. Если не совпадает - не вызывать изменений")]
         private bool skipIfNotEqual;
 

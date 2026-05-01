@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Sirenix.OdinInspector;
+using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.Misc
@@ -11,47 +12,47 @@ namespace Vortex.Unity.UI.Misc
     [ExecuteAlways]
     public class AutoRectSetter : MonoBehaviour
     {
-        [SerializeField, AutoLink, OnChanged("Apply")]
+        [SerializeField, AutoLink, OnValueChanged("Apply")]
         private RectTransform rect;
 
         [Header("Borders (Left / Top / Right / Bottom / PosZ)")]
-        [SerializeField, ToggleButton(isSingleButton: true), OnChanged("Apply")]
+        [SerializeField, ToggleButton(isSingleButton: true), OnValueChanged("Apply")]
         private bool setBorders = true;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private float left;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private float top;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private float right;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private float bottom;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private float posZ;
 
         [Header("Anchors")] [SerializeField, ToggleButton(isSingleButton: true)]
         private bool setAnchors = true;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private Vector2 anchorMin = Vector2.zero;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private Vector2 anchorMax = Vector2.one;
 
         [Header("Pivot")] [SerializeField, ToggleButton(isSingleButton: true)]
         private bool setPivot = true;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private Vector2 pivot = new(0.5f, 0.5f);
 
         [Header("Rotation")] [SerializeField, ToggleButton(isSingleButton: true)]
         private bool setRotation = true;
 
-        [SerializeField, OnChanged("Apply")]
+        [SerializeField, OnValueChanged("Apply")]
         private Vector3 rotation = Vector3.zero;
 
 

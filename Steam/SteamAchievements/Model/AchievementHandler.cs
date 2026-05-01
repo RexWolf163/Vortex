@@ -1,6 +1,7 @@
 #if UNITY_EDITOR && USING_STEAM
 using System;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Steam.SteamConnectionSystem;
 using Vortex.Unity.EditorTools.Attributes;
@@ -10,8 +11,8 @@ namespace Vortex.Steam.SteamAchievements.Model
     [Serializable, ClassLabel("$Label")]
     public class AchievementHandler
     {
-        [InfoBubble("$Info")]
-        [ToggleButton("Labels", isSingleButton: true), SerializeField, OnChanged("UpdateAchievements")]
+        [InfoBox("$Info")]
+        [ToggleButton("Labels", isSingleButton: true), SerializeField, OnValueChanged("UpdateAchievements")]
         internal bool isUnlocked = false;
 
         internal string Id { get; set; }

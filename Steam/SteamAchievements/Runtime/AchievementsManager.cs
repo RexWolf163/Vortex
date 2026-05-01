@@ -7,11 +7,10 @@ using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Steam.SteamAchievements.Runtime
 {
-    public class AchievementsManager : MonoBehaviour, IUseVortexCollectionRendering
+    public class AchievementsManager : MonoBehaviour
     {
         private static AchievementsManager _instance;
 
-        [VortexCollection]
         [LabelText("Ачивки")]
         [SerializeField] public AchievementHandler[] index;
 

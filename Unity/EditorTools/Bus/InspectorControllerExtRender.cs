@@ -91,14 +91,6 @@ namespace Vortex.Unity.EditorTools.Bus
                 if (data.IsFieldDefault)
                     DrawingUtility.DrawDefaultField(data.Position, data, property);
             }
-
-            if (data.IsFieldVisible && EditorGUI.EndChangeCheck())
-            {
-                property.serializedObject.ApplyModifiedProperties();
-                var after = InspectorHandler.GetPropertyValue(property);
-                if (!ValuesEqual(before, after))
-                    ReflectionHelper.InvokeOnValueChanged(property);
-            }
         }
     }
 }

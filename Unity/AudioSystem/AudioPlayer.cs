@@ -1,10 +1,10 @@
 ﻿using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.AudioSystem.Model;
-using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.Extensions.Abstractions;
 using Vortex.Unity.UI.PoolSystem;
 using Vortex.Unity.UI.TweenerSystem.UniTaskTweener;
@@ -22,13 +22,13 @@ namespace Vortex.Unity.AudioSystem
     /// </summary>
     public class AudioPlayer : MonoBehaviourSingleton<AudioPlayer>
     {
-        [InfoBubble("Пул звуков")] [SerializeField]
+        [InfoBox("Пул звуков")] [SerializeField]
         private Pool pool;
 
-        [InfoBubble("Основной проигрыватель музыки")] [SerializeField]
+        [InfoBox("Основной проигрыватель музыки")] [SerializeField]
         private MusicPlayer musicPlayer;
 
-        [InfoBubble("Ситуативный проигрыватель музыки. Для перекрытия основного фона ситуативным треком")]
+        [InfoBox("Ситуативный проигрыватель музыки. Для перекрытия основного фона ситуативным треком")]
         [SerializeField]
         private MusicPlayer musicCoverPlayer;
 
