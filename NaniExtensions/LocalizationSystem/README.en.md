@@ -7,7 +7,7 @@ Localization driver for Naninovel-based projects.
 Replaces the standard `LocalizationDriver` (Unity) with a driver integrated with Naninovel. Extends the localization system with language channels and bridges Vortex localization with Naninovel `ILocalizationManager`.
 
 - Translation loading from Naninovel file structure
-- Three localization channels: UI, Dialogue, Voice — with independent language selection
+- Three localization channels: Default (general), Dialogue, Voice — with independent language selection
 - Language synchronization with Naninovel (`ILocalizationManager`, `VoiceLoader`)
 - Per-channel language preference persistence via `PlayerPrefs`
 - UI component for language selection with channel filtering
@@ -45,34 +45,33 @@ Driver events:
 
 | Event | Description |
 |-------|-------------|
-| `OnLocalizationChanged` | Fires after language change (SetLanguage, SetChannelLanguage for UI) |
+| `OnLocalizationChanged` | Fires after `SetLanguage` or any `SetChannelLanguage` |
+| `OnLocalizationInChannelChanged(byte channel)` | Fires after `SetChannelLanguage`, carries the channel index |
 | `OnInit` | Fires after asynchronous data loading completes (`RunAsync`) |
 
 ### Channels
 
 ```
 LocaleChannels
-├── UI = 0        — interface language (Vortex index)
+├── Default = 0   — interface/general language (Vortex index, delegates to Driver.SetLanguage)
 ├── Dialogue = 1  — dialogue language (Naninovel ILocalizationManager)
 └── Voice = 2     — voice language (Naninovel VoiceLoader)
 ```
 
-Only the UI channel reloads the Vortex index on language change. Dialogue and Voice save preference to `PlayerPrefs` and pass the setting to Naninovel.
+Only the Default channel reloads the Vortex index on language change. Dialogue and Voice save preference to `PlayerPrefs` and pass the setting to Naninovel.
 
 Persistence: `PlayerPrefs("AppLanguage")` — shared, `PlayerPrefs("AppLanguage{channel}")` — per-channel.
 
 ### Core Extension
 
-`LocalizationExtNani.cs` — partial on `Localization` (assembly ref `ru.vortex.localization.ext`):
+`LocalizationExtVoices.cs` — partial on `Localization` (lives in `Sdk/AudioLocalizationSystem/LocalizationExt/`, compiled into `ru.vortex.localization` via `ru.vortex.localization.ext.asmref`):
 
 | Method | Description |
 |--------|-------------|
-| `GetCurrentVoiceLanguage()` | Voice language. Lazy: channel PlayerPrefs → default → fallback |
-| `GetCurrentDialogueLanguage()` | Dialogue language. Lazy: channel PlayerPrefs → default → fallback |
-| `SetCurrentVoiceLanguage(string)` | Persistence via `IChanneledDriver.SetChannelLanguage` |
-| `SetCurrentDialogueLanguage(string)` | Persistence via `IChanneledDriver.SetChannelLanguage` |
+| `GetCurrentChannelLanguage(LocaleChannels channel)` | Current language for the channel. Lazy: in-memory cache → `IChanneledDriver.GetChannelLanguage` → `Driver.GetDefaultLanguage`. For `Default` returns `Driver.GetDefaultLanguage()` directly |
+| `SetCurrentChannelLanguage(string language, LocaleChannels channel)` | Writes the language into the per-channel slot. For `Default` additionally calls `Driver.SetLanguage(language)`. For others — `IChanneledDriver.SetChannelLanguage` |
 
-Channel access via `ChDriver` — casts `IDriver` to `IChanneledDriver`. If the driver doesn't support channels, setters only save the local value.
+Per-channel storage — a `string[]` indexed by `(byte)channel`. Channel access via `ChDriver` — casts `IDriver` to `IChanneledDriver`. If the driver doesn't support channels, the getter falls back to `Driver.GetDefaultLanguage()` and the setter only saves the local value.
 
 ### NaniVortexLocaleConnector
 
@@ -150,16 +149,13 @@ UI language selection component by channel. Works through `DropDownComponent`.
 |-------|-------------|
 | `whiteList` | Available language filter (`[ValueDropdown]` from `LocalizationConfiguration`) |
 | `dropdown` | `DropDownComponent` for selection |
-| `mode` | `LocaleChannels` — UI, Dialogue, or Voice |
+| `mode` | `LocaleChannels` — Default, Dialogue, or Voice |
 
 Language source: `ILocalizationManager.AvailableLocales`, filtered through `whiteList`.
 
 Dropdown labels: `lang.ToUpper().Translate()` — language key is translated via Vortex localization.
 
-On selection:
-- UI → `Localization.SetCurrentLanguage()`
-- Dialogue → `Localization.SetCurrentDialogueLanguage()`
-- Voice → `Localization.SetCurrentVoiceLanguage()`
+On selection it calls `Localization.SetCurrentChannelLanguage(selectedLocale, mode)` — for the `Default` channel this is equivalent to `SetCurrentLanguage`, for `Dialogue`/`Voice` it stores the per-channel preference and pushes it into Nani.
 
 Subscribes to `OnLocalizationChanged` (`OnEnable`/`OnDisable`) for dropdown synchronization.
 
@@ -196,7 +192,7 @@ Auto-creates asset on `InitializeOnLoadMethod` if `LocalizationPreset` is missin
 
 1. Add `NaniLocaleHandler` to a GameObject
 2. Assign `DropDownComponent`
-3. Select `mode` (UI / Dialogue / Voice)
+3. Select `mode` (Default / Dialogue / Voice)
 4. Configure `whiteList` — available languages for this channel
 
 ---
@@ -207,7 +203,7 @@ Auto-creates asset on `InitializeOnLoadMethod` if `LocalizationPreset` is missin
 |-----------|----------|
 | `SetLanguage` with same language (matches PlayerPrefs) | Early return, index not reloaded |
 | `SetChannelLanguage` for Dialogue/Voice | PlayerPrefs save only, no index reload |
-| `SetChannelLanguage` for UI (channel 0) | Index reload + `OnLocalizationChanged` |
+| `SetChannelLanguage` for Default (channel 0) | Index reload + `OnLocalizationChanged` |
 | Channel language not set | Lazy init: channel PlayerPrefs → default PlayerPrefs → system → fallback |
 | `LocalizationPreset` not found | `LogError`, driver not registered |
 | Language folder file missing from `files[]` | Silently skipped |

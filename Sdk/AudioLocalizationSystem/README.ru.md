@@ -25,7 +25,7 @@
 - `Vortex.Core.System.ProcessInfo` — `IProcess`, `ProcessData`
 - `Vortex.Core.DatabaseSystem` — `Database`, `Record`
 - `Vortex.Core.AudioSystem` — `AudioController`
-- `Vortex.Core.LocalizationSystem` — `Localization.GetCurrentVoiceLanguage()`
+- `Vortex.Core.LocalizationSystem` — `Localization.GetCurrentChannelLanguage(LocaleChannels.Voice)`
 - `Vortex.Core.LoaderSystem` — `Loader.Register`
 - `Vortex.Core.Extensions` — `ActionExt`, `ReactiveValues`
 
@@ -72,7 +72,7 @@ AudioLocaleHandler (MonoBehaviour)
 
 ### Вход
 - `Database` — записи `AudioLocaleData` загружены до вызова `RunAsync`
-- `Localization.GetCurrentVoiceLanguage()` — текущий язык озвучки
+- `Localization.GetCurrentChannelLanguage(LocaleChannels.Voice)` — текущий язык озвучки
 - `IDataStorage` + `StringData` — источник текстового ключа для `AudioLocaleHandler`
 
 ### Выход

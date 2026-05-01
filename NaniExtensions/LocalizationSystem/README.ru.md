@@ -7,7 +7,7 @@
 Замена стандартного `LocalizationDriver` (Unity) драйвером, интегрированным с Naninovel. Расширяет систему локализации каналами языков и связывает Vortex-локализацию с Naninovel `ILocalizationManager`.
 
 - Загрузка переводов из файловой структуры Naninovel
-- Три канала локализации: UI, Dialogue, Voice — с независимым выбором языка
+- Три канала локализации: Default (общий), Dialogue, Voice — с независимым выбором языка
 - Синхронизация языка с Naninovel (`ILocalizationManager`, `VoiceLoader`)
 - Сохранение языковых предпочтений по каналам через `PlayerPrefs`
 - UI-компонент выбора языка с фильтрацией по каналу
@@ -45,34 +45,33 @@ LocalizationDriver (Singleton, IDriver, IChanneledDriver, IProcess)
 
 | Событие | Описание |
 |---------|----------|
-| `OnLocalizationChanged` | Вызывается после смены языка (SetLanguage, SetChannelLanguage для UI) |
+| `OnLocalizationChanged` | Вызывается после `SetLanguage` или любого `SetChannelLanguage` |
+| `OnLocalizationInChannelChanged(byte channel)` | Вызывается после `SetChannelLanguage`, передаёт номер канала |
 | `OnInit` | Вызывается после завершения асинхронной загрузки данных (`RunAsync`) |
 
 ### Каналы
 
 ```
 LocaleChannels
-├── UI = 0        — язык интерфейса (Vortex-индекс)
+├── Default = 0   — язык интерфейса/общий (Vortex-индекс, делегирует в Driver.SetLanguage)
 ├── Dialogue = 1  — язык диалогов (Naninovel ILocalizationManager)
 └── Voice = 2     — язык озвучки (Naninovel VoiceLoader)
 ```
 
-Только канал UI перезагружает Vortex-индекс при смене языка. Dialogue и Voice сохраняют предпочтение в `PlayerPrefs` и передают настройку Naninovel.
+Только канал Default перезагружает Vortex-индекс при смене языка. Dialogue и Voice сохраняют предпочтение в `PlayerPrefs` и передают настройку Naninovel.
 
 Сохранение: `PlayerPrefs("AppLanguage")` — общий, `PlayerPrefs("AppLanguage{channel}")` — per-channel.
 
 ### Расширение Core
 
-`LocalizationExtNani.cs` — partial на `Localization` (assembly ref `ru.vortex.localization.ext`):
+`LocalizationExtVoices.cs` — partial на `Localization` (живёт в `Sdk/AudioLocalizationSystem/LocalizationExt/`, через `ru.vortex.localization.ext.asmref` компонуется в `ru.vortex.localization`):
 
 | Метод | Описание |
 |-------|----------|
-| `GetCurrentVoiceLanguage()` | Язык озвучки. Lazy: channel PlayerPrefs → default → fallback |
-| `GetCurrentDialogueLanguage()` | Язык диалогов. Lazy: channel PlayerPrefs → default → fallback |
-| `SetCurrentVoiceLanguage(string)` | Сохранение через `IChanneledDriver.SetChannelLanguage` |
-| `SetCurrentDialogueLanguage(string)` | Сохранение через `IChanneledDriver.SetChannelLanguage` |
+| `GetCurrentChannelLanguage(LocaleChannels channel)` | Текущий язык канала. Lazy: in-memory cache → `IChanneledDriver.GetChannelLanguage` → `Driver.GetDefaultLanguage`. Для `Default` сразу возвращает `Driver.GetDefaultLanguage()` |
+| `SetCurrentChannelLanguage(string language, LocaleChannels channel)` | Записывает язык в per-channel слот. Для `Default` дополнительно вызывает `Driver.SetLanguage(language)`. Для остальных — `IChanneledDriver.SetChannelLanguage` |
 
-Доступ к каналам через `ChDriver` — кастит `IDriver` к `IChanneledDriver`. Если драйвер не поддерживает каналы, сеттеры сохраняют только локальное значение.
+Хранение per-channel — массив `string[]`, индексируемый `(byte)channel`. Доступ к канальным операциям через `ChDriver` — кастит `IDriver` к `IChanneledDriver`. Если драйвер не поддерживает каналы, getter возвращает `Driver.GetDefaultLanguage()`, setter сохраняет только локальное значение.
 
 ### NaniVortexLocaleConnector
 
@@ -150,16 +149,13 @@ UI-компонент выбора языка по каналу. Работае�
 |------|----------|
 | `whiteList` | Фильтр доступных языков (`[ValueDropdown]` из `LocalizationConfiguration`) |
 | `dropdown` | `DropDownComponent` для выбора |
-| `mode` | `LocaleChannels` — UI, Dialogue или Voice |
+| `mode` | `LocaleChannels` — Default, Dialogue или Voice |
 
 Источник языков: `ILocalizationManager.AvailableLocales`, отфильтрованные через `whiteList`.
 
 Labels в dropdown: `lang.ToUpper().Translate()` — ключ языка переводится через Vortex-локализацию.
 
-При выборе:
-- UI → `Localization.SetCurrentLanguage()`
-- Dialogue → `Localization.SetCurrentDialogueLanguage()`
-- Voice → `Localization.SetCurrentVoiceLanguage()`
+При выборе вызывается `Localization.SetCurrentChannelLanguage(selectedLocale, mode)` — для канала `Default` это эквивалентно `SetCurrentLanguage`, для `Dialogue`/`Voice` сохраняет per-channel предпочтение и проталкивает в Nani.
 
 Подписывается на `OnLocalizationChanged` (`OnEnable`/`OnDisable`) для синхронизации dropdown.
 
@@ -196,7 +192,7 @@ Inspector `LocalizationPreset`:
 
 1. Добавить `NaniLocaleHandler` на GameObject
 2. Назначить `DropDownComponent`
-3. Выбрать `mode` (UI / Dialogue / Voice)
+3. Выбрать `mode` (Default / Dialogue / Voice)
 4. Настроить `whiteList` — доступные языки для этого канала
 
 ---
@@ -207,7 +203,7 @@ Inspector `LocalizationPreset`:
 |----------|-----------|
 | `SetLanguage` с тем же языком (совпадение с PlayerPrefs) | Ранний выход, индекс не перезагружается |
 | `SetChannelLanguage` для Dialogue/Voice | Только сохранение в PlayerPrefs, без перезагрузки индекса |
-| `SetChannelLanguage` для UI (channel 0) | Перезагрузка индекса + `OnLocalizationChanged` |
+| `SetChannelLanguage` для Default (channel 0) | Перезагрузка индекса + `OnLocalizationChanged` |
 | Язык канала не установлен | Lazy-инициализация: channel PlayerPrefs → default PlayerPrefs → system → fallback |
 | `LocalizationPreset` не найден | `LogError`, драйвер не регистрируется |
 | Файл языковой папки отсутствует в `files[]` | Молча пропускается |

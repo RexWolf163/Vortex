@@ -6,7 +6,7 @@ Bridge between the Vortex framework and the Naninovel visual novel engine. Conta
 
 - Volume settings translation from Vortex to Naninovel
 - Nani scene management from Vortex (pause, stop, actor reset)
-- Multi-channel localization (UI, dialogue, voice)
+- Multi-channel localization (default, dialogue, voice)
 - Spine-animated cutscene management via Nani backgrounds
 
 Out of scope: Naninovel scripts, scene content, Spine asset configuration.

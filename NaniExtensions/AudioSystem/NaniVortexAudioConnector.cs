@@ -45,12 +45,17 @@ namespace Vortex.NaniExtensions.AudioSystem
             if (_wasStarted) return;
             _wasStarted = true;
             var channelConfigs = Resources.LoadAll<AudioChannelsConfig>("");
-            var channelConfig = channelConfigs.Length > 0 ? channelConfigs[0] : null;
-            if (channelConfig == null)
+            if (channelConfigs.Length == 0)
             {
-                Debug.LogError("[NaniVortexAudioConnector] Audio channels config not found.");
+                Debug.LogError("[NaniVortexAudioConnector] AudioChannelsConfig not found in Resources.");
                 return;
             }
+
+            if (channelConfigs.Length > 1)
+                Debug.LogError(
+                    $"[NaniVortexAudioConnector] Found {channelConfigs.Length} AudioChannelsConfig assets, expected exactly 1. Using '{channelConfigs[0].name}'.");
+
+            var channelConfig = channelConfigs[0];
 
             _bgmChannel = channelConfig.GetNaniBgmChannel();
             _sfxChannel = channelConfig.GetSfxChannel();

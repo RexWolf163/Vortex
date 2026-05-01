@@ -25,7 +25,7 @@ Out of scope:
 - `Vortex.Core.System.ProcessInfo` — `IProcess`, `ProcessData`
 - `Vortex.Core.DatabaseSystem` — `Database`, `Record`
 - `Vortex.Core.AudioSystem` — `AudioController`
-- `Vortex.Core.LocalizationSystem` — `Localization.GetCurrentVoiceLanguage()`
+- `Vortex.Core.LocalizationSystem` — `Localization.GetCurrentChannelLanguage(LocaleChannels.Voice)`
 - `Vortex.Core.LoaderSystem` — `Loader.Register`
 - `Vortex.Core.Extensions` — `ActionExt`, `ReactiveValues`
 
@@ -72,7 +72,7 @@ AudioLocaleHandler (MonoBehaviour)
 
 ### Input
 - `Database` — `AudioLocaleData` records loaded before `RunAsync`
-- `Localization.GetCurrentVoiceLanguage()` — current voice language
+- `Localization.GetCurrentChannelLanguage(LocaleChannels.Voice)` — current voice language
 - `IDataStorage` + `StringData` — text key source for `AudioLocaleHandler`
 
 ### Output
