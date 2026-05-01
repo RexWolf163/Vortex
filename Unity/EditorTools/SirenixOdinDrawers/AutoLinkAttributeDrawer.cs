@@ -1,7 +1,7 @@
+#if UNITY_EDITOR
 using System.Reflection;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities.Editor;
-using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
 using Object = UnityEngine.Object;
@@ -13,7 +13,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
     /// Если поле UnityEngine.Object и == null — автоматически линкует компонент с того же GameObject.
     /// Учитывает <see cref="ClassFilterAttribute"/> для фильтрации по типу.
     /// </summary>
-    public sealed class AutoLinkAttributeDrawer : OdinAttributeDrawer<AutoLinkAttribute>
+    public sealed class AutoLinkAttributeDrawer : OdinAttributeDrawer<AutoLinkAttribute, Object>
     {
         private bool _typeError;
         private string _errorMessage;
@@ -39,7 +39,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                 return;
             }
 
-            var current = ValueEntry.WeakSmartValue as Object;
+            var current = this.ValueEntry.WeakSmartValue as Object;
             if (current == null)
                 TryAutoLink();
 
@@ -74,6 +74,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                         return;
                     }
                 }
+
                 return;
             }
 
@@ -83,3 +84,4 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
         }
     }
 }
+#endif

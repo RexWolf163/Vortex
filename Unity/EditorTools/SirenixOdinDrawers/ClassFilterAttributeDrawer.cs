@@ -1,7 +1,7 @@
+#if UNITY_EDITOR
 using System;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities.Editor;
-using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
 using Object = UnityEngine.Object;
@@ -13,7 +13,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
     /// Валидирует, что назначенный объект соответствует одному из RequiredTypes.
     /// Несоответствующие объекты сбрасываются в null с предупреждением в консоль.
     /// </summary>
-    public sealed class ClassFilterAttributeDrawer : OdinAttributeDrawer<ClassFilterAttribute>
+    public sealed class ClassFilterAttributeDrawer : OdinAttributeDrawer<ClassFilterAttribute, System.Object>
     {
         private bool _typeError;
         private string _errorMessage;
@@ -76,3 +76,4 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
         }
     }
 }
+#endif

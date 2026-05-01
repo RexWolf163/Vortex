@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -175,3 +176,4 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
         }
     }
 }
+#endif

@@ -2,7 +2,6 @@
 using UnityEngine;
 using Vortex.Steam.SteamAchievements.Model;
 using Vortex.Steam.SteamConnectionSystem;
-using Vortex.Unity.EditorTools.Abstraction;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Steam.SteamAchievements.Runtime
@@ -11,8 +10,7 @@ namespace Vortex.Steam.SteamAchievements.Runtime
     {
         private static AchievementsManager _instance;
 
-        [LabelText("Ачивки")]
-        [SerializeField] public AchievementHandler[] index;
+        [LabelText("Ачивки")] [SerializeField] public AchievementHandler[] index;
 
         [RuntimeInitializeOnLoadMethod]
         private static void Init()

@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if UNITY_EDITOR
+using System;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities.Editor;
 using UnityEngine;
@@ -40,3 +41,4 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
         }
     }
 }
+#endif
