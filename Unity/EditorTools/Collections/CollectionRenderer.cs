@@ -4,7 +4,6 @@ using System.Collections;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
-using Vortex.Unity.EditorTools.AttributeDrawers;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.EditorTools.EditorSettings;
 using Vortex.Unity.EditorTools.Elements;

@@ -1,48 +1,37 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR && ODIN_INSPECTOR
+using Sirenix.OdinInspector.Editor;
+using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.LocalizationSystem.Bus;
-using Vortex.Unity.EditorTools.Abstraction;
-using Vortex.Unity.EditorTools.AttributeDrawers;
 using Vortex.Unity.EditorTools.Elements;
 
 namespace Vortex.Unity.LocalizationSystem.Editor
 {
-    [CustomPropertyDrawer(typeof(LanguageAttribute))]
-    public class LanguageAttributeDrawer : MultiDrawer
+    /// <summary>
+    /// Odin-drawer для <see cref="LanguageAttribute"/>.
+    /// Заменяет string-поле на SearchablePopup со списком зарегистрированных языков.
+    /// </summary>
+    public sealed class LanguageAttributeDrawer : OdinAttributeDrawer<LanguageAttribute, string>
     {
-        private bool _hasError = false;
-
-        public override void PreRender(PropertyData data, PropertyAttribute attribute)
+        protected override void DrawPropertyLayout(GUIContent label)
         {
-            data.IsCustomField();
-        }
+            var rect = EditorGUILayout.GetControlRect();
+            if (label != null)
+                rect = EditorGUI.PrefixLabel(rect, label);
 
-        public override void RenderField(PropertyData data, PropertyAttribute attribute)
-        {
-            if (_hasError)
-                return;
-            var list = Localization.GetLanguages();
-
-            var val = data.Property.stringValue;
-            var currentIndex = val.IsNullOrWhitespace() ? -1 : list.IndexOf(val);
-            DrawingUtility.DrawSelector(data.Position, data.Property, list.ToArray(), currentIndex: currentIndex);
-        }
-
-        public override float RenderTopper(PropertyData data, PropertyAttribute attribute, bool onlyCalculation)
-        {
-            if (data.Property.propertyType != SerializedPropertyType.String)
+            var unityProp = Property.Tree.UnitySerializedObject?.FindProperty(Property.UnityPropertyPath);
+            if (unityProp == null || unityProp.propertyType != SerializedPropertyType.String)
             {
-                _hasError = true;
-                var text = "Only string is supported for Language Attribute";
-                var h = DrawingUtility.CalcInfoBoxHeight(text, data.Position.width);
-                if (!onlyCalculation)
-                    DrawingUtility.MakeInfoBox(data.Position, text, true);
-                return h;
+                SirenixEditorGUI.ErrorMessageBox("Only string is supported for Language Attribute");
+                return;
             }
 
-            return 0;
+            var list = Localization.GetLanguages();
+            var val = unityProp.stringValue;
+            var currentIndex = val.IsNullOrWhitespace() ? -1 : list.IndexOf(val);
+            DrawingUtility.DrawSelector(rect, unityProp, list.ToArray(), currentIndex: currentIndex);
         }
     }
 }

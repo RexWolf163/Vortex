@@ -1,17 +1,20 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR && ODIN_INSPECTOR
+using Sirenix.OdinInspector.Editor;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
-using Vortex.Unity.EditorTools.Abstraction;
-using Vortex.Unity.EditorTools.AttributeDrawers;
 using Vortex.Unity.EditorTools.EditorSettings;
 using Vortex.Unity.EditorTools.Elements;
 using Vortex.Unity.UI.StateSwitcher;
 
 namespace Vortex.Unity.UI.Attributes
 {
-    [CustomPropertyDrawer(typeof(StateSwitcherAttribute))]
-    public class StateSwitcherDrawer : MultiDrawer
+    /// <summary>
+    /// Odin-drawer для <see cref="StateSwitcherAttribute"/>.
+    /// Над полем UIStateSwitcher рисует таблицу описанных состояний с подсветкой активного,
+    /// клик по строке переключает свитчер. Справа от поля — кнопка Sync.
+    /// </summary>
+    public sealed class StateSwitcherDrawer : OdinAttributeDrawer<StateSwitcherAttribute, UIStateSwitcher>
     {
         private static GUIStyle _grayStyle;
 
@@ -20,108 +23,43 @@ namespace Vortex.Unity.UI.Attributes
             normal = { textColor = Color.gray }
         };
 
-        private float _h;
-
-        public override void RenderField(PropertyData data, PropertyAttribute attribute)
+        protected override void DrawPropertyLayout(GUIContent label)
         {
-            var switcherAttr = (StateSwitcherAttribute)attribute;
-            var property = data.Property;
+            var states = Attribute.States;
 
-            // Кнопку не рисуем если поле не ObjectReference, нет состояний или не пролинкован свитчер
-            if (property.propertyType != SerializedPropertyType.ObjectReference)
-                return;
+            // Топпер: таблица состояний
+            if (states != null && states.Length > 0)
+                DrawStatesHint(states);
 
-            var states = switcherAttr.States;
-            if (states == null || states.Length == 0)
-                return;
-
-            var switcher = property.objectReferenceValue as UIStateSwitcher;
-            if (switcher == null)
-                return;
-
-            // Кнопка Sync справа от поля — сужаем область поля
-            float buttonWidth = 40f;
-            float gap = 2f;
-            float fieldWidth = data.Position.width - buttonWidth - gap;
-
-            data.Position = new Rect(data.Position.x, data.Position.y, fieldWidth, data.Position.height);
-
-            var buttonRect = new Rect(
-                data.Position.xMax + gap,
-                data.Position.y,
-                buttonWidth,
-                data.Position.height);
-
-            //var syncIcon = EditorGUIUtility.IconContent("d_Refresh");
-            var old = GUI.backgroundColor;
-            GUI.backgroundColor = ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
-            var style = EditorStyles.miniButton;
-            style.normal.textColor = ToolsSettings.GetLineColor(DefaultColors.TextColorInactive);
-            style.hover.textColor = ToolsSettings.GetLineColor(DefaultColors.TextColor);
-            if (GUI.Button(buttonRect, "Sync", style))
-            {
-                SyncStates(switcher, states);
-            }
-
-            GUI.backgroundColor = old;
+            // Поле + кнопка Sync
+            DrawFieldRow(label, states);
         }
 
-        public override float RenderTopper(PropertyData data, PropertyAttribute attribute, bool b)
+        private void DrawStatesHint(StateSwitcherAttribute.StateDesc[] states)
         {
-            var switcherAttr = (StateSwitcherAttribute)attribute;
-            var property = data.Property;
-
-            // Проверяем что поле — ссылка на UIStateSwitcher (ObjectReference)
-            if (property.propertyType != SerializedPropertyType.ObjectReference)
-            {
-                var errMsg = "[StateSwitcher] Атрибут поддерживает только поля типа UIStateSwitcher.";
-                var errHeight = EditorStyles.helpBox.CalcHeight(new GUIContent(errMsg), data.Position.width);
-                EditorGUI.HelpBox(
-                    new Rect(data.Position.x, data.Position.y, data.Position.width, errHeight),
-                    errMsg, MessageType.Error);
-                return errHeight + EditorGUIUtility.standardVerticalSpacing;
-            }
-
-            var states = switcherAttr.States;
-            if (states == null || states.Length == 0)
-                return 0;
-
-            // Получаем текущий UIStateSwitcher для подсветки активного состояния
-            var switcher = property.objectReferenceValue as UIStateSwitcher;
+            var switcher = ValueEntry.SmartValue;
             int currentState = switcher != null ? switcher.State : -1;
 
-            // Считаем высоту таблицы хинтов
             float lineHeight = EditorGUIUtility.singleLineHeight;
             float spacing = EditorGUIUtility.standardVerticalSpacing;
             float totalHeight = states.Length * (lineHeight + spacing);
 
-            var startY = data.Position.y;
+            var area = EditorGUILayout.GetControlRect(false, totalHeight);
 
-            var rect = new Rect(data.Position.x, data.Position.y, data.Position.width, totalHeight);
-            EditorGUI.DrawRect(rect, ToolsSettings.GetBgColor(DefaultColors.BadgeBg));
-            DrawingUtility.DrawBoxBorder(rect, ToolsSettings.GetLineColor(DefaultColors.BorderColor));
-            rect.y -= 1;
-            rect.height += lineHeight + 2f;
-            rect.x -= 1;
-            rect.width += 2;
-            DrawingUtility.DrawBoxBorder(rect, ToolsSettings.GetLineColor(DefaultColors.BorderColor),
-                ToolsSettings.GetLineColor(DefaultColors.BorderColorLight));
+            EditorGUI.DrawRect(area, ToolsSettings.GetBgColor(DefaultColors.BadgeBg));
+            DrawingUtility.DrawBoxBorder(area, ToolsSettings.GetLineColor(DefaultColors.BorderColor));
 
             for (int i = 0; i < states.Length; i++)
             {
                 var stateDesc = states[i];
-                float y = startY + i * (lineHeight + spacing);
+                float y = area.y + i * (lineHeight + spacing);
 
-                var rowRect = new Rect(data.Position.x, y, data.Position.width, lineHeight);
+                var rowRect = new Rect(area.x, y, area.width, lineHeight);
 
-                // Подсветка активного состояния
                 bool isActive = switcher != null && stateDesc.State == currentState;
                 if (isActive)
-                {
                     EditorGUI.DrawRect(rowRect, new Color(0.3f, 0.6f, 0.3f, 0.25f));
-                }
 
-                // Hover-подсветка и клик — переключение свитчера
                 if (switcher != null)
                 {
                     EditorGUIUtility.AddCursorRect(rowRect, MouseCursor.Link);
@@ -136,28 +74,22 @@ namespace Vortex.Unity.UI.Attributes
                         Event.current.Use();
                     }
 
-                    // Лёгкая подсветка при наведении (если не активный)
                     if (!isActive && rowRect.Contains(Event.current.mousePosition))
-                    {
                         EditorGUI.DrawRect(rowRect, new Color(1f, 1f, 1f, 0.05f));
-                    }
                 }
 
-                // Колонка индекса
                 float indexWidth = 30f;
-                var indexRect = new Rect(data.Position.x, y, indexWidth, lineHeight);
+                var indexRect = new Rect(area.x, y, indexWidth, lineHeight);
                 EditorGUI.LabelField(indexRect, $"{stateDesc.State}:");
 
-                // Колонка описания
-                float descX = data.Position.x + indexWidth + 4f;
-                float descWidth = data.Position.width * 0.4f;
+                float descX = area.x + indexWidth + 4f;
+                float descWidth = area.width * 0.4f;
                 var descRect = new Rect(descX, y, descWidth, lineHeight);
                 EditorGUI.LabelField(descRect,
                     stateDesc.Description.IsNullOrWhitespace() ? "\"\"" : stateDesc.Description);
 
-                // Колонка текущего имени состояния из свитчера (если назначен)
                 float nameX = descX + descWidth + 8f;
-                float nameWidth = data.Position.width - (nameX - data.Position.x);
+                float nameWidth = area.width - (nameX - area.x);
                 var nameRect = new Rect(nameX, y, nameWidth, lineHeight);
 
                 if (switcher != null && switcher.States != null &&
@@ -170,20 +102,46 @@ namespace Vortex.Unity.UI.Attributes
                 else
                     EditorGUI.LabelField(nameRect, "[None]", GrayStyle);
             }
+        }
 
-            return totalHeight;
+        private void DrawFieldRow(GUIContent label, StateSwitcherAttribute.StateDesc[] states)
+        {
+            var switcher = ValueEntry.SmartValue;
+            bool canSync = switcher != null && states != null && states.Length > 0;
+
+            if (!canSync)
+            {
+                CallNextDrawer(label);
+                return;
+            }
+
+            const float buttonWidth = 40f;
+            const float gap = 2f;
+
+            var rowRect = EditorGUILayout.GetControlRect();
+            var fieldRect = new Rect(rowRect.x, rowRect.y, rowRect.width - buttonWidth - gap, rowRect.height);
+            var buttonRect = new Rect(fieldRect.xMax + gap, rowRect.y, buttonWidth, rowRect.height);
+
+            EditorGUI.BeginChangeCheck();
+            var newValue = EditorGUI.ObjectField(fieldRect, label ?? GUIContent.none,
+                ValueEntry.SmartValue, typeof(UIStateSwitcher), true) as UIStateSwitcher;
+            if (EditorGUI.EndChangeCheck())
+                ValueEntry.SmartValue = newValue;
+
+            var old = GUI.backgroundColor;
+            GUI.backgroundColor = ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
+            var style = EditorStyles.miniButton;
+            style.normal.textColor = ToolsSettings.GetLineColor(DefaultColors.TextColorInactive);
+            style.hover.textColor = ToolsSettings.GetLineColor(DefaultColors.TextColor);
+            if (GUI.Button(buttonRect, "Sync", style))
+                SyncStates(switcher, states);
+            GUI.backgroundColor = old;
         }
 
         // ════════════════════════════════════════════════════════
         //  Sync
         // ════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Синхронизирует состояния UIStateSwitcher с описанием из атрибута:
-        /// — добавляет недостающие элементы в конец (существующие не удаляются)
-        /// — удаляет лишние с конца
-        /// — выставляет имена по Description из enum
-        /// </summary>
         private static void SyncStates(UIStateSwitcher switcher, StateSwitcherAttribute.StateDesc[] desiredStates)
         {
             Undo.RecordObject(switcher, "Sync UIStateSwitcher States");
@@ -200,25 +158,17 @@ namespace Vortex.Unity.UI.Attributes
             int desired = desiredStates.Length;
             int current = statesArray.arraySize;
 
-            // Добавляем недостающие элементы в конец (существующие не трогаем)
             if (current < desired)
-            {
                 for (int i = current; i < desired; i++)
                     statesArray.InsertArrayElementAtIndex(i);
-            }
-            // Удаляем лишние с конца
             else if (current > desired)
-            {
                 for (int i = current - 1; i >= desired; i--)
                     statesArray.DeleteArrayElementAtIndex(i);
-            }
 
-            // Выставляем имена по Description из enum
             for (int i = 0; i < desired; i++)
             {
                 var element = statesArray.GetArrayElementAtIndex(i);
                 var nameProp = element.FindPropertyRelative("name");
-
                 if (nameProp != null)
                     nameProp.stringValue = desiredStates[i].Description;
             }

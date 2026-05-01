@@ -1,47 +1,64 @@
-#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.Linq;
-using Sirenix.OdinInspector;
+using Sirenix.OdinInspector.Editor;
+using Sirenix.OdinInspector.Editor.ValueResolvers;
+using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
-using Vortex.Unity.EditorTools.Abstraction;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.EditorTools.EditorSettings;
-using Vortex.Unity.EditorTools.Elements;
 
-namespace Vortex.Unity.EditorTools.AttributeDrawers
+namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
 {
-    [CustomPropertyDrawer(typeof(ToggleButtonAttribute))]
-    public class ToggleButtonDrawer : MultiDrawer
+    /// <summary>
+    /// Odin-drawer для <see cref="ToggleButtonAttribute"/>.
+    /// Заменяет стандартное поле на горизонтальные кнопки-переключатели.
+    /// Поддерживает bool, int, byte, enum.
+    /// </summary>
+    public sealed class ToggleButtonAttributeDrawer : OdinAttributeDrawer<ToggleButtonAttribute>
     {
         private static readonly Color ActiveShade = new(1.0f, 1.0f, 1.0f, 1f);
         private static readonly Color InactiveShade = new(0.85f, 0.85f, 0.85f, 1f);
 
-        public override void PreRender(PropertyData data, PropertyAttribute attribute)
+        private ValueResolver<Dictionary<int, string>> _labelsResolver;
+        private ValueResolver<Dictionary<int, Color>> _colorsResolver;
+
+        protected override void Initialize()
         {
-            data.IsCustomField();
+            if (!string.IsNullOrEmpty(Attribute.LabelsMethod))
+                _labelsResolver = ValueResolver.Get<Dictionary<int, string>>(Property, Attribute.LabelsMethod);
+
+            if (!string.IsNullOrEmpty(Attribute.ColorsMethod))
+                _colorsResolver = ValueResolver.Get<Dictionary<int, Color>>(Property, Attribute.ColorsMethod);
         }
-        public override void RenderField(PropertyData data, PropertyAttribute attribute)
+
+        protected override void DrawPropertyLayout(GUIContent label)
         {
-            var property = data.Property;
-
-            var attr = (ToggleButtonAttribute)attribute;
-
-            if (!IsSupportedType(property))
+            var unityProp = Property.Tree.UnitySerializedObject?.FindProperty(Property.UnityPropertyPath);
+            if (unityProp == null || !IsSupportedType(unityProp))
+            {
+                SirenixEditorGUI.ErrorMessageBox(
+                    $"{nameof(ToggleButtonAttribute)} поддерживает bool, int, byte и enum");
+                CallNextDrawer(label);
                 return;
+            }
 
-            var labels = ResolveLabels(property, attr);
+            var labels = ResolveLabels(unityProp);
             if (labels == null || labels.Count == 0)
+            {
+                SirenixEditorGUI.ErrorMessageBox("ToggleButton: для int/byte требуется labelsMethod");
+                CallNextDrawer(label);
                 return;
+            }
 
-            var colors = ResolveColors(property, attr);
-            int currentValue = GetIntValue(property);
+            var colors = _colorsResolver?.GetValue();
+            int currentValue = GetIntValue(unityProp);
 
-            // Buttons
-            var buttonsRect = data.Position;
+            var totalRect = EditorGUILayout.GetControlRect();
+            var buttonsRect = label != null ? EditorGUI.PrefixLabel(totalRect, label) : totalRect;
 
             var entries = labels.ToList();
-            var numBtns = attr.IsSingleButton ? 1 : entries.Count;
+            var numBtns = Attribute.IsSingleButton ? 1 : entries.Count;
             var gap = 3f;
             var buttonWidth = (buttonsRect.width - gap * (numBtns - 1)) / numBtns;
 
@@ -51,7 +68,7 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
             {
                 var kv = entries[i];
                 bool isActive = currentValue == kv.Key;
-                if (attr.IsSingleButton && !isActive)
+                if (Attribute.IsSingleButton && !isActive)
                     continue;
 
                 var btnRect = new Rect(
@@ -60,8 +77,7 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
                     buttonWidth,
                     buttonsRect.height);
 
-                if (attr.IsSingleButton) btnRect = buttonsRect;
-
+                if (Attribute.IsSingleButton) btnRect = buttonsRect;
 
                 Color baseColor = GetButtonColor(kv.Key, colors, entries.Count);
                 GUI.backgroundColor = BlendColors(baseColor, isActive ? ActiveShade : InactiveShade);
@@ -77,47 +93,21 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
                 style.normal.textColor = isActive
                     ? ToolsSettings.GetLineColor(DefaultColors.TextColor)
                     : ToolsSettings.GetLineColor(DefaultColors.TextColorInactive);
-                //style.fontStyle = isActive ? FontStyle.Bold : FontStyle.Normal;
 
                 if (GUI.Button(btnRect, kv.Value, style))
                 {
-                    if (attr.IsSingleButton)
-                        SetNextValue(property, kv.Key, labels);
+                    if (Attribute.IsSingleButton)
+                        SetNextValue(unityProp, kv.Key, labels);
                     else
-                        SetIntValue(property, kv.Key);
-                    property.serializedObject.ApplyModifiedProperties();
-                    //ReflectionHelper.InvokeOnValueChanged(property);
+                        SetIntValue(unityProp, kv.Key);
+                    unityProp.serializedObject.ApplyModifiedProperties();
                 }
 
-                if (attr.IsSingleButton)
+                if (Attribute.IsSingleButton)
                     break;
             }
 
             GUI.backgroundColor = originalBg;
-        }
-
-        public override float RenderTopper(PropertyData data, PropertyAttribute attribute, bool onlyCalculation)
-        {
-            if (!IsSupportedType(data.Property))
-            {
-                var text = $"{nameof(ToggleButtonAttribute)} поддерживает bool, int, byte и enum";
-                var h = DrawingUtility.CalcInfoBoxHeight(text, data.Position.width);
-                if (!onlyCalculation)
-                    DrawingUtility.MakeInfoBox(data.Position, text, true, InfoMessageType.Error);
-                return h + 2f;
-            }
-
-            var labels = ResolveLabels(data.Property, attribute as ToggleButtonAttribute);
-            if (labels == null || labels.Count == 0)
-            {
-                var text = "ToggleButton: для int/byte требуется labelsMethod";
-                var h = DrawingUtility.CalcInfoBoxHeight(text, data.Position.width);
-                if (!onlyCalculation)
-                    DrawingUtility.MakeInfoBox(data.Position, text, true, InfoMessageType.Error);
-                return h + 2f;
-            }
-
-            return 0;
         }
 
         // ════════════════════════════════════════════════════════
@@ -146,41 +136,27 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
         {
             switch (property.propertyType)
             {
-                case SerializedPropertyType.Boolean:
-                    property.boolValue = value != 0;
-                    break;
-                case SerializedPropertyType.Integer:
-                    property.intValue = value;
-                    break;
-                case SerializedPropertyType.Enum:
-                    property.enumValueIndex = value;
-                    break;
+                case SerializedPropertyType.Boolean: property.boolValue = value != 0; break;
+                case SerializedPropertyType.Integer: property.intValue = value; break;
+                case SerializedPropertyType.Enum: property.enumValueIndex = value; break;
             }
         }
 
-        private static void SetNextValue(SerializedProperty property, int value,
-            Dictionary<int, string> labels)
+        private static void SetNextValue(SerializedProperty property, int value, Dictionary<int, string> labels)
         {
             var keys = labels?.Keys.ToList();
             if (keys is { Count: > 0 })
             {
                 var i = keys.IndexOf(value);
-                if (++i >= keys.Count)
-                    i = 0;
+                if (++i >= keys.Count) i = 0;
                 value = keys[i];
             }
 
             switch (property.propertyType)
             {
-                case SerializedPropertyType.Boolean:
-                    property.boolValue = !property.boolValue;
-                    break;
-                case SerializedPropertyType.Integer:
-                    property.intValue = value;
-                    break;
-                case SerializedPropertyType.Enum:
-                    property.enumValueIndex = value;
-                    break;
+                case SerializedPropertyType.Boolean: property.boolValue = !property.boolValue; break;
+                case SerializedPropertyType.Integer: property.intValue = value; break;
+                case SerializedPropertyType.Enum: property.enumValueIndex = value; break;
             }
         }
 
@@ -188,12 +164,12 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
         //  Labels
         // ════════════════════════════════════════════════════════
 
-        private static Dictionary<int, string> ResolveLabels(SerializedProperty property, ToggleButtonAttribute attr)
+        private Dictionary<int, string> ResolveLabels(SerializedProperty property)
         {
-            if (attr != null && !string.IsNullOrEmpty(attr.LabelsMethod))
+            if (_labelsResolver != null)
             {
-                var result = ReflectionHelper.InvokeMethod<Dictionary<int, string>>(property, attr.LabelsMethod);
-                if (result != null) return result;
+                var resolved = _labelsResolver.GetValue();
+                if (resolved != null) return resolved;
             }
 
             return GetDefaultLabels(property);
@@ -213,7 +189,6 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
                     return dict;
 
                 default:
-                    // int/byte без labelsMethod — невозможно определить набор кнопок
                     return null;
             }
         }
@@ -222,19 +197,11 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
         //  Colors
         // ════════════════════════════════════════════════════════
 
-        private static Dictionary<int, Color> ResolveColors(SerializedProperty property, ToggleButtonAttribute attr)
-        {
-            if (!string.IsNullOrEmpty(attr.ColorsMethod))
-                return ReflectionHelper.InvokeMethod<Dictionary<int, Color>>(property, attr.ColorsMethod);
-            return null;
-        }
-
         private static Color GetButtonColor(int key, Dictionary<int, Color> colors, int totalButtons)
         {
             if (colors != null && colors.TryGetValue(key, out var c))
                 return c;
 
-            // Defaults: для двух кнопок — Off(red)/On(green), иначе — палитра по ToggleOnBg
             if (totalButtons == 2)
                 return key == 0
                     ? ToolsSettings.GetBgColor(DefaultColors.SwitcherOffBg)
@@ -242,10 +209,6 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
 
             return ToolsSettings.GetBgColor(DefaultColors.ToggleBg);
         }
-
-        // ════════════════════════════════════════════════════════
-        //  Утилиты
-        // ════════════════════════════════════════════════════════
 
         private static Color BlendColors(Color baseColor, Color multiplier)
         {
@@ -257,4 +220,3 @@ namespace Vortex.Unity.EditorTools.AttributeDrawers
         }
     }
 }
-#endif

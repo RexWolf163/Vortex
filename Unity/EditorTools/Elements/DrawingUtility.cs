@@ -1,10 +1,9 @@
 #if UNITY_EDITOR
 using System;
+using System.Reflection;
 using Sirenix.OdinInspector;
 using UnityEditor;
 using UnityEngine;
-using Vortex.Unity.EditorTools.Abstraction;
-using Vortex.Unity.EditorTools.AttributeDrawers;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.EditorTools.EditorSettings;
 using Vortex.Unity.Extensions.Editor;
@@ -248,12 +247,9 @@ namespace Vortex.Unity.EditorTools.Elements
         }
 
         /// <summary>
-        /// Отрисовка дефолтного поля
+        /// Отрисовка дефолтного поля по типу SerializedProperty.
         /// </summary>
-        /// <param name="position"></param>
-        /// <param name="data"></param>
-        /// <param name="property"></param>
-        public static void DrawDefaultField(Rect position, PropertyData data, SerializedProperty property)
+        public static void DrawDefaultField(Rect position, SerializedProperty property, FieldInfo fieldInfo = null)
         {
             switch (property.propertyType)
             {
@@ -274,7 +270,7 @@ namespace Vortex.Unity.EditorTools.Elements
                     break;
 
                 case SerializedPropertyType.Enum:
-                    var enumType = data.FieldInfo?.FieldType;
+                    var enumType = fieldInfo?.FieldType;
 
                     if (enumType != null && !enumType.IsEnum)
                     {
@@ -324,7 +320,7 @@ namespace Vortex.Unity.EditorTools.Elements
                     break;
 
                 case SerializedPropertyType.ObjectReference:
-                    var objType = data.FieldInfo?.FieldType ?? typeof(Object);
+                    var objType = fieldInfo?.FieldType ?? typeof(Object);
                     try
                     {
                         EditorGUI.ObjectField(position, property, objType, GUIContent.none);

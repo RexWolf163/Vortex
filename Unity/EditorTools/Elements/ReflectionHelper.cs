@@ -3,7 +3,6 @@ using System;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
-using Vortex.Unity.EditorTools.AttributeDrawers;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.EditorTools.Elements
