@@ -6,7 +6,9 @@
         "ru.vortex.unity.ui.misc",
         "ru.vortex.unity.editortools",
         "ru.vortex.sdk.game.core",
-        "spine-unity"
+        "spine-unity",
+        "spine-csharp",
+        "ru.vortex.system"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

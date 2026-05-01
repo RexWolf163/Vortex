@@ -42,7 +42,6 @@ namespace Vortex.Sdk.MapLevels.View
 
             MapLevelsBus.OnReady.Subscribe(TrySubscribe);
             MapLevelsBus.OnRelease += Unsubscribe;
-            TrySubscribe();
         }
 
         private void OnDisable()

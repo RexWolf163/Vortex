@@ -31,6 +31,7 @@ namespace Vortex.Unity.Extensions.Editor
             Events.registeringPackages += OnPackagesChanged;
             EditorUserBuildSettings.activeBuildTargetChanged -= OnActiveBuildTargetChanged;
             EditorUserBuildSettings.activeBuildTargetChanged += OnActiveBuildTargetChanged;
+            UpdateDefineSymbols();
         }
 
         private static void OnPackagesChanged(PackageRegistrationEventArgs packageRegistrationEventArgs) =>
