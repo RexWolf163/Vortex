@@ -45,6 +45,18 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 | `ResetNani()` | Stop all audio, reset variables, hide backgrounds, characters, text printers, reset choices |
 | `NaniIsPlaying()` | `true` if ScriptPlayer is playing or choice handler is visible |
 
+### NaniSessionService
+
+Adapter that wraps `Naninovel.Engine` into the `IGameSessionService` contract from `Sdk/Core`. Registers automatically via `[RuntimeInitializeOnLoadMethod]`. Once registered, `GameController` awaits `Engine.Initialized` before every transition to `Play` (after `NewGame` and `OnLoad`). Previously this wait was hard-wired into `Sdk/Core` — now Sdk/Core has no knowledge of Naninovel, and the dependency lives exclusively here.
+
+```csharp
+public sealed class NaniSessionService : IGameSessionService
+{
+    public bool IsReady => Engine.Initialized;
+    public string Name => "Naninovel.Engine";
+}
+```
+
 ---
 
 ## AudioSystem

@@ -45,6 +45,18 @@
 | `ResetNani()` | Остановка всего аудио, сброс переменных, скрытие бэкграундов, персонажей, текстовых принтеров, сброс выборов |
 | `NaniIsPlaying()` | `true` если ScriptPlayer играет или видим хэндлер выбора |
 
+### NaniSessionService
+
+Адаптер `Naninovel.Engine` под контракт `IGameSessionService` из `Sdk/Core`. Регистрируется автоматически через `[RuntimeInitializeOnLoadMethod]`. После регистрации `GameController` дожидается `Engine.Initialized` перед каждым переходом в `Play` (после `NewGame` и `OnLoad`). До этого ожидание было жёстко зашито в `Sdk/Core` — теперь Sdk/Core не знает о Naninovel, и зависимость живёт исключительно здесь.
+
+```csharp
+public sealed class NaniSessionService : IGameSessionService
+{
+    public bool IsReady => Engine.Initialized;
+    public string Name => "Naninovel.Engine";
+}
+```
+
 ---
 
 ## AudioSystem
