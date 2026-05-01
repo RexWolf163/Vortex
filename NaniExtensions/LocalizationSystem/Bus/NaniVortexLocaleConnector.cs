@@ -47,7 +47,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Bus
                 return;
             }
 
-            NaniWrapper.L10N.SelectLocale(Localization.GetCurrentDialogueLanguage());
+            NaniWrapper.L10N.SelectLocale(Localization.GetCurrentChannelLanguage(LocaleChannels.Dialogue));
             NaniWrapper.StateManager.SaveGlobal().Forget(Debug.LogException);
             SetNaniVoiceLocale();
         }
@@ -62,7 +62,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Bus
 
             var voiceLoader = (LocalizableResourceLoader<AudioClip>)NaniWrapper.AudioManager.VoiceLoader;
             if (voiceLoader == null) return;
-            voiceLoader.OverrideLocale = Localization.GetCurrentVoiceLanguage();
+            voiceLoader.OverrideLocale = Localization.GetCurrentChannelLanguage(LocaleChannels.Voice);
             NaniWrapper.StateManager.SaveGlobal().Forget(Debug.LogException);
         }
     }

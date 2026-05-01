@@ -1,4 +1,5 @@
-﻿using Cysharp.Threading.Tasks;
+﻿using System;
+using Cysharp.Threading.Tasks;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
@@ -11,24 +12,15 @@ namespace Vortex.Core.LocalizationSystem.Bus
     public partial class Localization
     {
         /// <summary>
-        /// Значение текущей локали голоса
+        /// Значение текущей локали канала
         /// </summary>
-        private static string _currentVoiceLanguage;
+        private static string[] _currentChannelLanguage;
 
         /// <summary>
-        /// Значение текущей локали голоса
+        /// Значение текущей локали канала
         /// </summary>
-        private static string CurrentVoiceLanguage => _currentVoiceLanguage;
-
-        /// <summary>
-        /// Значение текущей локали диалогов
-        /// </summary>
-        private static string _currentDialogueLanguage;
-
-        /// <summary>
-        /// Значение текущей локали диалогов
-        /// </summary>
-        private static string CurrentDialogueLanguage => _currentDialogueLanguage;
+        private static string[] CurrentChannelLanguage =>
+            _currentChannelLanguage ??= new string[Enum.GetValues(typeof(LocaleChannels)).Length];
 
         /// <summary>
         /// Обработка драйвера как IChanneledDriver
@@ -44,11 +36,12 @@ namespace Vortex.Core.LocalizationSystem.Bus
         {
             if (channel == LocaleChannels.Default)
                 return Driver.GetDefaultLanguage(); //дефолтный язык
-            if (CurrentVoiceLanguage.IsNullOrWhitespace())
+            var ch = (byte)channel;
+            if (CurrentChannelLanguage[ch].IsNullOrWhitespace())
                 SetCurrentChannelLanguage(
-                    ChDriver?.GetChannelLanguage((byte)channel)
+                    ChDriver?.GetChannelLanguage(ch)
                     ?? Driver.GetDefaultLanguage(), channel); //дефолтный язык
-            return CurrentVoiceLanguage;
+            return CurrentChannelLanguage[ch];
         }
 
         /// <summary>
@@ -58,8 +51,9 @@ namespace Vortex.Core.LocalizationSystem.Bus
         /// <param name="channel"></param>
         public static void SetCurrentChannelLanguage(string language, LocaleChannels channel)
         {
-            _currentVoiceLanguage = language;
-            ChDriver?.SetChannelLanguage((byte)channel, language)
+            var ch = (byte)channel;
+            CurrentChannelLanguage[ch] = language;
+            ChDriver?.SetChannelLanguage(ch, language)
                 .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "Localization"));
         }
     }

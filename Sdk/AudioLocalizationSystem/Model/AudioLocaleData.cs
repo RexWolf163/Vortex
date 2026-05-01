@@ -36,7 +36,7 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Model
         /// <returns></returns>
         public Sound GetLocale()
         {
-            var currentLanguage = Localization.GetCurrentLanguage();
+            var currentLanguage = Localization.GetCurrentChannelLanguage(LocaleChannels.Voice);
             if (!Voices.TryGetValue(currentLanguage, out var voice))
             {
                 _cachedSound = null;
