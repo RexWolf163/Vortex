@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.Extensions.ReactiveValues;
@@ -49,9 +51,16 @@ namespace Vortex.Sdk.Core.GameCore
         #region GameControl
 
         /// <summary>
-        /// Запуск новой игры
+        /// Запуск новой игры. Синхронная обёртка над <see cref="NewGameAsync"/>.
+        /// Между вызовом и фактическим переходом в Play может пройти несколько кадров,
+        /// если зарегистрированы IGameSessionService, ожидающие готовности.
         /// </summary>
-        public static void NewGame()
+        public static void NewGame() => NewGameAsync().Forget();
+
+        /// <summary>
+        /// Запуск новой игры с ожиданием готовности всех IGameSessionService.
+        /// </summary>
+        public static async UniTask NewGameAsync(CancellationToken cancellationToken = default)
         {
             if (_newGameLock)
                 return;
@@ -59,6 +68,10 @@ namespace Vortex.Sdk.Core.GameCore
             SetGameState(GameStates.Off);
             if (_data == null) GetData();
             _data.Init();
+            SetGameState(GameStates.Loading);
+
+            await WaitForSessionServices(cancellationToken);
+
             SetGameState(GameStates.Play);
             OnNewGame?.Invoke();
         }

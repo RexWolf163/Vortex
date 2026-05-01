@@ -83,18 +83,16 @@ namespace Vortex.NaniExtensions.SaveSystem
             }
         }
 
-        private static async void OnLoadGame()
+        private static void OnLoadGame()
         {
             try
             {
                 if (Settings.Data().DebugMode)
                     Debug.Log("[NaniDataSaveController] System loading...");
 
-                while (!Engine.Initialized)
-                {
-                    await UniTask.Delay(100);
-                }
-
+                // Готовность Engine гарантирована: GameController.OnLoadGame срабатывает
+                // только после WaitForSessionServices, а NaniSessionService выставит
+                // IsReady по Engine.Initialized.
                 _data = GameController.Get<NaniStateData>();
                 NaniWrapper.VariablesManager.ResetAllVariables();
                 foreach (var dataVariable in _data.Variables)
