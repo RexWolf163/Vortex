@@ -6,8 +6,9 @@ using Spine.Unity;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.UI.TweenerSystem;
 
-namespace Vortex.Unity.UI.TweenerSystem.TweenLogics
+namespace Vortex.SpineExtensions.TweenerSystem
 {
     /// <summary>
     /// Запускает анимацию спайна.

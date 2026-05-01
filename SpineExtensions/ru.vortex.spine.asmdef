@@ -1,0 +1,22 @@
+{
+    "name": "ru.vortex.spine",
+    "rootNamespace": "Vortex.SpineExtensions",
+    "references": [
+        "ru.vortex.extensions",
+        "ru.vortex.unity.ui.misc",
+        "ru.vortex.unity.editortools",
+        "ru.vortex.sdk.game.core",
+        "spine-unity"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_SPINE"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

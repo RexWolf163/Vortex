@@ -3,7 +3,7 @@ using UnityEngine;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Unity.EditorTools.Attributes;
 
-namespace Vortex.Sdk.UIs.Misc
+namespace Vortex.SpineExtensions.UIs
 {
     /// <summary>
     /// Хэндлер "заморозки" спайна.
