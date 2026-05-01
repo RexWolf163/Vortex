@@ -6,7 +6,7 @@ Attributes and Odin drawers for Unity Inspector customization in Vortex projects
 
 - Declarative inspector customization via attributes on serialized fields.
 - Extending Odin with Vortex-specific constructs (type filters, auto-linking, value-popup selectors, etc.).
-- Shared infrastructure (theme, reflection, collection rendering) reused across other Vortex editor packages.
+- Shared infrastructure (theme palette, searchable popup, info/error boxes) reused across other Vortex editor packages.
 
 ## Architecture
 
