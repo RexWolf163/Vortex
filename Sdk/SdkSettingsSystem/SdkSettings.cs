@@ -140,19 +140,30 @@ namespace Vortex.Sdk.SdkSettingsSystem
                 }
 
                 EditorUtility.SetDirty(this);
+                PersistAsset();
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[SdkSettings] Ошибка при обработке {group} — {ex.Message}");
             }
+        }
 
+        /// <summary>
+        /// Сохранение ассета на диск с принудительным переимпортом — иначе при последующих
+        /// записях Unity ругается на mtime-рассинхронизацию между SourceAssetDB и файлом.
+        /// </summary>
+        private void PersistAsset()
+        {
             try
             {
-                AssetDatabase.SaveAssets();
+                AssetDatabase.SaveAssetIfDirty(this);
+                var path = AssetDatabase.GetAssetPath(this);
+                if (!string.IsNullOrEmpty(path))
+                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                //Ignore
+                Debug.LogWarning($"[SdkSettings] Ошибка при сохранении ассета — {ex.Message}");
             }
         }
 
