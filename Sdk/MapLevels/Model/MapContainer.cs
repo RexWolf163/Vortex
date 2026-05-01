@@ -10,21 +10,13 @@ namespace Vortex.Sdk.MapLevels.Model
     {
         public string Guid { get; }
 
-        public ReactiveValue<MapContainerState> State { get; } = new MapContainerStateData(MapContainerState.Empty);
+        public EnumData<MapContainerState> State { get; } = new(MapContainerState.Empty);
 
         public GameObject Instance { get; internal set; }
 
         public MapContainer(string guid)
         {
             Guid = guid;
-        }
-
-        /// <summary>
-        /// Реактивная обёртка для MapContainerState.
-        /// </summary>
-        private sealed class MapContainerStateData : ReactiveValue<MapContainerState>
-        {
-            public MapContainerStateData(MapContainerState value) => Value = value;
         }
     }
 }

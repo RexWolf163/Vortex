@@ -98,8 +98,8 @@ namespace Vortex.Sdk.MapLevels.Bus
         /// </summary>
         private static void NotifyReleased()
         {
-            Controller.OnInitialized += NotifyReady;
-            Controller.OnReleased += NotifyReleased;
+            Controller.OnInitialized -= NotifyReady;
+            Controller.OnReleased -= NotifyReleased;
 
             OnRelease?.Invoke();
         }
