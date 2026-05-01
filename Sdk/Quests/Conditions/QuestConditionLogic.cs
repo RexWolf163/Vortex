@@ -23,7 +23,7 @@ namespace Vortex.Sdk.Quests.Conditions
         /// Пример:
         ///   public override void InitListeners()
         ///     {
-        ///        NaniWrapper.OnNaniStart += QuestController.CheckQuestStartConditions;
+        ///        ExampleEngine.OnStart += QuestController.CheckQuestStartConditions;
         ///
         ///        Альтернативная подписка для IReactiveData
         ///        QuestController.SetListener(GameController.Instance, this); 

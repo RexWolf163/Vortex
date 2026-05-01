@@ -170,18 +170,18 @@ public class LevelReached : QuestConditionLogic
 
 ```csharp
 [Serializable]
-public class NaniStarted : QuestConditionLogic
+public class ExampleStarted : QuestConditionLogic
 {
-    public override bool Check() => NaniWrapper.IsPlaying;
+    public override bool Check() => ExampleEngine.IsPlaying;
 
     public override void InitListeners()
     {
-        NaniWrapper.OnNaniStart += QuestController.CheckQuestStartConditions;
+        ExampleEngine.OnStart += QuestController.CheckQuestStartConditions;
     }
 
     public override void DisposeListeners()
     {
-        NaniWrapper.OnNaniStart -= QuestController.CheckQuestStartConditions;
+        ExampleEngine.OnStart -= QuestController.CheckQuestStartConditions;
     }
 }
 ```
@@ -192,14 +192,14 @@ public class NaniStarted : QuestConditionLogic
 
 ```csharp
 [Serializable]
-public class NaniVariableCondition : QuestConditionLogic
+public class ExampleVariableCondition : QuestConditionLogic
 {
     public override bool Check() => /* ... */;
 
     public override void InitListeners()
     {
         QuestController.SetListener(GameController.Instance, this);
-        QuestController.SetListener(NaniListener.Instance, this);
+        QuestController.SetListener(ExampleVariableListener.Instance, this);
     }
 
     public override void DisposeListeners()

@@ -183,7 +183,7 @@ public sealed class MyEngineSessionService : IGameSessionService
 
 Опрос — раз в 100ms. **Тайм-аута нет** (fail-fast): сервис, который никогда не выставит `IsReady`, навсегда заблокирует переход в `Play` — это лучше тихого входа в `Play` с неготовым движком и скрытых багов в билде. В debug-логе видно, какой именно сервис ожидается: `[GameController] Awaiting session service: {Name}`.
 
-Пример из коробки — `NaniSessionService` в пакете `Vortex.NaniExtensions`: регистрирует Naninovel-движок как сервис сессии. До этого ожидание `Engine.Initialized` было жёстко зашито в `Sdk/Core` — теперь Sdk/Core не знает о Naninovel.
+Типовой случай — `ExampleGameSessionService`, который оборачивает движок/подсистему уровня приложения и регистрирует её как сервис сессии. Сам `Sdk/Core` не знает о конкретных движках: ожидание готовности живёт в адаптере, реализующем `IGameSessionService`.
 
 ## Граничные случаи
 

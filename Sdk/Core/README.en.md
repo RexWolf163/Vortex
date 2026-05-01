@@ -183,7 +183,7 @@ public sealed class MyEngineSessionService : IGameSessionService
 
 Polling interval — 100ms. **There is no timeout** (fail-fast): a service that never reports ready will block the transition to `Play` forever — preferable to a silent entry into `Play` with an unready engine and hidden bugs in production builds. The debug log indicates which service is being awaited: `[GameController] Awaiting session service: {Name}`.
 
-A built-in example — `NaniSessionService` in `Vortex.NaniExtensions`: registers the Naninovel engine as a session service. Previously the wait for `Engine.Initialized` was hard-wired into `Sdk/Core` — now Sdk/Core has no knowledge of Naninovel.
+A typical case — `ExampleGameSessionService`, which wraps an application-level engine/subsystem and registers it as a session service. `Sdk/Core` itself has no knowledge of any specific engine: the readiness wait lives in the adapter implementing `IGameSessionService`.
 
 ## Edge Cases
 
