@@ -130,16 +130,27 @@ namespace Vortex.Sdk.SdkSettingsSystem
                         .Where(s => !string.IsNullOrEmpty(s))
                 );
 
+                // Запись через SerializedObject — Unity корректно регистрирует изменения,
+                // SetDirty по рефлексии тут ненадёжен (в инспекторе видно, на диск не доходит).
+                var so = new SerializedObject(this);
+                so.Update();
+
+                var initProp = so.FindProperty("_initialized");
+                if (initProp != null) initProp.boolValue = true;
+
                 foreach (var fieldInfo in fields)
                 {
                     if (fieldInfo.FieldType != typeof(bool))
                         continue;
                     var attr = fieldInfo.GetCustomAttribute<DefineSymbolAttribute>();
                     if (attr == null) continue;
-                    fieldInfo.SetValue(this, definesSet.Contains(attr.Define));
+
+                    var prop = so.FindProperty(fieldInfo.Name);
+                    if (prop != null)
+                        prop.boolValue = definesSet.Contains(attr.Define);
                 }
 
-                EditorUtility.SetDirty(this);
+                so.ApplyModifiedPropertiesWithoutUndo();
                 PersistAsset();
             }
             catch (Exception ex)
@@ -214,8 +225,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
 
             if (!settings._initialized)
             {
-                settings._initialized = true;
-                settings.ReloadStates(); // внутри сделает SetDirty + PersistAsset — флаг попадёт в сохранение
+                settings.ReloadStates(); // внутри выставит _initialized=true, поля из defines и сохранит
                 return;
             }
 
