@@ -13,7 +13,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
     /// Если поле UnityEngine.Object и == null — автоматически линкует компонент с того же GameObject.
     /// Учитывает <see cref="ClassFilterAttribute"/> для фильтрации по типу.
     /// </summary>
-    public sealed class AutoLinkAttributeDrawer : OdinAttributeDrawer<AutoLinkAttribute, Object>
+    public sealed class AutoLinkAttributeDrawer : OdinAttributeDrawer<AutoLinkAttribute>
     {
         private bool _typeError;
         private string _errorMessage;
@@ -39,7 +39,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                 return;
             }
 
-            var current = this.ValueEntry.WeakSmartValue as Object;
+            var current = Property.ValueEntry.WeakSmartValue as Object;
             if (current == null)
                 TryAutoLink();
 
@@ -70,7 +70,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                     foreach (var candidate in candidates)
                     {
                         if (!requiredType.IsInstanceOfType(candidate)) continue;
-                        ValueEntry.WeakSmartValue = candidate;
+                        Property.ValueEntry.WeakSmartValue = candidate;
                         return;
                     }
                 }
@@ -80,7 +80,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
 
             var found = gameObject.GetComponent(fieldType);
             if (found != null)
-                ValueEntry.WeakSmartValue = found;
+                Property.ValueEntry.WeakSmartValue = found;
         }
     }
 }
