@@ -2,7 +2,7 @@
 {
     public enum LocaleChannels
     {
-        UI = 0,
+        Default = 0,
         Dialogue = 1,
         Voice = 2,
     }

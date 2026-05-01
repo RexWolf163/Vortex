@@ -24,7 +24,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Handlers
 
         [SerializeField] private DropDownComponent dropdown;
 
-        [SerializeField] private LocaleChannels mode = LocaleChannels.UI;
+        [SerializeField] private LocaleChannels mode = LocaleChannels.Default;
 
         private void Awake()
         {
@@ -45,20 +45,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Handlers
         private void Refresh()
         {
             var lang = String.Empty;
-            switch (mode)
-            {
-                case LocaleChannels.UI:
-                    lang = Localization.GetCurrentLanguage();
-                    break;
-                case LocaleChannels.Dialogue:
-                    lang = Localization.GetCurrentDialogueLanguage();
-                    break;
-                case LocaleChannels.Voice:
-                    lang = Localization.GetCurrentVoiceLanguage();
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            lang = Localization.GetCurrentChannelLanguage(mode);
 
             var currentLocale = _availableLocales.IndexOf(lang);
             dropdown.SetList(_availableLocalesLabels.ToArray(), SetLocale, currentLocale);
@@ -67,20 +54,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Handlers
         public void SetLocale(int value)
         {
             var selectedLocale = _availableLocales[value];
-            switch (mode)
-            {
-                case LocaleChannels.UI:
-                    Localization.SetCurrentLanguage(selectedLocale);
-                    break;
-                case LocaleChannels.Dialogue:
-                    Localization.SetCurrentDialogueLanguage(selectedLocale);
-                    break;
-                case LocaleChannels.Voice:
-                    Localization.SetCurrentVoiceLanguage(selectedLocale);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            Localization.SetCurrentChannelLanguage(selectedLocale, mode);
         }
 
         private void GetAvailableLocales()

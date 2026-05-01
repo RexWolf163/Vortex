@@ -53,12 +53,15 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Model
         }
 
         /// <summary>
-        /// Возвращает SoundClipFixed уже готовый для проигрывания в аудио системе
+        /// Возвращает SoundClipFixed уже готовый для проигрывания в аудио системе.
+        ///
+        /// Важно!
+        /// Считается что проговариваемый текст всегда идет по каналу Voice
         /// </summary>
         /// <returns></returns>
         public SoundClipFixed GetSoundClip()
         {
-            var currentLanguage = Localization.GetCurrentVoiceLanguage();
+            var currentLanguage = Localization.GetCurrentChannelLanguage(LocaleChannels.Voice);
             if (_cachedLang != currentLanguage)
                 GetLocale();
             return _cachedSound;

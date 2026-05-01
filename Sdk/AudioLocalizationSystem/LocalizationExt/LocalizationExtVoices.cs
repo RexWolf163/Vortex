@@ -37,42 +37,29 @@ namespace Vortex.Core.LocalizationSystem.Bus
         private static IChanneledDriver ChDriver => Driver as IChanneledDriver;
 
         /// <summary>
-        /// Узнать текущую локаль голоса 
+        /// Узнать текущую локаль канала 
         /// </summary>
         /// <returns></returns>
-        public static string GetCurrentVoiceLanguage()
+        public static string GetCurrentChannelLanguage(LocaleChannels channel)
         {
+            if (channel == LocaleChannels.Default)
+                return Driver.GetDefaultLanguage(); //дефолтный язык
             if (CurrentVoiceLanguage.IsNullOrWhitespace())
-                SetCurrentVoiceLanguage(
-                    ChDriver?.GetChannelLanguage((byte)LocaleChannels.Voice)
-                    ?? Driver.GetDefaultLanguage()); //дефолтный язык
+                SetCurrentChannelLanguage(
+                    ChDriver?.GetChannelLanguage((byte)channel)
+                    ?? Driver.GetDefaultLanguage(), channel); //дефолтный язык
             return CurrentVoiceLanguage;
         }
 
         /// <summary>
-        /// Узнать текущую локаль диалогов 
+        /// Установить локаль для канала локализации 
         /// </summary>
-        /// <returns></returns>
-        public static string GetCurrentDialogueLanguage()
-        {
-            if (CurrentDialogueLanguage.IsNullOrWhitespace())
-                SetCurrentDialogueLanguage(
-                    ChDriver?.GetChannelLanguage((byte)LocaleChannels.Dialogue)
-                    ?? Driver.GetDefaultLanguage()); //дефолтный язык
-            return CurrentDialogueLanguage;
-        }
-
-        public static void SetCurrentVoiceLanguage(string language)
+        /// <param name="language"></param>
+        /// <param name="channel"></param>
+        public static void SetCurrentChannelLanguage(string language, LocaleChannels channel)
         {
             _currentVoiceLanguage = language;
-            ChDriver?.SetChannelLanguage((byte)LocaleChannels.Voice, language)
-                .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "Localization"));
-        }
-
-        public static void SetCurrentDialogueLanguage(string language)
-        {
-            _currentDialogueLanguage = language;
-            ChDriver?.SetChannelLanguage((byte)LocaleChannels.Dialogue, language)
+            ChDriver?.SetChannelLanguage((byte)channel, language)
                 .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "Localization"));
         }
     }
