@@ -149,17 +149,14 @@ namespace Vortex.Sdk.SdkSettingsSystem
         }
 
         /// <summary>
-        /// Сохранение ассета на диск с принудительным переимпортом — иначе при последующих
-        /// записях Unity ругается на mtime-рассинхронизацию между SourceAssetDB и файлом.
+        /// Сохранение ассета на диск через SaveAssetIfDirty — точечнее общего SaveAssets
+        /// и сам обновляет SourceAssetDB, без диспатча в импорт-воркеры.
         /// </summary>
         private void PersistAsset()
         {
             try
             {
                 AssetDatabase.SaveAssetIfDirty(this);
-                var path = AssetDatabase.GetAssetPath(this);
-                if (!string.IsNullOrEmpty(path))
-                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             }
             catch (Exception ex)
             {
@@ -192,6 +189,16 @@ namespace Vortex.Sdk.SdkSettingsSystem
 
         private static void OnPlatformChanged()
         {
+            // Во время сборки или активного импорта/компиляции запись в ассет конфликтует
+            // с AssetDatabase (mtime-рассинхрон → "Build asset version error"). Откладываем.
+            if (BuildPipeline.isBuildingPlayer
+                || EditorApplication.isUpdating
+                || EditorApplication.isCompiling)
+            {
+                EditorApplication.delayCall += OnPlatformChanged;
+                return;
+            }
+
             var guids = AssetDatabase.FindAssets("t:SdkSettings");
             if (guids.Length > 1)
             {
@@ -208,7 +215,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
             if (!settings._initialized)
             {
                 settings._initialized = true;
-                settings.ReloadStates(); // внутри сделает SetDirty + SaveAssets — флаг попадёт в сохранение
+                settings.ReloadStates(); // внутри сделает SetDirty + PersistAsset — флаг попадёт в сохранение
                 return;
             }
 
