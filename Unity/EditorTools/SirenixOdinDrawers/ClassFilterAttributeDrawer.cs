@@ -13,7 +13,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
     /// Валидирует, что назначенный объект соответствует одному из RequiredTypes.
     /// Несоответствующие объекты сбрасываются в null с предупреждением в консоль.
     /// </summary>
-    public sealed class ClassFilterAttributeDrawer : OdinAttributeDrawer<ClassFilterAttribute, System.Object>
+    public sealed class ClassFilterAttributeDrawer : OdinAttributeDrawer<ClassFilterAttribute>
     {
         private bool _typeError;
         private string _errorMessage;
@@ -41,7 +41,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
             CallNextDrawer(label);
 
             // Валидация после изменения
-            var current = ValueEntry.WeakSmartValue as Object;
+            var current = Property.ValueEntry.WeakSmartValue as Object;
             if (current == null) return;
 
             foreach (var requiredType in Attribute.RequiredTypes)
@@ -59,7 +59,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                     Debug.LogException(e);
                 }
 
-                ValueEntry.WeakSmartValue = null;
+                Property.ValueEntry.WeakSmartValue = null;
                 return;
             }
         }
