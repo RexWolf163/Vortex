@@ -14,7 +14,7 @@
 
 | Assembly | Содержимое | Constraints |
 |----------|-----------|-------------|
-| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `Collections/CollectionRenderer`, `EditorSettings/`, `InspectorHandler`, `ReflectionCache`) | — |
+| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `EditorSettings/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin-drawer'ы (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Структура папок
@@ -24,19 +24,16 @@ EditorTools/
 ├── Attributes/                  # Runtime-атрибуты
 ├── SirenixOdinDrawers/          # Odin-drawer'ы (Editor-only)
 ├── DataModelSystem/             # [DataModel] — развёртка runtime-объектов
-├── Collections/                 # CollectionRenderer (drag&drop, type picker)
-├── Elements/                    # DrawingUtility, ReflectionHelper, TypeResolver,
-│                                #   SearchablePopup, PropertyClipboard
+├── Elements/                    # DrawingUtility, SearchablePopup
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
-├── InspectorHandler.cs          # Навигация по SerializedProperty
-└── ReflectionCache.cs           # Кэш рефлексии с очисткой при domain reload
+└── InspectorHandler.cs          # Утилиты SerializedProperty (IsPropertyNullable, GetPropertyValue)
 ```
 
 ### Условная компиляция
 
 - Атрибуты — без guard'ов, доступны в runtime (наследуются от `PropertyAttribute`/`Attribute`).
 - Drawer'ы (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + define-constraint `ODIN_INSPECTOR` на уровне asmdef.
-- Editor-утилиты (`Elements/`, `Collections/`, `InspectorHandler`, `ReflectionCache`, `EditorSettings/*Editor`) — `#if UNITY_EDITOR`.
+- Editor-утилиты (`Elements/`, `InspectorHandler`, `EditorSettings/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — наследуется от Odin `FoldoutGroupAttribute` под `#if ODIN_INSPECTOR`, иначе fallback на `Attribute`.
 
 ## Атрибуты
@@ -72,15 +69,6 @@ public class WeaponSlot
     public int damage;
     private string GetTitle() => $"{id} ({damage} dmg)";
 }
-```
-
-### `[LabelText(string textOrMethod)]`
-
-Подмена label поля. Принимает литерал или `$Method`/`$Property`/`$Field` через Odin `ValueResolver`.
-
-```csharp
-[SerializeField, LabelText("$GetLabel")] private int hp;
-private string GetLabel() => $"HP ({hp}/100)";
 ```
 
 ### `[ToggleButton(string labelsMethod = null, string colorsMethod = null, bool isSingleButton = false)]`
@@ -175,7 +163,6 @@ public class PlayerStateModel
 |--------|---------|---------------|
 | `AutoLinkAttributeDrawer` | `[AutoLink]` | `OdinAttributeDrawer<AutoLinkAttribute>` |
 | `ClassFilterAttributeDrawer` | `[ClassFilter]` | `OdinAttributeDrawer<ClassFilterAttribute>` |
-| `LabelTextAttributeDrawer` | `[LabelText]` | `OdinAttributeDrawer<LabelTextAttribute>` |
 | `ToggleButtonAttributeDrawer` | `[ToggleButton]` | `OdinAttributeDrawer<ToggleButtonAttribute>` |
 | `ValueSelectorAttributeDrawer` | `[ValueSelector]` | `OdinAttributeDrawer<ValueSelectorAttribute>` |
 | `DateTimeAttributeDrawer` | `[DateTimeDraw]` | `OdinAttributeDrawer<DateTimeDrawAttribute, long>` |
@@ -200,33 +187,20 @@ public class PlayerStateModel
 
 ## Утилиты
 
-### `Collections/CollectionRenderer`
-
-Рендеринг коллекций с drag & drop, fold, контекстными меню, бейджем количества и type picker'ом для managed-references. Используется внешними системами (Vortex Sdk Quests, MiniGames и т. д.) для кастомного отображения списков.
-
 ### `Elements/DrawingUtility`
 
-Примитивы GUI поверх `EditorGUI`/`EditorGUIUtility`: кэш стилей, цвета темы, `DrawSelector(Rect, SerializedProperty, keys, values, currentIndex, placeholder)`, `DrawDefaultField(Rect, SerializedProperty, FieldInfo fieldInfo = null)`.
-
-### `Elements/ReflectionHelper`
-
-Вызов методов и свойств, разбор bool-условий (`"!IsActive"`, `"State == Idle"`), OnValueChanged callbacks. Использует `ReflectionCache` — кэш `FieldInfo`/`MethodInfo`/атрибутов, который очищается при domain reload.
-
-### `Elements/TypeResolver`
-
-Кэш типов, поиск производных классов, форматирование имён для managed-references.
+Примитивы GUI поверх `EditorGUI`:
+- `DrawSelector(Rect, SerializedProperty, keys, values, currentIndex, placeholder)` — popup-селектор через `SearchablePopupWindow`
+- `MakeInfoBox(Rect, text, hasError, icon)` / `CalcInfoBoxHeight(text, width)` — info/error блоки с rich-text
+- `DrawBoxBorder(Rect, color, c2, raise, ...)` — рамка из 1px-линий
 
 ### `Elements/SearchablePopup` / `SearchablePopupWindow`
 
-Попап со встроенным поиском и группировкой по разделителю `/`. Используется `ValueSelectorAttributeDrawer` и в `CollectionRenderer` (type picker).
-
-### `Elements/PropertyClipboard`
-
-Сериализация / десериализация `SerializedProperty` через JSON для копирования значений между объектами.
+Попап со встроенным поиском и группировкой по разделителю `/`. Используется `ValueSelectorAttributeDrawer` и `DrawSelector`.
 
 ### `InspectorHandler`
 
-Навигация по `SerializedProperty`: получение owner-объекта (родителя поля), извлечение значения с учётом массивов и managed-references, проверка nullability.
+Утилиты `SerializedProperty`: `IsPropertyNullable(property)` (true для String/ObjectReference), `GetPropertyValue(property)` (boxed-значение примитивов).
 
 ### `EditorSettings/ToolsSettings`
 

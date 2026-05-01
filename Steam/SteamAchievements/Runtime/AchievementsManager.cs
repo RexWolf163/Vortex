@@ -1,8 +1,8 @@
 #if USING_STEAM && UNITY_EDITOR
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Steam.SteamAchievements.Model;
 using Vortex.Steam.SteamConnectionSystem;
-using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Steam.SteamAchievements.Runtime
 {

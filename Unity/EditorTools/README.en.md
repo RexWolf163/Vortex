@@ -14,7 +14,7 @@ Attributes and Odin drawers for Unity Inspector customization in Vortex projects
 
 | Assembly | Contents | Constraints |
 |----------|----------|-------------|
-| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `Collections/CollectionRenderer`, `EditorSettings/`, `InspectorHandler`, `ReflectionCache`) | — |
+| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `EditorSettings/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin drawers (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Folder layout
@@ -24,19 +24,16 @@ EditorTools/
 ├── Attributes/                  # Runtime attributes
 ├── SirenixOdinDrawers/          # Odin drawers (Editor-only)
 ├── DataModelSystem/             # [DataModel] — runtime-object expansion
-├── Collections/                 # CollectionRenderer (drag&drop, type picker)
-├── Elements/                    # DrawingUtility, ReflectionHelper, TypeResolver,
-│                                #   SearchablePopup, PropertyClipboard
+├── Elements/                    # DrawingUtility, SearchablePopup
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
-├── InspectorHandler.cs          # SerializedProperty navigation
-└── ReflectionCache.cs           # Reflection cache, cleared on domain reload
+└── InspectorHandler.cs          # SerializedProperty utilities (IsPropertyNullable, GetPropertyValue)
 ```
 
 ### Conditional compilation
 
 - Attributes — no guards, available at runtime (inherit from `PropertyAttribute` / `Attribute`).
 - Drawers (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + the asmdef-level `ODIN_INSPECTOR` define constraint.
-- Editor utilities (`Elements/`, `Collections/`, `InspectorHandler`, `ReflectionCache`, `EditorSettings/*Editor`) — `#if UNITY_EDITOR`.
+- Editor utilities (`Elements/`, `InspectorHandler`, `EditorSettings/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — derives from Odin's `FoldoutGroupAttribute` under `#if ODIN_INSPECTOR`, falls back to `Attribute` otherwise.
 
 ## Attributes
@@ -72,15 +69,6 @@ public class WeaponSlot
     public int damage;
     private string GetTitle() => $"{id} ({damage} dmg)";
 }
-```
-
-### `[LabelText(string textOrMethod)]`
-
-Replaces a field's label. Accepts a literal or `$Method` / `$Property` / `$Field` via Odin `ValueResolver`.
-
-```csharp
-[SerializeField, LabelText("$GetLabel")] private int hp;
-private string GetLabel() => $"HP ({hp}/100)";
 ```
 
 ### `[ToggleButton(string labelsMethod = null, string colorsMethod = null, bool isSingleButton = false)]`
@@ -175,7 +163,6 @@ public class PlayerStateModel
 |--------|-----------|------------|
 | `AutoLinkAttributeDrawer` | `[AutoLink]` | `OdinAttributeDrawer<AutoLinkAttribute>` |
 | `ClassFilterAttributeDrawer` | `[ClassFilter]` | `OdinAttributeDrawer<ClassFilterAttribute>` |
-| `LabelTextAttributeDrawer` | `[LabelText]` | `OdinAttributeDrawer<LabelTextAttribute>` |
 | `ToggleButtonAttributeDrawer` | `[ToggleButton]` | `OdinAttributeDrawer<ToggleButtonAttribute>` |
 | `ValueSelectorAttributeDrawer` | `[ValueSelector]` | `OdinAttributeDrawer<ValueSelectorAttribute>` |
 | `DateTimeAttributeDrawer` | `[DateTimeDraw]` | `OdinAttributeDrawer<DateTimeDrawAttribute, long>` |
@@ -200,33 +187,20 @@ public class PlayerStateModel
 
 ## Utilities
 
-### `Collections/CollectionRenderer`
-
-Collection rendering with drag & drop, foldout, context menus, count badge, and a type picker for managed references. Used by external systems (Vortex Sdk Quests, MiniGames, etc.) for custom list rendering.
-
 ### `Elements/DrawingUtility`
 
-GUI primitives over `EditorGUI` / `EditorGUIUtility`: style cache, theme colors, `DrawSelector(Rect, SerializedProperty, keys, values, currentIndex, placeholder)`, `DrawDefaultField(Rect, SerializedProperty, FieldInfo fieldInfo = null)`.
-
-### `Elements/ReflectionHelper`
-
-Method and property invocation, bool-expression parsing (`"!IsActive"`, `"State == Idle"`), OnValueChanged callbacks. Backed by `ReflectionCache` — a `FieldInfo` / `MethodInfo` / attribute cache cleared on domain reload.
-
-### `Elements/TypeResolver`
-
-Type cache, derived-class lookup, name formatting for managed references.
+GUI primitives over `EditorGUI`:
+- `DrawSelector(Rect, SerializedProperty, keys, values, currentIndex, placeholder)` — popup selector backed by `SearchablePopupWindow`
+- `MakeInfoBox(Rect, text, hasError, icon)` / `CalcInfoBoxHeight(text, width)` — info/error blocks with rich-text
+- `DrawBoxBorder(Rect, color, c2, raise, ...)` — 1px frame
 
 ### `Elements/SearchablePopup` / `SearchablePopupWindow`
 
-Popup with built-in search and `/`-based grouping. Used by `ValueSelectorAttributeDrawer` and the `CollectionRenderer` type picker.
-
-### `Elements/PropertyClipboard`
-
-JSON-based serialization / deserialization of `SerializedProperty` for copying values between objects.
+Popup with built-in search and `/`-based grouping. Used by `ValueSelectorAttributeDrawer` and `DrawSelector`.
 
 ### `InspectorHandler`
 
-`SerializedProperty` navigation: owner-object lookup (the property's parent), value extraction respecting arrays and managed references, nullability checks.
+`SerializedProperty` helpers: `IsPropertyNullable(property)` (true for String/ObjectReference), `GetPropertyValue(property)` (boxed primitive value).
 
 ### `EditorSettings/ToolsSettings`
 
