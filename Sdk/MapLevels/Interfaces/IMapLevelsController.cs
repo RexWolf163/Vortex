@@ -26,6 +26,11 @@ namespace Vortex.Sdk.MapLevels.Interfaces
         event Action OnInitialized;
 
         /// <summary>
+        /// Контроллер очищен
+        /// </summary>
+        event Action OnReleased;
+
+        /// <summary>
         /// Активный уровень изменился. Аргумент — новый GUID и ID гейта через который происходит вход.
         /// </summary>
         event Action<string, string> OnActiveLevelChanged;

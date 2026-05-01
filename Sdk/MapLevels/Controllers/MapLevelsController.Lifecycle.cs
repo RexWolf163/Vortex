@@ -14,6 +14,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
     public partial class MapLevelsController
     {
         public event Action OnInitialized;
+        public event Action OnReleased;
 
         public void Init()
         {
@@ -29,12 +30,11 @@ namespace Vortex.Sdk.MapLevels.Controllers
 
             _ = VoidParent;
 
-            IsInitialized = true;
-            MapLevelsBus.NotifyReady();
-            OnInitialized?.Invoke();
-
             MapLevelsBus.OnMapsContainerRegistered += MoveMaps;
             MapLevelsBus.OnMapsContainerReleased += MoveMaps;
+
+            IsInitialized = true;
+            OnInitialized?.Invoke();
 
             // Если игра уже идёт (например, контроллер инициализирован после NewGame) —
             // войти в текущий уровень из GameModel.
@@ -90,7 +90,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
 
             Model = null;
             IsInitialized = false;
-            MapLevelsBus.NotifyReleased();
+            OnReleased?.Invoke();
         }
 
         /// <summary>

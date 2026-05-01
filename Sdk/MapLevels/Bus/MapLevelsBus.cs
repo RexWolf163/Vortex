@@ -91,12 +91,18 @@ namespace Vortex.Sdk.MapLevels.Bus
         /// <summary>
         /// Сообщение от контроллера: инициализация завершена.
         /// </summary>
-        internal static void NotifyReady() => Open?.Invoke();
+        private static void NotifyReady() => Open?.Invoke();
 
         /// <summary>
         /// Сообщение от контроллера: ресурсы освобождены.
         /// </summary>
-        internal static void NotifyReleased() => OnRelease?.Invoke();
+        private static void NotifyReleased()
+        {
+            Controller.OnInitialized += NotifyReady;
+            Controller.OnReleased += NotifyReleased;
+
+            OnRelease?.Invoke();
+        }
 
         /// <summary>
         /// Получает тип контроллера из settingsData.MapLevels.Controller
@@ -123,6 +129,8 @@ namespace Vortex.Sdk.MapLevels.Bus
             }
 
             Controller = (IMapLevelsController)Activator.CreateInstance(resolvedType);
+            Controller.OnInitialized += NotifyReady;
+            Controller.OnReleased += NotifyReleased;
             Controller.Init();
         }
 
