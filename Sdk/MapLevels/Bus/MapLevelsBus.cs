@@ -34,7 +34,7 @@ namespace Vortex.Sdk.MapLevels.Bus
         /// <summary>
         /// Конфиг системы управления уровнями карты
         /// </summary>
-        public static MapLevelsConfig Config;
+        public static MapLevelsConfig Config { get; private set; }
 
         /// <summary>
         /// Контроллер инициализирован и готов к работе.
