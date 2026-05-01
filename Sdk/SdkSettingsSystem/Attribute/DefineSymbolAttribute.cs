@@ -1,10 +1,9 @@
 using System;
-using UnityEngine;
 
 namespace Vortex.Sdk.SdkSettingsSystem.Attribute
 {
     [AttributeUsage(AttributeTargets.Field)]
-    public class DefineSymbolAttribute : PropertyAttribute
+    public class DefineSymbolAttribute : System.Attribute
     {
         public string Define { get; private set; }
 

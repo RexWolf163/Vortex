@@ -25,6 +25,13 @@ namespace Vortex.Sdk.SdkSettingsSystem
     {
 #if UNITY_EDITOR
         /// <summary>
+        /// Признак того, что ассет уже синхронизировался с PlayerSettings хотя бы раз.
+        /// При первом запуске (свеже-созданный ассет) выставляется через ReloadStates,
+        /// чтобы тогглы соответствовали уже существующим defines, а не затёрли их дефолтами.
+        /// </summary>
+        [SerializeField, HideInInspector] private bool _initialized;
+
+        /// <summary>
         /// Проверка соответствия дефайнов
         /// </summary>
         private void RefreshDefines()
@@ -40,7 +47,11 @@ namespace Vortex.Sdk.SdkSettingsSystem
                     continue;
                 var attr = fieldInfo.GetCustomAttribute<DefineSymbolAttribute>();
                 if (attr == null) continue;
-                defines.Add(attr.Define, (bool)fieldInfo.GetValue(this));
+                if (!defines.TryAdd(attr.Define, (bool)fieldInfo.GetValue(this)))
+                {
+                    Debug.LogError(
+                        $"[SdkSettings] Дубликат DefineSymbol \"{attr.Define}\" на поле \"{fieldInfo.Name}\" — пропущен.");
+                }
             }
 
             var modifiedCount = 0;
@@ -81,9 +92,17 @@ namespace Vortex.Sdk.SdkSettingsSystem
 
                 if (modifiedCount <= 0) return;
 
+                var newDefines = string.Join(";", definesSet.OrderBy(x => x));
+                var currentSorted = string.Join(";",
+                    currentDefines
+                        .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .OrderBy(x => x));
+                if (newDefines == currentSorted) return;
+
                 AssetDatabase.SaveAssets();
-                PlayerSettings.SetScriptingDefineSymbols(namedTarget,
-                    string.Join(";", definesSet.OrderBy(x => x)));
+                PlayerSettings.SetScriptingDefineSymbols(namedTarget, newDefines);
             }
             catch (Exception ex)
             {
@@ -119,6 +138,8 @@ namespace Vortex.Sdk.SdkSettingsSystem
                     if (attr == null) continue;
                     fieldInfo.SetValue(this, definesSet.Contains(attr.Define));
                 }
+
+                EditorUtility.SetDirty(this);
             }
             catch (Exception ex)
             {
@@ -158,14 +179,27 @@ namespace Vortex.Sdk.SdkSettingsSystem
         {
             var guids = AssetDatabase.FindAssets("t:SdkSettings");
             if (guids.Length > 1)
-                Debug.LogError("[SdkSettings] Обнаружено несколько ассетов конфигурации! Должен быть только один!");
-            foreach (var guid in guids)
             {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-                var settings = AssetDatabase.LoadAssetAtPath<SdkSettings>(path);
-                settings?.RefreshDefines();
+                Debug.LogError("[SdkSettings] Обнаружено несколько ассетов конфигурации! Должен быть только один!");
                 return;
             }
+
+            if (guids.Length == 0) return;
+
+            var path = AssetDatabase.GUIDToAssetPath(guids[0]);
+            var settings = AssetDatabase.LoadAssetAtPath<SdkSettings>(path);
+            if (settings == null) return;
+
+            if (!settings._initialized)
+            {
+                settings.ReloadStates();
+                settings._initialized = true;
+                EditorUtility.SetDirty(settings);
+                AssetDatabase.SaveAssets();
+                return;
+            }
+
+            settings.RefreshDefines();
         }
 #endif
     }
