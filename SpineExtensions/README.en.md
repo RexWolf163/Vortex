@@ -9,9 +9,11 @@ Bridge between the Vortex framework and Spine (Esoteric Software). Contains subp
 
 Out of scope: Spine runtime, asset import, skeleton rendering, cutscene logic (see [`NaniExtensions/CutsceneSystem`](../NaniExtensions/README.en.md)).
 
-## Conditional compilation
+## Activation
 
-All SpineExtensions subpackages compile only when the `USING_SPINE` symbol is defined (`defineConstraints: ["USING_SPINE"]`). Without the symbol, the assemblies are not built into the player and `Spine.Unity` is not referenced. Same approach as Steam integration: the symbol is managed manually via PlayerSettings or centrally via `DefineSymbolManager`.
+The package is activated via `SdkSettingsSystem`: the `SdkSettings` asset (`Vortex → Configs → SDK Settings`), toggle **`spineExt`**. The field is annotated with `[DefineSymbol("USING_SPINE")]` and syncs the `USING_SPINE` symbol across Scripting Define Symbols of every platform when toggled.
+
+The `ru.vortex.spine` assembly has `defineConstraints: ["USING_SPINE"]` — when the toggle is off, the module does not compile, is not built into the player, and does not reference `Spine.Unity`. The partial extension of `SdkSettings` lives in `DefineSettings/SdkSettings.Spine.cs` and is included only when the `sdk.settings.system` assembly is present (via `.asmref`).
 
 ## Assembly
 
@@ -23,6 +25,7 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 |-----------|---------|
 | [TweenerSystem](TweenerSystem/) | `SpineAnimationLogic` — TweenLogic for `SkeletonGraphic` |
 | [UIs](UIs/) | `SpinePauseHandler` — skeleton freeze driven by `GameStates` |
+| [DefineSettings](DefineSettings/) | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
 
 ## Dependencies
 
@@ -33,6 +36,8 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 | `ru.vortex.extensions` | `IsNullOrWhitespace`, `ActionExt` |
 | `ru.vortex.unity.editortools` | `[ValueSelector]`, `[AutoLink]` attributes |
 | `ru.vortex.sdk.game.core` | `GameController`, `GameStates` |
+| `ru.vortex.system` | base abstractions (asmdef reference) |
+| `sdk.settings.system` (via `.asmref`) | partial `SdkSettings` + `[DefineSymbol]` |
 | Sirenix Odin Inspector | `[InfoBox]` |
 
 > The module references both layer-2 (Unity) and layer-3 (Sdk) assemblies. This is intentional: a single assembly under `USING_SPINE` is easier to manage; isolation from the rest of the framework is provided by the constraint, not by layer separation.
@@ -106,7 +111,7 @@ Subscribe/unsubscribe lives in `OnEnable`/`OnDisable`.
 ## Installation
 
 1. Import the Spine Unity Runtime (Esoteric Software).
-2. Add `USING_SPINE` to `Project Settings → Player → Scripting Define Symbols` (for all target platforms).
-3. Once the symbol is set, the `ru.vortex.spine` assembly starts compiling.
+2. Open `Vortex → Configs → SDK Settings` and enable the **`spineExt`** toggle. The `USING_SPINE` symbol is added to every platform automatically.
+3. Once the toggle is on, the `ru.vortex.spine` assembly starts compiling.
 
-Removing the symbol disables SpineExtensions entirely without any code changes.
+Disabling the toggle removes the symbol and turns SpineExtensions off entirely without any code changes.

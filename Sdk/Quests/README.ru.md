@@ -3,6 +3,12 @@
 **Namespace:** `Vortex.Sdk.Quests`
 **Assembly:** `ru.vortex.sdk.game.quests`
 
+## Активация
+
+Пакет активируется через `SdkSettings` (меню **Vortex → Configs → SDK Settings**), тоггл **`questsSdk`**. Тоггл управляет define-символом `USING_VORTEX_QUESTS`, который указан в `defineConstraints` asmdef'а — при выключении пакет не компилируется и его типы недоступны.
+
+Канон описания активации SDK-пакетов: `Vortex/Sdk/SdkSettingsSystem/README.ru.md`.
+
 ## Назначение
 
 Система квестов с асинхронным выполнением. Управляет жизненным циклом квестов: проверка условий старта, последовательное выполнение логик, завершение с результатом.

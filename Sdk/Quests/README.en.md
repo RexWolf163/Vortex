@@ -3,6 +3,12 @@
 **Namespace:** `Vortex.Sdk.Quests`
 **Assembly:** `ru.vortex.sdk.game.quests`
 
+## Activation
+
+The package is activated via `SdkSettings` (menu **Vortex → Configs → SDK Settings**), toggle **`questsSdk`**. The toggle controls the `USING_VORTEX_QUESTS` define symbol, listed in the asmdef's `defineConstraints` — when disabled, the package does not compile and its types are unavailable.
+
+Activation canon for SDK packages: `Vortex/Sdk/SdkSettingsSystem/README.en.md`.
+
 ## Purpose
 
 Quest system with asynchronous execution. Manages quest lifecycle: start condition checks, sequential logic execution, completion with result.

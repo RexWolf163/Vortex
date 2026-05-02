@@ -9,9 +9,11 @@
 
 Вне ответственности: рантайм Spine, импорт ассетов, рендеринг скелетов, логика катсцен (см. [`NaniExtensions/CutsceneSystem`](../NaniExtensions/README.ru.md)).
 
-## Условная компиляция
+## Активация
 
-Все подпакеты SpineExtensions компилируются только при наличии символа `USING_SPINE` (`defineConstraints: ["USING_SPINE"]`). Без символа сборки не попадают в плеер и не загружают `Spine.Unity`. По образцу Steam-интеграции: символ управляется вручную через PlayerSettings или централизованным `DefineSymbolManager`.
+Пакет активируется через `SdkSettingsSystem`: ассет `SdkSettings` (`Vortex → Configs → SDK Settings`), тоггл **`spineExt`**. Тоггл помечен `[DefineSymbol("USING_SPINE")]` и при изменении синхронизирует символ `USING_SPINE` в Scripting Define Symbols всех платформ.
+
+Сборка `ru.vortex.spine` имеет `defineConstraints: ["USING_SPINE"]` — при выключенном тоггле модуль не компилируется, в плеер не попадает и `Spine.Unity` не загружает. Partial-расширение `SdkSettings` лежит в `DefineSettings/SdkSettings.Spine.cs` и собирается только когда сборка `sdk.settings.system` присутствует (через `.asmref`).
 
 ## Сборка
 
@@ -23,6 +25,7 @@
 |----------|-----------|
 | [TweenerSystem](TweenerSystem/) | `SpineAnimationLogic` — TweenLogic для `SkeletonGraphic` |
 | [UIs](UIs/) | `SpinePauseHandler` — заморозка скелета по `GameStates` |
+| [DefineSettings](DefineSettings/) | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
 
 ## Зависимости
 
@@ -33,6 +36,8 @@
 | `ru.vortex.extensions` | `IsNullOrWhitespace`, `ActionExt` |
 | `ru.vortex.unity.editortools` | Атрибуты `[ValueSelector]`, `[AutoLink]` |
 | `ru.vortex.sdk.game.core` | `GameController`, `GameStates` |
+| `ru.vortex.system` | базовые абстракции (через ссылку asmdef) |
+| `sdk.settings.system` (через `.asmref`) | partial `SdkSettings` + `[DefineSymbol]` |
 | Sirenix Odin Inspector | `[InfoBox]` |
 
 > Модуль одновременно опирается на сборки слоя 2 (Unity) и слоя 3 (Sdk). Это сделано осознанно: единая сборка под `USING_SPINE` проще в управлении, изоляция от остального фреймворка обеспечивается constraint'ом, а не разделением слоёв.
@@ -106,7 +111,7 @@
 ## Установка
 
 1. Импортировать Spine Unity Runtime (Esoteric Software).
-2. В `Project Settings → Player → Scripting Define Symbols` добавить `USING_SPINE` (для всех целевых платформ).
-3. После добавления символа сборка `ru.vortex.spine` начнёт компилироваться.
+2. Открыть `Vortex → Configs → SDK Settings` и включить тоггл **`spineExt`**. Символ `USING_SPINE` добавится во все платформы автоматически.
+3. После включения сборка `ru.vortex.spine` начнёт компилироваться.
 
-Удаление символа отключает SpineExtensions целиком без правок кода.
+Выключение тоггла снимает символ и отключает SpineExtensions целиком без правок кода.
