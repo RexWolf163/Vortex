@@ -15,7 +15,7 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Editor
     /// чтобы в Editor-режиме (без Play) дропдаун работал сразу после открытия Inspector.
     /// </summary>
     [CustomPropertyDrawer(typeof(ExtEnumKeyAttribute))]
-    public class StateKeyAttributeDrawer : PropertyDrawer
+    public class ExtensibleEnumKeyAttributeDrawer : PropertyDrawer
     {
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {

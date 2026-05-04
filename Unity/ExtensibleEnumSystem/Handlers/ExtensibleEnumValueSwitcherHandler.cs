@@ -14,7 +14,7 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
     /// <summary>
     /// Мост из <see cref="ExtEnumData{T}"/> в <see cref="UIStateSwitcher"/>.
     /// Подписывается на <see cref="IReactiveData.OnUpdateData"/> от значения и при изменении
-    /// дёргает <c>switcher.Set(stateValue.Index)</c>.
+    /// дёргает <c>switcher.Set(ExtEnumData.Index)</c>.
     ///
     /// Конфигурация (рефлексивная, как в <c>DataCapturer</c>):
     /// <list type="bullet">
