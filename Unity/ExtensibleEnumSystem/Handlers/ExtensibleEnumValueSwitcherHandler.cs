@@ -12,13 +12,13 @@ using System.Linq;
 namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
 {
     /// <summary>
-    /// Мост из <see cref="StateValue{T}"/> в <see cref="UIStateSwitcher"/>.
+    /// Мост из <see cref="ExtEnumData{T}"/> в <see cref="UIStateSwitcher"/>.
     /// Подписывается на <see cref="IReactiveData.OnUpdateData"/> от значения и при изменении
     /// дёргает <c>switcher.Set(stateValue.Index)</c>.
     ///
     /// Конфигурация (рефлексивная, как в <c>DataCapturer</c>):
     /// <list type="bullet">
-    /// <item>source — MonoBehaviour-источник, на котором есть свойство типа <see cref="StateValue{T}"/></item>
+    /// <item>source — MonoBehaviour-источник, на котором есть свойство типа <see cref="ExtEnumData{T}"/></item>
     /// <item>property — имя этого свойства (выпадашка фильтрует по типу StateValue&lt;&gt;)</item>
     /// <item>switcher — целевой UIStateSwitcher</item>
     /// </list>
@@ -61,7 +61,7 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
                 return;
             }
 
-            _indexProperty = _stateValue.GetType().GetProperty(nameof(StateValue<ExtensibleEnum>.Index));
+            _indexProperty = _stateValue.GetType().GetProperty(nameof(ExtEnumData<ExtensibleEnum>.Index));
             if (_indexProperty == null)
             {
                 Debug.LogError($"[StateValueSwitcherHandler] {name}: '{property}' is not a StateValue<>", this);
@@ -95,7 +95,7 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Editor-utility: список свойств source, чей тип — наследник <see cref="StateValue{T}"/>.
+        /// Editor-utility: список свойств source, чей тип — наследник <see cref="ExtEnumData{T}"/>.
         /// </summary>
         private string[] GetStateValueProperties()
         {
@@ -111,7 +111,7 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
         {
             while (t != null && t != typeof(object))
             {
-                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(StateValue<>))
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(ExtEnumData<>))
                     return true;
                 t = t.BaseType;
             }

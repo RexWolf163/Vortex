@@ -9,13 +9,13 @@ namespace Vortex.Core.ExtensibleEnumSystem.Extensions
     /// Сериализуется через custom-конвертер ExtensibleEnum в SerializeController:
     /// в JSON пишется только строка <c>"{FullName}.{Key}"</c>.
     /// </summary>
-    public class StateValue<T> : ReactiveValue<T> where T : ExtensibleEnum
+    public class ExtEnumData<T> : ReactiveValue<T> where T : ExtensibleEnum
     {
-        public StateValue()
+        public ExtEnumData()
         {
         }
 
-        public StateValue(T initial) => Set(initial);
+        public ExtEnumData(T initial) => Set(initial);
 
         /// <summary>Ключ текущего значения, либо <c>null</c>.</summary>
         public string Key => Value?.Key;

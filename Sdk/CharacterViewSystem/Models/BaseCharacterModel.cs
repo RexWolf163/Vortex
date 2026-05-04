@@ -2,6 +2,8 @@
 using Vortex.Sdk.CharacterViewSystem.Handlers;
 using Vortex.Sdk.CharacterViewSystem.Models.States;
 using Vortex.Core.DatabaseSystem.Model;
+using Vortex.Core.ExtensibleEnumSystem.Abstractions;
+using Vortex.Core.ExtensibleEnumSystem.Extensions;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 using Vortex.Core.Extensions.ReactiveValues;
@@ -43,17 +45,18 @@ namespace Vortex.Sdk.CharacterViewSystem.Models
         /// <summary>
         /// Режим движения персонажа
         /// </summary>
-        public EnumData<MoveState> MoveMode { get; internal set; } = new(0);
+        public ExtEnumData<MoveState> MoveMode { get; internal set; } = new(MoveState.Stay);
 
         /// <summary>
         /// Способ движения персонажа
         /// </summary>
-        public EnumData<MoveSubStateDirection> MoveDirectionMode { get; internal set; } = new(0);
+        public ExtEnumData<MoveSubStateDirection> MoveDirectionMode { get; internal set; } =
+            new(MoveSubStateDirection.Forward);
 
         /// <summary>
         /// Направление взгляда персонажа
         /// </summary>
-        public EnumData<DirectionState> DirectionMode { get; internal set; } = new(0);
+        public ExtEnumData<DirectionState> DirectionMode { get; internal set; } = new(DirectionState.East);
 
         #endregion
 
