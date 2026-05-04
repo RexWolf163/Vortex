@@ -30,14 +30,43 @@ UnityEvents (массивы): `onClick[]`, `onHover[]`, `onExit[]`.
 
 ### DataStorage
 
-Универсальный контейнер данных. Реализует `IDataStorage`. FIFO-поиск по типу.
+Универсальный контейнер данных. Реализует `IDataStorage : IDataSource`. FIFO-поиск по типу.
 
 ```csharp
-storage.SetData(myModel);                    // замена всех данных
-storage.AddData(extraData);                  // добавление/замена по типу
+storage.SetData(myModel);                    // полная замена всех данных → OnUpdateLink
+storage.SetData(new[] { a, b });             // полная замена набором       → OnUpdateLink
+storage.AddData(extraData);                  // добавление/замена по типу    → OnUpdateLink не вызывается
 var model = storage.GetData<MyModel>();      // поиск по типу
-storage.OnUpdateLink += OnDataChanged;       // событие обновления
+storage.OnUpdateLink += ReBindAll;           // переподцепить все ссылки
 ```
+
+`OnUpdateLink` — link-level: вызывается только при полной замене содержимого (`SetData`), которая инвалидирует ранее полученные через `GetData<T>()` ссылки. `AddData` не инвоцирует событие, поскольку существующие ссылки остаются валидными.
+
+### DataCapturer
+
+Late-binding мост: `MonoBehaviour`-источник + имя реактивного свойства → `IDataStorage`. Реализует `IDataStorage : IDataSource`. Конфигурируется в инспекторе; в редакторе выпадающий список свойств собирается через рефлексию по типу `IReactiveData` (включая `IntData`/`BoolData`/`FloatData`/любых наследников `ReactiveValue<T>`).
+
+```csharp
+// На префабе:
+//   source   = ссылка на любой MonoBehaviour-источник
+//   property = имя свойства (выбирается через ValueSelector с фильтром IReactiveData)
+
+// Потребитель (Pool-итем, generic-handler и т.п.):
+capturer.OnUpdateLink += () =>
+{
+    var data = capturer.GetData<IntData>();  // ссылка на ReactiveValue
+    data.OnUpdate += v => UpdateView(v);     // подписка на value-level
+};
+```
+
+Жизненный цикл:
+- `Awake` — кеширует `PropertyInfo`. При отсутствии свойства логирует ошибку, выключает компонент (`enabled = false`) и не подписывается на источник.
+- Если источник реализует `IReactiveData`, подписывается на его `OnUpdateData` для отслеживания пересоздания реактивных полей.
+- `Start` — первый `RefreshLink()` после всех `Awake` сцены, потребители успевают подписаться.
+- `RefreshLink` сравнивает новую и старую ссылки через `ReferenceEquals` и инвоцирует `OnUpdateLink` только при реальной смене ссылки.
+- `OnDestroy` — отписка от источника, зануление кеша.
+
+Ниша: связки, которые нельзя зашить через `[UIComponentLink]` (атрибутная привязка в коде виджета) — например, generic Pool-итемы, виджеты-шаблоны, сборка связки в инспекторе на префабе. Источник всегда `MonoBehaviour` — для `ScriptableObject`-настроек/пресетов используется прямая `[SerializeField]`-ссылка, не `DataCapturer`.
 
 ### CounterView (abstract)
 
@@ -128,8 +157,10 @@ Callback `Select()` всегда возвращает оригинальный (
 | `Vortex.Unity.UI.StateSwitcher` | `UIStateSwitcher` — визуальные состояния `AdvancedButton` |
 | `Vortex.Unity.UI.TweenerSystem.UniTaskTweener` | `AsyncTween`, `EaseType` — анимация `SliderView` |
 | `Vortex.Unity.AppSystem` | `TimeController` — отложенные вызовы |
-| `Vortex.Core.System` | `IDataStorage` — интерфейс |
+| `Vortex.Core.System` | `IDataSource`, `IDataStorage`, `IReactiveData` |
+| `Vortex.Core.Extensions.ReactiveValues` | `ReactiveValue<T>`, `IntData`, `BoolData`, `FloatData` — фильтр свойств `DataCapturer` |
 | `Vortex.Core.Extensions` | `ActionExt.Fire()` |
+| Sirenix Odin Inspector | `ValueSelector`, `FoldoutGroup` — UX `DataCapturer` |
 | TextMeshPro | TMP в `CounterView` |
 
 ---
@@ -141,6 +172,11 @@ Callback `Select()` всегда возвращает оригинальный (
 | `AdvancedButton.OnClick` в режиме `OnClick` — свайп | Не срабатывает (смещение > 20px) |
 | `AdvancedButton.Press()` / `Release()` извне | Работает без pointer-событий |
 | `DataStorage.GetData<T>()` — тип не найден | Возвращает `null` |
+| `DataStorage.AddData()` — добавление | `OnUpdateLink` не вызывается (link-level не нарушен) |
+| `DataCapturer` — свойство переименовано или отсутствует | `Debug.LogError` + `enabled = false`; `Start`/`RefreshLink` не выполняются |
+| `DataCapturer` — источник реализует `IReactiveData` | Подписка на `OnUpdateData` источника, `RefreshLink` при сигнале |
+| `DataCapturer.RefreshLink` — ссылка не изменилась | `OnUpdateLink` не вызывается (`ReferenceEquals`) |
+| `DataCapturer` — `source` или property не заданы в инспекторе | NRE в `Awake` (fail-fast по канону) |
 | `CounterView.Refresh()` — значение не изменилось | Обновление пропускается (кэш) |
 | `SliderView.Set()` — те же value/max | Обновление пропускается |
 | `EnableDelayForChild` — `OnDisable` до срока | Дети деактивируются, таймер снимается |

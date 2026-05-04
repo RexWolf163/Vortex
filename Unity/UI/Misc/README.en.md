@@ -30,14 +30,43 @@ External control: `Press()`, `Release()`, `AddOnClick(UnityAction)`, `RemoveOnCl
 
 ### DataStorage
 
-Universal data container. Implements `IDataStorage`. FIFO search by type.
+Universal data container. Implements `IDataStorage : IDataSource`. FIFO search by type.
 
 ```csharp
-storage.SetData(myModel);                    // replace all data
-storage.AddData(extraData);                  // add/replace by type
+storage.SetData(myModel);                    // full replacement of all data → OnUpdateLink
+storage.SetData(new[] { a, b });             // full replacement with set     → OnUpdateLink
+storage.AddData(extraData);                  // add/replace by type            → OnUpdateLink not fired
 var model = storage.GetData<MyModel>();      // search by type
-storage.OnUpdateLink += OnDataChanged;       // update event
+storage.OnUpdateLink += ReBindAll;           // re-bind all references
 ```
+
+`OnUpdateLink` is link-level: fired only on full content replacement (`SetData`), which invalidates references previously obtained via `GetData<T>()`. `AddData` does not fire the event since existing references remain valid.
+
+### DataCapturer
+
+Late-binding bridge: `MonoBehaviour` source + reactive property name → `IDataStorage`. Implements `IDataStorage : IDataSource`. Configured in the inspector; in editor mode the property dropdown is built via reflection by filtering for `IReactiveData` (covers `IntData` / `BoolData` / `FloatData` / any `ReactiveValue<T>` descendant).
+
+```csharp
+// On the prefab:
+//   source   = reference to any MonoBehaviour source
+//   property = property name (picked via ValueSelector filtered by IReactiveData)
+
+// Consumer (Pool item, generic handler, etc.):
+capturer.OnUpdateLink += () =>
+{
+    var data = capturer.GetData<IntData>();  // reference to ReactiveValue
+    data.OnUpdate += v => UpdateView(v);     // subscribe to value-level
+};
+```
+
+Lifecycle:
+- `Awake` — caches `PropertyInfo`. If the property is missing, logs the error, disables the component (`enabled = false`), and does not subscribe to the source.
+- If the source implements `IReactiveData`, subscribes to its `OnUpdateData` to track recreation of reactive fields.
+- `Start` — first `RefreshLink()` after all scene `Awake`s; consumers have time to subscribe.
+- `RefreshLink` compares new and old references via `ReferenceEquals` and fires `OnUpdateLink` only on actual reference change.
+- `OnDestroy` — unsubscribes from the source, nullifies cache.
+
+Use case: bindings that cannot be hard-wired via `[UIComponentLink]` (attribute binding in widget code) — generic Pool items, template widgets, inspector-time wiring on prefabs. The source is always a `MonoBehaviour` — for `ScriptableObject` settings/presets use a direct `[SerializeField]` reference, not `DataCapturer`.
 
 ### CounterView (abstract)
 
@@ -128,8 +157,10 @@ The list is instantiated into the `Canvas` on first open, deactivated on close, 
 | `Vortex.Unity.UI.StateSwitcher` | `UIStateSwitcher` — `AdvancedButton` visual states |
 | `Vortex.Unity.UI.TweenerSystem.UniTaskTweener` | `AsyncTween`, `EaseType` — `SliderView` animation |
 | `Vortex.Unity.AppSystem` | `TimeController` — deferred calls |
-| `Vortex.Core.System` | `IDataStorage` — interface |
+| `Vortex.Core.System` | `IDataSource`, `IDataStorage`, `IReactiveData` |
+| `Vortex.Core.Extensions.ReactiveValues` | `ReactiveValue<T>`, `IntData`, `BoolData`, `FloatData` — `DataCapturer` property filter |
 | `Vortex.Core.Extensions` | `ActionExt.Fire()` |
+| Sirenix Odin Inspector | `ValueSelector`, `FoldoutGroup` — `DataCapturer` UX |
 | TextMeshPro | TMP in `CounterView` |
 
 ---
@@ -141,6 +172,11 @@ The list is instantiated into the `Canvas` on first open, deactivated on close, 
 | `AdvancedButton.OnClick` in `OnClick` mode — swipe | Does not fire (movement > 20px) |
 | `AdvancedButton.Press()` / `Release()` externally | Works without pointer events |
 | `DataStorage.GetData<T>()` — type not found | Returns `null` |
+| `DataStorage.AddData()` — addition | `OnUpdateLink` not fired (link-level not violated) |
+| `DataCapturer` — property renamed or missing | `Debug.LogError` + `enabled = false`; `Start`/`RefreshLink` do not run |
+| `DataCapturer` — source implements `IReactiveData` | Subscribes to source `OnUpdateData`, `RefreshLink` on signal |
+| `DataCapturer.RefreshLink` — reference unchanged | `OnUpdateLink` not fired (`ReferenceEquals`) |
+| `DataCapturer` — `source` or property not assigned in inspector | NRE in `Awake` (fail-fast by canon) |
 | `CounterView.Refresh()` — value unchanged | Update skipped (cache) |
 | `SliderView.Set()` — same value/max | Update skipped |
 | `EnableDelayForChild` — `OnDisable` before delay | Children deactivated, timer removed |

@@ -20,7 +20,8 @@ Capabilities:
 - `IProcess` / `ProcessData` — interface and data for async processes in `Loader`
 - `DateTimeTimer` — `DateTime`-based timer, works offline
 - `SystemModel` — base class for data models
-- `IDataStorage` — data storage interface with update event
+- `IDataSource` — contract for a data source exposing references to data objects, with a link-replacement event (`OnUpdateLink`)
+- `IDataStorage : IDataSource` — typed getter `GetData<T>()` on top of the source
 - `AppStates` — application state enumeration
 
 Out of scope:
@@ -182,7 +183,8 @@ Timer based on `DateTime.UtcNow`. Works offline — independent of Update loop. 
 |------|---------|
 | `SystemModel` | Abstract base class for data models (empty, for typing) |
 | `ISystemController` | Marker interface for system controllers |
-| `IDataStorage` | Storage interface: `GetData<T>()`, `OnUpdateLink` |
+| `IDataSource` | Data source contract: `OnUpdateLink` event (link-level — references to exposed data have been recreated or replaced) |
+| `IDataStorage : IDataSource` | Typed data access: `GetData<T>() where T : class` |
 | `AppStates` | Enum: `None`, `Unfocused`, `WaitSettings`, `Starting`, `Running`, `Loading`, `Saving`, `Stopping` |
 
 ---
@@ -224,6 +226,7 @@ Timer based on `DateTime.UtcNow`. Works offline — independent of Update loop. 
 | `ProcessData` has public fields | Optimization, programmer's responsibility |
 | `DateTimeTimer` has no Pause/Resume | Fixed Start/End only |
 | `IProcess.WaitingFor()` returns types | Not instances, but `Type[]` for topological sorting |
+| `IDataSource.OnUpdateLink` is link-level | Only signals replacement/recreation of references exposed through `IDataStorage.GetData<T>()`. Does NOT signal internal state changes of previously exposed objects, nor addition of new ones without replacing existing |
 
 ---
 

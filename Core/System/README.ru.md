@@ -20,7 +20,8 @@
 - `IProcess` / `ProcessData` — интерфейс и данные асинхронного процесса для `Loader`
 - `DateTimeTimer` — таймер на основе `DateTime`, работает offline
 - `SystemModel` — базовый класс моделей данных
-- `IDataStorage` — интерфейс хранилища данных с событием обновления
+- `IDataSource` — контракт источника данных, отдающего ссылки на объекты-данные с событием замены ссылок (`OnUpdateLink`)
+- `IDataStorage : IDataSource` — типизированный getter `GetData<T>()` поверх источника
 - `AppStates` — перечисление состояний приложения
 
 Вне ответственности:
@@ -183,7 +184,8 @@ DateTimeTimer
 |-----|-----------|
 | `SystemModel` | Абстрактный базовый класс моделей данных (пустой, для типизации) |
 | `ISystemController` | Маркерный интерфейс системного контроллера |
-| `IDataStorage` | Интерфейс хранилища: `GetData<T>()`, `OnUpdateLink` |
+| `IDataSource` | Контракт источника данных: событие `OnUpdateLink` (link-level — ссылки на выдаваемые данные пересозданы/замещены) |
+| `IDataStorage : IDataSource` | Типизированный доступ к данным: `GetData<T>() where T : class` |
 | `AppStates` | Enum: `None`, `Unfocused`, `WaitSettings`, `Starting`, `Running`, `Loading`, `Saving`, `Stopping` |
 
 ---
@@ -225,6 +227,7 @@ DateTimeTimer
 | `ProcessData` — public fields | Оптимизация, контроль на программисте |
 | `DateTimeTimer` — без Pause/Resume | Только фиксированные Start/End |
 | `IProcess.WaitingFor()` — типы контроллеров | Не экземпляры, а `Type[]` для топологической сортировки |
+| `IDataSource.OnUpdateLink` — link-level | Сигнализирует только замену/пересоздание ссылок, выдаваемых через `IDataStorage.GetData<T>()`. НЕ сигнализирует об изменении внутреннего состояния уже выданных объектов и о добавлении новых без замены существующих |
 
 ---
 
