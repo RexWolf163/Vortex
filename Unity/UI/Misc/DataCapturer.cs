@@ -34,6 +34,8 @@ namespace Vortex.Unity.UI.Misc
             if (_property == null)
             {
                 Debug.LogError($"[DataCapturer] {name}: {property} property not found in type {source.GetType().Name}");
+                enabled = false;
+                return;
             }
 
             if (source is IReactiveData reactSource)

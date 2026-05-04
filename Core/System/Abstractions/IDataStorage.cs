@@ -1,11 +1,13 @@
-﻿using System;
-
-namespace Vortex.Core.System.Abstractions
+﻿namespace Vortex.Core.System.Abstractions
 {
-    public interface IDataStorage
+    /// <summary>
+    /// Интерфейс хранилища уникальных конкретизированных данных
+    ///
+    /// Реализует метод поиска возвращающий данные из внутреннего реестра(или хранилища)
+    /// по ожидаемому типу
+    /// </summary>
+    public interface IDataStorage : IDataSource
     {
-        public event Action OnUpdateLink;
-
         public T GetData<T>() where T : class;
     }
 }
