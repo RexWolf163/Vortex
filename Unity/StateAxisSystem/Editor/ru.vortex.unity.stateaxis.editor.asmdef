@@ -1,0 +1,20 @@
+{
+    "name": "ru.vortex.unity.stateaxis.editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:b4e88d95dc2b5ce4c3f7ab8f6e9eaf02",
+        "GUID:a3e77c84cb1a4bd3b2e69a7f5e8d9c01",
+        "GUID:f3e27e2402bbacb4eb9c8f5c8cbdd91b"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

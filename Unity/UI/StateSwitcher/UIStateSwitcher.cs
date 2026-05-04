@@ -4,6 +4,7 @@ using System.Linq;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.Serialization;
+using Vortex.Core.StateAxisSystem.Abstractions;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.StateSwitcher
@@ -281,6 +282,18 @@ namespace Vortex.Unity.UI.StateSwitcher
         /// </summary>
         /// <param name="state">состояниe в виде элемента перечисления. Используется Хэш код параметра</param>
         public void Set(Enum state) => Set(Convert.ToInt32(state));
+
+        /// <summary>
+        /// Выставление указанного состояния через инстанс <see cref="StateAxis"/>.
+        /// Используется <see cref="StateAxis.Order"/> как номер слота свитчера.
+        /// При <c>null</c> — no-op.
+        /// </summary>
+        /// <param name="state">значение оси состояния (singleton-инстанс)</param>
+        public void Set(StateAxis state)
+        {
+            if (state == null) return;
+            Set(state.Order);
+        }
 
 
         /// <summary>

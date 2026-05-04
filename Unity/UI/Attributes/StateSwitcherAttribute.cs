@@ -1,5 +1,7 @@
 using System;
+using System.Runtime.CompilerServices;
 using UnityEngine;
+using Vortex.Core.StateAxisSystem.Abstractions;
 
 namespace Vortex.Unity.UI.Attributes
 {
@@ -12,19 +14,39 @@ namespace Vortex.Unity.UI.Attributes
         public readonly StateDesc[] States;
 
         /// <summary>
-        /// Добавляет все значения Enum-а как хинты.
-        /// Описание значения можно заменить добавлением атрибута Tooltip/LabelText на значения enum-а
+        /// Добавляет все значения Enum-а или StateAxis-наследника как хинты.
+        /// Для Enum: описание значения можно заменить добавлением атрибута Tooltip/LabelText на значения enum-а.
+        /// Для StateAxis: описание = <see cref="StateAxis.Key"/>.
         /// </summary>
-        public StateSwitcherAttribute(Type enumType)
+        public StateSwitcherAttribute(Type type)
         {
-            if (!enumType.IsEnum)
-                throw new ArgumentException($"[StateSwitcher] {enumType.Name} is not an Enum type.");
+            if (type == null)
+                throw new ArgumentNullException(nameof(type));
 
-            Array values = Enum.GetValues(enumType);
-            States = new StateDesc[values.Length];
+            if (type.IsEnum)
+            {
+                Array values = Enum.GetValues(type);
+                States = new StateDesc[values.Length];
+                for (int i = 0; i < States.Length; i++)
+                    States[i] = new StateDesc(values.GetValue(i));
+                return;
+            }
 
-            for (int i = 0; i < States.Length; i++)
-                States[i] = new StateDesc(values.GetValue(i));
+            if (typeof(StateAxis).IsAssignableFrom(type) && !type.IsAbstract)
+            {
+                // Принудительный прогон static-инициализатора, иначе GetAll вернёт пустой массив
+                // в редакторе до первого обращения к значениям оси из кода.
+                try { RuntimeHelpers.RunClassConstructor(type.TypeHandle); }
+                catch { /* на этапе drawer'а ошибки безвредны — отрисуем пустой список */ }
+
+                var values = StateAxis.GetAll(type);
+                States = new StateDesc[values.Count];
+                for (int i = 0; i < States.Length; i++)
+                    States[i] = new StateDesc(values[i].Order, values[i].Key);
+                return;
+            }
+
+            throw new ArgumentException($"[StateSwitcher] {type.Name} must be an Enum or a non-abstract StateAxis subclass.");
         }
 
         [Serializable]
