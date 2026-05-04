@@ -99,6 +99,9 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         {
             if (type == null) return true;
 
+            // Custom-конвертеры (например, StateAxis) трактуются как simple-типы.
+            if (TryGetCustomConverter(type, out _)) return true;
+
             if (type.IsPrimitive) return true;
             if (type.IsEnum) return true;
 
@@ -285,6 +288,10 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             if (valueStr.Length >= 2 && valueStr[0] == '"' && valueStr[^1] == '"')
                 valueStr = valueStr[1..^1];
 
+            // Custom-конвертеры (например, StateAxis) — приоритет над встроенными правилами.
+            if (TryGetCustomConverter(type, out var customDeser))
+                return customDeser.Deserialize(type, JsonDecode(valueStr));
+
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
                 return SetSimple(type.GetGenericArguments()[0], valueStr);
 
@@ -343,6 +350,10 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         {
             if (model == null) return "null";
             var type = model.GetType();
+
+            // Custom-конвертеры (например, StateAxis) — приоритет над встроенными правилами.
+            if (TryGetCustomConverter(type, out var customSer))
+                return $"\"{JsonEncode(customSer.Serialize(model))}\"";
 
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
             {
