@@ -22,8 +22,10 @@ namespace Vortex.Sdk.CharacterViewSystem.Models
         /// Закрытие ключом всех контейнеров
         /// </summary>
         /// <param name="key"></param>
-        internal void SetOwner(object key)
+        internal override void SetOwner(object key)
         {
+            base.SetOwner(key);
+
             IsActive.SetOwner(key);
             IsOwned.SetOwner(key);
         }

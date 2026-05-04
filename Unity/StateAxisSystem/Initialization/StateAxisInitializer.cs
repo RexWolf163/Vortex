@@ -21,7 +21,7 @@ namespace Vortex.Unity.StateAxisSystem.Initialization
     {
         private static bool _initialized;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod]
         private static void InitializeRuntime() => Initialize();
 
 #if UNITY_EDITOR

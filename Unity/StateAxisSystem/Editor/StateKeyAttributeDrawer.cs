@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -6,7 +7,7 @@ using UnityEngine;
 using Vortex.Core.StateAxisSystem.Abstractions;
 using Vortex.Unity.StateAxisSystem.Attributes;
 
-namespace Vortex.Unity.StateAxisSystem.EditorTools
+namespace Vortex.Unity.StateAxisSystem.Editor
 {
     /// <summary>
     /// Drawer для <see cref="StateKeyAttribute"/>. На string-поле рисует popup с ключами оси.
@@ -28,15 +29,22 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
 
             // Принудительная инициализация типа: static-поля наследников создают инстансы,
             // регистрируясь в реестре StateAxis.
-            try { RuntimeHelpers.RunClassConstructor(attr.AxisType.TypeHandle); }
-            catch { /* type initializer issues — fallback ниже */ }
+            try
+            {
+                RuntimeHelpers.RunClassConstructor(attr.AxisType.TypeHandle);
+            }
+            catch
+            {
+                /* type initializer issues — fallback ниже */
+            }
 
             var values = StateAxis.GetAll(attr.AxisType);
 
             if (values == null || values.Count == 0)
             {
                 EditorGUI.PropertyField(position, property, label);
-                var rect = new Rect(position.x, position.y + position.height, position.width, EditorGUIUtility.singleLineHeight);
+                var rect = new Rect(position.x, position.y + position.height, position.width,
+                    EditorGUIUtility.singleLineHeight);
                 EditorGUI.HelpBox(position,
                     $"Нет значений для оси {attr.AxisType.Name}. Сохраните пресет.",
                     MessageType.Warning);
@@ -55,3 +63,4 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
         }
     }
 }
+#endif

@@ -37,7 +37,6 @@ namespace Vortex.Sdk.CharacterViewSystem.View
                     break;
                 case GameStates.Win:
                 case GameStates.Fail:
-                    break;
                 case GameStates.Paused:
                     break;
                 default:

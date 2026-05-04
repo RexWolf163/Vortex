@@ -3,7 +3,7 @@
 namespace Vortex.Sdk.CharacterViewSystem.Abstractions
 {
     [Serializable]
-    public abstract class CharacterBehavior : ICharacterBehavior
+    public abstract class CharacterBehavior
     {
         /// <summary>
         /// Блок инициализации.

@@ -29,9 +29,11 @@ namespace Vortex.Sdk.CharacterViewSystem.Models
         /// <summary>
         /// Набор моделей поведения персонажа (В основном для NPC, но можно и команды для PC указать)
         /// </summary>
-        public ICharacterBehavior Behaviors { get; internal set; }
+        public CharacterBehavior Behaviors { get; internal set; }
 
         #endregion
+
+        #region DynamicStats
 
         /// <summary>
         /// Целевой объект персонажа
@@ -53,12 +55,22 @@ namespace Vortex.Sdk.CharacterViewSystem.Models
         /// </summary>
         public EnumData<DirectionState> DirectionMode { get; internal set; } = new(0);
 
+        #endregion
+
         public override string GetDataForSave() => this.SerializeProperties();
 
         public override void LoadFromSaveData(string data)
         {
             var temp = data.DeserializeProperties<T>();
             this.CopyFrom(temp);
+        }
+
+        internal virtual void SetOwner(object key)
+        {
+            Focus.SetOwner(key);
+            MoveMode.SetOwner(key);
+            MoveDirectionMode.SetOwner(key);
+            DirectionMode.SetOwner(key);
         }
     }
 }

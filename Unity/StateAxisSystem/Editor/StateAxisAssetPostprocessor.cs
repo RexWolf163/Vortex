@@ -1,9 +1,10 @@
+#if UNITY_EDITOR
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.StateAxisSystem.Presets;
 
-namespace Vortex.Unity.StateAxisSystem.EditorTools
+namespace Vortex.Unity.StateAxisSystem.Editor
 {
     /// <summary>
     /// При удалении ассета <see cref="StateAxisPreset"/> удаляет парный
@@ -29,3 +30,4 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
         }
     }
 }
+#endif

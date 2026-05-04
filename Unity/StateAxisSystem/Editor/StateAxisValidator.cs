@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -6,7 +7,7 @@ using UnityEngine;
 using Vortex.Core.StateAxisSystem.Abstractions;
 using Vortex.Unity.StateAxisSystem.Presets;
 
-namespace Vortex.Unity.StateAxisSystem.EditorTools
+namespace Vortex.Unity.StateAxisSystem.Editor
 {
     /// <summary>
     /// Editor-валидатор: при входе в Play Mode проверяет, что для каждого
@@ -50,7 +51,7 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
                 Debug.Log($"[StateAxis] Валидация: {presetGuids.Length} пресет(ов) проверено, ошибок не найдено.");
         }
 
-        private static bool ValidatePreset(StateAxisPreset preset)
+        internal static bool ValidatePreset(StateAxisPreset preset)
         {
             if (string.IsNullOrEmpty(preset.AxisName) || string.IsNullOrEmpty(preset.TargetNamespace))
             {
@@ -69,7 +70,7 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
             if (type == null)
             {
                 Debug.LogError($"[StateAxis] Пресет '{preset.name}' ссылается на тип '{fullName}', " +
-                    $"которого нет в сборках. Откройте пресет и нажмите Save.", preset);
+                               $"которого нет в сборках. Откройте пресет и нажмите Save.", preset);
                 return false;
             }
 
@@ -112,3 +113,4 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
         }
     }
 }
+#endif

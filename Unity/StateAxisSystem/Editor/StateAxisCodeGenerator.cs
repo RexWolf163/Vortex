@@ -1,8 +1,9 @@
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Vortex.Unity.StateAxisSystem.EditorTools
+namespace Vortex.Unity.StateAxisSystem.Editor
 {
     /// <summary>
     /// Генератор C#-кода для StateAxis-наследников. Полная регенерация без маркеров —
@@ -13,7 +14,9 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
     internal static class StateAxisCodeGenerator
     {
         private static readonly Regex ValidIdentifier = new(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
-        private static readonly Regex ValidNamespace = new(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$", RegexOptions.Compiled);
+
+        private static readonly Regex ValidNamespace =
+            new(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$", RegexOptions.Compiled);
 
         public static bool IsValidIdentifier(string s) =>
             !string.IsNullOrEmpty(s) && ValidIdentifier.IsMatch(s);
@@ -60,11 +63,13 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
             sb.AppendLine($"            [UnityEditor.MenuItem(\"Vortex/StateAxis/{axisName}\")]");
             sb.AppendLine("            private static void OpenPreset()");
             sb.AppendLine("            {");
-            sb.AppendLine($"                var guids = UnityEditor.AssetDatabase.FindAssets(\"{axisName} t:StateAxisPreset\");");
+            sb.AppendLine(
+                $"                var guids = UnityEditor.AssetDatabase.FindAssets(\"{axisName} t:StateAxisPreset\");");
             sb.AppendLine("                foreach (var guid in guids)");
             sb.AppendLine("                {");
             sb.AppendLine("                    var path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);");
-            sb.AppendLine("                    var preset = UnityEditor.AssetDatabase.LoadAssetAtPath<Vortex.Unity.StateAxisSystem.Presets.StateAxisPreset>(path);");
+            sb.AppendLine(
+                "                    var preset = UnityEditor.AssetDatabase.LoadAssetAtPath<Vortex.Unity.StateAxisSystem.Presets.StateAxisPreset>(path);");
             sb.AppendLine($"                    if (preset != null && preset.AxisName == \"{axisName}\")");
             sb.AppendLine("                    {");
             sb.AppendLine("                        UnityEditor.Selection.activeObject = preset;");
@@ -82,3 +87,4 @@ namespace Vortex.Unity.StateAxisSystem.EditorTools
         }
     }
 }
+#endif

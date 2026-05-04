@@ -20,7 +20,7 @@ namespace Vortex.Sdk.CharacterViewSystem.Handlers.Quests
 
         public override async UniTask<bool> Run(CancellationToken token)
         {
-            var pc = Vortex.Sdk.CharacterViewSystem.CharactersBus.SpawnPc(id);
+            var pc = CharactersBus.SpawnPc(id);
             await UniTask.Yield();
             return softControl || pc != null;
         }

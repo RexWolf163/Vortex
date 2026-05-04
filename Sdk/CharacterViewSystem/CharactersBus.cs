@@ -13,7 +13,14 @@ namespace Vortex.Sdk.CharacterViewSystem
     /// </summary>
     public partial class CharactersBus : Singleton<CharactersBus>
     {
+        /// <summary>
+        /// Событие изменения данных в индексе PC 
+        /// </summary>
         public static event Action OnPcChanged;
+        
+        /// <summary>
+        /// Событие изменения данных в индексе NPC
+        /// </summary>
         public static event Action OnNpcChanged;
 
         /// <summary>
