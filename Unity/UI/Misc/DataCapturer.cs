@@ -53,7 +53,7 @@ namespace Vortex.Unity.UI.Misc
         private void RefreshLink()
         {
             var newProp = _property?.GetValue(source, null);
-            var b = newProp != _propertyValue;
+            var b = !ReferenceEquals(newProp, _propertyValue);
             _propertyValue = newProp;
             if (b && _propertyValue != null)
                 OnUpdateLink?.Invoke();
@@ -73,7 +73,7 @@ namespace Vortex.Unity.UI.Misc
             return properties.Where(p => (typeof(IReactiveData)).IsAssignableFrom(p.PropertyType))
                 .OrderBy(p => p.Name)
                 .ThenBy(p => p.PropertyType.Name)
-                .ToDictionary(p => p.Name, p => $"{p.PropertyType.Name}/{p.PropertyType.Name}");
+                .ToDictionary(p => p.Name, p => $"{p.PropertyType.Name}/{p.Name}");
         }
 #endif
     }
