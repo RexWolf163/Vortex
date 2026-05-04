@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Core.ExtensibleEnumSystem.Abstractions;
@@ -10,9 +9,10 @@ using Vortex.Unity.ExtensibleEnumSystem.Attributes;
 namespace Vortex.Unity.ExtensibleEnumSystem.Editor
 {
     /// <summary>
-    /// Drawer для <see cref="ExtEnumKeyAttribute"/>. На string-поле рисует popup с ключами оси.
-    /// Перед чтением списка ключей принудительно прогоняет static-инициализатор оси,
-    /// чтобы в Editor-режиме (без Play) дропдаун работал сразу после открытия Inspector.
+    /// Drawer для <see cref="ExtEnumKeyAttribute"/>. На string-поле рисует popup с ключами
+    /// ExtensibleEnum-типа. Реестр уже наполнен eager-инициализацией ExtensibleEnum
+    /// (<c>[InitializeOnLoadMethod]</c> в Editor + <c>[RuntimeInitializeOnLoadMethod]</c>
+    /// в рантайме), поэтому здесь просто читаем <see cref="ExtensibleEnum.GetAll(Type)"/>.
     /// </summary>
     [CustomPropertyDrawer(typeof(ExtEnumKeyAttribute))]
     public class ExtensibleEnumKeyAttributeDrawer : PropertyDrawer
@@ -21,32 +21,18 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Editor
         {
             if (property.propertyType != SerializedPropertyType.String)
             {
-                EditorGUI.LabelField(position, label.text, "[StateKey] only on string fields");
+                EditorGUI.LabelField(position, label.text, "[ExtEnumKey] only on string fields");
                 return;
             }
 
             var attr = (ExtEnumKeyAttribute)attribute;
-
-            // Принудительная инициализация типа: static-поля наследников создают инстансы,
-            // регистрируясь в реестре ExtensibleEnum.
-            try
-            {
-                RuntimeHelpers.RunClassConstructor(attr.ExtEnumType.TypeHandle);
-            }
-            catch
-            {
-                /* type initializer issues — fallback ниже */
-            }
-
             var values = ExtensibleEnum.GetAll(attr.ExtEnumType);
 
             if (values == null || values.Count == 0)
             {
                 EditorGUI.PropertyField(position, property, label);
-                var rect = new Rect(position.x, position.y + position.height, position.width,
-                    EditorGUIUtility.singleLineHeight);
                 EditorGUI.HelpBox(position,
-                    $"Нет значений для оси {attr.ExtEnumType.Name}. Сохраните пресет.",
+                    $"Тип {attr.ExtEnumType.Name} не имеет зарегистрированных значений.",
                     MessageType.Warning);
                 return;
             }

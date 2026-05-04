@@ -1,28 +1,29 @@
-# StateAxisSystem (Core)
+# ExtensibleEnumSystem (Core)
 
-**Namespace:** `Vortex.Core.StateAxisSystem.Abstractions`, `Vortex.Core.StateAxisSystem.Extensions`
-**Assembly:** `ru.vortex.stateaxis`
-**Platform:** .NET Standard 2.1+
+**Namespace:** `Vortex.Core.ExtensibleEnumSystem.Abstractions`, `Vortex.Core.ExtensibleEnumSystem.Extensions`
+**Assembly:** `ru.vortex.extenums`
+**Platform:** Unity / .NET Standard 2.1+
 
 ---
 
 ## Purpose
 
-Type-safe enum-like state axes, extensible per-project without modifying the framework.
+Type-safe enum-like extensible value sets, expandable per-project without modifying the framework.
 An alternative to plain C# `enum` for cases where the value set is project- or domain-specific (character states, combat stances, gaze modes), but compile-time ergonomics are still required.
 
 Capabilities:
 
-- `StateAxis` — abstract base with auto-registration of instances via ctor
-- `StateValue<T>` — reactive value of an axis (`ReactiveValue<T>` subclass)
-- Serialization/deserialization via the format `"{Namespace.AxisName}.{Key}"`
-- Lookup by key, index, or type via static methods on the base
+- `ExtensibleEnum` — abstract base with auto-registration of instances via ctor.
+- `ExtEnumData<T>` — reactive value of an `ExtensibleEnum` subtype (`ReactiveValue<T>` subclass).
+- Serialization/deserialization via the format `"{Namespace.TypeName}.{Key}"`.
+- Eager registry initialization before the first scene loads and on Editor domain start.
+- Lookup by key and by type via static methods on the base.
 
 Out of scope:
 
-- Codegen of concrete axis classes — Layer 2 (`Vortex.Unity.StateAxisSystem`)
-- Inspector attributes, dropdowns, paired assets — Layer 2
-- UI integration (`UIStateSwitcher`) — package `Vortex.Unity.UI.StateSwitcher`
+- Codegen, paired SO assets, validators — **not provided**. Concrete classes are written by hand: `sealed class MoveState : ExtensibleEnum { … }`.
+- Inspector attributes, dropdowns — Layer 2 (`Vortex.Unity.ExtensibleEnumSystem`).
+- UI integration (`UIStateSwitcher`) — package `Vortex.Unity.UI.StateSwitcher`.
 
 ---
 
@@ -31,40 +32,48 @@ Out of scope:
 | Dependency | Purpose |
 |------------|---------|
 | `Vortex.Core.Extensions` | `ReactiveValue<T>`, `IReactiveData`, `SerializeController` |
+| UnityEngine | `[RuntimeInitializeOnLoadMethod]` for eager runtime initialization |
+| UnityEditor (under `#if UNITY_EDITOR`) | `[InitializeOnLoadMethod]` for eager Editor-domain initialization |
 
-The custom converter for `SerializeController` is registered automatically in the static constructor of `StateAxis` — this guarantees that as soon as any `StateAxis` subclass is loaded, the serializer already knows how to handle it.
+The custom converter for `SerializeController` is registered automatically in the static constructor of `ExtensibleEnum` — this guarantees that as soon as the base is touched (which happens at the first `Initialize`), the serializer already knows how to handle the family.
 
 ---
 
 ## Architecture
 
-### StateAxis
+### ExtensibleEnum
 
 ```
-StateAxis (abstract, IEquatable<StateAxis>)
+ExtensibleEnum (abstract, IEquatable<ExtensibleEnum>)
   ├── Key: string                                     ← stable identifier of the value
-  ├── Order: int                                      ← position in axis order
+  ├── Order: int                                      ← position in logical order
   ├── ctor(string key, int order)                     ← protected, registers this in ByKey/Ordered
   ├── ToString() → "{TypeName}.{Key}"                 ← short representation for logs
   ├── Serialize() → "{FullName}.{Key}"                ← format for save/load
-  ├── Equals(StateAxis other)                         ← compare by type + key
+  ├── Equals(ExtensibleEnum other)                    ← compare by type + key
   └── static {
-        ByKey:    Dictionary<Type, Dictionary<string, StateAxis>>
-        Ordered:  Dictionary<Type, List<StateAxis>>
+        ByKey:       Dictionary<Type, Dictionary<string, ExtensibleEnum>>
+        Ordered:     Dictionary<Type, List<ExtensibleEnum>>
+        ByFullName:  Dictionary<string, Type>          ← for Deserialize, populated by eager init
+        
+        [RuntimeInitializeOnLoadMethod] InitializeOnRuntime() → Initialize()
+        [InitializeOnLoadMethod]        InitializeOnEditor()  → Initialize()  (#if UNITY_EDITOR)
+        Initialize() — scan AppDomain + RunClassConstructor for every subclass + populate ByFullName
+        
         GetByKey<T>(string)        → T
-        GetByKey(Type, string)     → StateAxis
+        GetByKey(Type, string)     → ExtensibleEnum
         GetAll<T>()                → IReadOnlyList<T>
-        GetAll(Type)               → IReadOnlyList<StateAxis>
-        GetMap(Type)               → IReadOnlyDictionary<string, StateAxis>
-        Deserialize(string)        → StateAxis
+        GetAll(Type)               → IReadOnlyList<ExtensibleEnum>
+        GetMap(Type)               → IReadOnlyDictionary<string, ExtensibleEnum>
+        Deserialize(string)        → ExtensibleEnum
         Deserialize<T>(string)     → T
       }
 ```
 
-A concrete axis class is created as a `sealed` subclass with static `readonly` fields:
+A concrete value set is created as a `sealed` subclass with static `readonly` fields:
 
 ```csharp
-public sealed class MoveState : StateAxis
+public sealed class MoveState : ExtensibleEnum
 {
     public static readonly MoveState Idle = new(nameof(Idle), 0);
     public static readonly MoveState Walk = new(nameof(Walk), 1);
@@ -76,16 +85,24 @@ public sealed class MoveState : StateAxis
 }
 ```
 
-On the first reference to `MoveState`:
-1. The base `StateAxis` static initializer runs → registers the custom converter in `SerializeController`.
-2. The `MoveState` static field initializers run → each `new MoveState(...)` invokes the base ctor → entries are added to `ByKey[typeof(MoveState)]` and `Ordered[typeof(MoveState)]`.
+### Eager initialization (no lazy code)
 
-After that, `StateAxis.GetAll<MoveState>()` returns all four values in `Order`.
+`ExtensibleEnum.Initialize()` is called:
+- at runtime — via `[RuntimeInitializeOnLoadMethod(BeforeSceneLoad)]`;
+- in the Editor domain — via `[InitializeOnLoadMethod]` under `#if UNITY_EDITOR`.
 
-### StateValue\<T\>
+What it does:
+1. Scans `AppDomain.CurrentDomain.GetAssemblies()`.
+2. For every non-abstract `ExtensibleEnum` subclass:
+   - records `FullName → Type` in `ByFullName` (used by `Deserialize`);
+   - calls `RuntimeHelpers.RunClassConstructor(type.TypeHandle)`, which runs the subclass static initializers and populates `ByKey` / `Ordered` with registered instances.
+
+After that `GetAll<T>()`, `GetByKey<T>()` and `Deserialize` work predictably regardless of type-load order or which code first touched a type. No lazy caches.
+
+### ExtEnumData\<T\>
 
 ```
-StateValue<T> : ReactiveValue<T> where T : StateAxis
+ExtEnumData<T> : ReactiveValue<T> where T : ExtensibleEnum
   ├── Key: string                ← Value?.Key
   ├── Index: int                 ← Value?.Order ?? -1
   ├── Is(T other)                ← ReferenceEquals(Value, other)
@@ -94,10 +111,6 @@ StateValue<T> : ReactiveValue<T> where T : StateAxis
 
 `Value` holds a singleton instance of `T`. Reference equality is correct because the same value is always the same object (`MoveState.Run` is the only instance).
 
-### StateAxisTypeCache (internal)
-
-Lazy `FullName → Type` cache for all non-abstract `StateAxis` subclasses, populated on first access from `Deserialize`. Scans `AppDomain.CurrentDomain.GetAssemblies()`, filters by `IsAssignableFrom(typeof(StateAxis))`. Built once; not invalidated on Editor recompilation — the runtime doesn't need that, and the Editor recreates the domain.
-
 ---
 
 ## Serialization Contract
@@ -105,7 +118,7 @@ Lazy `FullName → Type` cache for all non-abstract `StateAxis` subclasses, popu
 ### Format
 
 ```
-"{Namespace.AxisName}.{Key}"
+"{Namespace.TypeName}.{Key}"
 ```
 
 Examples:
@@ -117,31 +130,31 @@ The separator is the **last dot** in the string. Left part — `Type.FullName` (
 ### Naming constraints
 
 For unambiguous splitting:
-- `AxisName` (class name) **must not contain dots** (also a C# requirement, automatically enforced).
-- `Key` (value names) **must not contain dots**. The Layer 2 generator `StateAxisCodeGenerator` enforces this when saving the preset.
+- The subclass type name **must not contain dots** (a C# requirement, automatically enforced).
+- `Key` (value names) **must not contain dots** — author's responsibility.
 
 ### Registration in SerializeController
 
-The converter is registered once in the `StateAxis` static ctor:
+The converter is registered once in the `ExtensibleEnum` static ctor:
 
 ```csharp
 SerializeController.RegisterCustomSerializer(
-    matches:     t => typeof(StateAxis).IsAssignableFrom(t),
-    serialize:   obj => ((StateAxis)obj).Serialize(),
+    matches:     t => typeof(ExtensibleEnum).IsAssignableFrom(t),
+    serialize:   obj => ((ExtensibleEnum)obj).Serialize(),
     deserialize: (t, s) => Deserialize(s)
 );
 ```
 
-After registration, any property whose type is a `StateAxis` subclass or `StateValue<T>.Value` is serialized as an ordinary JSON string, not expanded into an object.
+After registration, any property whose type is an `ExtensibleEnum` subclass or `ExtEnumData<T>.Value` is serialized as an ordinary JSON string, not expanded into an object.
 
 ---
 
 ## Usage
 
-### Declaring an axis (manually or via codegen)
+### Declaring a set
 
 ```csharp
-public sealed class CombatState : StateAxis
+public sealed class CombatState : ExtensibleEnum
 {
     public static readonly CombatState Idle  = new(nameof(Idle),  0);
     public static readonly CombatState Block = new(nameof(Block), 1);
@@ -158,8 +171,8 @@ public sealed class CombatState : StateAxis
 ```csharp
 public class CharacterModel
 {
-    public StateValue<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
-    public StateValue<CombatState> CombatMode { get; } = new(CombatState.Idle);
+    public ExtEnumData<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
+    public ExtEnumData<CombatState> CombatMode { get; } = new(CombatState.Idle);
 }
 ```
 
@@ -171,7 +184,7 @@ if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equalit
 if (character.MoveMode.Is(MoveState.Run)) { ... }           // explicit
 character.MoveMode.OnUpdate += v => Refresh(v);             // reactivity
 int slot = character.MoveMode.Index;                        // → UIStateSwitcher
-string key = character.MoveMode.Key;                        // → save without StateValue wrapper
+string key = character.MoveMode.Key;                        // → save without ExtEnumData wrapper
 ```
 
 ### Serialization / deserialization
@@ -187,10 +200,10 @@ restored.MoveMode.Value == MoveState.Run;                    // ✓ reference eq
 ### Lookup by key
 
 ```csharp
-var run = StateAxis.GetByKey<MoveState>("Run");              // → MoveState.Run
-var any = StateAxis.GetByKey(typeof(MoveState), "Walk");     // → MoveState.Walk
+var run = ExtensibleEnum.GetByKey<MoveState>("Run");          // → MoveState.Run
+var any = ExtensibleEnum.GetByKey(typeof(MoveState), "Walk"); // → MoveState.Walk
 
-foreach (var s in StateAxis.GetAll<MoveState>())
+foreach (var s in ExtensibleEnum.GetAll<MoveState>())
     Console.WriteLine($"{s.Order}: {s.Key}");
 ```
 
@@ -201,14 +214,15 @@ foreach (var s in StateAxis.GetAll<MoveState>())
 | Scenario | Behavior |
 |----------|----------|
 | `GetByKey<T>("…")` for an unregistered key | Returns `null` |
-| `GetAll<T>()` before any reference to `T` | Returns empty array (T's static initializer hasn't run yet) |
-| `Deserialize("…")` for a missing type | Returns `null` |
+| `GetAll<T>()` right after startup | Returns all values — eager init has already run |
+| `Deserialize("…")` for a missing type | Returns `null` (no entry in `ByFullName`) |
 | `Deserialize("…")` for an existing type but unknown key | Returns `null` |
 | `Deserialize("BadString")` without a dot | Returns `null` |
-| `StateValue<T>.Value == null` | `Key = null`, `Index = -1`, `Is(...) = false` |
-| `StateValue<T>.Set(null)` | Allowed; full `ReactiveValue<T>` reactivity preserved |
-| Duplicate Key in a subclass | The last `new` overwrites the previous in `ByKey` (incorrect usage, diagnosed by the L2 validator) |
-| Concurrent threads | The registry is not thread-safe; static initializers run once in the .NET-guaranteed order, but post-init ctor calls are not protected |
+| `ExtEnumData<T>.Value == null` | `Key = null`, `Index = -1`, `Is(...) = false` |
+| `ExtEnumData<T>.Set(null)` | Allowed; full `ReactiveValue<T>` reactivity preserved |
+| Duplicate Key in a subclass | The last `new` overwrites the previous in `ByKey` (incorrect usage by class author) |
+| Pure .NET without Unity (tests) | `[RuntimeInitializeOnLoadMethod]` will not fire; call `RunClassConstructor` manually or reference at least one value before serializing |
+| Concurrent threads | The registry is not thread-safe; eager init runs once before user code; post-init ctor calls are unprotected |
 
 ---
 
@@ -216,30 +230,30 @@ foreach (var s in StateAxis.GetAll<MoveState>())
 
 ```csharp
 // Identity + serialization
-public abstract class StateAxis : IEquatable<StateAxis>
+public abstract class ExtensibleEnum : IEquatable<ExtensibleEnum>
 {
     public string Key { get; }
     public int Order { get; }
     
-    protected StateAxis(string key, int order);
+    protected ExtensibleEnum(string key, int order);
     
     public string Serialize();
     
-    public static T          GetByKey<T>(string key)  where T : StateAxis;
-    public static StateAxis  GetByKey(Type axisType, string key);
-    public static IReadOnlyList<T>          GetAll<T>()  where T : StateAxis;
-    public static IReadOnlyList<StateAxis>  GetAll(Type axisType);
-    public static IReadOnlyDictionary<string, StateAxis> GetMap(Type axisType);
+    public static T               GetByKey<T>(string key) where T : ExtensibleEnum;
+    public static ExtensibleEnum  GetByKey(Type type, string key);
+    public static IReadOnlyList<T>               GetAll<T>() where T : ExtensibleEnum;
+    public static IReadOnlyList<ExtensibleEnum>  GetAll(Type type);
+    public static IReadOnlyDictionary<string, ExtensibleEnum> GetMap(Type type);
     
-    public static StateAxis  Deserialize(string serialized);
-    public static T          Deserialize<T>(string serialized) where T : StateAxis;
+    public static ExtensibleEnum  Deserialize(string serialized);
+    public static T               Deserialize<T>(string serialized) where T : ExtensibleEnum;
 }
 
 // Reactive wrapper
-public class StateValue<T> : ReactiveValue<T> where T : StateAxis
+public class ExtEnumData<T> : ReactiveValue<T> where T : ExtensibleEnum
 {
-    public StateValue();
-    public StateValue(T initial);
+    public ExtEnumData();
+    public ExtEnumData(T initial);
     
     public string Key { get; }
     public int    Index { get; }

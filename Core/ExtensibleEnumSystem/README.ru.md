@@ -1,28 +1,29 @@
-# StateAxisSystem (Core)
+# ExtensibleEnumSystem (Core)
 
-**Namespace:** `Vortex.Core.StateAxisSystem.Abstractions`, `Vortex.Core.StateAxisSystem.Extensions`
-**Сборка:** `ru.vortex.stateaxis`
-**Платформа:** .NET Standard 2.1+
+**Namespace:** `Vortex.Core.ExtensibleEnumSystem.Abstractions`, `Vortex.Core.ExtensibleEnumSystem.Extensions`
+**Сборка:** `ru.vortex.extenums`
+**Платформа:** Unity / .NET Standard 2.1+
 
 ---
 
 ## Назначение
 
-Type-safe enum-подобные оси состояния, расширяемые проектом без правки фреймворка.
+Type-safe enum-подобные расширяемые наборы значений, дополняемые проектом без правки фреймворка.
 Альтернатива обычному `enum` для случаев, когда набор значений зависит от проекта или предметной области (состояния персонажа, типы боевых стоек, режимы взгляда), но требуется compile-time эргономика.
 
 Возможности:
 
-- `StateAxis` — абстрактная база с авто-реестром инстансов через ctor
-- `StateValue<T>` — реактивное значение оси (`ReactiveValue<T>`-наследник)
-- Сериализация/десериализация через формат `"{Namespace.AxisName}.{Key}"`
-- Lookup по ключу, индексу, типу через статические методы базы
+- `ExtensibleEnum` — абстрактная база с авто-реестром инстансов через ctor.
+- `ExtEnumData<T>` — реактивное значение типа-наследника (`ReactiveValue<T>`-наследник).
+- Сериализация/десериализация через формат `"{Namespace.TypeName}.{Key}"`.
+- Eager-инициализация реестра до загрузки сцены и при старте Editor-домена.
+- Lookup по ключу, по типу через статические методы базы.
 
 Вне ответственности:
 
-- Кодогенерация конкретных классов осей — Layer 2 (`Vortex.Unity.StateAxisSystem`)
-- Inspector-атрибуты, дропдауны, парные ассеты — Layer 2
-- UI-интеграция (`UIStateSwitcher`) — пакет `Vortex.Unity.UI.StateSwitcher`
+- Кодогенерация, парные SO-ассеты, валидаторы — **не предусмотрены**. Конкретные классы пишутся руками: `sealed class MoveState : ExtensibleEnum { … }`.
+- Inspector-атрибуты, дропдауны — Layer 2 (`Vortex.Unity.ExtensibleEnumSystem`).
+- UI-интеграция (`UIStateSwitcher`) — пакет `Vortex.Unity.UI.StateSwitcher`.
 
 ---
 
@@ -31,40 +32,48 @@ Type-safe enum-подобные оси состояния, расширяемы�
 | Зависимость | Назначение |
 |-------------|-----------|
 | `Vortex.Core.Extensions` | `ReactiveValue<T>`, `IReactiveData`, `SerializeController` |
+| UnityEngine | `[RuntimeInitializeOnLoadMethod]` для eager-инициализации в рантайме |
+| UnityEditor (под `#if UNITY_EDITOR`) | `[InitializeOnLoadMethod]` для eager-инициализации в Editor-домене |
 
-Регистрация custom-конвертера в `SerializeController` происходит автоматически в static-конструкторе `StateAxis` — это гарантирует, что при первой загрузке любого наследника `StateAxis` сериализатор уже знает, как с ним работать.
+Регистрация custom-конвертера в `SerializeController` происходит автоматически в static-конструкторе `ExtensibleEnum` — это гарантирует, что при первой загрузке базы (что произойдёт при первой же `Initialize`) сериализатор уже знает, как с ней работать.
 
 ---
 
 ## Архитектура
 
-### StateAxis
+### ExtensibleEnum
 
 ```
-StateAxis (abstract, IEquatable<StateAxis>)
+ExtensibleEnum (abstract, IEquatable<ExtensibleEnum>)
   ├── Key: string                                     ← стабильный идентификатор значения
-  ├── Order: int                                      ← позиция в осевом порядке
+  ├── Order: int                                      ← позиция в логическом порядке
   ├── ctor(string key, int order)                     ← protected, регистрирует this в ByKey/Ordered
   ├── ToString() → "{TypeName}.{Key}"                 ← короткое представление для логов
   ├── Serialize() → "{FullName}.{Key}"                ← формат для save/load
-  ├── Equals(StateAxis other)                         ← сравнение по типу + ключу
+  ├── Equals(ExtensibleEnum other)                    ← сравнение по типу + ключу
   └── static {
-        ByKey:    Dictionary<Type, Dictionary<string, StateAxis>>
-        Ordered:  Dictionary<Type, List<StateAxis>>
+        ByKey:       Dictionary<Type, Dictionary<string, ExtensibleEnum>>
+        Ordered:     Dictionary<Type, List<ExtensibleEnum>>
+        ByFullName:  Dictionary<string, Type>          ← для Deserialize, заполняется eager-init
+        
+        [RuntimeInitializeOnLoadMethod] InitializeOnRuntime() → Initialize()
+        [InitializeOnLoadMethod]        InitializeOnEditor()  → Initialize()  (#if UNITY_EDITOR)
+        Initialize() — скан AppDomain + RunClassConstructor для всех наследников + populate ByFullName
+        
         GetByKey<T>(string)        → T
-        GetByKey(Type, string)     → StateAxis
+        GetByKey(Type, string)     → ExtensibleEnum
         GetAll<T>()                → IReadOnlyList<T>
-        GetAll(Type)               → IReadOnlyList<StateAxis>
-        GetMap(Type)               → IReadOnlyDictionary<string, StateAxis>
-        Deserialize(string)        → StateAxis
+        GetAll(Type)               → IReadOnlyList<ExtensibleEnum>
+        GetMap(Type)               → IReadOnlyDictionary<string, ExtensibleEnum>
+        Deserialize(string)        → ExtensibleEnum
         Deserialize<T>(string)     → T
       }
 ```
 
-Конкретный класс оси создаётся как `sealed`-наследник со статическими `readonly`-полями:
+Конкретный набор значений создаётся как `sealed`-наследник со статическими `readonly`-полями:
 
 ```csharp
-public sealed class MoveState : StateAxis
+public sealed class MoveState : ExtensibleEnum
 {
     public static readonly MoveState Idle = new(nameof(Idle), 0);
     public static readonly MoveState Walk = new(nameof(Walk), 1);
@@ -76,16 +85,24 @@ public sealed class MoveState : StateAxis
 }
 ```
 
-При первой ссылке на `MoveState` сработают:
-1. Static-инициализатор базы `StateAxis` → регистрация custom-конвертера в `SerializeController`.
-2. Static-инициализаторы полей `MoveState` → каждый `new MoveState(...)` вызывает базовый ctor → запись в `ByKey[typeof(MoveState)]` и `Ordered[typeof(MoveState)]`.
+### Eager-инициализация (нет lazy)
 
-После этого `StateAxis.GetAll<MoveState>()` возвращает все четыре значения в порядке `Order`.
+`ExtensibleEnum.Initialize()` вызывается:
+- в рантайме — через `[RuntimeInitializeOnLoadMethod(BeforeSceneLoad)]`;
+- в Editor-домене — через `[InitializeOnLoadMethod]` под `#if UNITY_EDITOR`.
 
-### StateValue\<T\>
+Что делает:
+1. Сканирует `AppDomain.CurrentDomain.GetAssemblies()`.
+2. Для каждого не-абстрактного `ExtensibleEnum`-наследника:
+   - заносит `FullName → Type` в `ByFullName` (для `Deserialize`);
+   - вызывает `RuntimeHelpers.RunClassConstructor(type.TypeHandle)`, что прогоняет static-инициализаторы наследника и наполняет `ByKey`/`Ordered` зарегистрированными инстансами.
+
+После этого `GetAll<T>()`, `GetByKey<T>()` и `Deserialize` работают предсказуемо вне зависимости от того, в каком порядке загружаются типы и какой код первым к ним обратился. Lazy-кеши не используются.
+
+### ExtEnumData\<T\>
 
 ```
-StateValue<T> : ReactiveValue<T> where T : StateAxis
+ExtEnumData<T> : ReactiveValue<T> where T : ExtensibleEnum
   ├── Key: string                ← Value?.Key
   ├── Index: int                 ← Value?.Order ?? -1
   ├── Is(T other)                ← ReferenceEquals(Value, other)
@@ -94,10 +111,6 @@ StateValue<T> : ReactiveValue<T> where T : StateAxis
 
 `Value` — singleton-инстанс типа `T`. Сравнение по ссылке корректно, потому что значения всегда одни и те же объекты (`MoveState.Run` — единственный экземпляр).
 
-### StateAxisTypeCache (internal)
-
-Lazy-кеш `FullName → Type` для всех не-абстрактных наследников `StateAxis`, заполняется при первом обращении из `Deserialize`. Скан `AppDomain.CurrentDomain.GetAssemblies()`, фильтр по `IsAssignableFrom(typeof(StateAxis))`. Кеш строится один раз; не инвалидируется на перекомпиляции в Editor — для рантайма это не нужно, в Editor домен пересоздаётся.
-
 ---
 
 ## Контракт сериализации
@@ -105,7 +118,7 @@ Lazy-кеш `FullName → Type` для всех не-абстрактных на
 ### Формат
 
 ```
-"{Namespace.AxisName}.{Key}"
+"{Namespace.TypeName}.{Key}"
 ```
 
 Примеры:
@@ -117,31 +130,31 @@ Lazy-кеш `FullName → Type` для всех не-абстрактных на
 ### Ограничения на имена
 
 Чтобы разделитель работал однозначно:
-- `AxisName` (имя класса) **не должно содержать точек** (это требование C# и так выполняется автоматически).
-- `Key` (имена значений) **не должны содержать точек**. Layer 2 генератор `StateAxisCodeGenerator` enforce'ит это правило при сохранении пресета.
+- Имя типа-наследника **не должно содержать точек** (это требование C#, выполняется автоматически).
+- `Key` (имена значений) **не должны содержать точек** — ответственность автора класса.
 
 ### Регистрация в SerializeController
 
-Конвертер регистрируется один раз в static-ctor `StateAxis`:
+Конвертер регистрируется один раз в static-ctor `ExtensibleEnum`:
 
 ```csharp
 SerializeController.RegisterCustomSerializer(
-    matches:     t => typeof(StateAxis).IsAssignableFrom(t),
-    serialize:   obj => ((StateAxis)obj).Serialize(),
+    matches:     t => typeof(ExtensibleEnum).IsAssignableFrom(t),
+    serialize:   obj => ((ExtensibleEnum)obj).Serialize(),
     deserialize: (t, s) => Deserialize(s)
 );
 ```
 
-После регистрации любое свойство типа `StateAxis`-наследника или `StateValue<T>.Value` сериализуется как обычная JSON-строка, без раскрытия в объект.
+После регистрации любое свойство типа `ExtensibleEnum`-наследника или `ExtEnumData<T>.Value` сериализуется как обычная JSON-строка, без раскрытия в объект.
 
 ---
 
 ## Использование
 
-### Объявление оси (вручную или сгенерированно)
+### Объявление набора
 
 ```csharp
-public sealed class CombatState : StateAxis
+public sealed class CombatState : ExtensibleEnum
 {
     public static readonly CombatState Idle  = new(nameof(Idle),  0);
     public static readonly CombatState Block = new(nameof(Block), 1);
@@ -158,8 +171,8 @@ public sealed class CombatState : StateAxis
 ```csharp
 public class CharacterModel
 {
-    public StateValue<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
-    public StateValue<CombatState> CombatMode { get; } = new(CombatState.Idle);
+    public ExtEnumData<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
+    public ExtEnumData<CombatState> CombatMode { get; } = new(CombatState.Idle);
 }
 ```
 
@@ -171,7 +184,7 @@ if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equalit
 if (character.MoveMode.Is(MoveState.Run)) { ... }           // явная проверка
 character.MoveMode.OnUpdate += v => Refresh(v);             // реактивность
 int slot = character.MoveMode.Index;                        // → UIStateSwitcher
-string key = character.MoveMode.Key;                        // → save без обёртки StateValue
+string key = character.MoveMode.Key;                        // → save без обёртки ExtEnumData
 ```
 
 ### Сериализация / десериализация
@@ -187,10 +200,10 @@ restored.MoveMode.Value == MoveState.Run;                    // ✓ ссылоч
 ### Lookup по ключу
 
 ```csharp
-var run = StateAxis.GetByKey<MoveState>("Run");              // → MoveState.Run
-var any = StateAxis.GetByKey(typeof(MoveState), "Walk");     // → MoveState.Walk
+var run = ExtensibleEnum.GetByKey<MoveState>("Run");          // → MoveState.Run
+var any = ExtensibleEnum.GetByKey(typeof(MoveState), "Walk"); // → MoveState.Walk
 
-foreach (var s in StateAxis.GetAll<MoveState>())
+foreach (var s in ExtensibleEnum.GetAll<MoveState>())
     Console.WriteLine($"{s.Order}: {s.Key}");
 ```
 
@@ -201,14 +214,15 @@ foreach (var s in StateAxis.GetAll<MoveState>())
 | Ситуация | Поведение |
 |----------|-----------|
 | `GetByKey<T>("…")` для незарегистрированного ключа | Возвращает `null` |
-| `GetAll<T>()` до первой ссылки на `T` | Возвращает пустой массив (static-инициализатор T ещё не сработал) |
-| `Deserialize("…")` для несуществующего типа | Возвращает `null` |
+| `GetAll<T>()` сразу после старта | Возвращает все значения — eager-инициализация уже отработала |
+| `Deserialize("…")` для несуществующего типа | Возвращает `null` (в `ByFullName` нет записи) |
 | `Deserialize("…")` для существующего типа, но неизвестного ключа | Возвращает `null` |
 | `Deserialize("BadString")` без точки | Возвращает `null` |
-| `StateValue<T>.Value == null` | `Key = null`, `Index = -1`, `Is(...) = false` |
-| `StateValue<T>.Set(null)` | Допустимо; всё реактивное поведение `ReactiveValue<T>` сохраняется |
-| Дублирование Key в наследнике | Последний `new` перезатирает предыдущий в `ByKey` (некорректное использование, диагностируется L2 валидатором) |
-| Параллельные потоки | Реестр не потокобезопасен; static-инициализаторы выполняются один раз в гарантированной последовательности .NET, но изменения после инициализации (повторные ctor) — не защищены |
+| `ExtEnumData<T>.Value == null` | `Key = null`, `Index = -1`, `Is(...) = false` |
+| `ExtEnumData<T>.Set(null)` | Допустимо; всё реактивное поведение `ReactiveValue<T>` сохраняется |
+| Дублирование Key в наследнике | Последний `new` перезатирает предыдущий в `ByKey` (некорректное использование автором класса) |
+| Чистый .NET без Unity (тесты) | `[RuntimeInitializeOnLoadMethod]` не сработает; вызвать `RunClassConstructor` вручную или сослаться хотя бы на одно значение перед сериализацией |
+| Параллельные потоки | Реестр не потокобезопасен; eager-init выполняется один раз до пользовательского кода, повторные ctor-вызовы не защищены |
 
 ---
 
@@ -216,30 +230,30 @@ foreach (var s in StateAxis.GetAll<MoveState>())
 
 ```csharp
 // Identity + сериализация
-public abstract class StateAxis : IEquatable<StateAxis>
+public abstract class ExtensibleEnum : IEquatable<ExtensibleEnum>
 {
     public string Key { get; }
     public int Order { get; }
     
-    protected StateAxis(string key, int order);
+    protected ExtensibleEnum(string key, int order);
     
     public string Serialize();
     
-    public static T          GetByKey<T>(string key)  where T : StateAxis;
-    public static StateAxis  GetByKey(Type axisType, string key);
-    public static IReadOnlyList<T>          GetAll<T>()  where T : StateAxis;
-    public static IReadOnlyList<StateAxis>  GetAll(Type axisType);
-    public static IReadOnlyDictionary<string, StateAxis> GetMap(Type axisType);
+    public static T               GetByKey<T>(string key) where T : ExtensibleEnum;
+    public static ExtensibleEnum  GetByKey(Type type, string key);
+    public static IReadOnlyList<T>               GetAll<T>() where T : ExtensibleEnum;
+    public static IReadOnlyList<ExtensibleEnum>  GetAll(Type type);
+    public static IReadOnlyDictionary<string, ExtensibleEnum> GetMap(Type type);
     
-    public static StateAxis  Deserialize(string serialized);
-    public static T          Deserialize<T>(string serialized) where T : StateAxis;
+    public static ExtensibleEnum  Deserialize(string serialized);
+    public static T               Deserialize<T>(string serialized) where T : ExtensibleEnum;
 }
 
 // Реактивная обёртка
-public class StateValue<T> : ReactiveValue<T> where T : StateAxis
+public class ExtEnumData<T> : ReactiveValue<T> where T : ExtensibleEnum
 {
-    public StateValue();
-    public StateValue(T initial);
+    public ExtEnumData();
+    public ExtEnumData(T initial);
     
     public string Key { get; }
     public int    Index { get; }

@@ -5,14 +5,14 @@ using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 namespace Vortex.Unity.ExtensibleEnumSystem.Attributes
 {
     /// <summary>
-    /// Inspector-атрибут для строковых полей, хранящих ключ оси.
-    /// Drawer показывает popup с допустимыми ключами оси <see cref="AxisType"/>.
+    /// Inspector-атрибут для строковых полей, хранящих ключ ExtensibleEnum-типа.
+    /// Drawer показывает popup с допустимыми ключами типа <see cref="ExtEnumType"/>.
     /// В рантайме поле — обычная <c>string</c>; преобразование в инстанс через
     /// <see cref="ExtensibleEnum.GetByKey{T}"/>.
     /// </summary>
     /// <example>
     /// <code>
-    /// [StateKey(typeof(MoveState))]
+    /// [ExtEnumKey(typeof(MoveState))]
     /// [SerializeField] private string defaultMoveState;
     ///
     /// // в рантайме:
@@ -24,14 +24,14 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Attributes
     {
         public Type ExtEnumType { get; }
 
-        public ExtEnumKeyAttribute(Type axisType)
+        public ExtEnumKeyAttribute(Type extEnumType)
         {
-            if (axisType == null)
-                throw new ArgumentNullException(nameof(axisType));
-            if (!typeof(ExtensibleEnum).IsAssignableFrom(axisType))
-                throw new ArgumentException($"[StateKey] {axisType.Name} must inherit from ExtensibleEnum",
-                    nameof(axisType));
-            ExtEnumType = axisType;
+            if (extEnumType == null)
+                throw new ArgumentNullException(nameof(extEnumType));
+            if (!typeof(ExtensibleEnum).IsAssignableFrom(extEnumType))
+                throw new ArgumentException($"[ExtEnumKey] {extEnumType.Name} must inherit from ExtensibleEnum",
+                    nameof(extEnumType));
+            ExtEnumType = extEnumType;
         }
     }
 }

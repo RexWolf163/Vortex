@@ -19,20 +19,20 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
     /// Конфигурация (рефлексивная, как в <c>DataCapturer</c>):
     /// <list type="bullet">
     /// <item>source — MonoBehaviour-источник, на котором есть свойство типа <see cref="ExtEnumData{T}"/></item>
-    /// <item>property — имя этого свойства (выпадашка фильтрует по типу StateValue&lt;&gt;)</item>
+    /// <item>property — имя этого свойства (выпадашка фильтрует по типу <see cref="ExtEnumData{T}"/>)</item>
     /// <item>switcher — целевой UIStateSwitcher</item>
     /// </list>
     /// </summary>
-    public class StateValueSwitcherHandler : MonoBehaviour
+    public class ExtensibleEnumValueSwitcherHandler : MonoBehaviour
     {
         [SerializeField] private MonoBehaviour source;
 
-        [SerializeField, Tooltip("Имя свойства типа StateValue<TAxis> на source")]
+        [SerializeField, Tooltip("Имя свойства типа ExtEnumData<T> на source")]
         private string property;
 
         [SerializeField] private UIStateSwitcher switcher;
 
-        private object _stateValue;
+        private object _extEnumData;
         private PropertyInfo _indexProperty;
         private IReactiveData _reactive;
 
@@ -40,7 +40,7 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
         {
             if (source == null || string.IsNullOrEmpty(property))
             {
-                Debug.LogError($"[StateValueSwitcherHandler] {name}: source or property not assigned", this);
+                Debug.LogError($"[ExtensibleEnumValueSwitcherHandler] {name}: source or property not assigned", this);
                 enabled = false;
                 return;
             }
@@ -48,47 +48,47 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
             var prop = source.GetType().GetProperty(property);
             if (prop == null)
             {
-                Debug.LogError($"[StateValueSwitcherHandler] {name}: property '{property}' not found on {source.GetType().Name}", this);
+                Debug.LogError($"[ExtensibleEnumValueSwitcherHandler] {name}: property '{property}' not found on {source.GetType().Name}", this);
                 enabled = false;
                 return;
             }
 
-            _stateValue = prop.GetValue(source);
-            if (_stateValue == null)
+            _extEnumData = prop.GetValue(source);
+            if (_extEnumData == null)
             {
-                Debug.LogError($"[StateValueSwitcherHandler] {name}: property '{property}' returned null", this);
+                Debug.LogError($"[ExtensibleEnumValueSwitcherHandler] {name}: property '{property}' returned null", this);
                 enabled = false;
                 return;
             }
 
-            _indexProperty = _stateValue.GetType().GetProperty(nameof(ExtEnumData<ExtensibleEnum>.Index));
+            _indexProperty = _extEnumData.GetType().GetProperty(nameof(ExtEnumData<ExtensibleEnum>.Index));
             if (_indexProperty == null)
             {
-                Debug.LogError($"[StateValueSwitcherHandler] {name}: '{property}' is not a StateValue<>", this);
+                Debug.LogError($"[ExtensibleEnumValueSwitcherHandler] {name}: '{property}' is not an ExtEnumData<>", this);
                 enabled = false;
                 return;
             }
 
-            _reactive = _stateValue as IReactiveData;
+            _reactive = _extEnumData as IReactiveData;
             if (_reactive != null)
-                _reactive.OnUpdateData += OnStateChanged;
+                _reactive.OnUpdateData += OnDataChanged;
         }
 
-        private void Start() => OnStateChanged();
+        private void Start() => OnDataChanged();
 
         private void OnDestroy()
         {
             if (_reactive != null)
-                _reactive.OnUpdateData -= OnStateChanged;
+                _reactive.OnUpdateData -= OnDataChanged;
             _reactive = null;
-            _stateValue = null;
+            _extEnumData = null;
             _indexProperty = null;
         }
 
-        private void OnStateChanged()
+        private void OnDataChanged()
         {
             if (_indexProperty == null || switcher == null) return;
-            var index = (int)_indexProperty.GetValue(_stateValue);
+            var index = (int)_indexProperty.GetValue(_extEnumData);
             if (index >= 0)
                 switcher.Set(index);
         }
@@ -97,17 +97,17 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
         /// <summary>
         /// Editor-utility: список свойств source, чей тип — наследник <see cref="ExtEnumData{T}"/>.
         /// </summary>
-        private string[] GetStateValueProperties()
+        private string[] GetExtEnumDataProperties()
         {
             if (source == null) return Array.Empty<string>();
             return source.GetType()
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static)
-                .Where(p => IsStateValueType(p.PropertyType))
+                .Where(p => IsExtEnumDataType(p.PropertyType))
                 .Select(p => p.Name)
                 .ToArray();
         }
 
-        private static bool IsStateValueType(Type t)
+        private static bool IsExtEnumDataType(Type t)
         {
             while (t != null && t != typeof(object))
             {

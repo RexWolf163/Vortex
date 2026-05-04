@@ -4,7 +4,7 @@ using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 namespace Vortex.Core.ExtensibleEnumSystem.Extensions
 {
     /// <summary>
-    /// Реактивное значение оси состояния.
+    /// Реактивное значение типа <see cref="ExtensibleEnum"/>.
     /// Хранит ссылку на конкретный singleton-инстанс <typeparamref name="T"/>.
     /// Сериализуется через custom-конвертер ExtensibleEnum в SerializeController:
     /// в JSON пишется только строка <c>"{FullName}.{Key}"</c>.
@@ -20,7 +20,7 @@ namespace Vortex.Core.ExtensibleEnumSystem.Extensions
         /// <summary>Ключ текущего значения, либо <c>null</c>.</summary>
         public string Key => Value?.Key;
 
-        /// <summary>Индекс текущего значения в осевом порядке, либо <c>-1</c>.</summary>
+        /// <summary>Индекс текущего значения в порядке <see cref="ExtensibleEnum.Order"/>, либо <c>-1</c>.</summary>
         public int Index => Value?.Order ?? -1;
 
         /// <summary>Сравнение по ссылке (singleton-инстансы).</summary>

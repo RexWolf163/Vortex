@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 
@@ -34,11 +33,9 @@ namespace Vortex.Unity.UI.Attributes
 
             if (typeof(ExtensibleEnum).IsAssignableFrom(type) && !type.IsAbstract)
             {
-                // Принудительный прогон static-инициализатора, иначе GetAll вернёт пустой массив
-                // в редакторе до первого обращения к значениям оси из кода.
-                try { RuntimeHelpers.RunClassConstructor(type.TypeHandle); }
-                catch { /* на этапе drawer'а ошибки безвредны — отрисуем пустой список */ }
-
+                // Реестр ExtensibleEnum заполняется eager-инициализацией в самом ExtensibleEnum
+                // через [InitializeOnLoadMethod] / [RuntimeInitializeOnLoadMethod] — здесь
+                // достаточно прочитать GetAll без явного RunClassConstructor.
                 var values = ExtensibleEnum.GetAll(type);
                 States = new StateDesc[values.Count];
                 for (int i = 0; i < States.Length; i++)
