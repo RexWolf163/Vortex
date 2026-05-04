@@ -1,5 +1,5 @@
 {
-    "name": "ru.vortex.unity.stateaxis",
+    "name": "ru.vortex.unity.extenums",
     "rootNamespace": "",
     "references": [
         "GUID:a3e77c84cb1a4bd3b2e69a7f5e8d9c01",

@@ -1,14 +1,14 @@
 using System;
 using UnityEngine;
-using Vortex.Core.StateAxisSystem.Abstractions;
+using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 
-namespace Vortex.Unity.StateAxisSystem.Attributes
+namespace Vortex.Unity.ExtensibleEnumSystem.Attributes
 {
     /// <summary>
     /// Inspector-атрибут для строковых полей, хранящих ключ оси.
     /// Drawer показывает popup с допустимыми ключами оси <see cref="AxisType"/>.
     /// В рантайме поле — обычная <c>string</c>; преобразование в инстанс через
-    /// <see cref="StateAxis.GetByKey{T}"/>.
+    /// <see cref="ExtensibleEnum.GetByKey{T}"/>.
     /// </summary>
     /// <example>
     /// <code>
@@ -16,7 +16,7 @@ namespace Vortex.Unity.StateAxisSystem.Attributes
     /// [SerializeField] private string defaultMoveState;
     ///
     /// // в рантайме:
-    /// var state = StateAxis.GetByKey&lt;MoveState&gt;(defaultMoveState);
+    /// var state = ExtensibleEnum.GetByKey&lt;MoveState&gt;(defaultMoveState);
     /// </code>
     /// </example>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
@@ -28,8 +28,8 @@ namespace Vortex.Unity.StateAxisSystem.Attributes
         {
             if (axisType == null)
                 throw new ArgumentNullException(nameof(axisType));
-            if (!typeof(StateAxis).IsAssignableFrom(axisType))
-                throw new ArgumentException($"[StateKey] {axisType.Name} must inherit from StateAxis", nameof(axisType));
+            if (!typeof(ExtensibleEnum).IsAssignableFrom(axisType))
+                throw new ArgumentException($"[StateKey] {axisType.Name} must inherit from ExtensibleEnum", nameof(axisType));
             AxisType = axisType;
         }
     }

@@ -2,14 +2,14 @@ using System;
 using System.Reflection;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
-using Vortex.Core.StateAxisSystem.Abstractions;
-using Vortex.Core.StateAxisSystem.Extensions;
+using Vortex.Core.ExtensibleEnumSystem.Abstractions;
+using Vortex.Core.ExtensibleEnumSystem.Extensions;
 using Vortex.Unity.UI.StateSwitcher;
 #if UNITY_EDITOR
 using System.Linq;
 #endif
 
-namespace Vortex.Unity.StateAxisSystem.Handlers
+namespace Vortex.Unity.ExtensibleEnumSystem.Handlers
 {
     /// <summary>
     /// Мост из <see cref="StateValue{T}"/> в <see cref="UIStateSwitcher"/>.
@@ -61,7 +61,7 @@ namespace Vortex.Unity.StateAxisSystem.Handlers
                 return;
             }
 
-            _indexProperty = _stateValue.GetType().GetProperty(nameof(StateValue<StateAxis>.Index));
+            _indexProperty = _stateValue.GetType().GetProperty(nameof(StateValue<ExtensibleEnum>.Index));
             if (_indexProperty == null)
             {
                 Debug.LogError($"[StateValueSwitcherHandler] {name}: '{property}' is not a StateValue<>", this);

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 
-namespace Vortex.Core.StateAxisSystem.Abstractions
+namespace Vortex.Core.ExtensibleEnumSystem.Abstractions
 {
     /// <summary>
     /// База для типобезопасных enum-подобных осей состояния.
@@ -12,53 +12,54 @@ namespace Vortex.Core.StateAxisSystem.Abstractions
     /// каждый <c>new MoveState("Run", 2)</c> на статическом поле помещает себя в реестр
     /// типа-наследника по ключу.
     ///
-    /// Сгенерированные классы создаются <c>Vortex.Unity.StateAxisSystem</c> из парных
-    /// <c>StateAxisPreset</c>-ассетов и не должны редактироваться вручную.
+    /// Сгенерированные классы создаются <c>Vortex.Unity.ExtensibleEnumSystem</c> из парных
+    /// <c>ExtensibleEnumPreset</c>-ассетов и не должны редактироваться вручную.
     /// </summary>
-    public abstract class StateAxis : IEquatable<StateAxis>
+    public abstract class ExtensibleEnum : IEquatable<ExtensibleEnum>
     {
         public string Key { get; }
         public int Order { get; }
 
         // Реестр: тип-наследник → ключ → инстанс
-        private static readonly Dictionary<Type, Dictionary<string, StateAxis>> ByKey = new();
+        private static readonly Dictionary<Type, Dictionary<string, ExtensibleEnum>> ByKey = new();
+
         // Реестр: тип-наследник → список инстансов (в порядке добавления, сортируется при выдаче)
-        private static readonly Dictionary<Type, List<StateAxis>> Ordered = new();
+        private static readonly Dictionary<Type, List<ExtensibleEnum>> Ordered = new();
 
         /// <summary>
-        /// Регистрирует custom-конвертер сериализации для семейства StateAxis-типов.
+        /// Регистрирует custom-конвертер сериализации для семейства ExtensibleEnum-типов.
         /// Срабатывает при первой загрузке любого наследника (.NET-гарантия:
         /// static-инициализатор базы выполняется до static-инициализаторов наследника,
         /// до создания первого инстанса).
         /// </summary>
-        static StateAxis()
+        static ExtensibleEnum()
         {
             SerializeController.RegisterCustomSerializer(
-                t => typeof(StateAxis).IsAssignableFrom(t),
-                obj => ((StateAxis)obj).Serialize(),
+                t => typeof(ExtensibleEnum).IsAssignableFrom(t),
+                obj => ((ExtensibleEnum)obj).Serialize(),
                 (t, s) => Deserialize(s)
             );
         }
 
-        protected StateAxis(string key, int order)
+        protected ExtensibleEnum(string key, int order)
         {
             Key = key;
             Order = order;
 
             var type = GetType();
             if (!ByKey.TryGetValue(type, out var keyMap))
-                ByKey[type] = keyMap = new Dictionary<string, StateAxis>();
+                ByKey[type] = keyMap = new Dictionary<string, ExtensibleEnum>();
             keyMap[key] = this;
 
             if (!Ordered.TryGetValue(type, out var list))
-                Ordered[type] = list = new List<StateAxis>();
+                Ordered[type] = list = new List<ExtensibleEnum>();
             list.Add(this);
         }
 
-        public bool Equals(StateAxis other) =>
+        public bool Equals(ExtensibleEnum other) =>
             other != null && GetType() == other.GetType() && Key == other.Key;
 
-        public override bool Equals(object obj) => obj is StateAxis o && Equals(o);
+        public override bool Equals(object obj) => obj is ExtensibleEnum o && Equals(o);
 
         public override int GetHashCode() => HashCode.Combine(GetType(), Key);
 
@@ -75,34 +76,34 @@ namespace Vortex.Core.StateAxisSystem.Abstractions
         /// Поиск инстанса по ключу в указанной оси (типобезопасная версия).
         /// Возвращает <c>null</c>, если ключ не зарегистрирован или ось не загружена.
         /// </summary>
-        public static T GetByKey<T>(string key) where T : StateAxis =>
+        public static T GetByKey<T>(string key) where T : ExtensibleEnum =>
             ByKey.TryGetValue(typeof(T), out var m) && m.TryGetValue(key, out var v) ? (T)v : null;
 
         /// <summary>Поиск инстанса по ключу с указанием Type оси (для рефлексионных сценариев).</summary>
-        public static StateAxis GetByKey(Type axisType, string key) =>
+        public static ExtensibleEnum GetByKey(Type axisType, string key) =>
             ByKey.TryGetValue(axisType, out var m) && m.TryGetValue(key, out var v) ? v : null;
 
         /// <summary>Все значения оси в порядке возрастания <see cref="Order"/>.</summary>
-        public static IReadOnlyList<T> GetAll<T>() where T : StateAxis =>
+        public static IReadOnlyList<T> GetAll<T>() where T : ExtensibleEnum =>
             Ordered.TryGetValue(typeof(T), out var list)
                 ? list.OrderBy(v => v.Order).Cast<T>().ToArray()
                 : Array.Empty<T>();
 
         /// <summary>Все значения оси по Type (для рефлексионных сценариев).</summary>
-        public static IReadOnlyList<StateAxis> GetAll(Type axisType) =>
+        public static IReadOnlyList<ExtensibleEnum> GetAll(Type axisType) =>
             Ordered.TryGetValue(axisType, out var list)
                 ? list.OrderBy(v => v.Order).ToArray()
-                : Array.Empty<StateAxis>();
+                : Array.Empty<ExtensibleEnum>();
 
         /// <summary>Карта <c>ключ → инстанс</c> для указанной оси, либо <c>null</c>, если ось не зарегистрирована.</summary>
-        public static IReadOnlyDictionary<string, StateAxis> GetMap(Type axisType) =>
+        public static IReadOnlyDictionary<string, ExtensibleEnum> GetMap(Type axisType) =>
             ByKey.TryGetValue(axisType, out var m) ? m : null;
 
         /// <summary>
         /// Восстанавливает singleton-инстанс по строке формата <c>"{FullName}.{Key}"</c>.
         /// Возвращает <c>null</c>, если тип не найден или ключ не зарегистрирован.
         /// </summary>
-        public static StateAxis Deserialize(string serialized)
+        public static ExtensibleEnum Deserialize(string serialized)
         {
             if (string.IsNullOrEmpty(serialized)) return null;
             var lastDot = serialized.LastIndexOf('.');
@@ -110,14 +111,14 @@ namespace Vortex.Core.StateAxisSystem.Abstractions
 
             var typeName = serialized.Substring(0, lastDot);
             var key = serialized.Substring(lastDot + 1);
-            var type = StateAxisTypeCache.Resolve(typeName);
+            var type = ExtensibleEnumTypeCache.Resolve(typeName);
 
             if (type == null) return null;
             return ByKey.TryGetValue(type, out var m) && m.TryGetValue(key, out var v) ? v : null;
         }
 
         /// <summary>Типизированная версия <see cref="Deserialize(string)"/>.</summary>
-        public static T Deserialize<T>(string serialized) where T : StateAxis =>
+        public static T Deserialize<T>(string serialized) where T : ExtensibleEnum =>
             Deserialize(serialized) as T;
     }
 }

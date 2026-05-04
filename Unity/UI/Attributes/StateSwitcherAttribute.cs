@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-using Vortex.Core.StateAxisSystem.Abstractions;
+using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 
 namespace Vortex.Unity.UI.Attributes
 {
@@ -14,9 +14,9 @@ namespace Vortex.Unity.UI.Attributes
         public readonly StateDesc[] States;
 
         /// <summary>
-        /// Добавляет все значения Enum-а или StateAxis-наследника как хинты.
+        /// Добавляет все значения Enum-а или ExtensibleEnum-наследника как хинты.
         /// Для Enum: описание значения можно заменить добавлением атрибута Tooltip/LabelText на значения enum-а.
-        /// Для StateAxis: описание = <see cref="StateAxis.Key"/>.
+        /// Для ExtensibleEnum: описание = <see cref="ExtensibleEnum.Key"/>.
         /// </summary>
         public StateSwitcherAttribute(Type type)
         {
@@ -32,21 +32,21 @@ namespace Vortex.Unity.UI.Attributes
                 return;
             }
 
-            if (typeof(StateAxis).IsAssignableFrom(type) && !type.IsAbstract)
+            if (typeof(ExtensibleEnum).IsAssignableFrom(type) && !type.IsAbstract)
             {
                 // Принудительный прогон static-инициализатора, иначе GetAll вернёт пустой массив
                 // в редакторе до первого обращения к значениям оси из кода.
                 try { RuntimeHelpers.RunClassConstructor(type.TypeHandle); }
                 catch { /* на этапе drawer'а ошибки безвредны — отрисуем пустой список */ }
 
-                var values = StateAxis.GetAll(type);
+                var values = ExtensibleEnum.GetAll(type);
                 States = new StateDesc[values.Count];
                 for (int i = 0; i < States.Length; i++)
                     States[i] = new StateDesc(values[i].Order, values[i].Key);
                 return;
             }
 
-            throw new ArgumentException($"[StateSwitcher] {type.Name} must be an Enum or a non-abstract StateAxis subclass.");
+            throw new ArgumentException($"[StateSwitcher] {type.Name} must be an Enum or a non-abstract ExtensibleEnum subclass.");
         }
 
         [Serializable]

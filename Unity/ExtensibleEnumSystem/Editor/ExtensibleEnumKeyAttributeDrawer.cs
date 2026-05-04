@@ -4,10 +4,10 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
-using Vortex.Core.StateAxisSystem.Abstractions;
-using Vortex.Unity.StateAxisSystem.Attributes;
+using Vortex.Core.ExtensibleEnumSystem.Abstractions;
+using Vortex.Unity.ExtensibleEnumSystem.Attributes;
 
-namespace Vortex.Unity.StateAxisSystem.Editor
+namespace Vortex.Unity.ExtensibleEnumSystem.Editor
 {
     /// <summary>
     /// Drawer для <see cref="StateKeyAttribute"/>. На string-поле рисует popup с ключами оси.
@@ -28,7 +28,7 @@ namespace Vortex.Unity.StateAxisSystem.Editor
             var attr = (StateKeyAttribute)attribute;
 
             // Принудительная инициализация типа: static-поля наследников создают инстансы,
-            // регистрируясь в реестре StateAxis.
+            // регистрируясь в реестре ExtensibleEnum.
             try
             {
                 RuntimeHelpers.RunClassConstructor(attr.AxisType.TypeHandle);
@@ -38,7 +38,7 @@ namespace Vortex.Unity.StateAxisSystem.Editor
                 /* type initializer issues — fallback ниже */
             }
 
-            var values = StateAxis.GetAll(attr.AxisType);
+            var values = ExtensibleEnum.GetAll(attr.AxisType);
 
             if (values == null || values.Count == 0)
             {

@@ -1,18 +1,20 @@
 using Vortex.Core.Extensions.ReactiveValues;
-using Vortex.Core.StateAxisSystem.Abstractions;
+using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 
-namespace Vortex.Core.StateAxisSystem.Extensions
+namespace Vortex.Core.ExtensibleEnumSystem.Extensions
 {
     /// <summary>
     /// Реактивное значение оси состояния.
     /// Хранит ссылку на конкретный singleton-инстанс <typeparamref name="T"/>.
-    /// Совместим с <see cref="UIStateSwitcher"/> через <see cref="Index"/>.
-    /// Сериализуется через custom-конвертер StateAxis в SerializeController:
+    /// Сериализуется через custom-конвертер ExtensibleEnum в SerializeController:
     /// в JSON пишется только строка <c>"{FullName}.{Key}"</c>.
     /// </summary>
-    public class StateValue<T> : ReactiveValue<T> where T : StateAxis
+    public class StateValue<T> : ReactiveValue<T> where T : ExtensibleEnum
     {
-        public StateValue() { }
+        public StateValue()
+        {
+        }
+
         public StateValue(T initial) => Set(initial);
 
         /// <summary>Ключ текущего значения, либо <c>null</c>.</summary>

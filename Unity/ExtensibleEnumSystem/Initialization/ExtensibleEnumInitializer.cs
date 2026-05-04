@@ -3,13 +3,13 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-using Vortex.Core.StateAxisSystem.Abstractions;
+using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 
-namespace Vortex.Unity.StateAxisSystem.Initialization
+namespace Vortex.Unity.ExtensibleEnumSystem.Initialization
 {
     /// <summary>
     /// Принудительное выполнение static-инициализаторов всех не-абстрактных наследников
-    /// <see cref="StateAxis"/>. Без этого <see cref="StateAxis.GetAll{T}"/> возвращает пустой
+    /// <see cref="ExtensibleEnum"/>. Без этого <see cref="ExtensibleEnum.GetAll{T}"/> возвращает пустой
     /// массив, пока в коде нет явной ссылки на конкретное значение оси.
     ///
     /// Вызывается:
@@ -17,7 +17,7 @@ namespace Vortex.Unity.StateAxisSystem.Initialization
     ///  • в редакторе — <c>[InitializeOnLoadMethod]</c> для работы Inspector-дропдаунов и валидатора
     ///    в редакторском режиме (вне Play).
     /// </summary>
-    public static class StateAxisInitializer
+    public static class ExtensibleEnumInitializer
     {
         private static bool _initialized;
 
@@ -31,7 +31,7 @@ namespace Vortex.Unity.StateAxisSystem.Initialization
 
         /// <summary>
         /// Идемпотентная инициализация. Сканирует AppDomain и принудительно выполняет
-        /// type initializer'ы всех не-абстрактных <see cref="StateAxis"/>-наследников.
+        /// type initializer'ы всех не-абстрактных <see cref="ExtensibleEnum"/>-наследников.
         /// </summary>
         public static void Initialize()
         {
@@ -53,7 +53,7 @@ namespace Vortex.Unity.StateAxisSystem.Initialization
                 foreach (var type in types)
                 {
                     if (type == null || type.IsAbstract) continue;
-                    if (!typeof(StateAxis).IsAssignableFrom(type)) continue;
+                    if (!typeof(ExtensibleEnum).IsAssignableFrom(type)) continue;
 
                     try
                     {
@@ -61,7 +61,7 @@ namespace Vortex.Unity.StateAxisSystem.Initialization
                     }
                     catch (Exception e)
                     {
-                        Debug.LogError($"[StateAxis] Failed to initialize {type.FullName}: {e.Message}");
+                        Debug.LogError($"[ExtensibleEnum] Failed to initialize {type.FullName}: {e.Message}");
                     }
                 }
             }
