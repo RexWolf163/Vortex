@@ -7,11 +7,13 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
     public class AnimatorStateSwitch : StateItem
     {
         [SerializeField] private Animator _animator;
-        [SerializeField]
-        [ValueDropdown("$GetAnimatorStatesKeys")]private string _stateName;
+
+        [SerializeField] [ValueDropdown("$GetAnimatorStatesKeys")]
+        private string _stateName;
+
         [SerializeField] private int _stateNumber;
         [SerializeField] private int _defaultStateNumber = 0;
-        
+
         public override void Set()
         {
             _animator.SetInteger(_stateName, _stateNumber);
@@ -22,10 +24,11 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             _animator.SetInteger(_stateName, _defaultStateNumber);
         }
 #if UNITY_EDITOR
-        
+
 
         public override string DropDownItemName => "AnimatorStateSwitch";
-        public override string DropDownGroupName => "Graphics";
+        public override string DropDownGroupName => "Animator Control";
+
         public override StateItem Clone()
         {
             return new AnimatorStateSwitch()
@@ -35,7 +38,7 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
                 _animator = _animator,
             };
         }
-        
+
         private List<string> GetAnimatorStatesKeys()
         {
             var result = new List<string>();

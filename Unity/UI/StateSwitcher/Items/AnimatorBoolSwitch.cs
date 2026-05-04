@@ -26,7 +26,7 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
 
 
         public override string DropDownItemName => "AnimatorBoolSwitch";
-        public override string DropDownGroupName => "Graphics";
+        public override string DropDownGroupName => "Animator Control";
 
         public override StateItem Clone()
         {
