@@ -38,16 +38,16 @@ namespace Vortex.Unity.UI.Misc
                 return;
             }
 
-            if (source is IReactiveData reactSource)
-                reactSource.OnUpdateData += RefreshLink;
+            if (source is IDataSource reactSource)
+                reactSource.OnUpdateLink += RefreshLink;
         }
 
         private void Start() => RefreshLink();
 
         private void OnDestroy()
         {
-            if (source is IReactiveData reactSource)
-                reactSource.OnUpdateData -= RefreshLink;
+            if (source is IDataSource reactSource)
+                reactSource.OnUpdateLink -= RefreshLink;
             _propertyValue = null;
             _property = null;
         }
