@@ -10,11 +10,11 @@ using Vortex.Unity.ExtensibleEnumSystem.Attributes;
 namespace Vortex.Unity.ExtensibleEnumSystem.Editor
 {
     /// <summary>
-    /// Drawer для <see cref="StateKeyAttribute"/>. На string-поле рисует popup с ключами оси.
+    /// Drawer для <see cref="ExtEnumKeyAttribute"/>. На string-поле рисует popup с ключами оси.
     /// Перед чтением списка ключей принудительно прогоняет static-инициализатор оси,
     /// чтобы в Editor-режиме (без Play) дропдаун работал сразу после открытия Inspector.
     /// </summary>
-    [CustomPropertyDrawer(typeof(StateKeyAttribute))]
+    [CustomPropertyDrawer(typeof(ExtEnumKeyAttribute))]
     public class StateKeyAttributeDrawer : PropertyDrawer
     {
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
@@ -25,20 +25,20 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Editor
                 return;
             }
 
-            var attr = (StateKeyAttribute)attribute;
+            var attr = (ExtEnumKeyAttribute)attribute;
 
             // Принудительная инициализация типа: static-поля наследников создают инстансы,
             // регистрируясь в реестре ExtensibleEnum.
             try
             {
-                RuntimeHelpers.RunClassConstructor(attr.AxisType.TypeHandle);
+                RuntimeHelpers.RunClassConstructor(attr.ExtEnumType.TypeHandle);
             }
             catch
             {
                 /* type initializer issues — fallback ниже */
             }
 
-            var values = ExtensibleEnum.GetAll(attr.AxisType);
+            var values = ExtensibleEnum.GetAll(attr.ExtEnumType);
 
             if (values == null || values.Count == 0)
             {
@@ -46,7 +46,7 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Editor
                 var rect = new Rect(position.x, position.y + position.height, position.width,
                     EditorGUIUtility.singleLineHeight);
                 EditorGUI.HelpBox(position,
-                    $"Нет значений для оси {attr.AxisType.Name}. Сохраните пресет.",
+                    $"Нет значений для оси {attr.ExtEnumType.Name}. Сохраните пресет.",
                     MessageType.Warning);
                 return;
             }

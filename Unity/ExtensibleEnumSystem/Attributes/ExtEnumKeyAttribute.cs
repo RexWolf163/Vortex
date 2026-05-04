@@ -20,17 +20,18 @@ namespace Vortex.Unity.ExtensibleEnumSystem.Attributes
     /// </code>
     /// </example>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class StateKeyAttribute : PropertyAttribute
+    public class ExtEnumKeyAttribute : PropertyAttribute
     {
-        public Type AxisType { get; }
+        public Type ExtEnumType { get; }
 
-        public StateKeyAttribute(Type axisType)
+        public ExtEnumKeyAttribute(Type axisType)
         {
             if (axisType == null)
                 throw new ArgumentNullException(nameof(axisType));
             if (!typeof(ExtensibleEnum).IsAssignableFrom(axisType))
-                throw new ArgumentException($"[StateKey] {axisType.Name} must inherit from ExtensibleEnum", nameof(axisType));
-            AxisType = axisType;
+                throw new ArgumentException($"[StateKey] {axisType.Name} must inherit from ExtensibleEnum",
+                    nameof(axisType));
+            ExtEnumType = axisType;
         }
     }
 }
