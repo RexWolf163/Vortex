@@ -286,11 +286,12 @@ Enemy
 
 ## Editor side of the catalog
 
-`EffectsCatalogEditor` — custom inspector:
-- standard `effects` array;
-- **Scan Project** button — `AssetDatabase.FindAssets("t:Prefab")` + filter by `GetComponent<EffectView>()`, adds new ones without removing existing;
-- **Validate** button — checks for null entries, missing `EffectView`, name duplicates; result printed to Console;
-- live "key → asset path" table below the array.
+`EffectsCatalog` uses Odin attributes directly on the SO — there is no separate `CustomEditor`:
+
+- `[InfoBox]` on the `effects` array explaining "key = prefab.name";
+- `[Button] Scan Project` — `AssetDatabase.FindAssets("t:Prefab")` + filter by `GetComponent<EffectView>()`, adds new ones without removing existing, result logged to Console;
+- `[Button] Validate` — checks for null entries, missing `EffectView`, name duplicates; result is `Debug.Log` (success) or `Debug.LogError` (list of issues);
+- `[ShowInInspector] IndexPreview` — read-only dictionary "key → asset path", always visible in the inspector under the buttons; rendered by Odin's DictionaryDrawer.
 
 `EffectKeyAttributeDrawer` — popup of all keys. Sources:
 - if a catalog is registered in `EffectSpawn` → uses `AllKeys`;

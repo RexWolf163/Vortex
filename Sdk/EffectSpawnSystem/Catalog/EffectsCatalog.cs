@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Sdk.EffectSpawnSystem.Components;
 #if UNITY_EDITOR
@@ -14,19 +15,19 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
     /// Регистрируется в шине через <c>EffectSpawn.RegisterCatalog(catalog)</c> из стартового кода.
     ///
     /// Ключ значения — <c>prefab.name</c>. Имя префаба = имя файла без расширения.
-    /// Дубликаты имён ловятся в редакторе (Validate / OnValidate).
+    /// Дубликаты имён ловятся в редакторе кнопкой Validate.
     /// </summary>
     [CreateAssetMenu(fileName = "EffectsCatalog", menuName = "Vortex/Effects Catalog")]
     public class EffectsCatalog : ScriptableObject
     {
-        [SerializeField] private GameObject[] effects = Array.Empty<GameObject>();
+        [SerializeField, InfoBox("Префабы эффектов с компонентом EffectView. Ключ для спауна = prefab.name.")]
+        [LabelText("Effects")]
+        private GameObject[] effects = Array.Empty<GameObject>();
 
         private Dictionary<string, GameObject> _byKey;
         private string[] _keys;
 
-        /// <summary>
-        /// Все ключи каталога в порядке объявления.
-        /// </summary>
+        /// <summary>Все ключи каталога в порядке объявления.</summary>
         public IReadOnlyList<string> Keys
         {
             get
@@ -36,20 +37,16 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
             }
         }
 
-        /// <summary>
-        /// Префаб по ключу или <c>null</c>, если ключ не найден.
-        /// </summary>
+        /// <summary>Префабы каталога (только для редактора и итераций; модификация не поддерживается).</summary>
+        public IReadOnlyList<GameObject> Effects => effects;
+
+        /// <summary>Префаб по ключу или <c>null</c>, если ключ не найден.</summary>
         public GameObject GetPrefab(string key)
         {
             if (string.IsNullOrEmpty(key)) return null;
             EnsureBuilt();
             return _byKey.TryGetValue(key, out var go) ? go : null;
         }
-
-        /// <summary>
-        /// Префабы каталога (только для редактора и итераций; модификация не поддерживается).
-        /// </summary>
-        public IReadOnlyList<GameObject> Effects => effects;
 
         private void OnEnable() => Invalidate();
         private void OnValidate() => Invalidate();
@@ -70,18 +67,16 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
                 if (e == null) continue;
                 var key = e.name;
                 if (string.IsNullOrEmpty(key)) continue;
-                _byKey[key] = e; // дубликаты — последний выигрывает; диагностируется в редакторе
+                _byKey[key] = e; // дубликаты — последний выигрывает; диагностируется кнопкой Validate
                 keys.Add(key);
             }
             _keys = keys.ToArray();
         }
 
 #if UNITY_EDITOR
-        /// <summary>
-        /// Editor: сканирует AssetDatabase, добавляет префабы с <see cref="EffectView"/>,
-        /// которые ещё не присутствуют в массиве. Существующие записи не трогает.
-        /// </summary>
-        public void ScanProject()
+        [Button("Scan Project"), PropertyOrder(10)]
+        [InfoBox("Сканирует AssetDatabase, добавляет все префабы с EffectView, которые ещё не присутствуют в массиве. Существующие записи не трогает.")]
+        private void ScanProject()
         {
             var existing = new HashSet<GameObject>(effects);
             var found = new List<GameObject>();
@@ -96,18 +91,24 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
                 found.Add(go);
             }
 
-            if (found.Count == 0) return;
+            if (found.Count == 0)
+            {
+                Debug.Log($"[EffectsCatalog] '{name}': новых префабов не найдено.", this);
+                return;
+            }
+
             var combined = new List<GameObject>(effects);
             combined.AddRange(found);
             effects = combined.ToArray();
             EditorUtility.SetDirty(this);
+            AssetDatabase.SaveAssets();
             Invalidate();
+
+            Debug.Log($"[EffectsCatalog] '{name}': добавлено {found.Count} новых префабов.", this);
         }
 
-        /// <summary>
-        /// Editor: проверка целостности каталога. Возвращает список проблем.
-        /// </summary>
-        public List<string> Validate()
+        [Button("Validate"), PropertyOrder(11)]
+        private void Validate()
         {
             var issues = new List<string>();
             var seen = new HashSet<string>();
@@ -126,7 +127,31 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
                     issues.Add($"[{i}] дубликат имени '{e.name}'.");
             }
 
-            return issues;
+            if (issues.Count == 0)
+                Debug.Log($"[EffectsCatalog] '{name}': проверка пройдена ({effects.Length} префабов).", this);
+            else
+                Debug.LogError($"[EffectsCatalog] '{name}': найдено {issues.Count} проблем:\n" + string.Join("\n", issues), this);
+        }
+
+        [ShowInInspector, PropertyOrder(20)]
+        [LabelText("Index preview")]
+        [DictionaryDrawerSettings(KeyLabel = "Key", ValueLabel = "Asset path", IsReadOnly = true)]
+        [InfoBox("Только для просмотра — что будет видно потребителю при чтении Keys/GetPrefab.")]
+        private Dictionary<string, string> IndexPreview
+        {
+            get
+            {
+                var result = new Dictionary<string, string>();
+                if (effects == null) return result;
+                foreach (var e in effects)
+                {
+                    if (e == null) continue;
+                    var key = e.name;
+                    if (result.ContainsKey(key)) continue;   // дубликаты — диагностируются Validate
+                    result[key] = AssetDatabase.GetAssetPath(e);
+                }
+                return result;
+            }
         }
 #endif
     }
