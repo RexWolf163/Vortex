@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+﻿#if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEngine;
 
-namespace Vortex.Unity.Extensions
+namespace Vortex.Unity.Extensions.Editor.Misc
 {
     public static class AnimatorExt
     {
@@ -62,3 +63,4 @@ namespace Vortex.Unity.Extensions
         }
     }
 }
+#endif
