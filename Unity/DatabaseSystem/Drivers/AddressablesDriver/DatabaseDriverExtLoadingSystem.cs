@@ -61,46 +61,56 @@ namespace Vortex.Unity.DatabaseSystem.Drivers.AddressablesDriver
             var handles = new List<AsyncOperationHandle<IList<IRecordPreset>>>();
             var allRecords = new List<IRecordPreset>();
 
-            try
+            foreach (var label in labels)
             {
-                foreach (var label in labels)
-                {
-                    var handle = Addressables.LoadAssetsAsync<IRecordPreset>(label, null);
-                    handles.Add(handle);
-                }
+                var handle = Addressables.LoadAssetsAsync<IRecordPreset>(label, null);
+                handles.Add(handle);
+            }
 
-                _processData.Size = handles.Count + 1;
-                _processData.Progress = 0;
+            _processData.Size = handles.Count + 1;
+            _processData.Progress = 0;
 
-                foreach (var handle in handles)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                        break;
+            foreach (var handle in handles)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
 
-                    var records = await handle.Task;
-                    allRecords.AddRange(records);
-                    _processData.Progress++;
-
-                    await UniTask.Yield();
-                }
-
-                foreach (var data in allRecords)
-                {
-                    if (data is null) continue;
-                    DatabaseDriverBase.PutData(data);
-                }
-
+                var records = await handle.Task;
+                allRecords.AddRange(records);
                 _processData.Progress++;
 
-                CallOnInit();
+                await UniTask.Yield();
             }
-            finally
+
+            foreach (var data in allRecords)
             {
-                foreach (var handle in handles)
-                    Addressables.Release(handle);
+                if (data is null) continue;
+                DatabaseDriverBase.PutData(data);
             }
+
+            _processData.Progress++;
+
+            // Удерживаем handle'ы пока живёт драйвер — Release дёргается в Destroy().
+            // Иначе Addressables выгружают пресеты вместе с прямыми ссылками
+            // на префабы внутри них (record.Prefab → null в рантайме).
+            _loadedHandles = handles;
+
+            CallOnInit();
 #endif
         }
+
+#if ENABLE_ADDRESSABLES
+        private static List<AsyncOperationHandle<IList<IRecordPreset>>> _loadedHandles;
+
+        internal static void ReleaseLoadedHandles()
+        {
+            if (_loadedHandles == null) return;
+            foreach (var handle in _loadedHandles)
+                if (handle.IsValid())
+                    Addressables.Release(handle);
+            _loadedHandles = null;
+        }
+#endif
 
         public Type[] WaitingFor() => Type.EmptyTypes;
     }

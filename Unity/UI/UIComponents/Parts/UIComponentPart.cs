@@ -1,8 +1,5 @@
-﻿#if UNITY_EDITOR
-using Sirenix.OdinInspector;
-#endif
+﻿using Sirenix.OdinInspector;
 using UnityEngine;
-using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.UIComponents.Parts
 {

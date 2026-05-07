@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Sirenix.OdinInspector;
 using UnityEngine;
-using UnityEngine.Serialization;
 using Vortex.Core.ExtensibleEnumSystem.Abstractions;
+using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.StateSwitcher
@@ -23,15 +23,11 @@ namespace Vortex.Unity.UI.StateSwitcher
         [Serializable, HideReferenceObjectPicker]
         public class StateData : IDisposable
         {
-            [FormerlySerializedAs("_name")]
-            [HorizontalGroup("top", 0.8f)]
-            [SerializeField, Sirenix.OdinInspector.HideLabel]
-            [Sirenix.OdinInspector.LabelText("Состояние")]
+            [HorizontalGroup("top", 0.8f)] [SerializeField, HideLabel] [LabelText("Состояние")]
             private string name;
 
-            [FormerlySerializedAs("_stateItems")]
             [SerializeReference]
-            [Sirenix.OdinInspector.LabelText("Элементы")]
+            [LabelText("Элементы")]
             [HideReferenceObjectPicker]
             [ValueDropdown("$GetItems", AppendNextDrawer = true)]
             private StateItem[] stateItems = { };
@@ -125,11 +121,10 @@ namespace Vortex.Unity.UI.StateSwitcher
         private int stateOnEnable;
 
 #if UNITY_EDITOR
-        [FormerlySerializedAs("_duplicateOnCreate")] [Sirenix.OdinInspector.LabelText("Дублировать")] [SerializeField]
+        [LabelText("Дублировать")] [SerializeField]
         private bool duplicateOnCreate = true;
 #endif
-        [FormerlySerializedAs("_states")]
-        [Sirenix.OdinInspector.LabelText("Состояния")]
+        [LabelText("Состояния")]
         [ListDrawerSettings(OnBeginListElementGUI = "OnBeginListElementGUI",
             OnEndListElementGUI = "OnEndListElementGUI", CustomAddFunction = "CustomAddFunction")]
         [SerializeField]

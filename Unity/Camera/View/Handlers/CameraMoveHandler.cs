@@ -68,6 +68,11 @@ namespace Vortex.Unity.Camera.View.Handlers
                     CalcPosition(Data.Target);
                 else
                 {
+                    // Заносим стартовую позицию под границы ДО tween'а.
+                    // Иначе LerpUnclamped даёт прямую от внешней точки до цели,
+                    // а CalcPosition по дороге прижимает к границам — путь ломается «уголком».
+                    SnapInsideBorders();
+
                     _isMove = true;
                     _moveTween.Set(() => transform.position, CalcPosition, Data.Target, easeDuration)
                         .SetEase(easeType)
@@ -94,20 +99,49 @@ namespace Vortex.Unity.Camera.View.Handlers
                 return;
             }
 
+            var borders = GetBordersRect();
+            pos.x = Mathf.Clamp(pos.x, borders.xMin, borders.xMax);
+            pos.y = Mathf.Clamp(pos.y, borders.yMin, borders.yMax);
+            Data.SetPosition(pos);
+        }
+
+        /// <summary>
+        /// Допустимая зона для центра камеры с учётом границ и размеров вьюпорта.
+        /// </summary>
+        private Rect GetBordersRect()
+        {
             var dX = Data.CameraRect.Value.x / 2f;
             var dY = Data.CameraRect.Value.y / 2f;
             var borderRect = Data.Borders[^1];
             borderRect.GetWorldCorners(_corners);
 
-            var borders = new Rect(
+            return new Rect(
                 _corners[0].x + dX,
                 _corners[0].y + dY,
                 _corners[2].x - _corners[0].x - 2f * dX,
                 _corners[2].y - _corners[0].y - 2f * dY);
+        }
 
-            pos.x = Mathf.Clamp(pos.x, borders.xMin, borders.xMax);
-            pos.y = Mathf.Clamp(pos.y, borders.yMin, borders.yMax);
-            Data.SetPosition(pos);
+        /// <summary>
+        /// Если камера сейчас вне допустимой зоны — мгновенно прижать её к ближайшей точке
+        /// на границе. Используется перед стартом tween'а, чтобы интерполяция шла из точки,
+        /// уже находящейся внутри границ.
+        /// </summary>
+        private void SnapInsideBorders()
+        {
+            if (!Data.IsBordered || Data.Borders.Count == 0)
+                return;
+
+            var borders = GetBordersRect();
+            var current = (Vector2)transform.position;
+            var snapped = new Vector2(
+                Mathf.Clamp(current.x, borders.xMin, borders.xMax),
+                Mathf.Clamp(current.y, borders.yMin, borders.yMax));
+
+            if (snapped == current) return;
+
+            Data.SetPosition(snapped);
+            transform.position = new Vector3(snapped.x, snapped.y, transform.position.z);
         }
     }
 }

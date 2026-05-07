@@ -159,8 +159,17 @@ namespace Vortex.Unity.UI.Attributes
             int current = statesArray.arraySize;
 
             if (current < desired)
+            {
                 for (int i = current; i < desired; i++)
+                {
                     statesArray.InsertArrayElementAtIndex(i);
+                    // InsertArrayElementAtIndex клонирует предыдущий элемент со ВСЕМИ SerializeReference rid'ами,
+                    // поэтому новый слот ссылается на те же C# объекты. Разрываем shared-ссылки —
+                    // каждый stateItem заменяем на независимую копию через Clone().
+                    var inserted = statesArray.GetArrayElementAtIndex(i);
+                    DetachSharedReferences(inserted.FindPropertyRelative("stateItems"));
+                }
+            }
             else if (current > desired)
                 for (int i = current - 1; i >= desired; i--)
                     statesArray.DeleteArrayElementAtIndex(i);
@@ -177,6 +186,24 @@ namespace Vortex.Unity.UI.Attributes
             EditorUtility.SetDirty(switcher);
 
             Debug.Log($"[StateSwitcherDrawer] Синхронизировано: {desired} состояний в '{switcher.name}'.");
+        }
+
+        /// <summary>
+        /// Заменяет все SerializeReference-элементы массива на независимые копии через StateItem.Clone().
+        /// Нужно после InsertArrayElementAtIndex, который клонирует rid'ы и создаёт shared ссылки.
+        /// </summary>
+        private static void DetachSharedReferences(SerializedProperty arrayProp)
+        {
+            if (arrayProp == null || !arrayProp.isArray) return;
+
+            for (int i = 0; i < arrayProp.arraySize; i++)
+            {
+                var element = arrayProp.GetArrayElementAtIndex(i);
+                if (element.propertyType != SerializedPropertyType.ManagedReference) continue;
+
+                if (element.managedReferenceValue is StateItem original)
+                    element.managedReferenceValue = original.Clone();
+            }
         }
     }
 }

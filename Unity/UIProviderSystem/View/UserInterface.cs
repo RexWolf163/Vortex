@@ -1,4 +1,5 @@
 ﻿using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.System.Enums;
@@ -149,6 +150,28 @@ namespace Vortex.Unity.UIProviderSystem.View
         /// </summary>
         /// <returns></returns>
         public string GetId() => preset;
+
+        #endregion
+
+        #region Editor
+
+        [Button("Open"), HorizontalGroup("btns")]
+        private void EditorOpen()
+        {
+            SetPosition();
+            foreach (var tweener in tweeners)
+            {
+                tweener.Back(true);
+                tweener.Forward();
+            }
+        }
+
+        [Button("Close"), HorizontalGroup("btns")]
+        private void EditorClose()
+        {
+            foreach (var tweener in tweeners)
+                tweener.Back();
+        }
 
         #endregion
     }

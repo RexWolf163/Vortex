@@ -13,6 +13,7 @@ namespace Vortex.Sdk.MapLevels.Presets
     /// Хранит прямую ссылку на префаб и GUID-список соседей.
     /// </summary>
     [CreateAssetMenu(fileName = "MapLevel", menuName = "Database/MapLevel Preset")]
+    [Serializable]
     public sealed class MapLevelPreset : RecordPreset<MapLevelModel>
     {
         [SerializeField] private GameObject prefab;

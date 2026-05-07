@@ -5,8 +5,8 @@ using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SettingsSystem.Model;
 using Vortex.Sdk.MapLevels.Interfaces;
-using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.SettingsSystem.Presets;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Sdk.MapLevels.Config
 {
@@ -21,7 +21,7 @@ namespace Vortex.Sdk.MapLevels.Config
         [Tooltip("Глубина выгрузки. Уровни на дистанции >= unloadDistance от активного выгружаются.")]
         private int unloadDistance = 3;
 
-        [SerializeField, ValueSelector(nameof(GetControllerTypes), Placeholder = "— Pick Controller —")]
+        [SerializeField, ValueSelector("GetControllerTypes", Placeholder = "— Pick Controller —")]
         [Tooltip("AssemblyQualifiedName реализации IMapLevelsController. " +
                  "Контроллер создаётся в MapLevelsBus при старте приложения.")]
         private string controllerTypeName;

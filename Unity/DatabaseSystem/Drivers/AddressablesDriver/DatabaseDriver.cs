@@ -61,6 +61,9 @@ namespace Vortex.Unity.DatabaseSystem.Drivers.AddressablesDriver
             if (Settings.Data().DebugMode)
                 Debug.LogError("DatabaseDriver is destroyed");
 
+#if ENABLE_ADDRESSABLES
+            ReleaseLoadedHandles();
+#endif
             DatabaseDriverBase.Clean();
         }
 

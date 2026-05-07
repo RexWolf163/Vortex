@@ -74,9 +74,9 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             return true;
         }
 
-        public static void UnRegistration(IMiniGameHub miniGameController)
+        public static void UnRegistration(IMiniGameHub miniGameHub)
         {
-            var gameKey = miniGameController.GetType().FullName;
+            var gameKey = miniGameHub.GetType().FullName;
             if (gameKey.IsNullOrWhitespace() ||
                 !_index.TryGetValue(gameKey, out MiniGameObserver observer))
             {
@@ -86,6 +86,20 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
 
             observer.Destroy();
             _index.Remove(gameKey);
+
+            var controller = miniGameHub.GetController();
+            if (controller == null)
+                return;
+
+            var controllerKey = controller.GetType();
+            if (!_controllersIndex.TryGetValue(controllerKey, out var registered))
+            {
+                Debug.LogWarning($"[MiniGameController] MiniGame {controllerKey} is not registered.");
+                return;
+            }
+
+            registered.DeInit();
+            _controllersIndex.Remove(controllerKey);
         }
 
         internal static void StartGame(string miniGameKey)

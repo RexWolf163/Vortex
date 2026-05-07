@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
+using UnityEngine;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
+using Object = System.Object;
 
 namespace Vortex.Core.Extensions.LogicExtensions
 {
@@ -39,6 +41,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
             {
                 var properties = source.GetReadablePropertiesList();
                 var modelType = target.GetType();
+
                 var targetProperties = modelType.GetProperties()
                     .Where(p => p.CanWrite)
                     .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
@@ -52,7 +55,6 @@ namespace Vortex.Core.Extensions.LogicExtensions
 
                     // Пропускаем индексированные свойства
                     if (prop.GetIndexParameters().Length > 0) continue;
-
                     var value = sourceProp.GetValue(source);
                     if (value is ICloneable cloneable)
                         prop.SetValue(target, cloneable.Clone());
@@ -77,6 +79,8 @@ namespace Vortex.Core.Extensions.LogicExtensions
         private static PropertyInfo[] GetReadablePropertiesList(this Object source) =>
             source.GetType()
                 .GetProperties(BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.DeclaringType != null
+                            && !p.DeclaringType.IsAssignableFrom(typeof(ScriptableObject)))
                 .ToArray();
     }
 }

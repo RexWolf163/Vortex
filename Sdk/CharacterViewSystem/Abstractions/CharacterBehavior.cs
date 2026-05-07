@@ -1,10 +1,14 @@
 ﻿using System;
+using Sirenix.OdinInspector;
 
 namespace Vortex.Sdk.CharacterViewSystem.Abstractions
 {
     [Serializable]
     public abstract class CharacterBehavior
     {
+        [DisplayAsString, ShowInInspector, HideLabel, PropertyOrder(-100)]
+        private string Name => GetType().Name;
+
         /// <summary>
         /// Блок инициализации.
         /// В нем необходимо прописать условия запуска и остановки модели поведения

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.DatabaseSystem.Bus;
@@ -23,7 +24,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
             Model = new MapLevelsModel();
             Model.ActiveLevelGuid.SetOwner(this);
 
-            BuildCatalog();
+            Database.OnInit += BuildCatalog;
 
             GameController.OnNewGame += OnGameReset;
             GameController.OnLoadGame += OnGameReset;
@@ -38,7 +39,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
 
             // Если игра уже идёт (например, контроллер инициализирован после NewGame) —
             // войти в текущий уровень из GameModel.
-            EnterCurrentFromGameData();
+            //EnterCurrentFromGameData();
         }
 
         /// <summary>
@@ -74,6 +75,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
         {
             if (!IsInitialized) return;
 
+            Database.OnInit -= BuildCatalog;
             GameController.OnNewGame -= OnGameReset;
             GameController.OnLoadGame -= OnGameReset;
 

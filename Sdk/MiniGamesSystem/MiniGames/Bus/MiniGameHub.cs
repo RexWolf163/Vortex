@@ -93,7 +93,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
         /// Возвращает установленный контроллер миниигры
         /// </summary>
         /// <returns></returns>
-        public IMiniGameController<MiniGameData> GetController() => Instance.Controller;
+        public IMiniGameController<MiniGameData> GetController() => Controller;
 
         /// <summary>
         /// Запуск игры асинхронно, для отслеживания завершения процесса снаружи

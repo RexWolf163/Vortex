@@ -78,12 +78,10 @@ namespace Vortex.Sdk.MapLevels.View
             switcher.Set(state);
         }
 
-#if UNITY_EDITOR
         /// <summary>
         /// получить перечень точек входа/спауна
         /// </summary>
         /// <returns></returns>
         public MapGate[] GetGates() => gates;
-#endif
     }
 }
