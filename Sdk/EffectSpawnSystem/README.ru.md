@@ -44,7 +44,7 @@
 
 ### Поиск parent для активного эффекта
 
-Spawn принимает обязательный `target` — `Transform` заказчика (где визуально появляется эффект). Где он будет припаркован в иерархии:
+Spawn принимает обязательный `target` — `Transform` заказчика. Где эффект будет припаркован в иерархии:
 
 ```
 1. owner.GetComponentInParent<EffectsLayer>()      ← поиск маркера вверх по цепочке
@@ -54,7 +54,30 @@ Spawn принимает обязательный `target` — `Transform` за�
 3. layer == null              → fallback: паркуем в сам target
 ```
 
-Позиция/ротация всегда копируются из `target`. Эффект ставится в **низ списка детей** (`SetAsLastSibling`).
+Эффект ставится в **низ списка детей** (`SetAsLastSibling`).
+
+### Позиционирование эффекта
+
+| Параметр | Значение по умолчанию | Источник |
+|---|---|---|
+| Мировая позиция | `target.position` | `Spawn`-параметр `position?` (если передан) |
+| Мировая ротация | `Quaternion.identity` | `Spawn`-параметр `rotation?` (если передан) |
+
+```csharp
+// Дефолт: позиция = target.position, ротация = identity
+EffectSpawn.Spawn(target, prefab);
+
+// Кастомная позиция (например, точка попадания), ротация дефолтная
+EffectSpawn.Spawn(target, prefab, position: hitPoint);
+
+// Кастомная ротация (например, по нормали поверхности), позиция дефолтная
+EffectSpawn.Spawn(target, prefab, rotation: Quaternion.LookRotation(normal));
+
+// Полная переопределённая трансформация
+EffectSpawn.Spawn(target, prefab, hitPoint, Quaternion.LookRotation(normal));
+```
+
+`target` остаётся обязательным: он используется для поиска `EffectsLayer` в parent-цепочке (где парковать) и как источник дефолтной позиции, если она не передана явно.
 
 ### EffectsLayer — маркер парковки
 
@@ -132,7 +155,7 @@ GAME-CODE
     ├── ResolveLayerTarget(target): GetComponentInParent<EffectsLayer> → Target | layer.transform | target
     ├── view.transform.SetParent(layer)             ← parent active → Unity дёрнет OnEnable
     ├── SetAsLastSibling
-    ├── SetPositionAndRotation(target.position, target.rotation)
+    ├── SetPositionAndRotation(position ?? target.position, rotation ?? Quaternion.identity)
     ↓
 [Unity] OnEnable вызывается автоматически:
     ├── enabled = true (сброс с прошлого цикла)
@@ -179,13 +202,14 @@ public class Bullet : MonoBehaviour
 
     private void OnCollisionEnter(Collision c)
     {
+        // позиция = bullet.position (дефолт), ротация = identity (дефолт)
         EffectSpawn.Spawn(transform, explosionPrefab);
         Destroy(gameObject);
     }
 }
 ```
 
-### По ключу из каталога
+### По ключу из каталога с кастомной ротацией
 
 ```csharp
 public class Weapon : MonoBehaviour
@@ -193,8 +217,12 @@ public class Weapon : MonoBehaviour
     [EffectKey] [SerializeField] private string muzzleFlash;
     [EffectKey] [SerializeField] private string impactSparks;
 
+    // дефолтная позиция (muzzle.position), дефолтная ротация (identity)
     private void Fire(Transform muzzle) => EffectSpawn.Spawn(muzzle, muzzleFlash);
-    private void OnImpact(Transform hit) => EffectSpawn.Spawn(hit, impactSparks);
+
+    // кастомные позиция (точка попадания) и ротация (по нормали поверхности)
+    private void OnImpact(Transform owner, Vector3 hitPoint, Vector3 normal)
+        => EffectSpawn.Spawn(owner, impactSparks, hitPoint, Quaternion.LookRotation(normal));
 }
 ```
 
@@ -283,8 +311,10 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
         public static void RegisterCatalog(EffectsCatalog catalog);
         public static void UnregisterCatalog(EffectsCatalog catalog);
 
-        public static EffectView Spawn(Transform target, GameObject prefab);
-        public static EffectView Spawn(Transform target, string key);
+        public static EffectView Spawn(Transform target, GameObject prefab,
+            Vector3? position = null, Quaternion? rotation = null);
+        public static EffectView Spawn(Transform target, string key,
+            Vector3? position = null, Quaternion? rotation = null);
         public static void Release(EffectView view);
     }
 }

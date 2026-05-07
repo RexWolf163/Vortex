@@ -62,11 +62,17 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
 
         /// <summary>
         /// Спаун эффекта по прямой ссылке на префаб.
+        ///
+        /// По умолчанию мировая позиция = <c>target.position</c>, ротация = <see cref="Quaternion.identity"/>.
+        /// Опциональные <paramref name="position"/> / <paramref name="rotation"/> переопределяют дефолты.
         /// </summary>
-        /// <param name="target">Источник позиции/ротации и точки начала поиска <see cref="EffectsLayer"/>. Не может быть null.</param>
+        /// <param name="target">Точка начала поиска <see cref="EffectsLayer"/> + источник дефолтной позиции. Не может быть null.</param>
         /// <param name="prefab">Префаб эффекта с компонентом <see cref="EffectView"/>. Не может быть null.</param>
+        /// <param name="position">Опциональная мировая позиция. По умолчанию — <c>target.position</c>.</param>
+        /// <param name="rotation">Опциональная мировая ротация. По умолчанию — <see cref="Quaternion.identity"/>.</param>
         /// <returns>Активированный <see cref="EffectView"/> либо null при ошибке валидации.</returns>
-        public static EffectView Spawn(Transform target, GameObject prefab)
+        public static EffectView Spawn(Transform target, GameObject prefab,
+            Vector3? position = null, Quaternion? rotation = null)
         {
             if (target == null)
             {
@@ -78,14 +84,20 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
                 Debug.LogError("[EffectSpawn] prefab == null");
                 return null;
             }
-            return Pool.Acquire(prefab, target);
+            var pos = position ?? target.position;
+            var rot = rotation ?? Quaternion.identity;
+            return Pool.Acquire(prefab, target, pos, rot);
         }
 
         /// <summary>
         /// Спаун эффекта по ключу из зарегистрированного каталога.
         /// Без зарегистрированного каталога или для незнакомого ключа — Logger.Error + null.
+        ///
+        /// По умолчанию мировая позиция = <c>target.position</c>, ротация = <see cref="Quaternion.identity"/>.
+        /// Опциональные <paramref name="position"/> / <paramref name="rotation"/> переопределяют дефолты.
         /// </summary>
-        public static EffectView Spawn(Transform target, string key)
+        public static EffectView Spawn(Transform target, string key,
+            Vector3? position = null, Quaternion? rotation = null)
         {
             if (target == null)
             {
@@ -103,7 +115,9 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
                 Debug.LogError($"[EffectSpawn] Ключ '{key}' не найден в каталоге '{_catalog.name}'.");
                 return null;
             }
-            return Pool.Acquire(prefab, target);
+            var pos = position ?? target.position;
+            var rot = rotation ?? Quaternion.identity;
+            return Pool.Acquire(prefab, target, pos, rot);
         }
 
         /// <summary>

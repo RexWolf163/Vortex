@@ -44,7 +44,7 @@ The visual side is driven by `TweenerHub` on the prefab (it triggers Animator/Sp
 
 ### Resolving the parent for an active effect
 
-`Spawn` requires a `target` — the consumer's `Transform` (where the effect appears visually). Where it actually parents in the hierarchy:
+`Spawn` requires a `target` — the consumer's `Transform`. Where the effect actually parents in the hierarchy:
 
 ```
 1. owner.GetComponentInParent<EffectsLayer>()      ← walk up looking for the marker
@@ -54,7 +54,30 @@ The visual side is driven by `TweenerHub` on the prefab (it triggers Animator/Sp
 3. layer == null              → fallback: park into target itself
 ```
 
-Position/rotation are always copied from `target`. The effect is set as **last sibling** (`SetAsLastSibling`).
+The effect is set as **last sibling** (`SetAsLastSibling`).
+
+### Effect placement
+
+| Parameter | Default | Source |
+|---|---|---|
+| World position | `target.position` | `Spawn` parameter `position?` if provided |
+| World rotation | `Quaternion.identity` | `Spawn` parameter `rotation?` if provided |
+
+```csharp
+// Defaults: position = target.position, rotation = identity
+EffectSpawn.Spawn(target, prefab);
+
+// Custom position (e.g., hit point), default rotation
+EffectSpawn.Spawn(target, prefab, position: hitPoint);
+
+// Custom rotation (e.g., aligned to surface normal), default position
+EffectSpawn.Spawn(target, prefab, rotation: Quaternion.LookRotation(normal));
+
+// Both overridden
+EffectSpawn.Spawn(target, prefab, hitPoint, Quaternion.LookRotation(normal));
+```
+
+`target` remains required: it's used to look up the `EffectsLayer` in the parent chain (where to park) and as the source of the default position when one is not passed explicitly.
 
 ### EffectsLayer — parking marker
 
@@ -132,7 +155,7 @@ GAME-CODE
     ├── ResolveLayerTarget(target): GetComponentInParent<EffectsLayer> → Target | layer.transform | target
     ├── view.transform.SetParent(layer)             ← parent active → Unity fires OnEnable
     ├── SetAsLastSibling
-    ├── SetPositionAndRotation(target.position, target.rotation)
+    ├── SetPositionAndRotation(position ?? target.position, rotation ?? Quaternion.identity)
     ↓
 [Unity] OnEnable fires automatically:
     ├── enabled = true (reset from previous cycle)
@@ -179,13 +202,14 @@ public class Bullet : MonoBehaviour
 
     private void OnCollisionEnter(Collision c)
     {
+        // position = bullet.position (default), rotation = identity (default)
         EffectSpawn.Spawn(transform, explosionPrefab);
         Destroy(gameObject);
     }
 }
 ```
 
-### By key from the catalog
+### By key from the catalog with custom rotation
 
 ```csharp
 public class Weapon : MonoBehaviour
@@ -193,8 +217,12 @@ public class Weapon : MonoBehaviour
     [EffectKey] [SerializeField] private string muzzleFlash;
     [EffectKey] [SerializeField] private string impactSparks;
 
+    // Default position (muzzle.position), default rotation (identity)
     private void Fire(Transform muzzle) => EffectSpawn.Spawn(muzzle, muzzleFlash);
-    private void OnImpact(Transform hit) => EffectSpawn.Spawn(hit, impactSparks);
+
+    // Custom position (hit point) and rotation (aligned to surface normal)
+    private void OnImpact(Transform owner, Vector3 hitPoint, Vector3 normal)
+        => EffectSpawn.Spawn(owner, impactSparks, hitPoint, Quaternion.LookRotation(normal));
 }
 ```
 
@@ -283,8 +311,10 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
         public static void RegisterCatalog(EffectsCatalog catalog);
         public static void UnregisterCatalog(EffectsCatalog catalog);
 
-        public static EffectView Spawn(Transform target, GameObject prefab);
-        public static EffectView Spawn(Transform target, string key);
+        public static EffectView Spawn(Transform target, GameObject prefab,
+            Vector3? position = null, Quaternion? rotation = null);
+        public static EffectView Spawn(Transform target, string key,
+            Vector3? position = null, Quaternion? rotation = null);
         public static void Release(EffectView view);
     }
 }

@@ -27,9 +27,9 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
 
         /// <summary>
         /// Достать эффект из пула (или создать новый), припарковать в найденный target-layer
-        /// и выставить позицию/ротацию <paramref name="target"/>.
+        /// и выставить заданные мировые <paramref name="position"/> / <paramref name="rotation"/>.
         /// </summary>
-        internal EffectView Acquire(GameObject prefab, Transform target)
+        internal EffectView Acquire(GameObject prefab, Transform target, Vector3 position, Quaternion rotation)
         {
             if (prefab == null || target == null) return null;
 
@@ -52,7 +52,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
             var t = view.transform;
             t.SetParent(layer, worldPositionStays: false);
             t.SetAsLastSibling();
-            t.SetPositionAndRotation(target.position, target.rotation);
+            t.SetPositionAndRotation(position, rotation);
             // Активация автоматическая: layer active → OnEnable на EffectView сработает сам.
 
             return view;
