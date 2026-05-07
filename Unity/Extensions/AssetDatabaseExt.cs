@@ -14,15 +14,32 @@ namespace Vortex.Unity.Extensions
     /// независимо от того, лежит ли ассет в <c>Resources/</c>.
     /// </item>
     /// <item>
-    /// <b>Runtime</b> — через <see cref="Resources.LoadAll(string,System.Type)"/>: ищет только в
-    /// <c>Resources/</c>-папках. Чтобы singleton-ассет был доступен в build, он <b>обязан</b>
-    /// лежать под <c>Resources/</c>.
+    /// <b>Runtime (build)</b> — через <see cref="Resources.LoadAll(string,System.Type)"/>: ищет
+    /// только в <c>Resources/</c>-папках.
     /// </item>
     /// </list>
     ///
-    /// Семантика разнится между Editor и Runtime — это компромисс, не баг. Если проект зависит
-    /// от runtime-доступа к singleton-ассету, он должен жить в <c>Resources/</c>. Альтернатива —
-    /// Addressables (вне ответственности этой утилиты).
+    /// <para>
+    /// <b>Требования к ассету для работы в build:</b> Unity при сборке выкидывает все ассеты,
+    /// на которые нет достижимой ссылки. Чтобы singleton-ассет был доступен в build, он должен:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>
+    /// <b>либо</b> лежать в любой <c>Resources/</c>-папке проекта — тогда
+    /// <see cref="GetSingletonAsset{T}"/> найдёт его в runtime через <see cref="Resources.LoadAll(string,System.Type)"/>;
+    /// </item>
+    /// <item>
+    /// <b>либо</b> быть достижимым по прямой <see cref="SerializeField"/>-ссылке из сцены/префаба
+    /// (через bootstrap-компонент или иной держатель) — тогда Unity включит его в build, но
+    /// <see cref="GetSingletonAsset{T}"/> его в runtime <i>не найдёт</i>: ассет получает потребитель
+    /// напрямую через свою сериализованную ссылку.
+    /// </item>
+    /// </list>
+    /// <para>
+    /// Если ассет не подпадает ни под один пункт — в build его физически нет, и любая попытка
+    /// загрузить через эту утилиту вернёт <c>null</c>. Это не дефект метода, а ограничение
+    /// Unity asset stripping. Альтернатива — Addressables (вне ответственности утилиты).
+    /// </para>
     /// </summary>
     public static class AssetDatabaseExt
     {
