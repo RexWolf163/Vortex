@@ -5,6 +5,7 @@ using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.EffectSpawnSystem.Catalog;
 using Vortex.Sdk.EffectSpawnSystem.Components;
 using Vortex.Sdk.EffectSpawnSystem.Pool;
+using Vortex.Unity.Extensions;
 using Object = UnityEngine.Object;
 
 namespace Vortex.Sdk.EffectSpawnSystem.Bus
@@ -47,17 +48,11 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
         /// <summary>
         /// Регистрация каталога. Замена существующего допустима — вызывается из стартового кода.
         /// </summary>
-        public static void RegisterCatalog(EffectsCatalog catalog)
+        [RuntimeInitializeOnLoadMethod]
+        public static void RegisterCatalog()
         {
+            var catalog = AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>();
             _catalog = catalog;
-        }
-
-        /// <summary>
-        /// Снять регистрацию указанного каталога. Если был зарегистрирован другой — ничего не делает.
-        /// </summary>
-        public static void UnregisterCatalog(EffectsCatalog catalog)
-        {
-            if (_catalog == catalog) _catalog = null;
         }
 
         /// <summary>
@@ -79,11 +74,13 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
                 Debug.LogError("[EffectSpawn] target == null");
                 return null;
             }
+
             if (prefab == null)
             {
                 Debug.LogError("[EffectSpawn] prefab == null");
                 return null;
             }
+
             var pos = position ?? target.position;
             var rot = rotation ?? Quaternion.identity;
             return Pool.Acquire(prefab, target, pos, rot);
@@ -104,17 +101,21 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
                 Debug.LogError("[EffectSpawn] target == null");
                 return null;
             }
+
             if (_catalog == null)
             {
-                Debug.LogError($"[EffectSpawn] Каталог не зарегистрирован, спаун по ключу '{key}' невозможен. Используйте RegisterCatalog или Spawn(target, prefab).");
+                Debug.LogError(
+                    $"[EffectSpawn] Каталог не зарегистрирован, спаун по ключу '{key}' невозможен. Используйте RegisterCatalog или Spawn(target, prefab).");
                 return null;
             }
+
             var prefab = _catalog.GetPrefab(key);
             if (prefab == null)
             {
                 Debug.LogError($"[EffectSpawn] Ключ '{key}' не найден в каталоге '{_catalog.name}'.");
                 return null;
             }
+
             var pos = position ?? target.position;
             var rot = rotation ?? Quaternion.identity;
             return Pool.Acquire(prefab, target, pos, rot);
@@ -141,7 +142,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
             {
                 if (_pool != null) return _pool;
 
-                var rootGo = new GameObject("[EffectPool]");
+                var rootGo = new GameObject("[EffectVoid]");
                 Object.DontDestroyOnLoad(rootGo);
                 _pool = rootGo.AddComponent<EffectPool>();
 

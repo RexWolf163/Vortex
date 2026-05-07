@@ -36,8 +36,6 @@ namespace Vortex.Sdk.EffectSpawnSystem.Components
 
         private void OnEnable()
         {
-            // Сброс «освобождён» с прошлого цикла + старт нового.
-            enabled = true;
             _spawnTime = Time.unscaledTime;
             _pausedAccum = 0f;
             _paused = EffectSpawn.IsPaused;
@@ -53,8 +51,6 @@ namespace Vortex.Sdk.EffectSpawnSystem.Components
 
         private void Update()
         {
-            if (!enabled) return;
-
             if (_paused)
             {
                 _pausedAccum += Time.unscaledDeltaTime;
@@ -70,8 +66,6 @@ namespace Vortex.Sdk.EffectSpawnSystem.Components
         /// </summary>
         public void Release()
         {
-            if (!enabled) return;
-            enabled = false;
             EffectSpawn.Release(this);
         }
 

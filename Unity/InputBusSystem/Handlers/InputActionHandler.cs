@@ -33,6 +33,7 @@ namespace Vortex.Unity.InputBusSystem.Handlers
 
         private void OnDisable()
         {
+            OnCanceled();
             App.OnStateChanged -= OnAppInit;
             if (!_wasSubscribed) return;
             InputController.RemoveActionUser(inputAction, this);

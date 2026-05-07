@@ -22,6 +22,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
 
         // idle: prefab → стек освобождённых view-инстансов из этого префаба
         private readonly Dictionary<GameObject, Stack<EffectView>> _idle = new();
+
         // active: view → prefab, чтобы знать в какой стек класть при Return
         private readonly Dictionary<EffectView, GameObject> _activePrefab = new();
 
@@ -38,7 +39,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
 
             EffectView view = null;
             while (stack.Count > 0 && view == null)
-                view = stack.Pop();   // защита от потерянных view (Destroy в чужом коде)
+                view = stack.Pop(); // защита от потерянных view (Destroy в чужом коде)
 
             if (view == null)
             {
@@ -53,7 +54,6 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
             t.SetParent(layer, worldPositionStays: false);
             t.SetAsLastSibling();
             t.SetPositionAndRotation(position, rotation);
-            // Активация автоматическая: layer active → OnEnable на EffectView сработает сам.
 
             return view;
         }
@@ -64,8 +64,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
         internal void Return(EffectView view)
         {
             if (view == null) return;
-            if (!_activePrefab.TryGetValue(view, out var prefab)) return;
-            _activePrefab.Remove(view);
+            if (!_activePrefab.Remove(view, out var prefab)) return;
 
             view.transform.SetParent(Storage, worldPositionStays: false);
             // Деактивация автоматическая: Storage inactive → OnDisable на EffectView сработает сам.
@@ -90,14 +89,15 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
 
         private EffectView InstantiateNew(GameObject prefab)
         {
-            var go = Object.Instantiate(prefab, Storage);
+            var go = Instantiate(prefab, Storage);
             var view = go.GetComponent<EffectView>();
             if (view == null)
             {
                 Debug.LogError($"[EffectPool] Префаб '{prefab.name}' не имеет EffectView. Эффект не будет работать.");
-                Object.Destroy(go);
+                Destroy(go);
                 return null;
             }
+
             return view;
         }
 

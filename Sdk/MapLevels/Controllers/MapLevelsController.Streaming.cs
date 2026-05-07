@@ -26,7 +26,7 @@ namespace Vortex.Sdk.MapLevels.Controllers
             {
                 if (_voidParent == null)
                 {
-                    var go = new GameObject("MapVoid");
+                    var go = new GameObject("[MapVoid]");
                     go.SetActive(false);
                     Object.DontDestroyOnLoad(go);
                     _voidParent = go.transform;
