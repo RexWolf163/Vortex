@@ -70,12 +70,14 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
                 _byKey[key] = e; // дубликаты — последний выигрывает; диагностируется кнопкой Validate
                 keys.Add(key);
             }
+
             _keys = keys.ToArray();
         }
 
 #if UNITY_EDITOR
-        [Button("Scan Project"), PropertyOrder(10)]
-        [InfoBox("Сканирует AssetDatabase, добавляет все префабы с EffectView, которые ещё не присутствуют в массиве. Существующие записи не трогает.")]
+        [Button("Scan Project", ButtonSizes.Medium), PropertyOrder(10), HorizontalGroup("btns")]
+        [Tooltip(
+            "Сканирует AssetDatabase, добавляет все префабы с EffectView, которые ещё не присутствуют в массиве. Существующие записи не трогает.")]
         private void ScanProject()
         {
             var existing = new HashSet<GameObject>(effects);
@@ -107,7 +109,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
             Debug.Log($"[EffectsCatalog] '{name}': добавлено {found.Count} новых префабов.", this);
         }
 
-        [Button("Validate"), PropertyOrder(11)]
+        [Button("Validate", ButtonSizes.Medium), PropertyOrder(11), HorizontalGroup("btns")]
         private void Validate()
         {
             var issues = new List<string>();
@@ -121,6 +123,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
                     issues.Add($"[{i}] null-элемент в массиве.");
                     continue;
                 }
+
                 if (e.GetComponent<EffectView>() == null)
                     issues.Add($"[{i}] '{e.name}' не имеет компонента EffectView.");
                 if (!seen.Add(e.name))
@@ -130,7 +133,8 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
             if (issues.Count == 0)
                 Debug.Log($"[EffectsCatalog] '{name}': проверка пройдена ({effects.Length} префабов).", this);
             else
-                Debug.LogError($"[EffectsCatalog] '{name}': найдено {issues.Count} проблем:\n" + string.Join("\n", issues), this);
+                Debug.LogError(
+                    $"[EffectsCatalog] '{name}': найдено {issues.Count} проблем:\n" + string.Join("\n", issues), this);
         }
 
         [ShowInInspector, PropertyOrder(20)]
@@ -147,9 +151,10 @@ namespace Vortex.Sdk.EffectSpawnSystem.Catalog
                 {
                     if (e == null) continue;
                     var key = e.name;
-                    if (result.ContainsKey(key)) continue;   // дубликаты — диагностируются Validate
+                    if (result.ContainsKey(key)) continue; // дубликаты — диагностируются Validate
                     result[key] = AssetDatabase.GetAssetPath(e);
                 }
+
                 return result;
             }
         }

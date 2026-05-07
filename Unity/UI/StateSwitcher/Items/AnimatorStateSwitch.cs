@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using Vortex.Unity.Extensions;
 
 namespace Vortex.Unity.UI.StateSwitcher.Items
 {
@@ -39,14 +40,10 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             };
         }
 
-        private List<string> GetAnimatorStatesKeys()
+        private string[] GetAnimatorStatesKeys()
         {
-            var result = new List<string>();
-            if (_animator != null)
-                foreach (var param in _animator.parameters)
-                    if (param.type == AnimatorControllerParameterType.Int)
-                        result.Add(param.name);
-            return result;
+            if (_animator == null) return new string[0];
+            return _animator.GetAnimatorParameters<int>();
         }
 #endif
     }
