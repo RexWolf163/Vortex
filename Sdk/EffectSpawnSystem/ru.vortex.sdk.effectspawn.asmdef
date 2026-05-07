@@ -1,0 +1,17 @@
+{
+    "name": "ru.vortex.sdk.effectspawn",
+    "rootNamespace": "",
+    "references": [
+        "GUID:66c3850540390be44aa49f25786b3c3a",
+        "GUID:f1e680f843d477b4982469a7325c2f44"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

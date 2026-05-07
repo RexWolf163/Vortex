@@ -70,7 +70,11 @@ ExtensibleEnum (abstract, IEquatable<ExtensibleEnum>)
       }
 ```
 
-A concrete value set is created as a `sealed` subclass with static `readonly` fields:
+A concrete value set is created as an `ExtensibleEnum` subclass with static `readonly` fields. Two declaration styles are supported — pick based on whether the set should be open for extension.
+
+#### Closed set — `sealed` + `private` ctor
+
+When the set is fixed and must not be extended:
 
 ```csharp
 public sealed class MoveState : ExtensibleEnum
@@ -84,6 +88,61 @@ public sealed class MoveState : ExtensibleEnum
     private MoveState(string key, int order) : base(key, order) { }
 }
 ```
+
+#### Extensible set — `partial` + `public` ctor
+
+When the set defines a minimal baseline and is meant to be extended by the project (or by another partial file in the same assembly):
+
+```csharp
+// Sdk/.../MoveState.cs — baseline values
+public partial class MoveState : ExtensibleEnum
+{
+    public static readonly MoveState Stay = new(nameof(Stay), 0);
+    public static readonly MoveState Move = new(nameof(Move), 1);
+
+    public MoveState(string key, int order) : base(key, order) { }
+}
+
+// Project/States/MoveState.Extra.cs — extension in the same assembly
+public partial class MoveState
+{
+    public static readonly MoveState Run  = new(nameof(Run),  2);
+    public static readonly MoveState Jump = new(nameof(Jump), 3);
+}
+```
+
+Rules:
+- The ctor is declared `public` (or `internal`) — otherwise the second partial part can't call `new`.
+- `Order` in the extension **continues** from the last index used by the base part. Duplicate `Order`s are technically allowed but break slot mapping in `UIStateSwitcher`.
+- Duplicate `Key`s across any partial part overwrite each other in the `ByKey` registry — author's error, the eager init does not diagnose it.
+- `partial` extension works **within a single assembly**. For extension from a consumer assembly, see below.
+
+#### Canonical reference
+
+[`Vortex.Sdk.CharacterViewSystem.Models.States`](../../Sdk/CharacterViewSystem/Models/States/) — examples of minimal baseline sets, open for extension via `partial`:
+- `MoveState`: `Stay`, `Move` — baseline; the project adds `Run`, `Jump`, `Crouch` for its own mechanics.
+- `DirectionState`: 6 canonical directions (`North`/`East`/`South`/`West`/`Up`/`Down`); the project adds diagonals if needed.
+- `ActionState`: `Idle`, `Speak`, `Use` — typical gameplay actions.
+- `CombatState`: `Idle`, `Attack`, `Defence` — baseline combat model.
+- `MoveSubStateDirection`: `Forward`, `Back`, `Side` — movement direction relative to facing.
+
+Each class is declared as `public partial class … : ExtensibleEnum` with a public constructor — this is the canonical pattern for extensible sets in the framework.
+
+#### Extending from a different assembly
+
+If the consumer project sits in a separate asmdef and wants to add values to an existing set, two options:
+
+- **Create instances via the public ctor in your own static class**, ensuring the static initializer runs before the registry is consulted — e.g., via `[RuntimeInitializeOnLoadMethod]` or an explicit reference from startup code:
+  ```csharp
+  public static class MyMoveStates
+  {
+      public static readonly MoveState Sprint = new MoveState("Sprint", 100);
+      public static readonly MoveState Climb  = new MoveState("Climb",  101);
+  }
+  ```
+  Without an explicit trigger, `Sprint`/`Climb` may not appear in `MoveState.GetAll<>()` until something first references `MyMoveStates`.
+
+- **Declare your own subclass** — it becomes a separate set (`typeof(MyMoveState) != typeof(MoveState)`), a different registry slot in `ByKey`. Suitable when isolation is desired rather than extension.
 
 ### Eager initialization (no lazy code)
 

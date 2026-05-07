@@ -70,7 +70,11 @@ ExtensibleEnum (abstract, IEquatable<ExtensibleEnum>)
       }
 ```
 
-Конкретный набор значений создаётся как `sealed`-наследник со статическими `readonly`-полями:
+Конкретный набор значений создаётся как наследник `ExtensibleEnum` со статическими `readonly`-полями. Поддерживаются два режима объявления — выбор зависит от того, должен ли набор быть открыт для расширения.
+
+#### Закрытый набор — `sealed` + `private` ctor
+
+Когда набор фиксированный и не должен дополняться извне:
 
 ```csharp
 public sealed class MoveState : ExtensibleEnum
@@ -84,6 +88,61 @@ public sealed class MoveState : ExtensibleEnum
     private MoveState(string key, int order) : base(key, order) { }
 }
 ```
+
+#### Расширяемый набор — `partial` + `public` ctor
+
+Когда набор задаёт минимум базовых значений и должен дополняться проектом или другим частичным файлом в той же сборке:
+
+```csharp
+// Sdk/.../MoveState.cs — базовые значения
+public partial class MoveState : ExtensibleEnum
+{
+    public static readonly MoveState Stay = new(nameof(Stay), 0);
+    public static readonly MoveState Move = new(nameof(Move), 1);
+
+    public MoveState(string key, int order) : base(key, order) { }
+}
+
+// Project/States/MoveState.Extra.cs — расширение в той же сборке
+public partial class MoveState
+{
+    public static readonly MoveState Run  = new(nameof(Run),  2);
+    public static readonly MoveState Jump = new(nameof(Jump), 3);
+}
+```
+
+Правила:
+- Конструктор объявляется `public` (или `internal`) — иначе вторая partial-часть не сможет вызвать `new`.
+- `Order` в расширении **продолжается** с последнего занятого индекса базовой части. Дубликаты `Order` допустимы технически, но ломают слот-маппинг для `UIStateSwitcher`.
+- Дубликаты `Key` в любой partial-части перезатирают друг друга в реестре `ByKey` — авторская ошибка, eager-init её не диагностирует.
+- Расширение через `partial` работает **в пределах одной сборки**. Для расширения из проектной сборки, использующей пакет как зависимость, см. ниже.
+
+#### Канонический референс
+
+[`Vortex.Sdk.CharacterViewSystem.Models.States`](../../Sdk/CharacterViewSystem/Models/States/) — пример минимальных базовых наборов, открытых для расширения через `partial`:
+- `MoveState`: `Stay`, `Move` — базовый минимум; проект добавляет `Run`, `Jump`, `Crouch` под свою механику.
+- `DirectionState`: 6 канонических направлений (`North`/`East`/`South`/`West`/`Up`/`Down`); проект добавляет диагонали при необходимости.
+- `ActionState`: `Idle`, `Speak`, `Use` — типовые игровые действия.
+- `CombatState`: `Idle`, `Attack`, `Defence` — базовая боевая модель.
+- `MoveSubStateDirection`: `Forward`, `Back`, `Side` — поднабор направления движения относительно взгляда.
+
+Каждый класс объявлен как `public partial class … : ExtensibleEnum` с публичным конструктором — это и есть канонический способ задавать расширяемые наборы во фреймворке.
+
+#### Расширение из чужой сборки
+
+Если проект-потребитель сидит в отдельной asmdef и хочет добавить свои значения к существующему набору, варианта два:
+
+- **Создать инстанс через public ctor в своём static-классе**, гарантировав, что static-инициализатор сработает до использования реестра — например, через `[RuntimeInitializeOnLoadMethod]` или явную ссылку из стартового кода:
+  ```csharp
+  public static class MyMoveStates
+  {
+      public static readonly MoveState Sprint = new MoveState("Sprint", 100);
+      public static readonly MoveState Climb  = new MoveState("Climb",  101);
+  }
+  ```
+  Без явного триггера static-init `Sprint`/`Climb` могут не появиться в `MoveState.GetAll<>()` до первого обращения к `MyMoveStates`.
+
+- **Объявить собственный наследник** — он становится отдельным набором (`typeof(MyMoveState) != typeof(MoveState)`), это другой реестр в `ByKey`. Подходит, когда нужна изоляция, а не дополнение.
 
 ### Eager-инициализация (нет lazy)
 
