@@ -72,11 +72,22 @@ namespace Vortex.Core.Extensions.ReactiveValues
             Owner = owner;
         }
 
+        public T this[int index] => Value[index];
+
         /// <summary>
         /// Принудительный запуск события обновления
         /// Использовать аккуратно!
         /// </summary>
         public void ForceUpdate() => CallOnUpdate();
+
+        public void Set(int index, T value, object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value[index] = value;
+            CallOnUpdate();
+        }
 
         public void Add(T value, object owner = null)
         {
