@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.LoaderSystem.Bus;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 
 namespace Vortex.NaniExtensions.Core
 {
@@ -17,6 +18,11 @@ namespace Vortex.NaniExtensions.Core
     {
         [SerializeField, ValueDropdown("ScenesList")]
         private int[] scenes;
+
+        [SerializeField] private Camera preloadCamera;
+
+        [InfoBox("Задержка для отключения камеры")] [SerializeField]
+        private float delay = 1f;
 
         private bool _naniWasInit;
         private bool _vortexWasInit;
@@ -49,10 +55,12 @@ namespace Vortex.NaniExtensions.Core
             if (!_naniWasInit || !_vortexWasInit) return;
             foreach (var sceneName in scenes)
                 SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
+            TimeController.Call(() => preloadCamera.gameObject.SetActive(false), delay, this);
         }
 
         private void OnDestroy()
         {
+            TimeController.RemoveCall(this);
             Engine.OnInitializationFinished -= OnNaniWasInit;
             App.OnStart -= OnVortexWasInit;
         }
