@@ -12,11 +12,16 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 {
     /// <summary>
     /// Контроллер сериализации и десериализации.
-    /// Обрабатывает публичные свойства с 'public' геттером и любым сеттером.
+    /// Правила отбора свойств:
+    /// - getter и setter обязательны (видимость setter'а не важна);
+    /// - по умолчанию обрабатываются свойства с public getter;
+    /// - непубличные (internal/protected/private) свойства — только при явной
+    ///   маркировке атрибутом [IsPOCO]. Это позволяет сериализовать
+    ///   инкапсулированный mutable state, оставляя наружу IReadOnly-фасады;
+    /// - свойства с атрибутом [NotPOCO] исключаются из сериализации.
     ///
     /// Сложные типы сериализуются только если помечены атрибутом [POCO].
     /// Простые типы (примитивы, string, enum, DateTime, Guid) — всегда.
-    /// Свойства с атрибутом [NotPOCO] исключаются из сериализации.
     ///
     /// Если в нескольких свойствах содержится указатель на одну сущность,
     /// при сериализации выдаст ошибку (защита от зацикливания).
@@ -118,18 +123,28 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
         /// <summary>
         /// Возвращает список свойств подлежащих сериализации.
-        /// Фильтрует: публичный getter, наличие setter, отсутствие [NotPOCO], тип сериализуем.
+        /// Правила отбора:
+        /// - наличие getter и setter (видимость setter'а не важна — рефлексия вызовет любой);
+        /// - тип свойства сериализуем (см. <see cref="IsSerializableType"/>);
+        /// - отсутствует <see cref="NotPOCOAttribute"/>;
+        /// - getter публичный ИЛИ свойство помечено <see cref="IsPOCOAttribute"/>.
+        ///
+        /// Непубличные свойства без явной маркировки <see cref="IsPOCOAttribute"/>
+        /// в сериализацию не попадают — это позволяет держать internal/private
+        /// state класса (кеши, шедоу-стейты) изолированным от сейва.
         /// </summary>
         private static PropertyInfo[] GetReadablePropertiesList(Type type)
         {
             if (!CacheFields.TryGetValue(type, out var props))
             {
                 props = type
-                    .GetProperties(BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.Instance)
+                    .GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                     .Where(p => p.CanRead
                                 && p.SetMethod != null
                                 && p.GetCustomAttribute<NotPOCOAttribute>() == null
-                                && IsSerializableType(p.PropertyType))
+                                && IsSerializableType(p.PropertyType)
+                                && (p.GetMethod is { IsPublic: true }
+                                    || p.GetCustomAttribute<IsPOCOAttribute>() != null))
                     .ToArray();
                 CacheFields[type] = props;
             }

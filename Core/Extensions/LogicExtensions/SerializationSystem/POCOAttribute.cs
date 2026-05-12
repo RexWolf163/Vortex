@@ -17,4 +17,13 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
     /// </summary>
     [AttributeUsage(AttributeTargets.Property)]
     public class NotPOCOAttribute : Attribute { }
+
+    /// <summary>
+    /// Принудительно включает непубличное свойство (internal/protected/private)
+    /// в сериализацию в классе помеченном [POCO].
+    /// Для свойств с public getter атрибут избыточен — такие свойства
+    /// сериализуются по умолчанию.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property)]
+    public class IsPOCOAttribute : Attribute { }
 }

@@ -17,7 +17,8 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
     {
         /// <summary>
         /// Десериализатор данных из строки JSON выполненной сериализацией этого же контроллера.
-        /// Десериализуются только публичные свойства с getter и setter.
+        /// Восстанавливаются свойства, прошедшие правила отбора <see cref="GetReadablePropertiesList"/>:
+        /// public-getter по умолчанию, либо непубличный с маркировкой [IsPOCO].
         /// Сложные типы должны быть помечены [POCO].
         /// </summary>
         public static T DeserializeProperties<T>(this string data)
@@ -108,12 +109,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 return null;
             }
 
+            const BindingFlags propFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
             var c = ar.Count;
             for (var i = 1; i < c; i++)
             {
                 var s = ar[i];
                 var name = TakeQuotesText(s, out var valueText);
-                var props = type.GetProperty(name);
+                var props = type.GetProperty(name, propFlags);
                 if (props == null)
                 {
                     if (Settings.Data().DebugMode)
@@ -124,6 +127,13 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 }
 
                 if (props.GetCustomAttribute<NotPOCOAttribute>() != null)
+                    continue;
+
+                // Симметрия с сериализацией: непубличное свойство принимается
+                // только при явной маркировке [IsPOCO]. Это страховка от подмены
+                // внутреннего состояния руками собранным JSON.
+                var isPublic = props.GetMethod is { IsPublic: true };
+                if (!isPublic && props.GetCustomAttribute<IsPOCOAttribute>() == null)
                     continue;
 
                 if (props.SetMethod != null)
