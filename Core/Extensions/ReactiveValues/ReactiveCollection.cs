@@ -23,7 +23,7 @@ namespace Vortex.Core.Extensions.ReactiveValues
     /// готовый наследник <see cref="ListData{T}"/>, который заводит пустой / переданный список.
     /// </summary>
     /// <typeparam name="T">Тип элемента коллекции. Сериализуется по правилам SerializeController.</typeparam>
-    public class ReactiveCollection<T> : IReactiveData
+    public abstract class ReactiveCollection<T> : IReactiveData
     {
         /// <summary>
         /// Типизированное событие: вызывается после любого мутирующего действия с актуальным
@@ -45,7 +45,8 @@ namespace Vortex.Core.Extensions.ReactiveValues
         protected object Owner;
 
         /// <summary>Внутреннее хранилище. Доступ через protected setter — только из наследников.</summary>
-        [IsPOCO] protected List<T> Value { get; set; }
+        [IsPOCO]
+        protected List<T> Value { get; set; }
 
         /// <summary>Снимает события <see cref="OnUpdate"/> и <see cref="OnUpdateData"/> разом.</summary>
         protected void CallOnUpdate()
@@ -203,6 +204,14 @@ namespace Vortex.Core.Extensions.ReactiveValues
             Owner = owner;
         }
 
+        public void ReleaseOwner(object owner)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Owner = null;
+        }
+
         /// <summary>
         /// Проверка владения. Возвращает <c>true</c>, если владельца нет либо
         /// <paramref name="owner"/> совпадает с назначенным. В противном случае логирует ошибку
@@ -213,9 +222,9 @@ namespace Vortex.Core.Extensions.ReactiveValues
             if (Owner != null && !Owner.Equals(owner))
             {
                 if (owner == null)
-                    Log.Print(LogLevel.Error, "Trying to change value without owner key.", this);
+                    Log.Print(LogLevel.Error, "Trying to change data without owner key.", this);
                 else
-                    Log.Print(LogLevel.Error, "Trying to change value from outer Object.", this);
+                    Log.Print(LogLevel.Error, "Trying to change data from outer Object.", this);
                 return false;
             }
 
