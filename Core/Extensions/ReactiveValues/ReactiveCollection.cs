@@ -8,30 +8,65 @@ using Vortex.Core.LoggerSystem.Model;
 namespace Vortex.Core.Extensions.ReactiveValues
 {
     /// <summary>
-    /// Контейнер для коллекций данных с реактивностью.
-    /// Может быть закрыт на владельца, запрещая изменение данных другими объектами
+    /// Реактивный контейнер для коллекций данных. Аналог <see cref="ReactiveValue{T}"/>, но
+    /// хранит <see cref="List{T}"/> и публикует событие на каждом мутирующем действии
+    /// (Set/Add/Remove/Clear/Insert/Sort/Reverse и т. д.).
+    ///
+    /// Может быть закрыт на владельца через <see cref="SetOwner"/>. После этого
+    /// модификации, вызываемые с другим (или без) <c>owner</c>, отклоняются с логированием
+    /// ошибки и не меняют коллекцию.
+    ///
+    /// Внутреннее хранилище <see cref="Value"/> помечено <see cref="IsPOCOAttribute"/> —
+    /// контейнер сериализуется как обычный список через <c>SerializeController</c>.
+    ///
+    /// База абстракцию инициализирующих конструкторов <b>не предоставляет</b>: используется
+    /// готовый наследник <see cref="ListData{T}"/>, который заводит пустой / переданный список.
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="T">Тип элемента коллекции. Сериализуется по правилам SerializeController.</typeparam>
     public class ReactiveCollection<T> : IReactiveData
     {
+        /// <summary>
+        /// Типизированное событие: вызывается после любого мутирующего действия с актуальным
+        /// read-only-снапшотом коллекции.
+        /// </summary>
         public event Action<IReadOnlyList<T>> OnUpdate;
+
+        /// <summary>
+        /// Нетипизированное событие <see cref="IReactiveData"/>. Используется потребителями,
+        /// которым не нужны сами данные — только факт изменения (например, перерисовка списка
+        /// или перепроверка условия).
+        /// </summary>
         public event Action OnUpdateData;
 
         /// <summary>
-        /// Владелец объекта
-        /// Только он может вносить изменения в данные, если назначен
+        /// Владелец коллекции. После назначения через <see cref="SetOwner"/> только он может
+        /// мутировать коллекцию. <c>null</c> — коллекция открытая (любой может менять).
         /// </summary>
         protected object Owner;
 
+        /// <summary>Внутреннее хранилище. Доступ через protected setter — только из наследников.</summary>
+        [IsPOCO] protected List<T> Value { get; set; }
+
+        /// <summary>Снимает события <see cref="OnUpdate"/> и <see cref="OnUpdateData"/> разом.</summary>
         protected void CallOnUpdate()
         {
             OnUpdate?.Invoke(GetList());
             OnUpdateData?.Invoke();
         }
 
-        [IsPOCO] protected List<T> Value { get; set; }
+        /// <summary>
+        /// Возвращает read-only представление коллекции. Изменять напрямую нельзя — только через
+        /// API контейнера (Set / Add / Remove / ...).
+        /// </summary>
         public IReadOnlyList<T> GetList() => Value.AsReadOnly();
 
+        /// <summary>Доступ к элементу по индексу (только чтение).</summary>
+        public T this[int index] => Value[index];
+
+        /// <summary>
+        /// Полная замена содержимого коллекции копией <paramref name="value"/>.
+        /// При несовпадении <paramref name="owner"/> с назначенным владельцем — ошибка, замена не выполняется.
+        /// </summary>
         public void Set(List<T> value, object owner = null)
         {
             if (!CheckLock(owner))
@@ -40,25 +75,121 @@ namespace Vortex.Core.Extensions.ReactiveValues
             CallOnUpdate();
         }
 
-        private bool CheckLock(object owner)
+        /// <summary>Замена элемента по индексу.</summary>
+        public void Set(int index, T value, object owner = null)
         {
-            if (Owner != null && !Owner.Equals(owner))
-            {
-                if (owner == null)
-                    Log.Print(LogLevel.Error, "Trying to change value without owner key.", this);
-                else
-                    Log.Print(LogLevel.Error, "Trying to change value from outer Object.", this);
-                return false;
-            }
+            if (!CheckLock(owner))
+                return;
 
-            return true;
+            Value[index] = value;
+            CallOnUpdate();
+        }
+
+        /// <summary>Добавление элемента в конец коллекции.</summary>
+        public void Add(T value, object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.Add(value);
+            CallOnUpdate();
         }
 
         /// <summary>
-        /// Установить владельца данных
-        /// (только он сможет менять содержимое контейнера)
+        /// Удаление первого вхождения <paramref name="value"/>. Если элемент не найден — событие
+        /// <b>не</b> вызывается (изменения не было).
         /// </summary>
-        /// <param name="owner"></param>
+        public void Remove(T value, object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            if (Value.Remove(value))
+                CallOnUpdate();
+        }
+
+        /// <summary>Удаление элемента по индексу.</summary>
+        public void RemoveAt(int value, object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.RemoveAt(value);
+            CallOnUpdate();
+        }
+
+        /// <summary>Удаление диапазона элементов начиная с <paramref name="index"/>.</summary>
+        public void RemoveRange(int index, int count, object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.RemoveRange(index, count);
+            CallOnUpdate();
+        }
+
+        /// <summary>Очистка коллекции.</summary>
+        public void Clear(object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.Clear();
+            CallOnUpdate();
+        }
+
+        /// <summary>Вставка <paramref name="value"/> по индексу <paramref name="index"/>.</summary>
+        public void Insert(int index, T value, object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.Insert(index, value);
+            CallOnUpdate();
+        }
+
+        /// <summary>Сортировка по умолчанию (через <see cref="Comparer{T}.Default"/>).</summary>
+        public void Sort(object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.Sort();
+            CallOnUpdate();
+        }
+
+        /// <summary>Реверс диапазона элементов.</summary>
+        public void Reverse(int index, int count, object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.Reverse(index, count);
+            CallOnUpdate();
+        }
+
+        /// <summary>Реверс всей коллекции.</summary>
+        public void Reverse(object owner = null)
+        {
+            if (!CheckLock(owner))
+                return;
+
+            Value.Reverse();
+            CallOnUpdate();
+        }
+
+        /// <summary>
+        /// Принудительный вызов <see cref="OnUpdate"/> и <see cref="OnUpdateData"/> без
+        /// модификации данных. Использовать редко — обычно нужен после внешней правки
+        /// элементов по индексу через рефлексию или при принудительной перерисовке.
+        /// </summary>
+        public void ForceUpdate() => CallOnUpdate();
+
+        /// <summary>
+        /// Назначить владельца контейнера. Только он сможет мутировать коллекцию через любой
+        /// из мутирующих методов. Повторное назначение запрещено — логирует ошибку.
+        /// Передача <c>null</c> игнорируется.
+        /// </summary>
         public void SetOwner(object owner)
         {
             if (owner == null)
@@ -72,104 +203,24 @@ namespace Vortex.Core.Extensions.ReactiveValues
             Owner = owner;
         }
 
-        public T this[int index] => Value[index];
-
         /// <summary>
-        /// Принудительный запуск события обновления
-        /// Использовать аккуратно!
+        /// Проверка владения. Возвращает <c>true</c>, если владельца нет либо
+        /// <paramref name="owner"/> совпадает с назначенным. В противном случае логирует ошибку
+        /// и возвращает <c>false</c>.
         /// </summary>
-        public void ForceUpdate() => CallOnUpdate();
-
-        public void Set(int index, T value, object owner = null)
+        private bool CheckLock(object owner)
         {
-            if (!CheckLock(owner))
-                return;
+            if (Owner != null && !Owner.Equals(owner))
+            {
+                if (owner == null)
+                    Log.Print(LogLevel.Error, "Trying to change value without owner key.", this);
+                else
+                    Log.Print(LogLevel.Error, "Trying to change value from outer Object.", this);
+                return false;
+            }
 
-            Value[index] = value;
-            CallOnUpdate();
+            return true;
         }
-
-        public void Add(T value, object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.Add(value);
-            CallOnUpdate();
-        }
-
-        public void Remove(T value, object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            if (Value.Remove(value))
-                CallOnUpdate();
-        }
-
-        public void RemoveAt(int value, object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.RemoveAt(value);
-            CallOnUpdate();
-        }
-
-        public void Clear(object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.Clear();
-            CallOnUpdate();
-        }
-
-        public void Sort(object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.Sort();
-            CallOnUpdate();
-        }
-
-        public void RemoveRange(int index, int count, object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.RemoveRange(index, count);
-            CallOnUpdate();
-        }
-
-        public void Insert(int index, T value, object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.Insert(index, value);
-            CallOnUpdate();
-        }
-
-        public void Reverse(int index, int count, object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.Reverse(index, count);
-            CallOnUpdate();
-        }
-
-        public void Reverse(object owner = null)
-        {
-            if (!CheckLock(owner))
-                return;
-
-            Value.Reverse();
-            CallOnUpdate();
-        }
-
 
 #if UNITY_EDITOR
         /// <summary>

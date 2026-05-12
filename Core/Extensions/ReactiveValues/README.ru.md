@@ -37,11 +37,15 @@
 
 ```
 IReactiveData [POCO]                     ← интерфейс: event OnUpdateData
-└── ReactiveValue<T> (abstract)          ← Value, Set(), OnUpdate, OnUpdateData, implicit operator T
-    ├── IntData                          ← ReactiveValue<int>
-    ├── FloatData                        ← ReactiveValue<float>
-    ├── BoolData                         ← ReactiveValue<bool>
-    └── StringData                       ← ReactiveValue<string>, ToString()
+├── ReactiveValue<T> (concrete)          ← одиночное значение
+│   ├── IntData                          ← ReactiveValue<int>
+│   ├── FloatData                        ← ReactiveValue<float>
+│   ├── BoolData                         ← ReactiveValue<bool>
+│   ├── StringData                       ← ReactiveValue<string>, ToString()
+│   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
+│
+└── ReactiveCollection<T>                ← реактивный List<T>: Add/Remove/Insert/Sort/...
+    └── ListData<T>                      ← конструкторы (пустой / из List<T>)
 ```
 
 ### Компоненты
@@ -49,11 +53,14 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 | Класс | Назначение |
 |-------|-----------|
 | `IReactiveData` | Интерфейс с `event Action OnUpdateData`. Помечен `[POCO]` |
-| `ReactiveValue<T>` | Абстрактная обёртка: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
+| `ReactiveValue<T>` | Обёртка одиночного значения: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
 | `IntData` | `ReactiveValue<int>`. Конструкторы: `(int)`, `(int, object owner)` |
 | `FloatData` | `ReactiveValue<float>`. Конструкторы: `(float)`, `(float, object owner)` |
 | `BoolData` | `ReactiveValue<bool>`. Конструкторы: `(bool)`, `(bool, object owner)` |
 | `StringData` | `ReactiveValue<string>`, `ToString()`. Конструкторы: `(string)`, `(string, object owner)` |
+| `EnumData<TEnum>` | `ReactiveValue<TEnum>` для любого `Enum`. Конструкторы: `(TEnum)`, `(TEnum, object owner)` |
+| `ReactiveCollection<T>` | Реактивный `List<T>`: `OnUpdate(IReadOnlyList<T>)`, мутаторы Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, индексатор по чтению. Конструкторов нет — использовать <see cref="ListData{T}"/> |
+| `ListData<T>` | Канонический наследник `ReactiveCollection<T>` с инициализирующими конструкторами: `()` — пустой, `(List<T>)` — копия переданного |
 
 ---
 
@@ -156,6 +163,26 @@ hp.Set(90, other);   // Error
 model.Level.ForceUpdate();
 ```
 
+### Реактивная коллекция
+
+```csharp
+public class InventoryModel
+{
+    public ListData<ItemId> Items { get; private set; } = new();
+}
+
+inventory.Items.OnUpdate += list => RefreshUI(list);   // IReadOnlyList<ItemId>
+inventory.Items.OnUpdateData += () => Counter.Refresh(); // нетипизированная нотификация
+
+inventory.Items.Add(itemId);                 // OnUpdate срабатывает
+inventory.Items.Remove(missingId);           // не найден → OnUpdate НЕ срабатывает
+inventory.Items.SetOwner(this);              // далее только this может мутировать
+inventory.Items.Add(itemId, this);           // OK
+inventory.Items.Add(itemId, other);          // Error: чужой owner
+
+var snapshot = inventory.Items.GetList();    // IReadOnlyList<ItemId>, доступ только для чтения
+```
+
 ### Использование с QuestController
 
 ```csharp
@@ -177,3 +204,7 @@ QuestController.SetListener(model.Level, this);
 | `Set()` без владельца при назначенном `_owner` | Ошибка — `owner = null` не равен `_owner` |
 | `SetOwner(null)` | Игнорируется (ранний return) |
 | Повторный `SetOwner()` | Ошибка, владелец не переназначается |
+| `ReactiveCollection<T>` без инициализации | Все методы упадут NRE (`Value == null`). Использовать наследник `ListData<T>` |
+| `ReactiveCollection.Remove(v)` для отсутствующего элемента | События не вызываются (изменений не было) |
+| `ReactiveCollection.GetList()` | Возвращает `ReadOnlyCollection<T>`-обёртку над внутренним списком. Снэпшот живой — отражает последующие мутации, но напрямую изменить нельзя |
+| `new ListData<T>(list)` | Хранит копию переданного списка (через `.ToList()`); мутации источника не влияют |

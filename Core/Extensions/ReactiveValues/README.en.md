@@ -37,11 +37,15 @@ Out of scope:
 
 ```
 IReactiveData [POCO]                     ← interface: event OnUpdateData
-└── ReactiveValue<T> (abstract)          ← Value, Set(), OnUpdate, OnUpdateData, implicit operator T
-    ├── IntData                          ← ReactiveValue<int>
-    ├── FloatData                        ← ReactiveValue<float>
-    ├── BoolData                         ← ReactiveValue<bool>
-    └── StringData                       ← ReactiveValue<string>, ToString()
+├── ReactiveValue<T> (concrete)          ← single value
+│   ├── IntData                          ← ReactiveValue<int>
+│   ├── FloatData                        ← ReactiveValue<float>
+│   ├── BoolData                         ← ReactiveValue<bool>
+│   ├── StringData                       ← ReactiveValue<string>, ToString()
+│   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
+│
+└── ReactiveCollection<T>                ← reactive List<T>: Add/Remove/Insert/Sort/...
+    └── ListData<T>                      ← constructors (empty / from List<T>)
 ```
 
 ### Components
@@ -49,11 +53,14 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | Class | Purpose |
 |-------|---------|
 | `IReactiveData` | Interface with `event Action OnUpdateData`. Marked `[POCO]` |
-| `ReactiveValue<T>` | Abstract wrapper: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
+| `ReactiveValue<T>` | Single-value wrapper: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
 | `IntData` | `ReactiveValue<int>`. Constructors: `(int)`, `(int, object owner)` |
 | `FloatData` | `ReactiveValue<float>`. Constructors: `(float)`, `(float, object owner)` |
 | `BoolData` | `ReactiveValue<bool>`. Constructors: `(bool)`, `(bool, object owner)` |
 | `StringData` | `ReactiveValue<string>`, `ToString()`. Constructors: `(string)`, `(string, object owner)` |
+| `EnumData<TEnum>` | `ReactiveValue<TEnum>` for any `Enum`. Constructors: `(TEnum)`, `(TEnum, object owner)` |
+| `ReactiveCollection<T>` | Reactive `List<T>`: `OnUpdate(IReadOnlyList<T>)`, mutators Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, read-only indexer. No constructors — use <see cref="ListData{T}"/> |
+| `ListData<T>` | Canonical `ReactiveCollection<T>` subclass with initializing constructors: `()` empty, `(List<T>)` copy of supplied |
 
 ---
 
@@ -156,6 +163,26 @@ model.Level.Set(10, other);   // Error: "Trying to change value from outer Objec
 model.Level.Set(10);          // Error: owner = null != this
 ```
 
+### Reactive collection
+
+```csharp
+public class InventoryModel
+{
+    public ListData<ItemId> Items { get; private set; } = new();
+}
+
+inventory.Items.OnUpdate += list => RefreshUI(list);   // IReadOnlyList<ItemId>
+inventory.Items.OnUpdateData += () => Counter.Refresh(); // untyped notification
+
+inventory.Items.Add(itemId);                 // OnUpdate fires
+inventory.Items.Remove(missingId);           // not found → OnUpdate does NOT fire
+inventory.Items.SetOwner(this);              // from now on only this can mutate
+inventory.Items.Add(itemId, this);           // OK
+inventory.Items.Add(itemId, other);          // Error: foreign owner
+
+var snapshot = inventory.Items.GetList();    // IReadOnlyList<ItemId>, read-only access
+```
+
 ### Usage with QuestController
 
 ```csharp
@@ -177,3 +204,7 @@ QuestController.SetListener(model.Level, this);
 | `Set()` without owner when `_owner` is set | Error — `owner = null` does not equal `_owner` |
 | `SetOwner(null)` | Ignored (early return) |
 | Repeated `SetOwner()` | Error, owner is not reassigned |
+| `ReactiveCollection<T>` without initialization | All methods NRE (`Value == null`). Use the `ListData<T>` subclass |
+| `ReactiveCollection.Remove(v)` for a missing element | Events are not fired (no change happened) |
+| `ReactiveCollection.GetList()` | Returns a `ReadOnlyCollection<T>` view over the internal list. Live snapshot — reflects subsequent mutations but cannot be modified directly |
+| `new ListData<T>(list)` | Stores a copy of the supplied list (via `.ToList()`); mutations of the source do not affect the container |
