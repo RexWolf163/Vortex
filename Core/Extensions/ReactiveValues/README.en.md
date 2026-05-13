@@ -37,14 +37,14 @@ Out of scope:
 
 ```
 IReactiveData [POCO]                     ← interface: event OnUpdateData
-├── ReactiveValue<T> (concrete)          ← single value
+├── ReactiveValue<T> (abstract)          ← single value
 │   ├── IntData                          ← ReactiveValue<int>
 │   ├── FloatData                        ← ReactiveValue<float>
 │   ├── BoolData                         ← ReactiveValue<bool>
 │   ├── StringData                       ← ReactiveValue<string>, ToString()
 │   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
 │
-└── ReactiveCollection<T>                ← reactive List<T>: Add/Remove/Insert/Sort/...
+└── ReactiveCollection<T> (abstract)     ← reactive List<T>: Add/Remove/Insert/Sort/...
     └── ListData<T>                      ← constructors (empty / from List<T>)
 ```
 
@@ -59,7 +59,7 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | `BoolData` | `ReactiveValue<bool>`. Constructors: `(bool)`, `(bool, object owner)` |
 | `StringData` | `ReactiveValue<string>`, `ToString()`. Constructors: `(string)`, `(string, object owner)` |
 | `EnumData<TEnum>` | `ReactiveValue<TEnum>` for any `Enum`. Constructors: `(TEnum)`, `(TEnum, object owner)` |
-| `ReactiveCollection<T>` | Reactive `List<T>`: `OnUpdate(IReadOnlyList<T>)`, mutators Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, read-only indexer. No constructors — use <see cref="ListData{T}"/> |
+| `ReactiveCollection<T>` | Abstract reactive `List<T>`: `OnUpdate(IReadOnlyList<T>)`, mutators Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, read-only indexer, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Internal list identity is preserved for the lifetime of the container. No constructors — use `ListData<T>` |
 | `ListData<T>` | Canonical `ReactiveCollection<T>` subclass with initializing constructors: `()` empty, `(List<T>)` copy of supplied |
 
 ---
@@ -204,7 +204,13 @@ QuestController.SetListener(model.Level, this);
 | `Set()` without owner when `_owner` is set | Error — `owner = null` does not equal `_owner` |
 | `SetOwner(null)` | Ignored (early return) |
 | Repeated `SetOwner()` | Error, owner is not reassigned |
-| `ReactiveCollection<T>` without initialization | All methods NRE (`Value == null`). Use the `ListData<T>` subclass |
+| Instantiating `ReactiveCollection<T>` directly | Not possible — the class is abstract. Use the `ListData<T>` subclass |
 | `ReactiveCollection.Remove(v)` for a missing element | Events are not fired (no change happened) |
+| `ReactiveCollection.Set(index, value)` with the same value | No deduplication — the event fires anyway (unlike `ReactiveValue<T>.Set`) |
+| `ReactiveCollection.Set(index, value)` / `RemoveAt(index)` / `RemoveRange(...)` / `Insert(...)` with invalid index | `ArgumentOutOfRangeException` / `ArgumentException` (standard `List<T>` behavior). Events are not fired |
+| `ReactiveCollection.Sort()` for `T` without `IComparable<T>` | `InvalidOperationException`. No overload with comparator available |
+| `ReactiveCollection.SetOwner` called twice | Error, owner is not reassigned. Call `ReleaseOwner(currentOwner)` first |
+| `ReactiveCollection.ReleaseOwner` with the wrong key | Error, owner is not cleared |
 | `ReactiveCollection.GetList()` | Returns a `ReadOnlyCollection<T>` view over the internal list. **Live** snapshot — reflects all subsequent mutations (Add/Remove/Insert/Sort/...) and full replacement via `Set(List<T>)` (which uses Clear+AddRange and preserves the internal list's identity). Cannot be modified directly |
 | `new ListData<T>(list)` | Stores a copy of the supplied list (via `.ToList()`); mutations of the source do not affect the container |
+| `new ListData<T>(null)` | `NullReferenceException`. Use the parameterless constructor for an empty list |

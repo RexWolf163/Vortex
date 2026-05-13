@@ -4,10 +4,9 @@ using System.Linq;
 namespace Vortex.Core.Extensions.ReactiveValues
 {
     /// <summary>
-    /// Канонический реактивный список — наследник <see cref="ReactiveCollection{T}"/>
-    /// с инициализирующими конструкторами. Сама база <see cref="ReactiveCollection{T}"/>
-    /// конструкторов не предоставляет (хранилище <c>Value</c> остаётся <c>null</c>),
-    /// поэтому в коде модели обычно объявляется именно <see cref="ListData{T}"/>.
+    /// Канонический реактивный список — наследник абстрактного <see cref="ReactiveCollection{T}"/>
+    /// с инициализирующими конструкторами. База инстанцироваться не может; для использования
+    /// в моделях объявляется именно <see cref="ListData{T}"/>.
     /// </summary>
     /// <typeparam name="T">Тип элемента списка.</typeparam>
     /// <example>
@@ -23,12 +22,15 @@ namespace Vortex.Core.Extensions.ReactiveValues
     /// </example>
     public class ListData<T> : ReactiveCollection<T>
     {
-        /// <summary>Пустой список.</summary>
+        /// <summary>Создаёт пустой список.</summary>
         public ListData() => Value = new List<T>();
 
         /// <summary>
-        /// Список с начальным содержимым. Хранится <b>копия</b> переданного <paramref name="value"/>
-        /// (через <see cref="Enumerable.ToList{TSource}"/>) — мутации источника не влияют на контейнер.
+        /// Создаёт список с начальным содержимым. Хранится <b>копия</b> переданного
+        /// <paramref name="value"/> (через <see cref="Enumerable.ToList{TSource}"/>) —
+        /// последующие мутации внешнего источника не влияют на контейнер.
+        /// <paramref name="value"/> = <c>null</c> бросит <see cref="System.NullReferenceException"/>;
+        /// для пустого списка используйте параметрless-конструктор.
         /// </summary>
         public ListData(List<T> value)
         {

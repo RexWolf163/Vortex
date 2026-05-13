@@ -37,14 +37,14 @@
 
 ```
 IReactiveData [POCO]                     ← интерфейс: event OnUpdateData
-├── ReactiveValue<T> (concrete)          ← одиночное значение
+├── ReactiveValue<T> (abstract)          ← одиночное значение
 │   ├── IntData                          ← ReactiveValue<int>
 │   ├── FloatData                        ← ReactiveValue<float>
 │   ├── BoolData                         ← ReactiveValue<bool>
 │   ├── StringData                       ← ReactiveValue<string>, ToString()
 │   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
 │
-└── ReactiveCollection<T>                ← реактивный List<T>: Add/Remove/Insert/Sort/...
+└── ReactiveCollection<T> (abstract)     ← реактивный List<T>: Add/Remove/Insert/Sort/...
     └── ListData<T>                      ← конструкторы (пустой / из List<T>)
 ```
 
@@ -59,7 +59,7 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 | `BoolData` | `ReactiveValue<bool>`. Конструкторы: `(bool)`, `(bool, object owner)` |
 | `StringData` | `ReactiveValue<string>`, `ToString()`. Конструкторы: `(string)`, `(string, object owner)` |
 | `EnumData<TEnum>` | `ReactiveValue<TEnum>` для любого `Enum`. Конструкторы: `(TEnum)`, `(TEnum, object owner)` |
-| `ReactiveCollection<T>` | Реактивный `List<T>`: `OnUpdate(IReadOnlyList<T>)`, мутаторы Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, индексатор по чтению. Конструкторов нет — использовать <see cref="ListData{T}"/> |
+| `ReactiveCollection<T>` | Абстрактный реактивный `List<T>`: `OnUpdate(IReadOnlyList<T>)`, мутаторы Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, индексатор по чтению, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Identity внутреннего списка сохраняется навсегда. Конструкторов нет — использовать `ListData<T>` |
 | `ListData<T>` | Канонический наследник `ReactiveCollection<T>` с инициализирующими конструкторами: `()` — пустой, `(List<T>)` — копия переданного |
 
 ---
@@ -204,7 +204,13 @@ QuestController.SetListener(model.Level, this);
 | `Set()` без владельца при назначенном `_owner` | Ошибка — `owner = null` не равен `_owner` |
 | `SetOwner(null)` | Игнорируется (ранний return) |
 | Повторный `SetOwner()` | Ошибка, владелец не переназначается |
-| `ReactiveCollection<T>` без инициализации | Все методы упадут NRE (`Value == null`). Использовать наследник `ListData<T>` |
+| `ReactiveCollection<T>` инстанцирование напрямую | Невозможно — класс абстрактный. Использовать наследник `ListData<T>` |
 | `ReactiveCollection.Remove(v)` для отсутствующего элемента | События не вызываются (изменений не было) |
+| `ReactiveCollection.Set(index, value)` с тем же значением | Дедупликации нет — событие всё равно вызывается (в отличие от `ReactiveValue<T>.Set`) |
+| `ReactiveCollection.Set(index, value)` / `RemoveAt(index)` / `RemoveRange(...)` / `Insert(...)` с невалидным индексом | `ArgumentOutOfRangeException` / `ArgumentException` (стандартное поведение `List<T>`). Событие не вызывается |
+| `ReactiveCollection.Sort()` для `T` без `IComparable<T>` | `InvalidOperationException`. Перегрузка с компаратором отсутствует |
+| `ReactiveCollection.SetOwner` повторно | Ошибка, владелец не переназначается. Сначала `ReleaseOwner(currentOwner)` |
+| `ReactiveCollection.ReleaseOwner` с чужим ключом | Ошибка, владелец не сбрасывается |
 | `ReactiveCollection.GetList()` | Возвращает `ReadOnlyCollection<T>`-обёртку над внутренним списком. Снэпшот **живой** — отражает все последующие мутации (Add/Remove/Insert/Sort/...) и полную замену через `Set(List<T>)` (которая использует Clear+AddRange и сохраняет identity внутреннего списка). Напрямую изменить нельзя |
 | `new ListData<T>(list)` | Хранит копию переданного списка (через `.ToList()`); мутации источника не влияют |
+| `new ListData<T>(null)` | `NullReferenceException`. Для пустого списка использовать параметрless-конструктор |

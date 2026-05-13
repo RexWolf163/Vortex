@@ -7,26 +7,34 @@ using Vortex.Core.LoggerSystem.Model;
 namespace Vortex.Core.Extensions.ReactiveValues
 {
     /// <summary>
-    /// Реактивный контейнер для коллекций данных. Аналог <see cref="ReactiveValue{T}"/>, но
-    /// хранит <see cref="List{T}"/> и публикует событие на каждом мутирующем действии
-    /// (Set/Add/Remove/Clear/Insert/Sort/Reverse и т. д.).
+    /// Реактивный контейнер для коллекции <see cref="List{T}"/>: каждое успешное мутирующее
+    /// действие (Set/Add/Remove/Clear/Insert/Sort/Reverse) публикует <see cref="OnUpdate"/>
+    /// и <see cref="OnUpdateData"/>.
     ///
-    /// Может быть закрыт на владельца через <see cref="SetOwner"/>. После этого
-    /// модификации, вызываемые с другим (или без) <c>owner</c>, отклоняются с логированием
-    /// ошибки и не меняют коллекцию.
+    /// Класс <b>абстрактный</b> и не имеет конструкторов — инициализация внутреннего
+    /// хранилища <see cref="Value"/> делегирована наследникам. Канонический наследник —
+    /// <see cref="ListData{T}"/> с пустым / копирующим конструктором.
     ///
-    /// Внутреннее хранилище <see cref="Value"/> помечено <see cref="IsPOCOAttribute"/> —
-    /// контейнер сериализуется как обычный список через <c>SerializeController</c>.
+    /// Может быть закрыт на владельца через <see cref="SetOwner"/>: после этого мутации,
+    /// вызванные с другим (или без) <c>owner</c>, отклоняются с логированием ошибки.
+    /// Освобождение — <see cref="ReleaseOwner"/>.
     ///
-    /// База абстракцию инициализирующих конструкторов <b>не предоставляет</b>: используется
-    /// готовый наследник <see cref="ListData{T}"/>, который заводит пустой / переданный список.
+    /// Сериализация: <see cref="Value"/> помечено <see cref="IsPOCOAttribute"/>, благодаря
+    /// чему protected-свойство попадает в <c>SerializeController</c> при обходе типа.
+    ///
+    /// Identity внутреннего списка сохраняется на протяжении жизни контейнера — все методы
+    /// (включая полную замену через <see cref="Set(List{T},object)"/>) мутируют один и тот же
+    /// <see cref="List{T}"/>. Ранее выданные через <see cref="GetList"/> read-only-обёртки
+    /// остаются актуальными.
     /// </summary>
     /// <typeparam name="T">Тип элемента коллекции. Сериализуется по правилам SerializeController.</typeparam>
     public abstract class ReactiveCollection<T> : IReactiveData
     {
         /// <summary>
-        /// Типизированное событие: вызывается после любого мутирующего действия с актуальным
-        /// read-only-снапшотом коллекции.
+        /// Типизированное событие: вызывается после <b>успешного</b> мутирующего действия
+        /// с актуальной read-only-обёрткой коллекции. Не вызывается, если мутация была
+        /// отклонена <see cref="CheckLock"/>, или если фактического изменения не произошло
+        /// (например, <see cref="Remove"/> для отсутствующего элемента).
         /// </summary>
         public event Action<IReadOnlyList<T>> OnUpdate;
 
@@ -43,7 +51,12 @@ namespace Vortex.Core.Extensions.ReactiveValues
         /// </summary>
         protected object Owner;
 
-        /// <summary>Внутреннее хранилище. Доступ через protected setter — только из наследников.</summary>
+        /// <summary>
+        /// Внутреннее хранилище. Protected getter/setter — видно только наследникам;
+        /// наследник <see cref="ListData{T}"/> в конструкторе создаёт <c>new List&lt;T&gt;()</c>.
+        /// Помечено <see cref="IsPOCOAttribute"/> — это сигнал <c>SerializeController</c>'у
+        /// включить protected-свойство в сериализацию (обычно он берёт только public).
+        /// </summary>
         [IsPOCO]
         protected List<T> Value { get; set; }
 
@@ -78,7 +91,11 @@ namespace Vortex.Core.Extensions.ReactiveValues
             CallOnUpdate();
         }
 
-        /// <summary>Замена элемента по индексу.</summary>
+        /// <summary>
+        /// Замена элемента по индексу. Дедупликации нет — событие вызывается даже если
+        /// значение совпадает с предыдущим. Невалидный <paramref name="index"/> бросит
+        /// <see cref="ArgumentOutOfRangeException"/>.
+        /// </summary>
         public void Set(int index, T value, object owner = null)
         {
             if (!CheckLock(owner))
@@ -111,17 +128,23 @@ namespace Vortex.Core.Extensions.ReactiveValues
                 CallOnUpdate();
         }
 
-        /// <summary>Удаление элемента по индексу.</summary>
-        public void RemoveAt(int value, object owner = null)
+        /// <summary>
+        /// Удаление элемента по <paramref name="index"/>. Невалидный индекс бросит
+        /// <see cref="ArgumentOutOfRangeException"/>.
+        /// </summary>
+        public void RemoveAt(int index, object owner = null)
         {
             if (!CheckLock(owner))
                 return;
 
-            Value.RemoveAt(value);
+            Value.RemoveAt(index);
             CallOnUpdate();
         }
 
-        /// <summary>Удаление диапазона элементов начиная с <paramref name="index"/>.</summary>
+        /// <summary>
+        /// Удаление <paramref name="count"/> элементов начиная с <paramref name="index"/>.
+        /// Выход за границы бросит <see cref="ArgumentException"/>/<see cref="ArgumentOutOfRangeException"/>.
+        /// </summary>
         public void RemoveRange(int index, int count, object owner = null)
         {
             if (!CheckLock(owner))
@@ -151,7 +174,11 @@ namespace Vortex.Core.Extensions.ReactiveValues
             CallOnUpdate();
         }
 
-        /// <summary>Сортировка по умолчанию (через <see cref="Comparer{T}.Default"/>).</summary>
+        /// <summary>
+        /// Сортировка по умолчанию (через <see cref="Comparer{T}.Default"/>). Если <typeparamref name="T"/>
+        /// не реализует <see cref="IComparable{T}"/> / <see cref="IComparable"/> — бросит
+        /// <see cref="InvalidOperationException"/>.
+        /// </summary>
         public void Sort(object owner = null)
         {
             if (!CheckLock(owner))
@@ -206,6 +233,12 @@ namespace Vortex.Core.Extensions.ReactiveValues
             Owner = owner;
         }
 
+        /// <summary>
+        /// Освободить владельца контейнера. Принимает текущего владельца как «ключ» —
+        /// при несовпадении логирует ошибку и ничего не делает. После успешного вызова
+        /// коллекция снова открытая, и любой может назначить нового владельца через
+        /// <see cref="SetOwner"/>.
+        /// </summary>
         public void ReleaseOwner(object owner)
         {
             if (!CheckLock(owner))
