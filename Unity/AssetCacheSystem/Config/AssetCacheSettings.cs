@@ -1,4 +1,3 @@
-#if ENABLE_ADDRESSABLES
 using System;
 using UnityEngine;
 using Vortex.Core.SettingsSystem.Model;
@@ -23,4 +22,3 @@ namespace Vortex.Unity.AssetCacheSystem.Config
         public AssetCacheConfig AssetCache => new(survivorCapacity);
     }
 }
-#endif
