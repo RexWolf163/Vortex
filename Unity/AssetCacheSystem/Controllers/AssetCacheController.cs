@@ -17,19 +17,32 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
     {
         private const string LogTag = "AssetCache";
 
+        /// <inheritdoc/>
         public bool IsInitialized { get; private set; }
+
+        /// <inheritdoc/>
         public AssetCacheModel Model { get; private set; }
 
+        /// <inheritdoc/>
         public event Action OnInitialized;
+
+        /// <inheritdoc/>
         public event Action OnReleased;
 
         /// <summary>
-        /// Кэш конфигурации, считанной из <c>Settings.Data().AssetCache</c> на <see cref="Init"/>.
+        /// Кэш capacity LRU-буфера survivors, считанный из <c>Settings.Data().AssetCache</c>
+        /// в <see cref="Init"/>. Подмена в рантайме не поддерживается — изменение требует
+        /// <see cref="Cleanup"/> + повторного <see cref="Init"/>.
         /// </summary>
         private int _survivorCapacity;
 
+        /// <summary>
+        /// Включает <see cref="Debug.Log"/>-трассировку HIT/JOIN/LOAD/REL/SWEEP/EVICT.
+        /// Читается из <c>Settings.Data().AssetCacheDebugLogs</c> в <see cref="Init"/>.
+        /// </summary>
         private bool _debugLogging;
 
+        /// <inheritdoc/>
         public void Init()
         {
             if (IsInitialized) return;
@@ -52,6 +65,7 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             OnInitialized?.Invoke();
         }
 
+        /// <inheritdoc/>
         public void Cleanup()
         {
             if (!IsInitialized) return;

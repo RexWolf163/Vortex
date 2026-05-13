@@ -25,10 +25,16 @@ namespace Vortex.Unity.AssetCacheSystem.Bus
     /// </summary>
     public static class AssetCache
     {
-        /// <summary>Активный контроллер пакета.</summary>
+        /// <summary>
+        /// Активный контроллер пакета. <c>null</c> до завершения bootstrap'а
+        /// (<see cref="OnReady"/> сигнализирует готовность).
+        /// </summary>
         public static IAssetCacheController Controller { get; private set; }
 
-        /// <summary>Конфигурация пакета (считана из Settings.Data().AssetCache).</summary>
+        /// <summary>
+        /// Конфигурация пакета (считана из <c>Settings.Data().AssetCache</c>).
+        /// <c>null</c> до bootstrap'а.
+        /// </summary>
         public static AssetCacheConfig Config { get; private set; }
 
         /// <summary>Runtime-модель пакета (для отладки/инспекции, мутация не поддерживается).</summary>

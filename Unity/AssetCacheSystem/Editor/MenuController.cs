@@ -7,6 +7,10 @@ using Vortex.Unity.Extensions.Editor;
 
 namespace Vortex.Unity.AssetCacheSystem.Editor
 {
+    /// <summary>
+    /// Меню-команда быстрого доступа к единственному <see cref="AssetCacheSettings"/>-ассету
+    /// в проекте: <c>Vortex/Configs/AssetCache Settings</c>. Подсвечивает ассет в Project window.
+    /// </summary>
     public static class MenuController
     {
         [MenuItem("Vortex/Configs/AssetCache Settings")]

@@ -8,6 +8,7 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
 {
     public sealed partial class AssetCacheController
     {
+        /// <inheritdoc/>
         public void Release(object owner)
         {
             if (owner == null) throw new ArgumentNullException(nameof(owner));
@@ -33,6 +34,15 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             ReleaseOwner(owner, isSweep: false);
         }
 
+        /// <summary>
+        /// Освобождает одного владельца: удаляет его из <see cref="AssetCacheModel.Locks"/>,
+        /// для каждого удерживаемого ref проверяет — остался ли активный держатель. Если нет —
+        /// ref уходит в survivors через <see cref="PushSurvivor"/>.
+        /// </summary>
+        /// <param name="isSweep">
+        /// <c>true</c> — вызов из автоматического sweep'а уничтоженных Unity-владельцев;
+        /// в этом случае предупреждение «unknown owner» подавляется (норма для повторного sweep'а).
+        /// </param>
         private void ReleaseOwner(object owner, bool isSweep)
         {
             if (!Model.Locks.TryGetValue(owner, out var refs))

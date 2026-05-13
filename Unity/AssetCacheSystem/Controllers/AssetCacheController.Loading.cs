@@ -12,6 +12,7 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
 {
     public sealed partial class AssetCacheController
     {
+        /// <inheritdoc/>
         public async UniTask<T> Load<T>(object owner, AssetReference reference,
             CancellationToken ct = default) where T : Object
         {
@@ -42,6 +43,16 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             return await StartLoad<T>(reference, ct);
         }
 
+        /// <summary>
+        /// Запуск новой загрузки через <see cref="Addressables.LoadAssetAsync{TObject}(object)"/>.
+        /// Создаёт <see cref="InflightLoad"/>-слот, на который подключаются все параллельные
+        /// waiter'ы того же <paramref name="reference"/>. По завершении handle помещается в
+        /// <see cref="AssetCacheModel.Handles"/>, при отсутствии active-владельцев — в survivors.
+        ///
+        /// Отмена <paramref name="ct"/> waiter'а НЕ прерывает реальную загрузку — она нужна
+        /// другим waiter'ам. После завершения <c>handle.ToUniTask()</c> ct-проверка бросит OCE,
+        /// но handle уже корректно учтён в реестре.
+        /// </summary>
         private async UniTask<T> StartLoad<T>(AssetReference reference, CancellationToken ct)
             where T : Object
         {
