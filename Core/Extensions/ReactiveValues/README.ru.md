@@ -206,5 +206,5 @@ QuestController.SetListener(model.Level, this);
 | Повторный `SetOwner()` | Ошибка, владелец не переназначается |
 | `ReactiveCollection<T>` без инициализации | Все методы упадут NRE (`Value == null`). Использовать наследник `ListData<T>` |
 | `ReactiveCollection.Remove(v)` для отсутствующего элемента | События не вызываются (изменений не было) |
-| `ReactiveCollection.GetList()` | Возвращает `ReadOnlyCollection<T>`-обёртку над внутренним списком. Снэпшот живой — отражает последующие мутации, но напрямую изменить нельзя |
+| `ReactiveCollection.GetList()` | Возвращает `ReadOnlyCollection<T>`-обёртку над внутренним списком. Снэпшот **живой** — отражает все последующие мутации (Add/Remove/Insert/Sort/...) и полную замену через `Set(List<T>)` (которая использует Clear+AddRange и сохраняет identity внутреннего списка). Напрямую изменить нельзя |
 | `new ListData<T>(list)` | Хранит копию переданного списка (через `.ToList()`); мутации источника не влияют |

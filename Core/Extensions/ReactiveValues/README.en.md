@@ -206,5 +206,5 @@ QuestController.SetListener(model.Level, this);
 | Repeated `SetOwner()` | Error, owner is not reassigned |
 | `ReactiveCollection<T>` without initialization | All methods NRE (`Value == null`). Use the `ListData<T>` subclass |
 | `ReactiveCollection.Remove(v)` for a missing element | Events are not fired (no change happened) |
-| `ReactiveCollection.GetList()` | Returns a `ReadOnlyCollection<T>` view over the internal list. Live snapshot — reflects subsequent mutations but cannot be modified directly |
+| `ReactiveCollection.GetList()` | Returns a `ReadOnlyCollection<T>` view over the internal list. **Live** snapshot — reflects all subsequent mutations (Add/Remove/Insert/Sort/...) and full replacement via `Set(List<T>)` (which uses Clear+AddRange and preserves the internal list's identity). Cannot be modified directly |
 | `new ListData<T>(list)` | Stores a copy of the supplied list (via `.ToList()`); mutations of the source do not affect the container |

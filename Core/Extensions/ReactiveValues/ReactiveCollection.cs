@@ -65,14 +65,17 @@ namespace Vortex.Core.Extensions.ReactiveValues
         public T this[int index] => Value[index];
 
         /// <summary>
-        /// Полная замена содержимого коллекции копией <paramref name="value"/>.
+        /// Полная замена содержимого коллекции элементами из <paramref name="value"/>.
+        /// Сохраняет identity внутреннего списка (Clear + AddRange) — ранее выданные через
+        /// <see cref="GetList"/> read-only-обёртки продолжают отражать актуальное состояние.
         /// При несовпадении <paramref name="owner"/> с назначенным владельцем — ошибка, замена не выполняется.
         /// </summary>
         public void Set(List<T> value, object owner = null)
         {
             if (!CheckLock(owner))
                 return;
-            Value = value.ToList();
+            Value.Clear();
+            Value.AddRange(value);
             CallOnUpdate();
         }
 
@@ -234,12 +237,15 @@ namespace Vortex.Core.Extensions.ReactiveValues
 #if UNITY_EDITOR
         /// <summary>
         /// Установка значения из Editor-инструментов.
-        /// Обходит проверку владельца и дедупликацию.
+        /// Обходит проверку владельца. Сохраняет identity внутреннего списка
+        /// (Clear + AddRange) — ранее выданные read-only-обёртки остаются актуальными.
+        /// Допускает <c>null</c> — коллекция очищается.
         /// Не использовать в runtime-логике!
         /// </summary>
         public void EditorSet(List<T> value)
         {
-            Value = value;
+            Value.Clear();
+            if (value != null) Value.AddRange(value);
             CallOnUpdate();
         }
 #endif
