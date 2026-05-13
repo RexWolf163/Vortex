@@ -1,0 +1,26 @@
+{
+    "name": "ru.vortex.unity.assetcachesystem",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.system",
+        "ru.vortex.extensions",
+        "ru.vortex.app",
+        "ru.vortex.settings",
+        "ru.vortex.unity.settings",
+        "Unity.Addressables",
+        "Unity.ResourceManager",
+        "UniTask",
+        "UniTask.Addressables",
+        "ru.vortex.unity.extensions",
+        "ru.vortex.unity.CoreAssetsSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

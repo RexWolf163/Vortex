@@ -60,6 +60,11 @@ namespace Vortex.Core.Extensions.ReactiveValues
         [IsPOCO]
         protected List<T> Value { get; set; }
 
+        /// <summary>
+        /// Размер вложенного списка
+        /// </summary>
+        public int Count => Value.Count;
+
         /// <summary>Снимает события <see cref="OnUpdate"/> и <see cref="OnUpdateData"/> разом.</summary>
         protected void CallOnUpdate()
         {
