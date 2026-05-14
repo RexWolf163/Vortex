@@ -16,6 +16,9 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             // 1. Sweep "тихо умерших" UnityEngine.Object-владельцев.
             //    Их собираем в отдельный список — модифицировать Locks во время foreach нельзя.
             List<object> deadOwners = null;
+            if (Model == null)
+                return;
+
             foreach (var kvp in Model.Locks)
             {
                 var o = kvp.Key;
