@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.spine",
-    "rootNamespace": "Vortex.SpineExtensions",
+    "rootNamespace": "",
     "references": [
         "ru.vortex.extensions",
         "ru.vortex.unity.ui.misc",

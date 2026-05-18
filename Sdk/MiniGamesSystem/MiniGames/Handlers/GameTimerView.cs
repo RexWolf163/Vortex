@@ -40,7 +40,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Handlers
             if (_stages > 0)
             {
                 _step = 1f / _stages;
-                stageSwitcher?.Set(0);
+                stageSwitcher?.Set(reverse ? _stages - 1 : 0);
             }
 
             Storage.OnUpdateLink += UpdateLink;
