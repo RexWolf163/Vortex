@@ -31,6 +31,17 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
 
         protected override void DrawPropertyLayout(GUIContent label)
         {
+            // Если поле — коллекция (string[] / List<string> и т. п.), полностью отдаём
+            // отрисовку Odin'у: он сам нарисует нативный ListDrawer (foldout, счётчик items,
+            // drag-handles, +/× кнопки). Атрибут <see cref="ValueSelectorAttribute"/> Odin
+            // транслирует на каждый элемент коллекции, и этот drawer переисполнится для
+            // каждого string-элемента, попадая уже в скалярную ветку с popup'ом.
+            if (IsCollection(Property.Info.TypeOfValue))
+            {
+                CallNextDrawer(label);
+                return;
+            }
+
             if (_resolver.HasError)
             {
                 _resolver.DrawError();
@@ -69,18 +80,6 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                 return;
             }
 
-            // Коллекция (string[] / List<string>) — рисуем foldout с popup на каждом элементе.
-            // _resolver.GetValue() уже вызван один раз выше — keys/values переиспользуются для всех
-            // элементов. CallNextDrawer для коллекции не используется намеренно: Odin тогда переисполнял бы
-            // этот drawer для каждого элемента, что приводило к N-кратному вызову resolver-метода
-            // за кадр и фризам при дорогих GetListXxx (AssetDatabase-scan, AnimatorController-parse и т. п.).
-            if (IsCollection(Property.Info.TypeOfValue) && unityProp.isArray
-                                                       && unityProp.propertyType != SerializedPropertyType.String)
-            {
-                DrawCollection(unityProp, label, keys, values, isDictionary);
-                return;
-            }
-
             var rect = EditorGUILayout.GetControlRect();
             if (label != null)
                 rect = EditorGUI.PrefixLabel(rect, label);
@@ -89,10 +88,9 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
             DrawingUtility.DrawSelector(rect, unityProp, keys, values, currentIndex, Attribute.Placeholder);
         }
 
-        // ════════════════════════════════════════════════════════
-        //  Отрисовка коллекции — popup на каждом элементе
-        // ════════════════════════════════════════════════════════
-
+        /// <summary>
+        /// Признак коллекции для делегации Odin'у. string исключён — это скалярный кейс.
+        /// </summary>
         private static bool IsCollection(Type t)
         {
             if (t == null) return false;
@@ -104,50 +102,6 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                 if (def == typeof(List<>)) return true;
             }
             return false;
-        }
-
-        private void DrawCollection(SerializedProperty arrayProp, GUIContent label,
-            string[] keys, object[] values, bool isDictionary)
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                arrayProp.isExpanded = EditorGUILayout.Foldout(arrayProp.isExpanded,
-                    label ?? GUIContent.none, true);
-
-                // Поле размера справа от заголовка — компактный inline-edit.
-                var newSize = EditorGUILayout.DelayedIntField(arrayProp.arraySize, GUILayout.Width(50));
-                if (newSize != arrayProp.arraySize)
-                    arrayProp.arraySize = Mathf.Max(0, newSize);
-            }
-
-            if (!arrayProp.isExpanded) return;
-
-            using (new EditorGUI.IndentLevelScope())
-            {
-                for (int i = 0; i < arrayProp.arraySize; i++)
-                {
-                    var element = arrayProp.GetArrayElementAtIndex(i);
-
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        var rect = EditorGUILayout.GetControlRect();
-                        rect = EditorGUI.PrefixLabel(rect, new GUIContent($"[{i}]"));
-
-                        var currentIndex = FindCurrentIndex(element, keys, values, isDictionary);
-                        DrawingUtility.DrawSelector(rect, element, keys, values, currentIndex,
-                            Attribute.Placeholder);
-
-                        if (GUILayout.Button("−", GUILayout.Width(22)))
-                        {
-                            arrayProp.DeleteArrayElementAtIndex(i);
-                            return;
-                        }
-                    }
-                }
-
-                if (GUILayout.Button("+ Add"))
-                    arrayProp.arraySize++;
-            }
         }
 
         // ════════════════════════════════════════════════════════
