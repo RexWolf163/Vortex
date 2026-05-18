@@ -69,12 +69,83 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                 return;
             }
 
+            // Коллекция (string[] / List<string> и подобные) — рисуем foldout с popup на каждом элементе.
+            // Без этой ветки drawer пытался отрисовать единственный popup поверх массива целиком,
+            // что даёт визуальный артефакт.
+            if (IsCollection(Property.Info.TypeOfValue) && unityProp.isArray
+                                                       && unityProp.propertyType != SerializedPropertyType.String)
+            {
+                DrawCollection(unityProp, label, keys, values, isDictionary);
+                return;
+            }
+
             var rect = EditorGUILayout.GetControlRect();
             if (label != null)
                 rect = EditorGUI.PrefixLabel(rect, label);
 
             var currentIndex = FindCurrentIndex(unityProp, keys, values, isDictionary);
             DrawingUtility.DrawSelector(rect, unityProp, keys, values, currentIndex, Attribute.Placeholder);
+        }
+
+        // ════════════════════════════════════════════════════════
+        //  Отрисовка коллекции — popup на каждом элементе
+        // ════════════════════════════════════════════════════════
+
+        private static bool IsCollection(Type t)
+        {
+            if (t == null) return false;
+            if (t == typeof(string)) return false;
+            if (t.IsArray) return true;
+            if (t.IsGenericType)
+            {
+                var def = t.GetGenericTypeDefinition();
+                if (def == typeof(List<>)) return true;
+            }
+            return false;
+        }
+
+        private void DrawCollection(SerializedProperty arrayProp, GUIContent label,
+            string[] keys, object[] values, bool isDictionary)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                arrayProp.isExpanded = EditorGUILayout.Foldout(arrayProp.isExpanded,
+                    label ?? GUIContent.none, true);
+
+                // Поле размера справа от заголовка — компактный inline-edit.
+                var newSize = EditorGUILayout.DelayedIntField(arrayProp.arraySize, GUILayout.Width(50));
+                if (newSize != arrayProp.arraySize)
+                    arrayProp.arraySize = Mathf.Max(0, newSize);
+            }
+
+            if (!arrayProp.isExpanded) return;
+
+            using (new EditorGUI.IndentLevelScope())
+            {
+                for (int i = 0; i < arrayProp.arraySize; i++)
+                {
+                    var element = arrayProp.GetArrayElementAtIndex(i);
+
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        var rect = EditorGUILayout.GetControlRect();
+                        rect = EditorGUI.PrefixLabel(rect, new GUIContent($"[{i}]"));
+
+                        var currentIndex = FindCurrentIndex(element, keys, values, isDictionary);
+                        DrawingUtility.DrawSelector(rect, element, keys, values, currentIndex,
+                            Attribute.Placeholder);
+
+                        if (GUILayout.Button("−", GUILayout.Width(22)))
+                        {
+                            arrayProp.DeleteArrayElementAtIndex(i);
+                            return;
+                        }
+                    }
+                }
+
+                if (GUILayout.Button("+ Add"))
+                    arrayProp.arraySize++;
+            }
         }
 
         // ════════════════════════════════════════════════════════
