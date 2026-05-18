@@ -21,12 +21,33 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
     /// </summary>
     public sealed class ValueSelectorAttributeDrawer : OdinAttributeDrawer<ValueSelectorAttribute>
     {
+        private const double CacheTtlSeconds = 1.0;
+
         private ValueResolver<object> _resolver;
         private string _staticError;
+
+        // Per-drawer-instance кеш результата resolver'а. Сброс по TTL — раз в секунду.
+        // Нужен потому что для коллекций Odin переисполняет drawer на каждом элементе
+        // за кадр (8 элементов × 60 fps = 480 вызовов resolver-метода в секунду без кеша).
+        private object _cachedRaw;
+        private double _cacheTimestamp;
+        private bool _hasCachedRaw;
 
         protected override void Initialize()
         {
             _resolver = ValueResolver.Get<object>(Property, Attribute.MethodName);
+        }
+
+        private object GetCachedValue()
+        {
+            var now = EditorApplication.timeSinceStartup;
+            if (!_hasCachedRaw || now - _cacheTimestamp > CacheTtlSeconds)
+            {
+                _cachedRaw = _resolver.GetValue();
+                _cacheTimestamp = now;
+                _hasCachedRaw = true;
+            }
+            return _cachedRaw;
         }
 
         protected override void DrawPropertyLayout(GUIContent label)
@@ -49,7 +70,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
                 return;
             }
 
-            var raw = _resolver.GetValue();
+            var raw = GetCachedValue();
             if (raw == null)
             {
                 SirenixEditorGUI.ErrorMessageBox($"[ValueSelector] '{Attribute.MethodName}' returned null.");
