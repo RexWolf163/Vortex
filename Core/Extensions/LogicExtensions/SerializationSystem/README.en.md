@@ -118,6 +118,65 @@ UploadProperties<T>(string, T)
     property set  -> recursive Upload into existing object
 ```
 
+#### Container semantics during Upload
+
+The behaviour differs fundamentally per container type — this matters when choosing
+the shape of the persistable model:
+
+| Container | Semantics | Behaviour for keys/elements absent from the save |
+|-----------|-----------|--------------------------------------------------|
+| `IDictionary<K,V>` | **Merge** | Preserved. Values for existing keys are updated via recursive `UploadClass`, event subscriptions on the value instance **survive**. |
+| `T[]` (array) | **Replace** | Array is recreated strictly to the size found in the save, each element instantiated via `Activator.CreateInstance`. Existing structure and subscriptions on its elements are **lost**. |
+| `IList<T>` (List) | **Replace** | `Clear()` + fill from save. Elements instantiated from scratch. |
+| Object (POCO) | **Merge** | Properties updated on top of the existing instance. Subscriptions on the instance itself **survive**. |
+
+#### Implications for persistable-model design
+
+The "reference structure" of the model is created in `ComplexModel<T>.Init()` via
+`Activator.CreateInstance(t)` for every registered type. Deserialization then overlays
+saved values on top of that structure. If the model contains collections whose
+size/composition evolves between config versions (e.g. a new parameter added to a
+`ParametersMap` after a release), evolution works correctly **only for Dictionary** —
+arrays and lists are fully overwritten by the save and lose the new elements of the
+fresh structure.
+
+Container choice rules:
+
+- **Structural collection with stable keys** (parameters from a map, quest registry,
+  character skills, stats dictionary) → `Dictionary<K, V>` with `K` being a stable
+  identifier (`string`, `enum`, `Guid`). New keys from an updated map will then appear
+  in the loaded model with their defaults, and keys removed from the map are dropped
+  during the merge (the save still contains them as orphans — the controller can filter
+  them out if needed).
+- **List-like data without identity** (event history, attempt log, leaderboard)
+  → `T[]` or `List<T>`. Replace semantics is correct here — the save fully describes
+  the current list.
+- **Fixed structure with named fields** → individual `[POCO]` properties, not arrays
+  or lists. Each field evolves independently: a newly added property gets its default
+  from the constructor and isn't clobbered by an absent JSON key.
+
+#### Event subscriptions and Upload
+
+Merge semantics for Dictionary and Object keep existing instances — so subscriptions
+(`event` / `Action`) made on those instances **before** Upload continue to work after
+the save is loaded. Replace semantics for array/list recreate the instances — all prior
+subscriptions must either be restored manually after Upload, or you should avoid using
+structural collections to store objects that carry subscriptions.
+
+#### When the save contains extra/stale data
+
+- **Dictionary:** the target dictionary is enriched with new keys from the save,
+  matching keys are updated. Keys **present in the target but absent from the save**
+  are retained (fresh from the config). Keys **present in the save but absent from
+  the target** are added (may be stale — the controller is responsible for filtering
+  them out if needed).
+- **Object:** properties from the save that are not present on the current type are
+  skipped with a warning (DebugMode), the load proceeds. Properties on the type that
+  are not present in the save keep the value from the reference structure (constructor
+  default).
+- **Array/List:** content comes strictly from the save. The current "reference" length
+  and elements have no effect on the result.
+
 ### JSON format
 
 Each complex object contains a type marker `"__"` with `AssemblyQualifiedName`:
