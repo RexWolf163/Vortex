@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿#if USING_NANINOVELL
+using UnityEngine;
 using Vortex.Unity.AudioSystem.Attributes;
 
 namespace Vortex.Unity.AudioSystem.Presets
@@ -16,3 +17,4 @@ namespace Vortex.Unity.AudioSystem.Presets
         public string GetVoiceCutsceneChannel() => naniCutsceneVoiceChannel;
     }
 }
+#endif

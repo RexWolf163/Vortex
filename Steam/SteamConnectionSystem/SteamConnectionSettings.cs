@@ -1,3 +1,4 @@
+#if USING_STEAM
 #if UNITY_EDITOR
 using System.IO;
 #endif
@@ -58,3 +59,4 @@ namespace Vortex.Steam.SteamConnectionSystem
 #endif
     }
 }
+#endif
