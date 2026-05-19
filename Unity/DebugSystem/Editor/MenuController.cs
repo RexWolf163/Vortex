@@ -9,7 +9,7 @@ namespace Vortex.Unity.DebugSystem.Editor
 {
     public static class MenuController
     {
-        [MenuItem("Vortex/Configs/Debug Settings")]
+        [MenuItem("Tools/Vortex/Configs/Debug Settings")]
         private static void FindConfig()
         {
             var resource = Resources.LoadAll<StartSettings>("");

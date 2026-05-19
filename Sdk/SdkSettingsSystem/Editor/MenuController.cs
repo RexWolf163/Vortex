@@ -8,7 +8,7 @@ namespace Vortex.Sdk.SdkSettingsSystem.Editor
 {
     public static class MenuController
     {
-        [MenuItem("Vortex/Configs/SDK Settings")]
+        [MenuItem("Tools/Vortex/Configs/SDK Settings")]
         private static void FindConfig()
         {
             var resource = Resources.LoadAll<SdkSettings>("");

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using Vortex.Unity.CoreAssetsSystem.Editor;
 using Vortex.Unity.FileSystem.Bus;
 
 #if UNITY_EDITOR
@@ -24,7 +25,7 @@ namespace Vortex.Unity.CoreAssetsSystem
             EditorRegister();
         }
 
-        [MenuItem("Vortex/Debug/Check Core Assets")]
+        [MenuItem("Tools/Vortex/Debug/Check Core Assets")]
         private static void EditorRegister()
         {
             FileBus.CreateFolders($"{Application.dataPath}/{Path}");

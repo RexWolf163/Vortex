@@ -13,7 +13,7 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
     /// </summary>
     public static class MenuController
     {
-        [MenuItem("Vortex/Configs/AssetCache Settings")]
+        [MenuItem("Tools/Vortex/Configs/AssetCache Settings")]
         private static void FindConfig()
         {
             var res = AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>();

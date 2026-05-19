@@ -2,51 +2,54 @@
 using UnityEditor;
 using UnityEngine.UIElements;
 
-public class CoreAssetsPreferences : SettingsProvider
+namespace Vortex.Unity.CoreAssetsSystem.Editor
 {
-    private const string PrefsKey = "CoreAssetsAutoCreate_Enabled";
-    private static bool isEnabled;
-
-    [SettingsProvider]
-    public static SettingsProvider CreateMyCustomSettingsProvider()
+    public class CoreAssetsPreferences : SettingsProvider
     {
-        var provider = new CoreAssetsPreferences("Vortex/Editor", SettingsScope.User)
+        private const string PrefsKey = "CoreAssetsAutoCreate_Enabled";
+        private static bool isEnabled;
+
+        [SettingsProvider]
+        public static SettingsProvider CreateMyCustomSettingsProvider()
         {
-            keywords = new[] { "vortex" }
-        };
-        return provider;
-    }
-
-    public static bool GetCoreAssetAutoCreationMode() => EditorPrefs.GetBool(PrefsKey, true);
-
-    private CoreAssetsPreferences(string path, SettingsScope scopes)
-        : base(path, scopes)
-    {
-    }
-
-    public override void OnActivate(string searchContext, VisualElement rootElement)
-    {
-        isEnabled = GetCoreAssetAutoCreationMode();
-    }
-
-    public override void OnGUI(string searchContext)
-    {
-        EditorGUILayout.BeginVertical();
-        EditorGUILayout.LabelField(
-            "Автоматический контроль ассетов для создания недостающих. Отключите, если ассетов слишком много и система начинает зависать.",
-            EditorStyles.miniLabel
-        );
-
-        EditorGUI.BeginChangeCheck();
-
-        isEnabled = EditorGUILayout.Toggle("CoreAssets Auto Creation", isEnabled);
-
-        if (EditorGUI.EndChangeCheck())
-        {
-            EditorPrefs.SetBool(PrefsKey, isEnabled);
+            var provider = new CoreAssetsPreferences("Vortex/Editor", SettingsScope.User)
+            {
+                keywords = new[] { "vortex" }
+            };
+            return provider;
         }
 
-        EditorGUILayout.EndVertical();
+        public static bool GetCoreAssetAutoCreationMode() => EditorPrefs.GetBool(PrefsKey, true);
+
+        private CoreAssetsPreferences(string path, SettingsScope scopes)
+            : base(path, scopes)
+        {
+        }
+
+        public override void OnActivate(string searchContext, VisualElement rootElement)
+        {
+            isEnabled = GetCoreAssetAutoCreationMode();
+        }
+
+        public override void OnGUI(string searchContext)
+        {
+            EditorGUILayout.BeginVertical();
+            EditorGUILayout.LabelField(
+                "Автоматический контроль ассетов для создания недостающих. Отключите, если ассетов слишком много и система начинает зависать.",
+                EditorStyles.miniLabel
+            );
+
+            EditorGUI.BeginChangeCheck();
+
+            isEnabled = EditorGUILayout.Toggle("CoreAssets Auto Creation", isEnabled);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorPrefs.SetBool(PrefsKey, isEnabled);
+            }
+
+            EditorGUILayout.EndVertical();
+        }
     }
 }
 #endif

@@ -8,7 +8,7 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
 {
     public static class MenuController
     {
-        [MenuItem("Vortex/Configs/Database Settings")]
+        [MenuItem("Tools/Vortex/Configs/Database Settings")]
         private static void FindConfig()
         {
             var resource = Resources.LoadAll<DatabaseSettings>("");

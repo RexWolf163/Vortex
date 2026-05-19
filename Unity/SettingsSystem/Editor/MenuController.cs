@@ -9,7 +9,7 @@ namespace Vortex.Unity.SettingsSystem.Editor
 {
     public static class MenuController
     {
-        [MenuItem("Vortex/Configs/Application Start Config")]
+        [MenuItem("Tools/Vortex/Configs/Application Start Config")]
         private static void FindConfig()
         {
             var resource = Resources.LoadAll<StartSettings>("");

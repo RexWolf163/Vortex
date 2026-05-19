@@ -37,7 +37,7 @@ namespace Vortex.Unity.LocalizationSystem
             Instance.LoadData();
         }
 
-        [MenuItem("Vortex/Localization/Load data", false, 1)]
+        [MenuItem("Tools/Vortex/Localization/Load data", false, 1)]
         private static async void LoadLocalizationData()
         {
             var resources = Resources.LoadAll<LocalizationPreset>(Path);
@@ -65,7 +65,7 @@ namespace Vortex.Unity.LocalizationSystem
             RefreshIndex();
         }
 
-        [MenuItem("Vortex/Localization/Update index", false, 1)]
+        [MenuItem("Tools/Vortex/Localization/Update index", false, 1)]
         private static void RefreshIndex()
         {
             if (_localeData == null)
@@ -78,8 +78,8 @@ namespace Vortex.Unity.LocalizationSystem
             }
         }
 
-        [MenuItem("Vortex/Localization/Update index", true)]
-        [MenuItem("Vortex/Localization/Load data", true)]
+        [MenuItem("Tools/Vortex/Localization/Update index", true)]
+        [MenuItem("Tools/Vortex/Localization/Load data", true)]
         public static bool CheckDriver() => _isSet;
     }
 }

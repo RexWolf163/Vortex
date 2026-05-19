@@ -9,7 +9,7 @@ namespace Vortex.Unity.DebugSystem.Editor
 {
     public static class MenuController
     {
-        [MenuItem("Vortex/Configs/Audio Channels Settings")]
+        [MenuItem("Tools/Vortex/Configs/Audio Channels Settings")]
         private static void FindConfig()
         {
             var resource = Resources.LoadAll<AudioChannelsConfig>("");

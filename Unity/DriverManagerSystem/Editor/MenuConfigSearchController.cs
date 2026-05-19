@@ -9,7 +9,7 @@ namespace Vortex.Unity.DriverManagerSystem.Editor
 {
     public static class MenuController
     {
-        [MenuItem("Vortex/Configs/Drivers Config")]
+        [MenuItem("Tools/Vortex/Configs/Drivers Config")]
         private static void FindConfig()
         {
             var resource = Resources.LoadAll<DriverConfig>("");

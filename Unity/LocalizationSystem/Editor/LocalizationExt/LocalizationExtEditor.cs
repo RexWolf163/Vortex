@@ -8,13 +8,13 @@ namespace Vortex.Core.LocalizationSystem.Bus
 {
     public partial class Localization
     {
-        [MenuItem("Vortex/Localization/Set Default Locale")]
+        [MenuItem("Tools/Vortex/Localization/Set Default Locale")]
         public static void SetDefaultLocale()
         {
             SetCurrentLanguage(Driver.GetDefaultLanguage());
         }
 
-        [MenuItem("Vortex/Localization/Set Next Locale")]
+        [MenuItem("Tools/Vortex/Localization/Set Next Locale")]
         public static void SetNextLocale()
         {
             var langs = Driver.GetLanguages();

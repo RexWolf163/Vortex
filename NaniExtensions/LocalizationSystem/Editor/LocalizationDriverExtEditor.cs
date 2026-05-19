@@ -37,7 +37,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem
             RefreshIndex();
         }
 
-        [MenuItem("Vortex/Localization/(Nani) Load data", false, 1)]
+        [MenuItem("Tools/Vortex/Localization/(Nani) Load data", false, 1)]
         private static async void LoadLocalizationData()
         {
             var resources = Resources.LoadAll<LocalizationPreset>(Path);
@@ -52,7 +52,7 @@ namespace Vortex.NaniExtensions.LocalizationSystem
             RefreshIndex();
         }
 
-        [MenuItem("Vortex/Localization/Set Preset default Locale", false, 1)]
+        [MenuItem("Tools/Vortex/Localization/Set Preset default Locale", false, 1)]
         public static void SetDefaultLocale()
         {
             if (Instance == null)
@@ -108,8 +108,8 @@ namespace Vortex.NaniExtensions.LocalizationSystem
             }
         }
 
-        [MenuItem("Vortex/Localization/(Nani) Load data", true)]
-        [MenuItem("Vortex/Localization/Set Preset default Locale", true)]
+        [MenuItem("Tools/Vortex/Localization/(Nani) Load data", true)]
+        [MenuItem("Tools/Vortex/Localization/Set Preset default Locale", true)]
         private static bool CheckDriver() => _isSet;
     }
 }

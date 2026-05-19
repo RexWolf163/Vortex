@@ -9,7 +9,7 @@ namespace Vortex.Unity.MappedParametersSystem.Editor
 {
     public static class MappedParameterGraphExporter
     {
-        [MenuItem("Vortex/Debug/Export Mapped Parameters into Graph")]
+        [MenuItem("Tools/Vortex/Debug/Export Mapped Parameters into Graph")]
         public static void ExportGraph()
         {
             var maps = Resources.LoadAll<ParametersMapStorage>("");
