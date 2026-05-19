@@ -15,13 +15,12 @@ namespace Vortex.Unity.EditorTools.EditorSettings
 
         private bool ShowNoProSkin() => isProSkin;
 
-        [HideLabel] [SerializeField]
+        [HideLabel] [SerializeField] [HideIf("@isProSkin")]
         private ThemeColors lightColors = ThemeColors.CreateLight();
 
         private bool ShowProSkin() => !isProSkin;
 
-        [HideLabel] [SerializeField]
-        private ThemeColors proColors = ThemeColors.CreatePro();
+        [HideLabel] [SerializeField] [HideIf("@!isProSkin")] private ThemeColors proColors = ThemeColors.CreatePro();
 #if UNITY_EDITOR
 
         public Color GetColor(DefaultColors key)
