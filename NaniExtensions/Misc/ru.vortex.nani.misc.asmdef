@@ -18,7 +18,9 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "USING_NANINOVELL"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }
