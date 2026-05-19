@@ -11,7 +11,9 @@ namespace Vortex.Unity.CoreAssetsSystem
 {
     public static class CoreAssetsController
     {
-        private const string Path = "Resources";
+        // Каноничное место Vortex-конфигов — Resources/Settings/. Сюда же SettingsDriver
+        // кладёт SettingsPreset-наследники, так что все ассеты конфигурации лежат рядом.
+        private const string Path = "Resources/Settings";
 
         [InitializeOnLoadMethod]
         private static void InitializeOnLoad()
