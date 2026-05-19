@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-
+﻿#if UNITY_EDITOR && ENABLE_ADDRESSABLES
 using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.DatabaseSystem.DbSettings;
