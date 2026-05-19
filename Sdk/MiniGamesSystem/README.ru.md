@@ -34,7 +34,7 @@
 - `Vortex.Unity.Extensions.Abstractions` — `MonoBehaviourSingleton`
 - `Vortex.Unity.AppSystem.System.TimeSystem` — `Timer`, `TimeController`
 - `Vortex.Unity.UI` — `UIStateSwitcher`, `UIComponent`, `Pool`, `DataStorage`
-- `Vortex.Unity.EditorTools` — `ClassFilter`, `AutoLink`, `InfoBubble`
+- `Vortex.Unity.EditorTools` — `ClassFilter`, `AutoLink`
 
 ### SDK
 - `Vortex.Sdk.Core.GameCore` — `GameController`, `GameModel.IGameData`, `GameStates`

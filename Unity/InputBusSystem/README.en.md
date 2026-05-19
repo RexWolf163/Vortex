@@ -27,7 +27,7 @@ Out of scope:
 | `Vortex.Core.AppSystem` | `App.GetState()`, `App.OnStateChanged`, `App.OnExit` |
 | `Vortex.Core.SettingsSystem` | `Settings.Data().DebugMode` — diagnostic logging |
 | `Vortex.Core.Extensions` | `AddNew`, `AddOnce` — collection helpers |
-| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[VortexCollection]`, `[InfoBubble]` |
+| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[VortexCollection]` |
 | `Vortex.Unity.UI.Misc` | `AdvancedButton` — optional integration |
 
 ---

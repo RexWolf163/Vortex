@@ -34,7 +34,7 @@ Out of scope:
 | `Steamworks.NET` | `SteamUserStats` — reading/writing achievements |
 | `Vortex.Steam.SteamConnectionSystem` | `SteamBus` — connection state, `SteamUserData` — extension method anchor |
 | `Vortex.Unity.AppSystem` | `TimeController.Accumulate()` — `StoreStats()` batching |
-| `Vortex.Unity.EditorTools` | `[VortexCollection]`, `[ClassLabel]`, `[InfoBubble]`, `[ToggleButton]`, `[OnChanged]`, `[LabelText]` |
+| `Vortex.Unity.EditorTools` | `[VortexCollection]`, `[ClassLabel]`, `[ToggleButton]`, `[OnChanged]`, `[LabelText]` |
 
 ---
 
@@ -76,7 +76,6 @@ AchievementHandler (Editor-only, Serializable)
   ├── isUnlocked: bool               ← [ToggleButton] + [OnChanged("UpdateAchievements")]
   ├── Id, Name, Description
   ├── Label() → [ClassLabel]
-  ├── Info() → [InfoBubble]
   └── UpdateAchievements() → Unlock/Clear
 ```
 

@@ -144,7 +144,6 @@ Inspector customization package. Provides 20 attributes that configure field dis
 - `[ToggleBox("field")]` — conditional field grouping
 - `[Show]` / `[Hide]` / `[ShowInPlay]` / `[HideInEditor]` — conditional visibility
 - `[ClassLabel("$Method")]` — custom collection element header
-- `[InfoBubble("text")]` — information block
 - `[VortexCollection]` — collection rendering with drag & drop, fold, context menus
 
 EditorTools works with both native Inspector and Odin Inspector (via `#if ODIN_INSPECTOR`).

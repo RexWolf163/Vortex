@@ -27,7 +27,7 @@
 | `Vortex.Core.AppSystem` | `App.GetState()`, `App.OnStateChanged`, `App.OnExit` |
 | `Vortex.Core.SettingsSystem` | `Settings.Data().DebugMode` — диагностическое логирование |
 | `Vortex.Core.Extensions` | `AddNew`, `AddOnce` — хелперы коллекций |
-| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[VortexCollection]`, `[InfoBubble]` |
+| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[VortexCollection]` |
 | `Vortex.Unity.UI.Misc` | `AdvancedButton` — опциональная интеграция |
 
 ---

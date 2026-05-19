@@ -144,7 +144,6 @@ StateItem — расширяемый тип: программист создаё
 - `[ToggleBox("field")]` — условная группировка полей
 - `[Show]` / `[Hide]` / `[ShowInPlay]` / `[HideInEditor]` — условная видимость
 - `[ClassLabel("$Method")]` — кастомный заголовок элемента коллекции
-- `[InfoBubble("text")]` — информационный блок
 - `[VortexCollection]` — рендеринг коллекций с drag & drop, fold, контекстными меню
 
 EditorTools работает и с нативным Inspector, и с Odin Inspector (через `#if ODIN_INSPECTOR`).

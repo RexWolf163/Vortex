@@ -25,7 +25,7 @@ Out of scope:
 | UniTask | Async animations (`CancellationToken`, `UniTask.Yield`) |
 | `Vortex.Core.SettingsSystem` | `Settings.Data()` — debug flags |
 | `Vortex.Unity.AppSystem` | `TimeController.Accumulate()` — call accumulation |
-| `Vortex.Unity.EditorTools` | `[InfoBubble]`, `[ClassLabel]` |
+| `Vortex.Unity.EditorTools` | `[ClassLabel]` |
 | Odin Inspector | `[ShowInInspector]`, `[MinValue]`, `[MaxValue]` |
 | TextMeshPro | Support in `ColorLogic` |
 

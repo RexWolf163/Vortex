@@ -25,7 +25,7 @@
 | UniTask | Асинхронные анимации (`CancellationToken`, `UniTask.Yield`) |
 | `Vortex.Core.SettingsSystem` | `Settings.Data()` — debug-флаги |
 | `Vortex.Unity.AppSystem` | `TimeController.Accumulate()` — аккумуляция вызовов |
-| `Vortex.Unity.EditorTools` | `[InfoBubble]`, `[ClassLabel]` |
+| `Vortex.Unity.EditorTools` | `[ClassLabel]` |
 | Odin Inspector | `[ShowInInspector]`, `[MinValue]`, `[MaxValue]` |
 | TextMeshPro | Поддержка в `ColorLogic` |
 
