@@ -146,7 +146,7 @@ Inspector customization package. Provides 20 attributes that configure field dis
 - `[ClassLabel("$Method")]` — custom collection element header
 - `[VortexCollection]` — collection rendering with drag & drop, fold, context menus
 
-EditorTools works with both native Inspector and Odin Inspector (via `#if ODIN_INSPECTOR`).
+EditorTools is built entirely on top of Sirenix Odin Inspector — the native `PropertyDrawer` pipeline is not used. Odin drawers live in a separate assembly `ru.vortex.unity.editortools.sirenix` with `defineConstraints: ["ODIN_INSPECTOR"]`.
 
 ### InputBusSystem
 

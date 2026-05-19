@@ -146,7 +146,7 @@ StateItem — расширяемый тип: программист создаё
 - `[ClassLabel("$Method")]` — кастомный заголовок элемента коллекции
 - `[VortexCollection]` — рендеринг коллекций с drag & drop, fold, контекстными меню
 
-EditorTools работает и с нативным Inspector, и с Odin Inspector (через `#if ODIN_INSPECTOR`).
+EditorTools полностью построен поверх Sirenix Odin Inspector — нативный пайплайн `PropertyDrawer` не используется. Odin-drawer'ы вынесены в отдельную сборку `ru.vortex.unity.editortools.sirenix` с `defineConstraints: ["ODIN_INSPECTOR"]`.
 
 ### InputBusSystem
 

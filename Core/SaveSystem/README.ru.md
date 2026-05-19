@@ -49,14 +49,14 @@ SaveController : SystemController<SaveController, IDriver>
   ├── State: SaveControllerStates
   ├── ProcessData: SaveProcessData
   │
-  ├── Save(name, guid?) → async void
+  ├── Save(name, guid?) → UniTask<string>
   │    ├── State = Saving, OnSaveStart
   │    ├── foreach ISaveable → GetSaveData() → SaveDataIndex
   │    ├── guid ??= Crypto.GetNewGuid()
   │    ├── Driver.Save(name, guid)
   │    └── State = Idle, OnSaveComplete
   │
-  ├── Load(guid) → async void
+  ├── Load(guid) → UniTask
   │    ├── State = Loading, OnLoadStart
   │    ├── Driver.Load(guid) → заполняет SaveDataIndex
   │    ├── foreach ISaveable → OnLoad()
@@ -104,10 +104,11 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 ### Жизненный цикл Load
 
-1. `State = Loading`, `OnLoadStart`
-2. `Driver.Load(guid)` — драйвер заполняет `SaveDataIndex`
-3. Для каждого `ISaveable` — `await OnLoad(token)` (модуль читает из `SaveController.GetData()`)
-4. `State = Idle`, `OnLoadComplete`
+1. Проверка замка (`State == Loading` → return)
+2. `State = Loading`, `OnLoadStart`
+3. `Driver.Load(guid)` — драйвер заполняет `SaveDataIndex`
+4. Для каждого `ISaveable` — `await OnLoad(token)` (модуль читает из `SaveController.GetData()`)
+5. `State = Idle`, `OnLoadComplete`
 
 ### SaveProcessData — двухуровневый прогресс
 
@@ -144,8 +145,8 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 | Метод | Описание |
 |-------|----------|
-| `SaveController.Save(name, guid?)` | Сохранение (async void) |
-| `SaveController.Load(guid)` | Загрузка (async void) |
+| `SaveController.Save(name, guid?)` | Сохранение, `UniTask<string>` (возвращает GUID или `null` если идёт другой Save) |
+| `SaveController.Load(guid)` | Загрузка, `UniTask` |
 | `SaveController.Remove(guid)` | Удаление сохранения |
 | `SaveController.GetData(id)` | Данные модуля по `SaveId` |
 | `SaveController.GetIndex()` | Все сохранения |
@@ -158,10 +159,10 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 | Ограничение | Причина |
 |-------------|---------|
-| `Save` — замок от повторного вызова | `State == Saving` → return |
-| `Load` — без замка | Повторный вызов не блокируется |
+| `Save` — замок от повторного вызова | `State == Saving` → return `null` |
+| `Load` — замок от повторного вызова | `State == Loading` → return |
 | Данные — только строки | `Dictionary<string, string>`, JSON-сериализация на стороне модуля |
-| `async void` | `Save`/`Load` — fire-and-forget, исключения ловятся внутри |
+| `Save`/`Load` возвращают `UniTask` | Можно ждать через `await` либо запускать fire-and-forget через `.Forget()`. Исключения логируются внутри |
 | `CancellationToken` объявлен, но не используется | Зарезервирован на будущее |
 
 ---

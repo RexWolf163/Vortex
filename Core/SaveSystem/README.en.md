@@ -49,14 +49,14 @@ SaveController : SystemController<SaveController, IDriver>
   ├── State: SaveControllerStates
   ├── ProcessData: SaveProcessData
   │
-  ├── Save(name, guid?) → async void
+  ├── Save(name, guid?) → UniTask<string>
   │    ├── State = Saving, OnSaveStart
   │    ├── foreach ISaveable → GetSaveData() → SaveDataIndex
   │    ├── guid ??= Crypto.GetNewGuid()
   │    ├── Driver.Save(name, guid)
   │    └── State = Idle, OnSaveComplete
   │
-  ├── Load(guid) → async void
+  ├── Load(guid) → UniTask
   │    ├── State = Loading, OnLoadStart
   │    ├── Driver.Load(guid) → populates SaveDataIndex
   │    ├── foreach ISaveable → OnLoad()
@@ -104,10 +104,11 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 
 ### Load Lifecycle
 
-1. `State = Loading`, `OnLoadStart`
-2. `Driver.Load(guid)` — driver populates `SaveDataIndex`
-3. For each `ISaveable` — `await OnLoad(token)` (module reads from `SaveController.GetData()`)
-4. `State = Idle`, `OnLoadComplete`
+1. Lock check (`State == Loading` → return)
+2. `State = Loading`, `OnLoadStart`
+3. `Driver.Load(guid)` — driver populates `SaveDataIndex`
+4. For each `ISaveable` — `await OnLoad(token)` (module reads from `SaveController.GetData()`)
+5. `State = Idle`, `OnLoadComplete`
 
 ### SaveProcessData — Two-Level Progress
 
@@ -144,8 +145,8 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 
 | Method | Description |
 |--------|-------------|
-| `SaveController.Save(name, guid?)` | Save (async void) |
-| `SaveController.Load(guid)` | Load (async void) |
+| `SaveController.Save(name, guid?)` | Save, `UniTask<string>` (returns GUID, or `null` if another Save is in progress) |
+| `SaveController.Load(guid)` | Load, `UniTask` |
 | `SaveController.Remove(guid)` | Delete save |
 | `SaveController.GetData(id)` | Module data by `SaveId` |
 | `SaveController.GetIndex()` | All saves |
@@ -158,10 +159,10 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 
 | Constraint | Reason |
 |------------|--------|
-| `Save` locks against re-entry | `State == Saving` → return |
-| `Load` has no lock | Repeated calls are not blocked |
+| `Save` locks against re-entry | `State == Saving` → returns `null` |
+| `Load` locks against re-entry | `State == Loading` → returns |
 | Data is strings only | `Dictionary<string, string>`, JSON serialization is module's responsibility |
-| `async void` | `Save`/`Load` are fire-and-forget, exceptions caught internally |
+| `Save`/`Load` return `UniTask` | Caller may `await` or fire-and-forget via `.Forget()`. Exceptions are logged internally |
 | `CancellationToken` declared but unused | Reserved for future use |
 
 ---

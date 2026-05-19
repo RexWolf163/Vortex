@@ -118,8 +118,11 @@ namespace Vortex.Core.SaveSystem.Bus
         /// Загрузить сейв
         /// </summary>
         /// <param name="guid">guid сейва</param>
-        public static async void Load(string guid)
+        public static async UniTask Load(string guid)
         {
+            //Замок от перезапуска
+            if (State == SaveControllerStates.Loading)
+                return;
             State = SaveControllerStates.Loading;
             OnLoadStart?.Invoke();
             try
