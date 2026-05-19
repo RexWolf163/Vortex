@@ -7,6 +7,6 @@ namespace Vortex.Sdk.SdkSettingsSystem
     public partial class SdkSettings
     {
         [SerializeField] [DefineSymbol("USING_VORTEX_MAP_LEVELS")] [ToggleButton(isSingleButton: true)]
-        private bool mapLevelsSdk = true;
+        private bool mapLevelsSdk;
     }
 }

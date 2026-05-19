@@ -7,6 +7,6 @@ namespace Vortex.Sdk.SdkSettingsSystem
     public partial class SdkSettings
     {
         [SerializeField, ToggleButton(isSingleButton: true)] [DefineSymbol("USING_VORTEX_QUESTS")]
-        private bool questsSdk = true;
+        private bool questsSdk;
     }
 }

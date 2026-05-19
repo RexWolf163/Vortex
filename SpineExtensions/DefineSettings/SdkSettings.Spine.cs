@@ -7,6 +7,6 @@ namespace Vortex.Sdk.SdkSettingsSystem
     public partial class SdkSettings
     {
         [SerializeField, ToggleButton(isSingleButton: true)] [DefineSymbol("USING_SPINE")]
-        private bool spineExt = true;
+        private bool spineExt;
     }
 }

@@ -7,6 +7,6 @@ namespace Vortex.Sdk.SdkSettingsSystem
     public partial class SdkSettings
     {
         [SerializeField, ToggleButton(isSingleButton: true)] [DefineSymbol("USING_VORTEX_SAVE_LOAD_WRAPPER")]
-        private bool saveLoadWrapperSdk = true;
+        private bool saveLoadWrapperSdk;
     }
 }
