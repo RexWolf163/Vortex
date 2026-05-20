@@ -68,10 +68,10 @@ LocaleChannels
 
 | Метод | Описание |
 |-------|----------|
-| `GetCurrentChannelLanguage(LocaleChannels channel)` | Текущий язык канала. Lazy: in-memory cache → `IChanneledDriver.GetChannelLanguage` → `Driver.GetDefaultLanguage`. Для `Default` сразу возвращает `Driver.GetDefaultLanguage()` |
-| `SetCurrentChannelLanguage(string language, LocaleChannels channel)` | Записывает язык в per-channel слот. Для `Default` дополнительно вызывает `Driver.SetLanguage(language)`. Для остальных — `IChanneledDriver.SetChannelLanguage` |
+| `GetCurrentChannelLanguage(LocaleChannels channel)` | Текущий язык канала. Для `Default` делегирует в `GetCurrentLanguage()` базовой партиальной — Default-канал является синонимом базового `_currentLanguage`, отдельного состояния не имеет. Для остальных — lazy: in-memory cache → `IChanneledDriver.GetChannelLanguage` → `Driver.GetDefaultLanguage` |
+| `SetCurrentChannelLanguage(string language, LocaleChannels channel)` | Для `Default` делегирует в `SetCurrentLanguage(language)` — обновляет базовое `_currentLanguage` и дёргает `Driver.SetLanguage`. Для остальных — пишет в per-channel слот и вызывает `IChanneledDriver.SetChannelLanguage` (с `.Forget`-логгером) |
 
-Хранение per-channel — массив `string[]`, индексируемый `(byte)channel`. Доступ к канальным операциям через `ChDriver` — кастит `IDriver` к `IChanneledDriver`. Если драйвер не поддерживает каналы, getter возвращает `Driver.GetDefaultLanguage()`, setter сохраняет только локальное значение.
+Хранение per-channel — массив `string[]`, индексируемый `(byte)channel`. Слот `Default` (индекс 0) не используется — Default делегируется в базовое состояние. Доступ к канальным операциям через `ChDriver` — кастит `IDriver` к `IChanneledDriver`. Если драйвер не поддерживает каналы, getter возвращает `Driver.GetDefaultLanguage()`, setter сохраняет только локальное значение.
 
 ### NaniVortexLocaleConnector
 

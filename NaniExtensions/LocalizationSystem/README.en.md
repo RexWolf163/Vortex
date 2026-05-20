@@ -68,10 +68,10 @@ Persistence: `PlayerPrefs("AppLanguage")` — shared, `PlayerPrefs("AppLanguage{
 
 | Method | Description |
 |--------|-------------|
-| `GetCurrentChannelLanguage(LocaleChannels channel)` | Current language for the channel. Lazy: in-memory cache → `IChanneledDriver.GetChannelLanguage` → `Driver.GetDefaultLanguage`. For `Default` returns `Driver.GetDefaultLanguage()` directly |
-| `SetCurrentChannelLanguage(string language, LocaleChannels channel)` | Writes the language into the per-channel slot. For `Default` additionally calls `Driver.SetLanguage(language)`. For others — `IChanneledDriver.SetChannelLanguage` |
+| `GetCurrentChannelLanguage(LocaleChannels channel)` | Current language for the channel. For `Default` delegates to `GetCurrentLanguage()` of the base partial — the Default channel is a synonym for the base `_currentLanguage` and has no separate state. For others — lazy: in-memory cache → `IChanneledDriver.GetChannelLanguage` → `Driver.GetDefaultLanguage` |
+| `SetCurrentChannelLanguage(string language, LocaleChannels channel)` | For `Default` delegates to `SetCurrentLanguage(language)` — updates the base `_currentLanguage` and calls `Driver.SetLanguage`. For others — writes into the per-channel slot and calls `IChanneledDriver.SetChannelLanguage` (with `.Forget` logger) |
 
-Per-channel storage — a `string[]` indexed by `(byte)channel`. Channel access via `ChDriver` — casts `IDriver` to `IChanneledDriver`. If the driver doesn't support channels, the getter falls back to `Driver.GetDefaultLanguage()` and the setter only saves the local value.
+Per-channel storage — a `string[]` indexed by `(byte)channel`. The `Default` slot (index 0) is not used — Default is delegated to the base state. Channel access via `ChDriver` — casts `IDriver` to `IChanneledDriver`. If the driver doesn't support channels, the getter falls back to `Driver.GetDefaultLanguage()` and the setter only saves the local value.
 
 ### NaniVortexLocaleConnector
 
