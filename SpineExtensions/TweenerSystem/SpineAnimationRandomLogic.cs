@@ -28,7 +28,8 @@ namespace Vortex.SpineExtensions.TweenerSystem
     [Serializable]
     public class SpineAnimationRandomLogic : TweenLogic
     {
-        [SerializeField] private SkeletonGraphic skeleton;
+        [SerializeField, OnValueChanged("UpdateSkeleton")]
+        private SkeletonGraphic skeleton;
 
         [SerializeField, Range(0, 10)] private byte animationChannel = 1;
 
@@ -248,6 +249,7 @@ namespace Vortex.SpineExtensions.TweenerSystem
         }
 
 #if UNITY_EDITOR
+
         /// <summary>
         /// Пересчёт долей вероятности у всех массивов вариантов для инспектора.
         /// Вызывается Odin'ом через <see cref="OnValueChangedAttribute"/>.
@@ -258,6 +260,16 @@ namespace Vortex.SpineExtensions.TweenerSystem
             RecalcPercents(animationsIdle1);
             RecalcPercents(animationsFrw);
             RecalcPercents(animationsBack);
+            UpdateSkeleton();
+        }
+
+        private void UpdateSkeleton()
+        {
+            var list = GetListAnimations();
+            foreach (var v in animationsIdle0) v.List = list;
+            foreach (var v in animationsIdle1) v.List = list;
+            foreach (var v in animationsFrw) v.List = list;
+            foreach (var v in animationsBack) v.List = list;
         }
 
         private static void RecalcPercents(AnimationVariant[] variants)
@@ -296,6 +308,10 @@ namespace Vortex.SpineExtensions.TweenerSystem
             public string Name => name;
 
 #if UNITY_EDITOR
+            private string[] GetListAnimations() => List;
+
+            internal string[] List;
+
             internal float _percent;
 
             [ShowInInspector, HideLabel, HorizontalGroup]
