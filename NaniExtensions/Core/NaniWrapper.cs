@@ -1,10 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Naninovel;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Sdk.Core.GameCore;
+#if UNITY_EDITOR
+using UnityEditor;
+using Vortex.Unity.Extensions;
+#endif
 
 namespace Vortex.NaniExtensions.Core
 {
@@ -174,5 +179,45 @@ namespace Vortex.NaniExtensions.Core
 
             return ScriptPlayer is { Playing: true };
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Editor-only: собирает список всех id персонажей из всех <see cref="CharactersConfiguration"/>-ассетов проекта.
+        /// Используется как источник для <c>[ValueDropdown]</c> в хэндлерах, привязанных к ключу персонажа Naninovel.
+        /// </summary>
+        public static List<string> GetNaniCharacters()
+        {
+            var result = new List<string>();
+            var guids = AssetDatabase.FindAssets("t:CharactersConfiguration");
+
+            if (guids.Length == 0)
+                return result;
+
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var config = AssetDatabase.LoadAssetAtPath<CharactersConfiguration>(path);
+                if (config != null && config.Metadata != null)
+                    result.AddRange(config.Metadata.GetAllIds());
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Editor-only: возвращает список имён предопределённых переменных Naninovel
+        /// из <see cref="CustomVariablesConfiguration"/>. Источник для <c>[ValueDropdown]</c> в хэндлерах,
+        /// которым нужен выбор Nani-переменной.
+        /// </summary>
+        public static List<string> GetNaniVariables()
+        {
+            var result = new List<string>();
+            var config = AssetDatabaseExt.GetSingletonAsset<CustomVariablesConfiguration>();
+            if (config != null && config.PredefinedVariables != null)
+                result.AddRange(config.PredefinedVariables.Select(customVar => customVar.Name));
+
+            return result;
+        }
+#endif
     }
 }
