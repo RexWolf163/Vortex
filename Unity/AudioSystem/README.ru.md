@@ -234,7 +234,8 @@ SoundClipFixed (: SoundClip)
 - `SetVolumeMultiplier(float)` / `GetVolumeMultiplier()` — множитель громкости
 - Итоговая громкость: `GetSoundVolume(channel) × clip.volume × volumeMultiplier`
 - Итоговый mute: `!GetSoundOn(channel)`
-- `OnEnable` — подписка на `AudioController.OnSettingsChanged`, применение настроек
+- `playOnEnable` (bool) — если включён, `Play()` вызывается автоматически в `OnEnable` (после применения настроек громкости). Удобно для одноразовых эффектов, которые включаются вместе с GameObject (popup-выход, появление UI и т. п.)
+- `OnEnable` — подписка на `AudioController.OnSettingsChanged`, применение настроек, опционально `Play()` при `playOnEnable`
 - `OnDisable` — отписка, остановка воспроизведения
 - Инициализация отложена до `AudioController.OnInit` через `TimeController.Accumulate`
 

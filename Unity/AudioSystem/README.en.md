@@ -234,7 +234,8 @@ Sound playback component. Works with a personal `AudioSource` or relays to `Audi
 - `SetVolumeMultiplier(float)` / `GetVolumeMultiplier()` — volume multiplier
 - Final volume: `GetSoundVolume(channel) × clip.volume × volumeMultiplier`
 - Final mute: `!GetSoundOn(channel)`
-- `OnEnable` — subscribes to `AudioController.OnSettingsChanged`, applies settings
+- `playOnEnable` (bool) — if enabled, `Play()` is invoked automatically in `OnEnable` (after volume settings are applied). Convenient for one-shot effects tied to a GameObject becoming active (popup appear, UI reveal, etc.)
+- `OnEnable` — subscribes to `AudioController.OnSettingsChanged`, applies settings, optionally calls `Play()` when `playOnEnable`
 - `OnDisable` — unsubscribes, stops playback
 - Initialization deferred until `AudioController.OnInit` via `TimeController.Accumulate`
 
