@@ -88,18 +88,30 @@ namespace Vortex.NaniExtensions.AudioSystem
 
         private static void HandlePrintStart(PrintMessageArgs args)
         {
-            // Если текущая реплика не имела собственной voice-дорожки (cached != current) —
-            // закрываем её сейчас. Если имела (cached == current) — оставляем, её voice ещё играет
-            // и закроется через поллинг при окончании аудио.
-            if (_currentAuthor != null && _cachedAuthor != _currentAuthor)
-            {
-                var prev = _currentAuthor;
-                _currentAuthor = null;
-                OnVoiceStop?.Invoke(prev);
-            }
+            var newAuthor = args.Message.Author.Value.Id;
 
-            _currentAuthor = args.Message.Author.Value.Id;
-            OnVoiceStart?.Invoke(_currentAuthor);
+            // Тихий переход: тот же говорун продолжает с новой voice-дорожкой.
+            // Не эмитим ни Stop, ни Start — аниматор остаётся в Forward, новый voice заменит старый.
+            var silent = newAuthor == _currentAuthor && _cachedAuthor == newAuthor;
+
+            if (!silent)
+            {
+                // Закрываем предыдущую реплику, если у неё не было собственной озвучки.
+                // Если была (cached == current) — оставляем, её voice ещё играет и закроется через поллинг.
+                if (_currentAuthor != null && _cachedAuthor != _currentAuthor)
+                {
+                    var prev = _currentAuthor;
+                    _currentAuthor = null;
+                    OnVoiceStop?.Invoke(prev);
+                }
+
+                _currentAuthor = newAuthor;
+                OnVoiceStart?.Invoke(newAuthor);
+            }
+            else
+            {
+                _currentAuthor = newAuthor; // безопасное переприсваивание (тот же id)
+            }
 
             if (!_polling)
             {
@@ -158,12 +170,19 @@ namespace Vortex.NaniExtensions.AudioSystem
             var oldPath = _cachedVoicePath;
             _cachedVoicePath = newPath;
 
-            // Старый voice закончился (естественно) или сменился на другой — закрываем его реплику.
+            // Старый voice закончился или сменился. Если ТОТ ЖЕ говорун получил новый voice-клип —
+            // это «тихий переход», аниматор не должен дёргаться: ни Stop, ни последующего Start
+            // (Start не эмитится в HandlePrintStart при silent transition).
             if (oldPath != null && _cachedAuthor != null)
             {
-                var author = _cachedAuthor;
-                _cachedAuthor = null;
-                OnVoiceStop?.Invoke(author);
+                var silentTransition = newPath != null && _cachedAuthor == _currentAuthor;
+                if (!silentTransition)
+                {
+                    var author = _cachedAuthor;
+                    _cachedAuthor = null;
+                    OnVoiceStop?.Invoke(author);
+                }
+                // В silent-кейсе _cachedAuthor оставляем как есть — он совпадёт с переприсваиванием ниже.
             }
 
             // Новый voice появился — назначаем его текущей активной реплике.
