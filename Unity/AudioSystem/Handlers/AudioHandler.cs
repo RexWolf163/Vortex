@@ -22,6 +22,8 @@ namespace Vortex.Unity.AudioSystem.Handlers
 
         [SerializeField, AudioChannelName] private string channel;
 
+        [SerializeField] private bool playOnEnable;
+
         private Sound _sample;
 
         private SoundClip _sound;
@@ -65,12 +67,15 @@ namespace Vortex.Unity.AudioSystem.Handlers
         {
             if (!_isInit)
                 Init();
-            if (audioSource == null || (audioSource.clip == null && audioSample.IsNullOrWhitespace()))
-                return;
+            if (audioSource != null && (audioSource.clip != null || !audioSample.IsNullOrWhitespace()))
+            {
+                _volumeMultiplier = 1;
+                AudioController.OnSettingsChanged += CheckSettings;
+                CheckSettings();
+            }
 
-            _volumeMultiplier = 1;
-            AudioController.OnSettingsChanged += CheckSettings;
-            CheckSettings();
+            if (playOnEnable)
+                Play();
         }
 
         private void OnDisable()
