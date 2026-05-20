@@ -25,7 +25,6 @@ namespace Vortex.SpineExtensions.TweenerSystem
     /// Анимации задаются списками <see cref="SpineAnimationVariant"/> с весами — конкретная анимация
     /// выбирается случайным образом с вероятностью, пропорциональной весу.
     /// </summary>
-    [OnInspectorInit("UpdateSkeleton")]
     public abstract class SpineAnimationRandomLogicBase<TSkeleton> : TweenLogic
         where TSkeleton : MonoBehaviour, IAnimationStateComponent, IHasSkeletonDataAsset
     {
@@ -242,6 +241,22 @@ namespace Vortex.SpineExtensions.TweenerSystem
         }
 
 #if UNITY_EDITOR
+
+        [NonSerialized] private bool _inspectorInited;
+
+        /// <summary>
+        /// Лениво заполняет <see cref="SpineAnimationVariant.List"/> на первом рисовании инспектора.
+        /// Аналог <c>[OnInspectorInit]</c> — нужен, потому что <c>OnInspectorInit</c> через state-updater
+        /// биндится к свойству родительской коллекции (<c>TweenLogic[]</c>) и не разрешает методы
+        /// конкретного подкласса. <c>[OnInspectorGUI]</c> зовётся уже в контексте этого инстанса.
+        /// </summary>
+        [OnInspectorGUI, PropertyOrder(int.MinValue)]
+        private void EditorInit()
+        {
+            if (_inspectorInited) return;
+            _inspectorInited = true;
+            UpdateSkeleton();
+        }
 
         /// <summary>
         /// Пересчёт долей вероятности у всех массивов вариантов для инспектора.
