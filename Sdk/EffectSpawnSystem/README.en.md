@@ -106,6 +106,29 @@ EffectView (RequireComponent TweenerHub)
 
 No `LifetimeStrategy`/`maxPoolSize`/`prewarmCount`/`useUnscaledTime` — only `duration` and the `TweenerHub` link. Activation always through `OnEnable` (the parent stack provides this automatically).
 
+### Recommended effect prefab layout
+
+```
+Effect (prefab root)
+├── EffectView + TweenerHub                      ← on the root
+├── SkeletonGraphic / ParticleSystem / Image     ← visual layer
+│   └── … (Forward/Back animation via TweenerHub)
+└── [Sound] (GameObject)
+    └── AudioHandler
+        ├── Audio Source: None (no local AudioSource)
+        ├── Audio Sample: <DbRecord(Sound) — sample GUID>
+        ├── Channel: sfx
+        └── Play On Enable: ✓
+```
+
+**Why this shape:**
+- Visual and audio are separate child nodes. Audio is independent from animation — easy to mute/swap without touching the visual.
+- `AudioHandler` without a local `AudioSource` relays the sound through `AudioController.PlaySound` → pool from `AudioPlayer`. Effects don't spawn extra `AudioSource`s and don't require manual source-lifecycle management.
+- `Play On Enable: ✓` — sound fires exactly when the effect is activated via `EffectSpawn.Spawn(...)` (the child `[Sound]`'s `OnEnable` runs synchronously with the root activation).
+- The node is named with square brackets — `[Sound]` — to visually separate the "system sound layer" from the visual hierarchy in the Hierarchy window.
+
+One effect = one prefab with three layers (visual, sound, `EffectView`/`TweenerHub`). Effect cascades (e.g. hit-effect followed by a glow) are assembled as multiple `Spawn` calls of different prefabs from the same anchor.
+
 ### EffectsCatalog — index by key
 
 ```

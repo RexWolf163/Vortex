@@ -106,6 +106,29 @@ EffectView (RequireComponent TweenerHub)
 
 Никаких `LifetimeStrategy`/`maxPoolSize`/`prewarmCount`/`useUnscaledTime` — только `duration` и связь с `TweenerHub`. Активация всегда через `OnEnable` (parent stack даёт это автоматически).
 
+### Рекомендованная структура префаба эффекта
+
+```
+Effect (корень префаба)
+├── EffectView + TweenerHub                      ← на корне
+├── SkeletonGraphic / ParticleSystem / Image     ← визуальная часть
+│   └── … (анимация Forward/Back через TweenerHub)
+└── [Sound] (GameObject)
+    └── AudioHandler
+        ├── Audio Source: None (без локального AudioSource)
+        ├── Audio Sample: <DbRecord(Sound) — GUID семпла>
+        ├── Channel: sfx
+        └── Play On Enable: ✓
+```
+
+**Почему так:**
+- Визуальная и звуковая части — отдельные дочерние узлы. Аудио независимо от анимации, его легко глушить/менять без правки визуала.
+- `AudioHandler` без локального `AudioSource` ретранслирует звук через `AudioController.PlaySound` → пул из `AudioPlayer`. Эффекты не плодят AudioSource'ы и не требуют ручного управления жизненным циклом источника.
+- `Play On Enable: ✓` — звук запускается ровно в момент, когда эффект активируется через `EffectSpawn.Spawn(...)` (OnEnable дочернего `[Sound]` отрабатывает синхронно с активацией корня).
+- Узел `[Sound]` называется явно с квадратными скобками — отделяет «системный звуковой слой» от визуальной иерархии префаба в Hierarchy-окне.
+
+Один эффект — один префаб с тремя слоями (визуал, звук, EffectView/TweenerHub). Каскады эффектов (например, hit-эффект + последующий glow) собираются как несколько Spawn-вызовов разных префабов с одного места.
+
 ### EffectsCatalog — индекс по ключу
 
 ```
