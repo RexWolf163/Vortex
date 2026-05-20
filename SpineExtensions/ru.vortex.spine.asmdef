@@ -8,7 +8,8 @@
         "ru.vortex.sdk.game.core",
         "spine-unity",
         "spine-csharp",
-        "ru.vortex.system"
+        "ru.vortex.system",
+        "ru.vortex.unity.app"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
