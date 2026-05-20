@@ -13,17 +13,17 @@ namespace Vortex.NaniExtensions.AudioSystem
     /// в единый контракт <see cref="OnVoiceStart"/> / <see cref="OnVoiceStop"/>, где аргументом идёт ключ говорящего.
     ///
     /// Поскольку <see cref="IAudioManager"/> в текущей версии Naninovel не эмитит событий начала/конца voice,
-    /// факт наличия voice-дорожки определяется опросом <see cref="IAudioManager.IsVoicePlaying"/> по тику
-    /// <see cref="TimeController.AddCallback"/>. Поллинг работает только в окне активной реплики
-    /// (между PrintTextStarted и её закрытием), вне реплики ничего не тратит.
+    /// факт наличия voice-дорожки определяется опросом <see cref="IAudioManager.GetPlayedVoice"/> по тику
+    /// <see cref="TimeController.AddCallback"/> (играющий voice = непустой путь). Поллинг работает только
+    /// в окне активной реплики (между PrintStarted и её закрытием), вне реплики ничего не тратит.
     ///
     /// Алгоритм:
     /// 1) <see cref="ITextPrinterManager.OnPrintStarted"/> — фиксируется начало реплики.
     ///    Эмитится <see cref="OnVoiceStart"/>(authorId) сразу по текущему автору печати, запускается поллинг voice.
-    /// 2) Если поллинг видит переход IsVoicePlaying=false→true — кешируем говоруна
+    /// 2) Если поллинг видит переход GetPlayedVoice null→непустой — кешируем говоруна
     ///    (= у реплики есть голосовая дорожка). Завершение пойдёт по аудиоканалу.
     /// 3) Завершение:
-    ///    - если есть закешированный говорун → ждём IsVoicePlaying=true→false,
+    ///    - если есть закешированный говорун → ждём GetPlayedVoice непустой→null,
     ///      эмитим <see cref="OnVoiceStop"/>(cachedAuthor);
     ///    - иначе → ждём <see cref="ITextPrinterManager.OnPrintFinished"/>,
     ///      эмитим <see cref="OnVoiceStop"/>(args.AuthorId).
@@ -106,7 +106,7 @@ namespace Vortex.NaniExtensions.AudioSystem
 
         private static void StartPolling()
         {
-            _voiceWasPlaying = NaniWrapper.AudioManager.IsVoicePlaying();
+            _voiceWasPlaying = !string.IsNullOrEmpty(NaniWrapper.AudioManager.GetPlayedVoice());
             if (_polling) return;
             _polling = true;
             TimeController.AddCallback(PollVoice);
@@ -122,7 +122,7 @@ namespace Vortex.NaniExtensions.AudioSystem
 
         private static void PollVoice()
         {
-            var nowPlaying = NaniWrapper.AudioManager.IsVoicePlaying();
+            var nowPlaying = !string.IsNullOrEmpty(NaniWrapper.AudioManager.GetPlayedVoice());
             if (nowPlaying == _voiceWasPlaying) return;
             _voiceWasPlaying = nowPlaying;
 
