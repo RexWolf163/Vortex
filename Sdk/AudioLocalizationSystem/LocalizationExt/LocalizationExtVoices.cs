@@ -29,13 +29,14 @@ namespace Vortex.Core.LocalizationSystem.Bus
         private static IChanneledDriver ChDriver => Driver as IChanneledDriver;
 
         /// <summary>
-        /// Узнать текущую локаль канала 
+        /// Узнать текущую локаль канала.
+        /// Канал <see cref="LocaleChannels.Default"/> — синоним базового <see cref="GetCurrentLanguage"/>;
+        /// собственного состояния не имеет, чтобы не расходиться с <c>_currentLanguage</c> базовой партиальной.
         /// </summary>
-        /// <returns></returns>
         public static string GetCurrentChannelLanguage(LocaleChannels channel)
         {
             if (channel == LocaleChannels.Default)
-                return Driver.GetDefaultLanguage(); //дефолтный язык
+                return GetCurrentLanguage();
             var ch = (byte)channel;
             if (CurrentChannelLanguage[ch].IsNullOrWhitespace())
                 SetCurrentChannelLanguage(
@@ -45,20 +46,22 @@ namespace Vortex.Core.LocalizationSystem.Bus
         }
 
         /// <summary>
-        /// Установить локаль для канала локализации 
+        /// Установить локаль для канала локализации.
+        /// Канал <see cref="LocaleChannels.Default"/> делегируется в базовый <see cref="SetCurrentLanguage"/>,
+        /// чтобы синхронизировать <c>_currentLanguage</c> базовой партиальной с состоянием UI/драйвера.
         /// </summary>
         /// <param name="language"></param>
         /// <param name="channel"></param>
         public static void SetCurrentChannelLanguage(string language, LocaleChannels channel)
         {
-            var ch = (byte)channel;
-            CurrentChannelLanguage[ch] = language;
             if (channel == LocaleChannels.Default)
             {
-                Driver.SetLanguage(language);
+                SetCurrentLanguage(language);
                 return;
             }
 
+            var ch = (byte)channel;
+            CurrentChannelLanguage[ch] = language;
             ChDriver?.SetChannelLanguage(ch, language)
                 .Forget(ex => Log.Print(LogLevel.Error, ex.Message, "Localization"));
         }
