@@ -33,16 +33,16 @@ namespace Vortex.SpineExtensions.TweenerSystem
         [SerializeField, Range(0, 10)] private byte animationChannel = 1;
 
         [SerializeField, OnValueChanged("UpdatePercents", true)] [InfoBox("Анимация в положении Back")]
-        private AnimationVariant[] animationsIdle0 = Array.Empty<AnimationVariant>();
+        private AnimationVariant[] animationsIdle0 = new AnimationVariant[0];
 
         [SerializeField, OnValueChanged("UpdatePercents", true)] [InfoBox("Анимация в положении Forward")]
-        private AnimationVariant[] animationsIdle1 = Array.Empty<AnimationVariant>();
+        private AnimationVariant[] animationsIdle1 = new AnimationVariant[0];
 
         [SerializeField, OnValueChanged("UpdatePercents", true)] [InfoBox("Анимация перехода в Forward")]
-        private AnimationVariant[] animationsFrw = Array.Empty<AnimationVariant>();
+        private AnimationVariant[] animationsFrw = new AnimationVariant[0];
 
         [SerializeField, OnValueChanged("UpdatePercents", true)] [InfoBox("Анимация перехода в Back")]
-        private AnimationVariant[] animationsBack = Array.Empty<AnimationVariant>();
+        private AnimationVariant[] animationsBack = new AnimationVariant[0];
 
         [SerializeField,
          InfoBox(
