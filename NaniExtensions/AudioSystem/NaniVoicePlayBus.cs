@@ -12,20 +12,22 @@ namespace Vortex.NaniExtensions.AudioSystem
     /// Объединяет два источника — <see cref="ITextPrinterManager"/> и <see cref="IAudioManager"/> —
     /// в единый контракт <see cref="OnVoiceStart"/> / <see cref="OnVoiceStop"/>, где аргументом идёт ключ говорящего.
     ///
-    /// Поскольку <see cref="IAudioManager"/> в текущей версии Naninovel не эмитит событий начала/конца voice,
-    /// факт наличия voice-дорожки определяется опросом <see cref="IAudioManager.GetPlayedVoice"/> по тику
-    /// <see cref="TimeController.AddCallback"/> (играющий voice = непустой путь).
+    /// Воспроизведение голоса детектируется опросом <see cref="IAudioManager.GetPlayedVoice"/>:
+    /// API возвращает путь играющего voice-клипа или null. Отслеживая путь, мы корректно ловим:
+    ///   - конец voice (path → null);
+    ///   - смену voice на другого актора (pathA → pathB) — даже если null-окна между ними нет.
     ///
     /// Алгоритм:
-    /// 1) <see cref="ITextPrinterManager.OnPrintStarted"/> — фиксируется начало реплики.
-    ///    Если предыдущая реплика ещё не закрыта (voice так и не появился, либо ещё играет) — она сливается:
-    ///    <see cref="OnVoiceStop"/> для предыдущего автора эмитится здесь же.
-    ///    Эмитится <see cref="OnVoiceStart"/>(authorId) по текущему автору, запускается поллинг.
-    /// 2) Поллинг видит переход GetPlayedVoice null→непустой — кеширует говоруна. Завершение пойдёт через аудио.
-    /// 3) Поллинг видит переход непустой→null с закешированным говоруном — эмитит <see cref="OnVoiceStop"/> и стопает поллинг.
-    /// 4) <see cref="ITextPrinterManager.OnPrintFinished"/> — печать закончилась.
-    ///    Поллинг и реплика остаются открытыми: voice может прийти async, после печати.
-    ///    Закрытие произойдёт по сценарию (3) либо сольётся следующим PrintStart.
+    /// 1) <see cref="ITextPrinterManager.OnPrintStarted"/>:
+    ///    - если у текущей реплики не было собственной озвучки (cachedAuthor != currentAuthor),
+    ///      закрываем её сразу <see cref="OnVoiceStop"/>(currentAuthor);
+    ///    - если cachedAuthor == currentAuthor, оставляем — её voice ещё играет и закроется по аудио;
+    ///    - эмитим <see cref="OnVoiceStart"/>(newAuthor), стартует/продолжается поллинг.
+    /// 2) Поллинг ловит любое изменение path:
+    ///    - oldPath != null → эмитим <see cref="OnVoiceStop"/>(cachedAuthor);
+    ///    - newPath != null → cachedAuthor = currentAuthor (новая озвучка принадлежит активной реплике).
+    /// 3) <see cref="ITextPrinterManager.OnPrintFinished"/> — ничего не делает: voice может прийти async,
+    ///    закрытие всегда идёт либо через поллинг, либо через следующий PrintStarted.
     /// </summary>
     public static class NaniVoicePlayBus
     {
@@ -33,19 +35,19 @@ namespace Vortex.NaniExtensions.AudioSystem
         public static event Action<string> OnVoiceStart;
 
         /// <summary>
-        /// Завершение реплики. Если у реплики была голосовая дорожка — authorId берётся из кеша
-        /// (зафиксирован в момент старта voice-трека). Иначе — из открытой реплики (current author).
+        /// Завершение реплики. Если у реплики была голосовая дорожка — закрывается по окончании voice
+        /// (authorId из кеша). Если voice не было — закрывается на следующей PrintStarted либо при Dispose.
         /// </summary>
         public static event Action<string> OnVoiceStop;
 
-        /// <summary>Автор последней начатой реплики (по PrintStarted). Сбрасывается на закрытии.</summary>
+        /// <summary>Автор последней начатой реплики (по PrintStarted).</summary>
         private static string _currentAuthor;
 
-        /// <summary>Закешированный говорун — выставляется, когда поллинг видит старт voice-трека.</summary>
+        /// <summary>Автор, чья voice-дорожка сейчас играет (либо играла, и сейчас закрывается).</summary>
         private static string _cachedAuthor;
 
-        /// <summary>Предыдущее значение GetPlayedVoice — для детекта transitions в поллинге.</summary>
-        private static bool _voiceWasPlaying;
+        /// <summary>Путь играющего voice-клипа (или null). Используется для детекта transitions.</summary>
+        private static string _cachedVoicePath;
 
         /// <summary>Активен ли поллинг voice.</summary>
         private static bool _polling;
@@ -80,69 +82,64 @@ namespace Vortex.NaniExtensions.AudioSystem
             NaniWrapper.TextPrinterManager.OnPrintFinished -= HandlePrintFinish;
             NaniWrapper.OnNaniStop -= HandleNaniStop;
 
-            FlushOpenReply();
+            FlushAll();
             StopPolling();
         }
 
         private static void HandlePrintStart(PrintMessageArgs args)
         {
-            // Если предыдущая реплика ещё не закрыта (voice не пришёл, либо ещё играет) — закрываем её здесь.
-            FlushOpenReply();
+            // Если текущая реплика не имела собственной voice-дорожки (cached != current) —
+            // закрываем её сейчас. Если имела (cached == current) — оставляем, её voice ещё играет
+            // и закроется через поллинг при окончании аудио.
+            if (_currentAuthor != null && _cachedAuthor != _currentAuthor)
+            {
+                var prev = _currentAuthor;
+                _currentAuthor = null;
+                OnVoiceStop?.Invoke(prev);
+            }
 
             _currentAuthor = args.Message.Author.Value.Id;
-            _cachedAuthor = null;
             OnVoiceStart?.Invoke(_currentAuthor);
-            StartPolling();
+
+            if (!_polling)
+            {
+                _polling = true;
+                TimeController.AddCallback(PollVoice);
+            }
+
+            // Реконсилируем состояние сразу: voice мог уже играть к моменту OnPrintStarted
+            // (Naninovel @print awaitит PlayVoice до фаер'инга OnPrintStarted).
+            PollVoice();
         }
 
         private static void HandlePrintFinish(PrintMessageArgs args)
         {
-            // НЕ закрываем реплику здесь — voice может прийти async, после конца печати.
-            // Закрытие произойдёт либо через поллинг (voice реально стартует и потом остановится),
-            // либо при следующем PrintStart (если voice так и не появится).
+            // Никаких действий — закрытие реплики идёт либо через поллинг (voice реально остановился
+            // или сменился), либо через следующий PrintStarted (если voice вообще не было).
         }
 
         private static void HandleNaniStop()
         {
-            // Nani остановился (game state change, ScriptPlayer.Stop) — закрываем открытую реплику.
-            FlushOpenReply();
+            FlushAll();
             StopPolling();
         }
 
         /// <summary>
-        /// Закрывает текущую открытую реплику, если она ещё не закрыта.
-        /// Эмитит OnVoiceStop по cached-автору (если voice играл) либо по current-автору.
+        /// Закрывает все открытые реплики (cached и current, если они разные).
         /// </summary>
-        private static void FlushOpenReply()
+        private static void FlushAll()
         {
-            if (_cachedAuthor != null)
-            {
-                var author = _cachedAuthor;
-                _cachedAuthor = null;
-                _currentAuthor = null;
-                OnVoiceStop?.Invoke(author);
-            }
-            else if (_currentAuthor != null)
-            {
-                var author = _currentAuthor;
-                _currentAuthor = null;
-                OnVoiceStop?.Invoke(author);
-            }
-        }
+            var cached = _cachedAuthor;
+            var current = _currentAuthor;
 
-        private static void StartPolling()
-        {
-            // К моменту PrintStarted voice часто уже играет: команда @print сначала await'ит PlayVoice,
-            // потом фаерит OnPrintStarted. Если зафиксировать _voiceWasPlaying=true без кеширования автора,
-            // поллинг никогда не увидит transition false→true и реплика не закроется.
-            var nowPlaying = !string.IsNullOrEmpty(NaniWrapper.AudioManager.GetPlayedVoice());
-            _voiceWasPlaying = nowPlaying;
-            if (nowPlaying)
-                _cachedAuthor = _currentAuthor;
+            _cachedAuthor = null;
+            _cachedVoicePath = null;
+            _currentAuthor = null;
 
-            if (_polling) return;
-            _polling = true;
-            TimeController.AddCallback(PollVoice);
+            if (cached != null)
+                OnVoiceStop?.Invoke(cached);
+            if (current != null && current != cached)
+                OnVoiceStop?.Invoke(current);
         }
 
         private static void StopPolling()
@@ -150,29 +147,28 @@ namespace Vortex.NaniExtensions.AudioSystem
             if (!_polling) return;
             _polling = false;
             TimeController.RemoveCallback(PollVoice);
-            _voiceWasPlaying = false;
         }
 
         private static void PollVoice()
         {
-            var nowPlaying = !string.IsNullOrEmpty(NaniWrapper.AudioManager.GetPlayedVoice());
-            if (nowPlaying == _voiceWasPlaying) return;
-            _voiceWasPlaying = nowPlaying;
+            var newPath = NaniWrapper.AudioManager.GetPlayedVoice();
+            if (string.IsNullOrEmpty(newPath)) newPath = null;
+            if (newPath == _cachedVoicePath) return;
 
-            if (nowPlaying)
+            var oldPath = _cachedVoicePath;
+            _cachedVoicePath = newPath;
+
+            // Старый voice закончился (естественно) или сменился на другой — закрываем его реплику.
+            if (oldPath != null && _cachedAuthor != null)
             {
-                // voice стартовал — у реплики есть озвучка, переключаем закрытие на аудио-канал.
-                _cachedAuthor = _currentAuthor;
-            }
-            else if (_cachedAuthor != null)
-            {
-                // voice закончился — закрываем реплику.
                 var author = _cachedAuthor;
                 _cachedAuthor = null;
-                _currentAuthor = null;
                 OnVoiceStop?.Invoke(author);
-                StopPolling();
             }
+
+            // Новый voice появился — назначаем его текущей активной реплике.
+            if (newPath != null)
+                _cachedAuthor = _currentAuthor;
         }
     }
 }
