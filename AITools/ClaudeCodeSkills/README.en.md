@@ -1,9 +1,3 @@
----
-title: ClaudeCodeSkills
-platform: Claude Code (CLI, Anthropic)
-language: en
----
-
 # ClaudeCodeSkills — skills for designing and assessing Vortex packages
 
 A set of skills for [Claude Code](https://docs.claude.com/claude-code), Anthropic's CLI agent. The skills automate routine work around Vortex: designing new packages by canon, picking the right architectural layer for a new system, and running a strict canon-based code quality assessment.

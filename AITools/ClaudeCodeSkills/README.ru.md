@@ -1,9 +1,3 @@
----
-title: ClaudeCodeSkills
-platform: Claude Code (CLI, Anthropic)
-language: ru
----
-
 # ClaudeCodeSkills — скиллы для разработки и оценки пакетов Vortex
 
 Набор скиллов для [Claude Code](https://docs.claude.com/claude-code) — CLI-агента от Anthropic. Скиллы автоматизируют типовые операции вокруг Vortex: проектирование новых пакетов по канону, определение архитектурного слоя для новой системы, жёсткую оценку качества кода по формулам.

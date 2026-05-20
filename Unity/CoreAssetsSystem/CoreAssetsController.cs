@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,8 +7,6 @@ using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.CoreAssetsSystem.Editor;
 using Vortex.Unity.FileSystem.Bus;
-
-#if UNITY_EDITOR
 
 namespace Vortex.Unity.CoreAssetsSystem
 {

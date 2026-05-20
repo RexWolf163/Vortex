@@ -7,6 +7,7 @@ using Vortex.Sdk.EffectSpawnSystem.Components;
 using Vortex.Sdk.EffectSpawnSystem.Pool;
 using Vortex.Unity.Extensions;
 using Object = UnityEngine.Object;
+using Random = UnityEngine.Random;
 
 namespace Vortex.Sdk.EffectSpawnSystem.Bus
 {
@@ -117,6 +118,46 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
             }
 
             var pos = position ?? target.position;
+            var rot = rotation ?? Quaternion.identity;
+            return Pool.Acquire(prefab, target, pos, rot);
+        }
+
+        /// <summary>
+        /// Спаун эффекта по ключу из зарегистрированного каталога.
+        /// Без зарегистрированного каталога или для незнакомого ключа — Logger.Error + null.
+        ///
+        /// По умолчанию мировая позиция = <c>target.position</c>, ротация = <see cref="Quaternion.identity"/>.
+        /// Опциональные <paramref name="deltaPosition"/> / <paramref name="rotation"/> добавляют смещение и переопределяют дефолтный поворот.
+        /// </summary>
+        public static EffectView Spawn(RectTransform target, string key,
+            Vector3? deltaPosition = null, Quaternion? rotation = null)
+        {
+            if (target == null)
+            {
+                Debug.LogError("[EffectSpawn] target == null");
+                return null;
+            }
+
+            if (_catalog == null)
+            {
+                Debug.LogError(
+                    $"[EffectSpawn] Каталог не зарегистрирован, спаун по ключу '{key}' невозможен. Используйте RegisterCatalog или Spawn(target, prefab).");
+                return null;
+            }
+
+            var prefab = _catalog.GetPrefab(key);
+            if (prefab == null)
+            {
+                Debug.LogError($"[EffectSpawn] Ключ '{key}' не найден в каталоге '{_catalog.name}'.");
+                return null;
+            }
+
+            var pos = target.position;
+            if (deltaPosition != null)
+                pos += deltaPosition.Value;
+            pos.x += Random.Range(-target.rect.width / 2, target.rect.width / 2);
+            pos.y += Random.Range(-target.rect.height / 2, target.rect.height / 2);
+
             var rot = rotation ?? Quaternion.identity;
             return Pool.Acquire(prefab, target, pos, rot);
         }
