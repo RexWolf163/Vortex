@@ -180,6 +180,7 @@ namespace Vortex.SpineExtensions.TweenerSystem
 
         protected override void OnEnd()
         {
+            TimeController.RemoveCall(this);
             if (_isRunningState)
             {
                 _isRunningState = false;
@@ -209,7 +210,7 @@ namespace Vortex.SpineExtensions.TweenerSystem
             if (block == null || block.Length <= 1) return;
             var dur = GetAnimationDuration(currentIdle);
             if (dur <= 0f) return;
-            TimeController.Call(() => RerollIdle(block), initialDelay + dur, block);
+            TimeController.Call(() => RerollIdle(block), initialDelay + dur, this);
         }
 
         /// <summary>
@@ -223,7 +224,7 @@ namespace Vortex.SpineExtensions.TweenerSystem
             skeleton.AnimationState.SetAnimation(animationChannel, nextIdle, true);
             var dur = GetAnimationDuration(nextIdle);
             if (dur <= 0f) return;
-            TimeController.Call(() => RerollIdle(block), dur, block);
+            TimeController.Call(() => RerollIdle(block), dur, this);
         }
 
         /// <summary>
@@ -246,6 +247,7 @@ namespace Vortex.SpineExtensions.TweenerSystem
             return anim?.Duration ?? 0f;
         }
 
+#if UNITY_EDITOR
         /// <summary>
         /// Пересчёт долей вероятности у всех массивов вариантов для инспектора.
         /// Вызывается Odin'ом через <see cref="OnValueChangedAttribute"/>.
@@ -273,11 +275,8 @@ namespace Vortex.SpineExtensions.TweenerSystem
                 v._percent = (float)v.Weight / sum;
         }
 
-#if UNITY_EDITOR
-        private string[] GetListAnimations()
-        {
-            return skeleton?.SkeletonData.Animations.Select(a => a.Name).ToArray() ?? Array.Empty<string>();
-        }
+        private string[] GetListAnimations() =>
+            skeleton?.SkeletonData.Animations.Select(a => a.Name).ToArray() ?? Array.Empty<string>();
 #endif
 
         /// <summary>
@@ -286,15 +285,10 @@ namespace Vortex.SpineExtensions.TweenerSystem
         [Serializable, HideReferenceObjectPicker, ClassLabel("$Label")]
         private class AnimationVariant
         {
-            [SerializeField, HideLabel, HorizontalGroup, Range(1, 100)]
-            private int weight = 1;
+            [SerializeField, HideLabel, HorizontalGroup, Range(0, 100)]
+            private int weight = 50;
 
             public int Weight => weight;
-
-            internal float _percent;
-
-            [ShowInInspector, HideLabel, HorizontalGroup]
-            private string Percent => Mathf.Round(_percent * 100) + "%";
 
             [SerializeField, ValueSelector("GetListAnimations"), HideLabel]
             private string name;
@@ -302,6 +296,11 @@ namespace Vortex.SpineExtensions.TweenerSystem
             public string Name => name;
 
 #if UNITY_EDITOR
+            internal float _percent;
+
+            [ShowInInspector, HideLabel, HorizontalGroup]
+            private string Percent => Mathf.Round(_percent * 100) + "%";
+
             private string Label() => $"{(string.IsNullOrEmpty(name) ? "[NOT SET]" : name)} {Percent}";
 #endif
         }
