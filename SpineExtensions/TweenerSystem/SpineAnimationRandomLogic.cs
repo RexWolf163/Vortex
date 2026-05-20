@@ -1,5 +1,4 @@
 using System;
-using Sirenix.OdinInspector;
 using Spine.Unity;
 
 namespace Vortex.SpineExtensions.TweenerSystem
@@ -8,7 +7,7 @@ namespace Vortex.SpineExtensions.TweenerSystem
     /// Случайная взвешенная анимация Spine для <see cref="SkeletonGraphic"/> (UGUI-вариант).
     /// Вся логика — в <see cref="SpineAnimationRandomLogicBase{T}"/>.
     /// </summary>
-    [Serializable, OnInspectorInit("UpdateSkeleton")]
+    [Serializable]
     public class SpineAnimationRandomLogic : SpineAnimationRandomLogicBase<SkeletonGraphic>
     {
     }

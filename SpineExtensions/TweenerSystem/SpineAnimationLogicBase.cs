@@ -28,7 +28,8 @@ namespace Vortex.SpineExtensions.TweenerSystem
     {
         private const string None = "[NONE]";
 
-        [SerializeField] protected TSkeleton skeleton;
+        [ClassFilter(typeof(IAnimationStateComponent), typeof(IHasSkeletonDataAsset))] [SerializeField]
+        protected TSkeleton skeleton;
 
         [SerializeField, Range(0, 10)] private byte animationChannel = 1;
 

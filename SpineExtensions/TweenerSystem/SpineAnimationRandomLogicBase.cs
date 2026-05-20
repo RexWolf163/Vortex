@@ -25,10 +25,12 @@ namespace Vortex.SpineExtensions.TweenerSystem
     /// Анимации задаются списками <see cref="SpineAnimationVariant"/> с весами — конкретная анимация
     /// выбирается случайным образом с вероятностью, пропорциональной весу.
     /// </summary>
+    [OnInspectorInit("UpdateSkeleton")]
     public abstract class SpineAnimationRandomLogicBase<TSkeleton> : TweenLogic
         where TSkeleton : MonoBehaviour, IAnimationStateComponent, IHasSkeletonDataAsset
     {
-        [SerializeField, OnValueChanged("UpdateSkeleton")]
+        [SerializeField, OnValueChanged("UpdateSkeleton"),
+         ClassFilter(typeof(IAnimationStateComponent), typeof(IHasSkeletonDataAsset))]
         protected TSkeleton skeleton;
 
         [SerializeField, Range(0, 10)] private byte animationChannel = 1;
