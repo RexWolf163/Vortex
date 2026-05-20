@@ -79,7 +79,8 @@ IDriver : ISystemDriver
   ├── Load(guid)
   ├── Remove(guid)
   ├── SetIndexLink(Dictionary<string, Dictionary<string, string>>)
-  └── GetIndex() → Dictionary<string, SaveSummary>
+  ├── GetIndex() → Dictionary<string, SaveSummary>
+  └── GetNumberLastSave() → int
 ```
 
 ### Data Format
@@ -94,7 +95,7 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 
 ### Save Lifecycle
 
-1. Lock check (`State == Saving` → return)
+1. Lock check (`State == Saving` → returns `null`)
 2. `State = Saving`, `OnSaveStart`
 3. `SaveDataIndex.Clear()`
 4. For each `ISaveable` — `await GetSaveData(token)` → add to `SaveDataIndex`
@@ -229,8 +230,8 @@ SaveController.Remove(guid);
 
 | Scenario | Behavior |
 |----------|----------|
-| `Save` during saving | Blocked (`State == Saving` → return) |
-| `Load` during loading | Not blocked (no lock) |
+| `Save` during saving | Blocked (`State == Saving` → returns `null`) |
+| `Load` during loading | Blocked (`State == Loading` → returns without action) |
 | `GetData` with non-existent `id` | `Log.Print(Error)`, returns empty `Dictionary` |
 | GUID not provided to `Save` | Generated via `Crypto.GetNewGuid()` |
 | Exception in `GetSaveData` / `OnLoad` | `Log.Print(Error)`, `State = Idle`, Complete event fires |

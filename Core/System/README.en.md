@@ -1,6 +1,6 @@
 # System (Core)
 
-**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.ReactiveValues`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`
+**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`
 **Assembly:** `ru.vortex.system`
 **Platform:** .NET Standard 2.1+
 
@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Foundational abstractions package of the framework. Defines base patterns used by all other systems: singleton, system controller with driver architecture, reactive values, process interface for async loading, and calendar-based timer.
+Foundational abstractions package of the framework. Defines base patterns used by all other systems: singleton, system controller with driver architecture, process interface for async loading, and calendar-based timer.
 
 Capabilities:
 
@@ -16,7 +16,6 @@ Capabilities:
 - `SystemController<T, TD>` — controller with pluggable driver and initialization queue
 - `ISystemDriver` — interface for platform-dependent drivers
 - `DriversGenericList` — white-list of valid controller → driver pairs
-- `ReactiveValue<T>` — value wrapper with change events (`IntData`, `FloatData`, `BoolData`, `StringData`)
 - `IProcess` / `ProcessData` — interface and data for async processes in `Loader`
 - `DateTimeTimer` — `DateTime`-based timer, works offline
 - `SystemModel` — base class for data models
@@ -123,28 +122,6 @@ ISystemDriver
   └── Destroy()                              ← called on disconnect
 ```
 
-### ReactiveValue\<T\>
-
-```
-ReactiveValue<T> : IReactiveData
-  ├── Value: T { get; protected set; }
-  ├── OnUpdate: Action<T>                    ← typed event
-  ├── OnUpdateData: Action                   ← untyped event (IReactiveData)
-  ├── Set(T value) → Value = value, fire events
-  └── implicit operator T → Value
-```
-
-Value wrapper with two events: `OnUpdate` (typed) and `OnUpdateData` (generic). `Set()` always fires both events without checking for change. `CallOnUpdate()` is a protected method for firing events from subclasses without reassigning `Value`. Implicit operator allows using `ReactiveValue<T>` as `T`.
-
-#### Concrete Implementations
-
-| Class | Type | Constructor |
-|-------|------|-------------|
-| `IntData` | `ReactiveValue<int>` | `IntData(int value)` |
-| `FloatData` | `ReactiveValue<float>` | `FloatData(float value)` |
-| `BoolData` | `ReactiveValue<bool>` | `BoolData(bool value)` |
-| `StringData` | `ReactiveValue<string>` | `StringData(string value)`, `ToString() → Value` |
-
 ### IProcess / ProcessData
 
 ```
@@ -208,20 +185,11 @@ Timer based on `DateTime.UtcNow`. Works offline — independent of Update loop. 
 | Driver replacement | Old `Destroy()`, new `Init()` |
 | `IsInit` set once | After `CallOnInit` — `true` permanently |
 
-### ReactiveValue\<T\>
-
-| Guarantee | Description |
-|-----------|-------------|
-| `Set()` always notifies | No change check — both events fire |
-| Implicit operator | `ReactiveValue<int> x = ...; int y = x;` — valid |
-| `Value` — protected set | Changed only via `Set()` or subclass |
-
 ### Constraints
 
 | Constraint | Reason |
 |------------|--------|
 | `Singleton<T>` is not thread-safe | No `lock` / `volatile` |
-| `Set()` without duplication check | May cause unnecessary UI updates |
 | `DriversGenericList` is auto-generated | Manual edits will be overwritten |
 | `ProcessData` has public fields | Optimization, programmer's responsibility |
 | `DateTimeTimer` has no Pause/Resume | Fixed Start/End only |
@@ -249,16 +217,6 @@ public class MySystem : SystemController<MySystem, IMyDriver>
 
     protected override void OnDriverDisconnect() { }
 }
-```
-
-### Using ReactiveValue
-
-```csharp
-var health = new IntData(100);
-health.OnUpdate += value => Console.WriteLine($"Health: {value}");
-health.Set(80);           // → "Health: 80"
-
-int raw = health;          // implicit operator → 80
 ```
 
 ### Using DateTimeTimer
@@ -311,7 +269,6 @@ public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
 | `SetDriver` with type not in WhiteList | Returns `false` |
 | `SetDriver` again with same instance | `Driver.Equals(driver)` → skip replacement, `Init()` called |
 | Subscribe to `OnInit` after initialization | Callback invoked immediately |
-| `ReactiveValue.Set()` with same value | Both events fire (no check) |
 | `DateTimeTimer` with `end < start` | Negative `Duration`, `IsComplete()` immediately `true` |
 | `DateTimeTimer` — time before `Start` | `GetTimeRemains()` → `Duration`, `GetTimeLeft()` → `Zero` |
 | `Dispose()` singleton + re-access `Instance` | New instance via `new T()` |

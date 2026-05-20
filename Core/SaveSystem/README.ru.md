@@ -79,7 +79,8 @@ IDriver : ISystemDriver
   ├── Load(guid)
   ├── Remove(guid)
   ├── SetIndexLink(Dictionary<string, Dictionary<string, string>>)
-  └── GetIndex() → Dictionary<string, SaveSummary>
+  ├── GetIndex() → Dictionary<string, SaveSummary>
+  └── GetNumberLastSave() → int
 ```
 
 ### Формат данных
@@ -94,7 +95,7 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 ### Жизненный цикл Save
 
-1. Проверка замка (`State == Saving` → return)
+1. Проверка замка (`State == Saving` → возврат `null`)
 2. `State = Saving`, `OnSaveStart`
 3. `SaveDataIndex.Clear()`
 4. Для каждого `ISaveable` — `await GetSaveData(token)` → добавление в `SaveDataIndex`
@@ -229,8 +230,8 @@ SaveController.Remove(guid);
 
 | Ситуация | Поведение |
 |----------|-----------|
-| `Save` во время сохранения | Блокируется (`State == Saving` → return) |
-| `Load` во время загрузки | Не блокируется (нет замка) |
+| `Save` во время сохранения | Блокируется (`State == Saving` → возврат `null`) |
+| `Load` во время загрузки | Блокируется (`State == Loading` → выход без действий) |
 | `GetData` с несуществующим `id` | `Log.Print(Error)`, возвращает пустой `Dictionary` |
 | GUID не передан в `Save` | Генерируется `Crypto.GetNewGuid()` |
 | Исключение в `GetSaveData` / `OnLoad` | `Log.Print(Error)`, `State = Idle`, событие Complete вызывается |

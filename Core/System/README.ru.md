@@ -1,6 +1,6 @@
 # System (Core)
 
-**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.ReactiveValues`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`
+**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`
 **Сборка:** `ru.vortex.system`
 **Платформа:** .NET Standard 2.1+
 
@@ -8,7 +8,7 @@
 
 ## Назначение
 
-Фундаментальный пакет абстракций фреймворка. Определяет базовые паттерны, используемые всеми остальными системами: синглтон, системный контроллер с драйверной архитектурой, реактивные значения, интерфейс процесса для асинхронной загрузки и календарный таймер.
+Фундаментальный пакет абстракций фреймворка. Определяет базовые паттерны, используемые всеми остальными системами: синглтон, системный контроллер с драйверной архитектурой, интерфейс процесса для асинхронной загрузки и календарный таймер.
 
 Возможности:
 
@@ -16,7 +16,6 @@
 - `SystemController<T, TD>` — контроллер с подключаемым драйвером и очередью инициализации
 - `ISystemDriver` — интерфейс платформозависимого драйвера
 - `DriversGenericList` — white-list допустимых пар контроллер → драйвер
-- `ReactiveValue<T>` — обёртка значения с событиями изменения (`IntData`, `FloatData`, `BoolData`, `StringData`)
 - `IProcess` / `ProcessData` — интерфейс и данные асинхронного процесса для `Loader`
 - `DateTimeTimer` — таймер на основе `DateTime`, работает offline
 - `SystemModel` — базовый класс моделей данных
@@ -123,29 +122,6 @@ ISystemDriver
   └── Destroy()                              ← вызывается при отключении
 ```
 
-### ReactiveValue\<T\>
-
-```
-ReactiveValue<T> : IReactiveData
-  ├── Value: T { get; protected set; }
-  ├── OnUpdate: Action<T>                    ← типизированное событие
-  ├── OnUpdateData: Action                   ← нетипизированное событие (IReactiveData)
-  ├── Set(T value) → Value = value, fire events
-  ├── CallOnUpdate() (protected)             ← вызов событий без Set (для наследников)
-  └── implicit operator T → Value
-```
-
-Обёртка значения с двумя событиями: `OnUpdate` (типизированное) и `OnUpdateData` (общее). `Set()` всегда вызывает оба события, без проверки на изменение. `CallOnUpdate()` — protected метод для вызова событий из наследников без переназначения `Value`. Implicit operator позволяет использовать `ReactiveValue<T>` как `T`.
-
-#### Конкретные реализации
-
-| Класс | Тип | Конструктор |
-|-------|-----|-------------|
-| `IntData` | `ReactiveValue<int>` | `IntData(int value)` |
-| `FloatData` | `ReactiveValue<float>` | `FloatData(float value)` |
-| `BoolData` | `ReactiveValue<bool>` | `BoolData(bool value)` |
-| `StringData` | `ReactiveValue<string>` | `StringData(string value)`, `ToString() → Value` |
-
 ### IProcess / ProcessData
 
 ```
@@ -209,20 +185,11 @@ DateTimeTimer
 | Замена драйвера | Старый `Destroy()`, новый `Init()` |
 | `IsInit` устанавливается однократно | После `CallOnInit` — `true` навсегда |
 
-### ReactiveValue\<T\>
-
-| Гарантия | Описание |
-|----------|----------|
-| `Set()` всегда уведомляет | Без проверки на изменение — оба события вызываются |
-| Implicit operator | `ReactiveValue<int> x = ...; int y = x;` — корректно |
-| `Value` — protected set | Изменение только через `Set()` или наследника |
-
 ### Ограничения
 
 | Ограничение | Причина |
 |-------------|---------|
 | `Singleton<T>` — не потокобезопасен | Нет `lock` / `volatile` |
-| `Set()` без проверки дублирования | Может вызвать лишние обновления UI |
 | `DriversGenericList` — автогенерация | Ручное редактирование будет перезаписано |
 | `ProcessData` — public fields | Оптимизация, контроль на программисте |
 | `DateTimeTimer` — без Pause/Resume | Только фиксированные Start/End |
@@ -250,16 +217,6 @@ public class MySystem : SystemController<MySystem, IMyDriver>
 
     protected override void OnDriverDisconnect() { }
 }
-```
-
-### Использование ReactiveValue
-
-```csharp
-var health = new IntData(100);
-health.OnUpdate += value => Console.WriteLine($"Health: {value}");
-health.Set(80);           // → "Health: 80"
-
-int raw = health;          // implicit operator → 80
 ```
 
 ### Использование DateTimeTimer
@@ -312,7 +269,6 @@ public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
 | `SetDriver` с типом вне WhiteList | Возвращает `false` |
 | `SetDriver` повторно с тем же экземпляром | `Driver.Equals(driver)` → пропуск замены, `Init()` вызывается |
 | Подписка на `OnInit` после инициализации | Callback вызывается немедленно |
-| `ReactiveValue.Set()` с тем же значением | Оба события вызываются (нет проверки) |
 | `DateTimeTimer` с `end < start` | Отрицательный `Duration`, `IsComplete()` сразу `true` |
 | `DateTimeTimer` — время до `Start` | `GetTimeRemains()` → `Duration`, `GetTimeLeft()` → `Zero` |
 | `Dispose()` синглтона + повторный `Instance` | Новый экземпляр через `new T()` |
