@@ -147,6 +147,47 @@ model.Level.Set(10, other);   // Error: "Trying to change value from outer Objec
 model.Level.Set(10);          // Error: owner = null != this
 ```
 
+### Запирание приватным ключом (рекомендуется)
+
+Передавать `this` в качестве владельца — допустимо, но **протекаемо**: ссылка на контроллер обычно публично доступна, и любой код может вызвать `data.Set(value, controller)`, выдавая себя за владельца. Замок теряет смысл.
+
+Чистый паттерн — отдельный приватный ключ внутри контроллера:
+
+```csharp
+public class HealthController
+{
+    private readonly object _key = new();
+    public IntData Hp { get; } = new IntData(100);
+
+    public HealthController()
+    {
+        Hp.SetOwner(_key);
+    }
+
+    public void Damage(int amount)
+    {
+        Hp.Set(Hp - amount, _key);   // OK
+    }
+}
+
+// Снаружи:
+controller.Hp.Set(0, controller);  // Error — `controller` не ключ
+controller.Hp.Set(0);              // Error — null не ключ
+```
+
+`_key` — `private`, никем извне не виден, инстанцируется внутри контроллера и нигде не публикуется. Ни рефлексия (по типу `object`), ни случайная утечка ссылки не дадут постороннему обойти замок.
+
+Тот же подход работает для `ReactiveCollection<T>` (`ListData<T>` и т. д.) и для конструкторов с владельцем:
+
+```csharp
+public IntData Hp { get; }
+
+public HealthController()
+{
+    Hp = new IntData(100, _key);   // владелец сразу из ключа
+}
+```
+
 ### Конструктор с владельцем
 
 ```csharp

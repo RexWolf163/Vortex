@@ -163,6 +163,47 @@ model.Level.Set(10, other);   // Error: "Trying to change value from outer Objec
 model.Level.Set(10);          // Error: owner = null != this
 ```
 
+### Locking with a private key (recommended)
+
+Passing `this` as the owner works, but it **leaks**: the controller reference is usually publicly accessible, and any code can call `data.Set(value, controller)` pretending to be the owner. The lock loses its purpose.
+
+The clean pattern — a dedicated private key inside the controller:
+
+```csharp
+public class HealthController
+{
+    private readonly object _key = new();
+    public IntData Hp { get; } = new IntData(100);
+
+    public HealthController()
+    {
+        Hp.SetOwner(_key);
+    }
+
+    public void Damage(int amount)
+    {
+        Hp.Set(Hp - amount, _key);   // OK
+    }
+}
+
+// From outside:
+controller.Hp.Set(0, controller);  // Error — `controller` is not the key
+controller.Hp.Set(0);              // Error — null is not the key
+```
+
+`_key` is `private`, invisible from outside, instantiated inside the controller and never published. Neither reflection (by `object` type) nor an accidental reference leak gives outsiders a way around the lock.
+
+The same approach works for `ReactiveCollection<T>` (`ListData<T>` etc.) and for owner-based constructors:
+
+```csharp
+public IntData Hp { get; }
+
+public HealthController()
+{
+    Hp = new IntData(100, _key);   // owner is the key from the start
+}
+```
+
 ### Reactive collection
 
 ```csharp

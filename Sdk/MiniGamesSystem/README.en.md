@@ -15,7 +15,6 @@ Capabilities:
 - View connection via configuration (prefab specified in ScriptableObject)
 - Controller substitution via inspector dropdown (direct DI through configuration)
 - New mini-game boilerplate generation from `.vtp` template
-- Template implementations: Gym, Painting, Puzzle
 
 Out of scope:
 - Specific mini-game logic (implemented in controller subclasses)
@@ -268,18 +267,6 @@ await MyGameHub.Play(new MyGamePlayConfig { Difficulty = 1 });
 MyGameHub.Instance.OnWin += HandleWin;
 MyGameHub.Instance.OnFail += HandleFail;
 ```
-
-## Template Implementations
-
-The package contains three template mini-games — examples of the standardized pattern:
-
-| Game | Assembly | Mechanic |
-|------|----------|----------|
-| **Gym** | `ru.vortex.minigames.gym` | Timing slider, phases (Ready → Push → Return), trainer animations (Spine / VideoPlayer) |
-| **Painting** | `ru.vortex.minigames.paint` | Cell grid, cross-neighbor inversion, object pool |
-| **Puzzle** | `ru.vortex.minigames.puzzle` | Texture slicing, Fisher-Yates shuffle, drag & drop with `AsyncTween` |
-
-All implementations follow the same template and serve as reference examples for creating new mini-games.
 
 ## Editor Tools
 
