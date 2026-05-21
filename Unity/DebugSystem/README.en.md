@@ -18,7 +18,7 @@ Out of scope: logging logic, Core `SettingsModel` properties — these belong to
 
 - `Vortex.Unity.SettingsSystem.Presets` — `SettingsPreset` (base class)
 - `Vortex.Unity.EditorTools.Attributes` — `[ToggleButton]`, `[Position]`
-- `Sirenix.OdinInspector` (optional) — `[PropertyOrder]`
+- `Sirenix.OdinInspector` — `[PropertyOrder]`
 
 ## Architecture
 

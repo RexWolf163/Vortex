@@ -41,7 +41,7 @@ Unity-адаптация шины `UIProvider`. Связывает Core-моде
 | `Vortex.Unity.AppSystem` | `TimeController.Call()` (отложенная регистрация) |
 | `Vortex.Unity.UI.TweenerSystem` | `TweenerHub` (анимация открытия/закрытия) |
 | `UnityEngine.UI` | `CanvasScaler` (масштаб для drag) |
-| `Sirenix.OdinInspector` (опционально) | `DisplayAsString`, `HideReferenceObjectPicker` |
+| `Sirenix.OdinInspector` | `DisplayAsString`, `HideReferenceObjectPicker` |
 
 ---
 

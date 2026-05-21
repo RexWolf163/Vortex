@@ -41,7 +41,7 @@ Out of scope:
 | `Vortex.Unity.AppSystem` | `TimeController.Call()` (deferred registration) |
 | `Vortex.Unity.UI.TweenerSystem` | `TweenerHub` (open/close animation) |
 | `UnityEngine.UI` | `CanvasScaler` (scale factor for drag) |
-| `Sirenix.OdinInspector` (optional) | `DisplayAsString`, `HideReferenceObjectPicker` |
+| `Sirenix.OdinInspector` | `DisplayAsString`, `HideReferenceObjectPicker` |
 
 ---
 

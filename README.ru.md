@@ -187,9 +187,13 @@ public class HeroPanel : MonoBehaviour
 
 ## Зависимости
 
+**Обязательные:**
 - Unity 2021.3+
-- UniTask (опционально под Unity, легко откатывается до Task)
-- Odin Inspector (опционально, для редакторных инструментов)
-- Addressables (опционально, для `AddressablesDriver`)
+- UniTask — async/await
+- TextMeshPro — текстовый рендеринг
+- Sirenix Odin Inspector — атрибуты для Inspector и собственный EditorTools-пакет
+
+**Опциональные:**
+- Addressables — для `AddressablesDriver` пакета `Database` и для `AssetCache` (если не установлен — соответствующие сборки автоматически отключаются через `defineConstraints`)
 
 ---

@@ -187,11 +187,15 @@ public class HeroPanel : MonoBehaviour
 
 ## Dependencies
 
+**Required:**
 - Unity 2021.3+
-- UniTask
-- Odin Inspector (optional, for editor tools)
-- Addressables (optional, for `AddressablesDriver`)
-- protobuf-net (for `ComplexModel` serialization)
+- UniTask — async/await
+- TextMeshPro — text rendering
+- Sirenix Odin Inspector — Inspector attributes and the EditorTools package
+
+**Optional:**
+- Addressables — for `AddressablesDriver` of the `Database` package and for `AssetCache` (if not installed, the corresponding assemblies are auto-disabled via `defineConstraints`)
+- protobuf-net — for `ComplexModel` serialization
 
 ---
 

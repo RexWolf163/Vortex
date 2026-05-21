@@ -18,7 +18,7 @@ ScriptableObject-ассет настроек отладки с toggle-кнопк
 
 - `Vortex.Unity.SettingsSystem.Presets` — `SettingsPreset` (базовый класс)
 - `Vortex.Unity.EditorTools.Attributes` — `[ToggleButton]`, `[Position]`
-- `Sirenix.OdinInspector` (опционально) — `[PropertyOrder]`
+- `Sirenix.OdinInspector` — `[PropertyOrder]`
 
 ## Архитектура
 
