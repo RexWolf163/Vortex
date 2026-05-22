@@ -1,6 +1,6 @@
 using System;
 using System.Linq;
-using Sirenix.OdinInspector;
+using Spine;
 using Spine.Unity;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
