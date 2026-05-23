@@ -18,7 +18,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
     /// Поддерживает bool, int, byte, enum.
     /// Работает для [SerializeField], [ShowInInspector] и параметров методов —
     /// тип определяется через <c>Property.Info.TypeOfValue</c>,
-    /// чтение/запись идут через <c>ValueEntry.WeakSmartValue</c>.
+    /// чтение/запись идут через <c>Property.ValueEntry.WeakSmartValue</c>.
     /// </summary>
     public sealed class ToggleButtonAttributeDrawer : OdinAttributeDrawer<ToggleButtonAttribute>
     {
@@ -139,7 +139,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
         /// </summary>
         private int GetIntValue()
         {
-            var raw = ValueEntry.WeakSmartValue;
+            var raw = Property.ValueEntry.WeakSmartValue;
             if (raw == null) return 0;
 
             if (_isBool) return ((bool)raw) ? 1 : 0;
@@ -168,19 +168,19 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
         {
             if (_isBool)
             {
-                ValueEntry.WeakSmartValue = value != 0;
+                Property.ValueEntry.WeakSmartValue = value != 0;
                 return;
             }
 
             if (_isInt)
             {
-                ValueEntry.WeakSmartValue = value;
+                Property.ValueEntry.WeakSmartValue = value;
                 return;
             }
 
             if (_isByte)
             {
-                ValueEntry.WeakSmartValue = (byte)value;
+                Property.ValueEntry.WeakSmartValue = (byte)value;
                 return;
             }
 
@@ -188,7 +188,7 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
             {
                 var values = Enum.GetValues(_valueType);
                 if (value >= 0 && value < values.Length)
-                    ValueEntry.WeakSmartValue = values.GetValue(value);
+                    Property.ValueEntry.WeakSmartValue = values.GetValue(value);
             }
         }
 
@@ -197,8 +197,8 @@ namespace Vortex.Unity.EditorTools.SirenixOdinDrawers
             // Для bool single-button — простая инверсия, как в оригинале
             if (_isBool)
             {
-                var raw = ValueEntry.WeakSmartValue;
-                ValueEntry.WeakSmartValue = !(raw is bool b && b);
+                var raw = Property.ValueEntry.WeakSmartValue;
+                Property.ValueEntry.WeakSmartValue = !(raw is bool b && b);
                 return;
             }
 
