@@ -74,14 +74,44 @@ namespace Vortex.Unity.EditorTools.Elements
         //  Selector (popup with search)
         // ════════════════════════════════════════════════════════
 
+        /// <summary>
+        /// Popup-селектор с поиском, привязанный к <see cref="SerializedProperty"/>.
+        /// Используется когда значение хранится в сериализованном поле Unity.
+        /// </summary>
         public static void DrawSelector(Rect position, SerializedProperty property, string[] keys,
             object[] values = null, int currentIndex = 0, string placeholder = null)
         {
             values ??= keys as object[];
             placeholder ??= InspectorHandler.IsPropertyNullable(property) ? "——[NULL]——" : null;
-
             var current = InspectorHandler.GetPropertyValue(property)?.ToString();
 
+            DrawSelectorCore(position, current, keys, placeholder, currentIndex, newIndex =>
+            {
+                WriteValue(property, values[newIndex]);
+                property.serializedObject.ApplyModifiedProperties();
+            });
+        }
+
+        /// <summary>
+        /// Popup-селектор с поиском без зависимости от <see cref="SerializedProperty"/>.
+        /// Подходит для [ShowInInspector]-полей, параметров методов и любых non-SP контекстов —
+        /// чтение текущего значения и запись нового делегируются вызывающей стороне.
+        /// </summary>
+        public static void DrawSelector(Rect position, string currentValue, string[] keys,
+            Action<string> onSelect, int currentIndex = 0, string placeholder = null)
+        {
+            placeholder ??= "——[NULL]——";
+            DrawSelectorCore(position, currentValue, keys, placeholder, currentIndex,
+                newIndex => onSelect?.Invoke(keys[newIndex]));
+        }
+
+        /// <summary>
+        /// Общий рендер popup'а: отрисовка текущего состояния + открытие <see cref="SearchablePopupWindow"/>
+        /// при клике. Запись значения делегируется через <paramref name="onIndexSelected"/>.
+        /// </summary>
+        private static void DrawSelectorCore(Rect position, string currentText, string[] keys,
+            string placeholder, int currentIndex, Action<int> onIndexSelected)
+        {
             var old = GUI.backgroundColor;
             if (currentIndex < 0 || currentIndex >= keys.Length)
                 GUI.backgroundColor = ToolsSettings.GetBgColor(DefaultColors.ErrorBg);
@@ -92,7 +122,7 @@ namespace Vortex.Unity.EditorTools.Elements
 
             if (evt.type == EventType.Repaint)
             {
-                var text = placeholder ?? current;
+                var text = placeholder ?? currentText;
                 if (currentIndex >= 0 && currentIndex < keys.Length)
                     text = keys[currentIndex];
                 EditorStyles.popup.Draw(position, new GUIContent(text), controlId, false);
@@ -112,10 +142,7 @@ namespace Vortex.Unity.EditorTools.Elements
             SearchablePopupWindow.Show(screenRect, keys, placeholder, currentIndex, newIndex =>
             {
                 if (newIndex >= 0 && newIndex < keys.Length)
-                {
-                    WriteValue(property, values[newIndex]);
-                    property.serializedObject.ApplyModifiedProperties();
-                }
+                    onIndexSelected?.Invoke(newIndex);
             });
         }
 

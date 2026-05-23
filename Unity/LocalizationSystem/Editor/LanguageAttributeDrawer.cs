@@ -1,6 +1,5 @@
 #if UNITY_EDITOR && ODIN_INSPECTOR
 using Sirenix.OdinInspector.Editor;
-using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
@@ -11,7 +10,9 @@ namespace Vortex.Unity.LocalizationSystem.Editor
 {
     /// <summary>
     /// Odin-drawer для <see cref="LanguageAttribute"/>.
-    /// Заменяет string-поле на SearchablePopup со списком зарегистрированных языков.
+    /// Заменяет string-значение на SearchablePopup со списком зарегистрированных языков.
+    /// Работает для [SerializeField], [ShowInInspector] и параметров методов —
+    /// чтение и запись идут через <c>ValueEntry.SmartValue</c>, без зависимости от SerializedProperty.
     /// </summary>
     public sealed class LanguageAttributeDrawer : OdinAttributeDrawer<LanguageAttribute, string>
     {
@@ -21,17 +22,17 @@ namespace Vortex.Unity.LocalizationSystem.Editor
             if (label != null)
                 rect = EditorGUI.PrefixLabel(rect, label);
 
-            var unityProp = Property.Tree.UnitySerializedObject?.FindProperty(Property.UnityPropertyPath);
-            if (unityProp == null || unityProp.propertyType != SerializedPropertyType.String)
-            {
-                SirenixEditorGUI.ErrorMessageBox("Only string is supported for Language Attribute");
-                return;
-            }
-
             var list = Localization.GetLanguages();
-            var val = unityProp.stringValue;
-            var currentIndex = val.IsNullOrWhitespace() ? -1 : list.IndexOf(val);
-            DrawingUtility.DrawSelector(rect, unityProp, list.ToArray(), currentIndex: currentIndex);
+            var keys = list.ToArray();
+            var current = ValueEntry.SmartValue;
+            var currentIndex = current.IsNullOrWhitespace() ? -1 : list.IndexOf(current);
+
+            DrawingUtility.DrawSelector(
+                rect,
+                current,
+                keys,
+                newValue => ValueEntry.SmartValue = newValue,
+                currentIndex);
         }
     }
 }
