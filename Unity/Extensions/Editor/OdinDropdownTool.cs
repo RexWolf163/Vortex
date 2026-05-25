@@ -82,6 +82,14 @@ namespace Vortex.Unity.Extensions.Editor
             selector.FlattenedTree = true;
             selector.EnableSingleClickToSelect();
 
+            // Поиск по полному пути: по умолчанию Odin матчит SearchString каждого
+            // OdinMenuItem против поисковой строки, а SearchString равен Name (имени листа).
+            // Из-за этого ввод названия раздела ("February") не находит ни одного элемента —
+            // листья называются "1", "Wimp" и т. п., а не "February". Подменяем SearchString
+            // на полный путь, чтобы матчинг по имени раздела отдавал весь его поддерев.
+            foreach (var item in selector.SelectionTree.EnumerateTree())
+                item.SearchString = item.GetFullPath();
+
             selector.ShowInPopup(_rect, _dropdownSize);
             return selector;
         }
