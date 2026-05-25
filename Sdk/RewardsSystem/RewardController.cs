@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Sdk.RewardsSystem.Model;
 
@@ -21,6 +22,8 @@ namespace Vortex.Sdk.RewardsSystem
             if (packs.Count > 1)
             {
                 var sum = packs.Sum(c => c.Weight);
+                if (sum == 0)
+                    return null;
                 var random = UnityEngine.Random.Range(0, sum);
                 foreach (var entry in packs)
                 {
@@ -35,8 +38,11 @@ namespace Vortex.Sdk.RewardsSystem
 
         /// <summary>
         /// Проверка возможности выдачи без побочных эффектов. Для UI-превью и пред-проверок.
+        ///
+        /// Проверка проводится для одной награды без учета возможного кумулятивного эффекта
+        /// от нескольких одновременных наград. Проверка такого кейса лежит вне этой логики
         /// </summary>
-        public static bool ValidationRewardConditions(
+        public static bool ValidateRewardConditions(
             this RewardData reward,
             string targetId = null,
             float power = 1f)
@@ -60,22 +66,32 @@ namespace Vortex.Sdk.RewardsSystem
                 Power = power
             };
 
-            if (!reward.RewardStrategy.Validation(targetId, power))
+            try
             {
-                eventData.Result = RewardResult.Fail("ValidationFailed");
+                if (!reward.RewardStrategy.Validation(targetId, power))
+                {
+                    eventData.Result = RewardResult.Fail("ValidationFailed");
+                    RewardBus.EmitFailed(eventData);
+                    return eventData.Result;
+                }
+
+                var result = reward.RewardStrategy.GiveReward(targetId, power);
+                eventData.Result = result;
+
+                if (result.Success)
+                    RewardBus.EmitGiven(eventData);
+                else
+                    RewardBus.EmitFailed(eventData);
+
+                return result;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
                 RewardBus.EmitFailed(eventData);
-                return eventData.Result;
             }
 
-            var result = reward.RewardStrategy.GiveReward(targetId, power);
-            eventData.Result = result;
-
-            if (result.Success)
-                RewardBus.EmitGiven(eventData);
-            else
-                RewardBus.EmitFailed(eventData);
-
-            return result;
+            return RewardResult.Fail("Logic error");
         }
     }
 }
