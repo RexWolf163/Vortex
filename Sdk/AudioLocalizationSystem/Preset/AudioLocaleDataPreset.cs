@@ -54,10 +54,16 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Preset
 #if UNITY_EDITOR
         private void OnValidate() => type = RecordTypes.Singleton;
 
-        [ShowInInspector, HorizontalGroup("NewChar")]
+        [FoldoutGroup("Грубый инструментарий массовой замены")]
+        [ShowInInspector, HorizontalGroup("Грубый инструментарий массовой замены/NewChar")]
         private string charName;
 
-        [Button("Сменить персонажа", ButtonSizes.Medium), HorizontalGroup("NewChar")]
+        /// <summary>
+        /// Подразумевается что ключ локали будет начинатсья с ключа персонажа произносящего фразу
+        /// с точкой, отделяющей от остального ключа
+        /// </summary>
+        [Button("Замена первой части ключа", ButtonSizes.Medium),
+         HorizontalGroup("Грубый инструментарий массовой замены/NewChar")]
         private void ChangeChar()
         {
             if (string.IsNullOrEmpty(charName)) return;
@@ -100,10 +106,15 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Preset
             UnityEditor.EditorUtility.SetDirty(this);
         }
 
-        [Language, ShowInInspector, HorizontalGroup("NewLang")]
+        [Language, ShowInInspector, HorizontalGroup("Грубый инструментарий массовой замены/NewLang")]
         private string _newLanguage;
 
-        [Button("Добавить язык", ButtonSizes.Medium), HorizontalGroup("NewLang")]
+        /// <summary>
+        /// Подразумевается что в ключе есть участок с указанием языка через его id в виде ".{lang}."
+        /// Например Hero.Text1.ru.2
+        /// </summary>
+        [Button("Скопировать первую запись под другой язык", ButtonSizes.Medium),
+         HorizontalGroup("Грубый инструментарий массовой замены/NewLang")]
         private void AddLanguageEntry()
         {
             if (string.IsNullOrEmpty(_newLanguage)) return;
