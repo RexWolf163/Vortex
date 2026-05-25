@@ -12,6 +12,7 @@ namespace Vortex.SpineExtensions.UIs
     public class SpinePauseHandler : MonoBehaviour
     {
         [SerializeField, AutoLink] private SkeletonGraphic spine;
+        [SerializeField, AutoLink] private SkeletonAnimation spineAnimation;
 
         private void OnEnable()
         {
@@ -32,11 +33,17 @@ namespace Vortex.SpineExtensions.UIs
                 case GameStates.Play:
                 case GameStates.Win:
                 case GameStates.Fail:
-                    spine.freeze = false;
+                    if (spine != null)
+                        spine.freeze = false;
+                    if (spineAnimation != null)
+                        spine.freeze = false;
                     break;
                 case GameStates.Loading:
                 case GameStates.Paused:
-                    spine.freeze = true;
+                    if (spine != null)
+                        spine.freeze = true;
+                    if (spineAnimation != null)
+                        spine.freeze = true;
                     break;
             }
         }
