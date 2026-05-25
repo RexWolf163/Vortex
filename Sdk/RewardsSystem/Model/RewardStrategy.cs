@@ -15,6 +15,17 @@ namespace Vortex.Sdk.RewardsSystem.Model
         public abstract string GetLabel();
 
         /// <summary>
+        /// Тип награды для фильтрации/группировки при батчинге.
+        /// Копируется как поле <see cref="RewardResult.Type"/> в результате выдачи —
+        /// потребитель может разделить пакет результатов по типу (например, отдельно
+        /// проверить кумулятивную совместимость всех «Item»-наград перед коммитом).
+        ///
+        /// Декларируется конкретной стратегией статически (не зависит от <c>targetId</c>/<c>power</c>):
+        /// <c>public override RewardType Type =&gt; RewardType.Item;</c>.
+        /// </summary>
+        public abstract RewardType Type { get; }
+
+        /// <summary>
         /// Можно ли выдать награду прямо сейчас.
         /// Используется UI для подсветки доступности и <see cref="RewardsExtLogic"/> перед выдачей.
         /// </summary>

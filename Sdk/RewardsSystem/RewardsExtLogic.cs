@@ -7,12 +7,33 @@ using Vortex.Sdk.RewardsSystem.Model;
 
 namespace Vortex.Sdk.RewardsSystem
 {
+    /// <summary>
+    /// Extension-логика поверх <see cref="RewardPreset"/> и <see cref="RewardData"/>:
+    /// выбор группы наград из пресета, проверка одной награды, выдача одной награды.
+    ///
+    /// Батч-выдачи (<c>GiveAll</c> на списке) здесь сознательно нет. Корректность пакетной
+    /// выдачи зависит от принимающей системы и не сводится к покомпонентной проверке каждой
+    /// награды по отдельности. Пример: инвентарь с одним свободным слотом и две награды,
+    /// каждая из которых валидна в одиночку — но вместе они уже не помещаются. Такая
+    /// проверка требует знания доменной модели приёмника (инвентарь, кошелёк, прогресс) и
+    /// должна жить на стороне этого приёмника, а не в обобщённой шине наград. Обход списка
+    /// «как есть» через <c>foreach</c> + <see cref="GiveReward"/> допустим там, где
+    /// кумулятивные эффекты заведомо отсутствуют.
+    /// </summary>
     public static class RewardsExtLogic
     {
         /// <summary>
         /// Выбор одной взвешенно-случайной группы наград из пресета.
         /// Возвращает DeepCopy выбранного пака — потребитель может мутировать результат
         /// (помечать выданные, изменять count и т. п.) не затрагивая исходный пресет-ассет.
+        ///
+        /// Граничные случаи:
+        /// <list type="bullet">
+        ///   <item><description><c>packs == null</c> или пусто — <see cref="NullReferenceException"/>.</description></item>
+        ///   <item><description>Ровно один пак — отдаётся всегда, его вес игнорируется.</description></item>
+        ///   <item><description>Сумма весов всех паков равна 0 — возвращается <c>null</c>
+        ///   (нет валидного кандидата для розыгрыша). Потребитель обязан проверять.</description></item>
+        /// </list>
         /// </summary>
         public static IReadOnlyList<RewardData> GetReward(this RewardPreset preset)
         {
@@ -59,6 +80,8 @@ namespace Vortex.Sdk.RewardsSystem
             string targetId = null,
             float power = 1f)
         {
+            var type = reward.RewardStrategy.Type;
+
             var eventData = new RewardEventData
             {
                 Reward = reward,
@@ -71,11 +94,13 @@ namespace Vortex.Sdk.RewardsSystem
                 if (!reward.RewardStrategy.Validation(targetId, power))
                 {
                     eventData.Result = RewardResult.Fail("ValidationFailed");
+                    eventData.Result.Type = type;
                     RewardBus.EmitFailed(eventData);
                     return eventData.Result;
                 }
 
                 var result = reward.RewardStrategy.GiveReward(targetId, power);
+                result.Type = type;
                 eventData.Result = result;
 
                 if (result.Success)
@@ -88,10 +113,12 @@ namespace Vortex.Sdk.RewardsSystem
             catch (Exception exception)
             {
                 Debug.LogException(exception);
+                eventData.Result = RewardResult.Fail("Logic error");
+                eventData.Result.Type = type;
                 RewardBus.EmitFailed(eventData);
             }
 
-            return RewardResult.Fail("Logic error");
+            return eventData.Result;
         }
     }
 }
