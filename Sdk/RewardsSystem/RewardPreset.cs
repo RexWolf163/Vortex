@@ -26,11 +26,11 @@ namespace Vortex.Sdk.RewardsSystem
                 return;
             var summ = rewardPacks.Sum(c => c.Weight);
             if (summ == 0)
-                foreach (var aiLogic in rewardPacks)
-                    aiLogic._percent = 0;
+                foreach (var pack in rewardPacks)
+                    pack._percent = 0;
             else
-                foreach (var aiLogic in rewardPacks)
-                    aiLogic._percent = (float)aiLogic.Weight / summ;
+                foreach (var pack in rewardPacks)
+                    pack._percent = (float)pack.Weight / summ;
         }
 
 #endif
