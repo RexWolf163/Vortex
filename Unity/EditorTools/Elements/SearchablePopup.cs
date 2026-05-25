@@ -55,6 +55,31 @@ namespace Vortex.Unity.EditorTools.Elements
         }
 
         public static void ResetSelection(int controlId) => SelectionCache.Remove(controlId);
+
+        /// <summary>
+        /// Stateless-вариант пикера: ничего не кеширует, состояние хранит caller.
+        /// Используется, когда выбранный индекс выводится из внешнего источника истины
+        /// (например, <c>ValueEntry.SmartValue</c> в Odin-drawer'е) и не должен переписываться
+        /// внутренним кешем <see cref="SelectionCache"/>. Callback получает индекс
+        /// выбранного элемента (или -1 для placeholder) и должен сам записать результат
+        /// во внешнее состояние.
+        /// </summary>
+        public static void Draw(Rect rect, string[] items, int selectedIndex,
+            string placeholder, Action<int> onPicked)
+        {
+            placeholder ??= DefaultPlaceholder;
+
+            var displayText = selectedIndex >= 0 && selectedIndex < items.Length
+                ? items[selectedIndex]
+                : placeholder;
+
+            if (!GUI.Button(rect, new GUIContent(displayText), EditorStyles.popup))
+                return;
+
+            var min = GUIUtility.GUIToScreenPoint(new Vector2(rect.x, rect.y));
+            var screenRect = new Rect(min.x, min.y, rect.width, rect.height);
+            SearchablePopupWindow.Show(screenRect, items, placeholder, selectedIndex, onPicked);
+        }
     }
 
     // ════════════════════════════════════════════════════════════

@@ -73,16 +73,21 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
             if (!valid) GUI.color = Color.red;
 
             var currentIndex = _guids.IndexOf(ValueEntry.SmartValue ?? string.Empty);
-            var controlId = GUIUtility.GetControlID(FocusType.Passive);
 
-            EditorGUI.BeginChangeCheck();
-            var newIndex = SearchablePopup.Draw(contentRect, controlId, currentIndex, _names.ToArray());
-            if (EditorGUI.EndChangeCheck() && newIndex != currentIndex)
+            // Снимок guids на момент открытия попапа — список перестраивается на каждый OnGUI,
+            // но callback срабатывает позже (после закрытия попап-окна). Снимок гарантирует,
+            // что индекс выбора резолвится в тот же GUID, что был под курсором.
+            var guidsSnapshot = _guids.ToArray();
+
+            SearchablePopup.Draw(contentRect, _names.ToArray(), currentIndex, null, picked =>
             {
-                ValueEntry.SmartValue = newIndex >= 0 && newIndex < _guids.Count
-                    ? _guids[newIndex]
+                var newGuid = picked >= 0 && picked < guidsSnapshot.Length
+                    ? guidsSnapshot[picked]
                     : string.Empty;
-            }
+
+                if (newGuid != ValueEntry.SmartValue)
+                    ValueEntry.SmartValue = newGuid;
+            });
 
             GUI.color = prevColor;
 
