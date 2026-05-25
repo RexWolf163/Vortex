@@ -4,8 +4,13 @@ Bridge between the Vortex framework and Spine (Esoteric Software). Contains subp
 
 ## Purpose
 
-- Tween logic that switches `SkeletonGraphic` states in sync with `TweenerHub`
+- Tween logic that switches skeleton states in sync with `TweenerHub` — single-clip and weighted-random flavours
+- Spine animation scrub driven by a `FloatData` value (track time bound to a 0..1 parameter)
 - Reaction of Spine skeletons to `GameStates` transitions (freeze on pause/loading)
+- Skeleton skin swap via `UIStateSwitcher`
+- Desync of identical animations (random offset on the active track)
+
+Every Tween/Scrub class ships as a pair `SkeletonGraphic` (UGUI) / `SkeletonAnimation` (MeshRenderer) over a common generic base.
 
 Out of scope: Spine runtime, asset import, skeleton rendering, cutscene logic (see [`NaniExtensions/CutsceneSystem`](../NaniExtensions/README.en.md)).
 
@@ -23,22 +28,23 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 
 | Subfolder | Purpose |
 |-----------|---------|
-| [TweenerSystem](TweenerSystem/) | `SpineAnimationLogic` — TweenLogic for `SkeletonGraphic` |
-| [UIs](UIs/) | `SpinePauseHandler` — skeleton freeze driven by `GameStates` |
+| [TweenerSystem](TweenerSystem/) | `TweenLogic` implementations: single-clip and weighted-random animation for `SkeletonGraphic` and `SkeletonAnimation` |
+| [UIs](UIs/) | Scene handlers: `FloatData`-driven scrub, freeze on `GameStates`, desync, skin switcher |
 | [DefineSettings](DefineSettings/) | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
 
 ## Dependencies
 
 | Dependency | Purpose |
 |------------|---------|
-| `spine-unity` | `SkeletonGraphic`, `AnimationState`, `SkeletonData` |
-| `ru.vortex.unity.ui.misc` | base `TweenLogic` |
-| `ru.vortex.extensions` | `IsNullOrWhitespace`, `ActionExt` |
-| `ru.vortex.unity.editortools` | `[ValueSelector]`, `[AutoLink]` attributes |
+| `spine-unity` | `SkeletonGraphic`, `SkeletonAnimation`, `AnimationState`, `SkeletonData`, `TrackEntry` |
+| `ru.vortex.unity.ui.misc` | base `TweenLogic`, `DataStorageView<T>`, `StateItem` |
+| `ru.vortex.extensions` | `IsNullOrWhitespace`, `ActionExt`, `ReactiveValue`/`FloatData` |
+| `ru.vortex.unity.editortools` | `[ValueSelector]`, `[AutoLink]`, `[ClassFilter]`, `[ClassLabel]` attributes |
+| `ru.vortex.unity.app` | `TimeController` (re-roll and desync scheduling) |
 | `ru.vortex.sdk.game.core` | `GameController`, `GameStates` |
 | `ru.vortex.system` | base abstractions (asmdef reference) |
 | `sdk.settings.system` (via `.asmref`) | partial `SdkSettings` + `[DefineSymbol]` |
-| Sirenix Odin Inspector | `[InfoBox]` |
+| Sirenix Odin Inspector | `[InfoBox]`, `[OnValueChanged]`, `[OnInspectorGUI]`, `[HideReferenceObjectPicker]` |
 
 > The module references both layer-2 (Unity) and layer-3 (Sdk) assemblies. This is intentional: a single assembly under `USING_SPINE` is easier to manage; isolation from the rest of the framework is provided by the constraint, not by layer separation.
 
@@ -48,9 +54,18 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 
 **Namespace:** `Vortex.SpineExtensions.TweenerSystem`
 
-### SpineAnimationLogic
+Every class is a `TweenLogic` implementation invoked by `TweenerHub`. Each family is built as `Base<TSkeleton>` plus two ready-to-use `[Serializable]` subclasses:
 
-A `TweenLogic` implementation that switches skeleton states in sync with the tween progress.
+| Class | Base | Skeleton type |
+|-------|------|---------------|
+| `SpineAnimationLogic` | `SpineAnimationLogicBase<SkeletonGraphic>` | UGUI |
+| `SpineSkeletonAnimationLogic` | `SpineAnimationLogicBase<SkeletonAnimation>` | MeshRenderer |
+| `SpineAnimationRandomLogic` | `SpineAnimationRandomLogicBase<SkeletonGraphic>` | UGUI |
+| `SpineSkeletonAnimationRandomLogic` | `SpineAnimationRandomLogicBase<SkeletonAnimation>` | MeshRenderer |
+
+The base `skeleton` field is constrained with `[ClassFilter(typeof(IAnimationStateComponent), typeof(IHasSkeletonDataAsset))]` — both interfaces are provided by Spine and are shared by UGUI and Mesh variants.
+
+### SpineAnimationLogicBase&lt;T&gt; — single animation
 
 Binary switching principle:
 - `value == 0` → idle animation `animationIdle0`
@@ -58,11 +73,11 @@ Binary switching principle:
 - intermediate value, forward direction → `animationFrw` then `animationIdle1`
 - intermediate value, back direction → `animationBack` then `animationIdle0`
 
-If the corresponding animation is missing (or set to `[NONE]`) the switch is skipped.
+If the corresponding animation is missing (or set to `[NONE]`) the switch in that direction is skipped.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `skeleton` | `SkeletonGraphic` | Target skeleton |
+| `skeleton` | `TSkeleton` | Target skeleton |
 | `animationChannel` | `byte` (0..10) | AnimationState track index |
 | `animationIdle0` | `string` (selector) | Idle animation in Back position |
 | `animationIdle1` | `string` (selector) | Idle animation in Forward position |
@@ -72,16 +87,35 @@ If the corresponding animation is missing (or set to `[NONE]`) the switch is ski
 
 `SwitchOn` / `SwitchOff` toggle `skeleton.gameObject` activity (matches `TweenPreset.offOnStartPoint/EndPoint`).
 
-In Editor `[ValueSelector("GetListAnimations")]` populates the dropdown from `skeleton.SkeletonData.Animations`.
+In Editor `[ValueSelector("GetListAnimations")]` populates the dropdown from `skeleton.SkeletonDataAsset` plus a `[NONE]` entry.
 
-### Edge cases
+### SpineAnimationRandomLogicBase&lt;T&gt; — weighted random animation
+
+Behaviour mirrors the single-clip variant, but each of the four animation fields becomes an array of `SpineAnimationVariant` (name + weight 0..100). On every switch the actual clip is drawn at random with probability proportional to weight.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skeleton` | `TSkeleton` | Target skeleton |
+| `animationChannel` | `byte` (0..10) | AnimationState track index |
+| `animationsIdle0` | `SpineAnimationVariant[]` | Idle variants in Back |
+| `animationsIdle1` | `SpineAnimationVariant[]` | Idle variants in Forward |
+| `animationsFrw` | `SpineAnimationVariant[]` | Transition-into-Forward variants |
+| `animationsBack` | `SpineAnimationVariant[]` | Transition-into-Back variants |
+| `skipIfNotEqual` | `bool` | Run the transition only when one of the matching idle variants is active |
+
+**Idle re-roll.** If an idle array contains more than one variant, a `TimeController.Call` is scheduled for the duration of the current clip — when it fires, a new random variant is picked and the cycle repeats. This produces a "living" idle with rotating variations. The schedule is cancelled on any new switch (`CancelIdleReroll` → `TimeController.RemoveCall(this)`).
+
+**Inspector.** `SpineAnimationVariant` is drawn with `[ClassLabel("$Label")]` showing the clip name and computed probability share (`weight / Σweights`). Share recomputation runs via `[OnValueChanged]`; when `skeleton` changes the variant arrays receive a fresh name list.
+
+### Edge cases (shared by both families)
 
 | Situation | Behaviour |
 |-----------|-----------|
-| Transition animation missing | Switch in that direction is skipped |
+| Transition animation missing / array empty | Switch in that direction is skipped |
 | `skipIfNotEqual = true`, different animation active | Transition is not started |
 | Idle animation empty | `SetEmptyAnimation` is applied to the channel |
 | Repeated call during transition | Ignored (`_isRunningState` flag) |
+| Sum of variant weights ≤ 0 | No clip is picked, the switch is cancelled |
 
 ---
 
@@ -89,22 +123,74 @@ In Editor `[ValueSelector("GetListAnimations")]` populates the dropdown from `sk
 
 **Namespace:** `Vortex.SpineExtensions.UIs`
 
+### SpineAnimationScrubHandler / SpineSkeletonAnimationScrubHandler
+
+A scrub handler: binds the track time of a Spine animation to a `FloatData` value (0..1). Shipped as a pair over a common base `SpineAnimationScrubHandlerBase<TSkeleton>` which inherits `DataStorageView<FloatData>` (the data source is any `IDataStorage`).
+
+The animation is applied to the channel with `TimeScale = 0` (Spine's regular playback is frozen), and `TrackTime` is written manually in `OnDataUpdated`:
+
+```
+track.TrackTime = Mathf.Clamp01(Data.Value) * track.Animation.Duration;
+```
+
+Spine then applies the pose in `LateUpdate`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skeleton` | `TSkeleton` | Target skeleton |
+| `animationName` | `string` (selector) | Animation placed on the scrub track |
+| `channel` | `byte` (0..10) | AnimationState track index |
+| `source` | `IDataStorage` (from `DataStorageView`) | `FloatData` source |
+
+`DeInit` clears the track via `SetEmptyAnimation`.
+
+| Subclass | Skeleton type |
+|----------|---------------|
+| `SpineAnimationScrubHandler` | `SkeletonGraphic` (UGUI) |
+| `SpineSkeletonAnimationScrubHandler` | `SkeletonAnimation` (MeshRenderer) |
+
 ### SpinePauseHandler
 
-A `MonoBehaviour` handler that synchronises `SkeletonGraphic.freeze` with `GameStates`.
+A `MonoBehaviour` handler that pauses the skeleton on Loading/Paused. Supports both `SkeletonGraphic` and `SkeletonAnimation` on the same object — both fields are bound via `[AutoLink]`.
 
-| Field | Description |
-|-------|-------------|
-| `spine` | `SkeletonGraphic`, bound via `[AutoLink]` |
+The pause mechanism differs per skeleton type: `SkeletonGraphic` is driven by its built-in `freeze` flag; `SkeletonAnimation` is paused by zeroing `timeScale` (this component has no `freeze`). Before zeroing, the last non-zero `timeScale` is stored in `_oldTimeScale` and restored on unfreeze (the default fallback is `1f`), so any project-side speed multiplier survives a pause cycle.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spine` | `SkeletonGraphic` | UGUI skeleton (optional) |
+| `spineAnimation` | `SkeletonAnimation` | Mesh skeleton (optional) |
 
 Reaction to `GameController.OnGameStateChanged`:
 
-| `GameStates` | `freeze` |
-|--------------|----------|
-| `Off`, `Play`, `Win`, `Fail` | `false` |
-| `Loading`, `Paused` | `true` |
+| `GameStates` | `spine.freeze` | `spineAnimation.timeScale` |
+|--------------|----------------|----------------------------|
+| `Off`, `Play`, `Win`, `Fail` | `false` | restored from `_oldTimeScale` |
+| `Loading`, `Paused` | `true` | captured and zeroed |
 
 Subscribe/unsubscribe lives in `OnEnable`/`OnDisable`.
+
+### SpineRandomizationStart
+
+A desync handler for identical animations: on `OnEnable` it queues a call via `TimeController.Accumulate` that offsets the current track's `TrackTime` to a random value in `[0; Animation.Duration]`. Useful when several copies of the same skeleton are on stage and their phases need to be spread apart.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skeletonGraphic` | `SkeletonGraphic` | UGUI skeleton (optional), `[AutoLink]` |
+| `skeletonAnimation` | `SkeletonAnimation` | Mesh skeleton (optional), `[AutoLink]` |
+| `channelAnimation` | `int` (0..10) | Track index to offset |
+
+Cancellation of the queued call lives in `OnDisable` (`TimeController.RemoveCall(this)`).
+
+### SpineSkinSwitch
+
+A `StateItem` for `UIStateSwitcher`: when the owning state activates, it applies the configured skin to the skeleton.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skin` | `string` (selector) | Skin name from `SkeletonData.Skins` |
+| `spine` | `SkeletonGraphic` | Target skeleton |
+
+`Set()` invokes `Skeleton.SetSkin` + `SetSlotsToSetupPose` + `UpdateMesh`. In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch Spine Skin**.
 
 ---
 

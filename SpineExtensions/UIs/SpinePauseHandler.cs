@@ -14,7 +14,7 @@ namespace Vortex.SpineExtensions.UIs
         [SerializeField, AutoLink] private SkeletonGraphic spine;
         [SerializeField, AutoLink] private SkeletonAnimation spineAnimation;
 
-        private float _oldTimeScale;
+        private float _oldTimeScale = 1f;
 
         private void OnEnable()
         {
@@ -38,19 +38,18 @@ namespace Vortex.SpineExtensions.UIs
                     if (spine != null)
                         spine.freeze = false;
                     if (spineAnimation != null)
-                    {
-                        if (spineAnimation.timeScale != 0)
-                            _oldTimeScale = spineAnimation.timeScale;
-                        spineAnimation.timeScale = 0;
-                    }
-
+                        spineAnimation.timeScale = _oldTimeScale;
                     break;
                 case GameStates.Loading:
                 case GameStates.Paused:
                     if (spine != null)
                         spine.freeze = true;
                     if (spineAnimation != null)
-                        spineAnimation.timeScale = _oldTimeScale;
+                    {
+                        if (spineAnimation.timeScale != 0)
+                            _oldTimeScale = spineAnimation.timeScale;
+                        spineAnimation.timeScale = 0;
+                    }
                     break;
             }
         }
