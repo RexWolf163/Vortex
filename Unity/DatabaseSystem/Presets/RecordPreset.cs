@@ -82,7 +82,7 @@ namespace Vortex.Unity.DatabaseSystem.Presets
             var number = 0;
             nameRecord = CleanFileName(nameRecord);
             var name = nameRecord;
-            if (name == string.Empty) name = DefaultName;
+            if (name == string.Empty || !char.IsLetter(name[0])) name = DefaultName;
 
             while (true)
             {
