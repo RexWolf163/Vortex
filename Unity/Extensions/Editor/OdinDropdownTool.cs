@@ -79,7 +79,12 @@ namespace Vortex.Unity.Extensions.Editor
 
             selector.SelectionTree.Config.DrawSearchToolbar = flag;
             selector.SetSelection(_selection);
-            selector.FlattenedTree = true;
+            // FlattenedTree оставляем false: при true Odin при активном поиске схлопывает
+            // результаты в плоский список листьев без групп-родителей, из-за чего теряется
+            // контекст пути (видны только "1", "2", "3..."). С false иерархия сохраняется
+            // и в обычном виде, и при фильтрации поиском — совпавшие листья отображаются
+            // под своими группами.
+            selector.FlattenedTree = false;
             selector.EnableSingleClickToSelect();
 
             // Поиск по полному пути: по умолчанию Odin матчит SearchString каждого
