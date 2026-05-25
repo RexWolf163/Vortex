@@ -19,11 +19,16 @@ namespace Vortex.SpineExtensions.UIs
         private void OnEnable()
         {
             GameController.OnGameStateChanged += OnStateChanged;
+            OnStateChanged();
         }
 
         private void OnDisable()
         {
             GameController.OnGameStateChanged -= OnStateChanged;
+            if (spine != null)
+                spine.freeze = false;
+            if (spineAnimation != null)
+                spineAnimation.timeScale = _oldTimeScale;
         }
 
         private void OnStateChanged()
@@ -50,6 +55,7 @@ namespace Vortex.SpineExtensions.UIs
                             _oldTimeScale = spineAnimation.timeScale;
                         spineAnimation.timeScale = 0;
                     }
+
                     break;
             }
         }
