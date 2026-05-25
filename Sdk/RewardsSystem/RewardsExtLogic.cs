@@ -7,7 +7,7 @@ using Vortex.Sdk.RewardsSystem.Model;
 
 namespace Vortex.Sdk.RewardsSystem
 {
-    public static class RewardController
+    public static class RewardsExtLogic
     {
         /// <summary>
         /// Выбор одной взвешенно-случайной группы наград из пресета.

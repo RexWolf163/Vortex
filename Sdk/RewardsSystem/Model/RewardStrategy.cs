@@ -16,7 +16,7 @@ namespace Vortex.Sdk.RewardsSystem.Model
 
         /// <summary>
         /// Можно ли выдать награду прямо сейчас.
-        /// Используется UI для подсветки доступности и <see cref="RewardController"/> перед выдачей.
+        /// Используется UI для подсветки доступности и <see cref="RewardsExtLogic"/> перед выдачей.
         /// </summary>
         /// <param name="targetId">ID получателя (резолвится через шины). null — глобальная награда.</param>
         /// <param name="power">Множитель силы. По умолчанию 1.</param>
@@ -25,7 +25,7 @@ namespace Vortex.Sdk.RewardsSystem.Model
         /// <summary>
         /// Произвести выдачу награды.
         /// Метод синхронен: вносит изменения в модель данных через профильный контроллер.
-        /// Событие об успехе/отказе эмитит <see cref="RewardController"/> через <see cref="RewardBus"/>.
+        /// Событие об успехе/отказе эмитит <see cref="RewardsExtLogic"/> через <see cref="RewardBus"/>.
         /// </summary>
         /// <param name="targetId">ID получателя.</param>
         /// <param name="power">Множитель силы (для скаляр-наград).</param>
