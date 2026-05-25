@@ -1,5 +1,5 @@
 #if UNITY_EDITOR
-using Sirenix.OdinInspector;
+using System.Collections.Generic;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities;
 using UnityEditor;
@@ -9,13 +9,32 @@ using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.DatabaseSystem.Model.Enums;
 using Vortex.Unity.DatabaseSystem.Attributes;
 using Vortex.Unity.DatabaseSystem.Presets;
-using Vortex.Unity.Extensions.Editor;
+using Vortex.Unity.EditorTools.Elements;
 using Object = UnityEngine.Object;
 
 namespace Vortex.Unity.DatabaseSystemEditor.Editor
 {
+    /// <summary>
+    /// Drawer для <see cref="DbRecordAttribute"/>. Рисует список записей <see cref="Database"/>
+    /// в виде древовидного дропдауна с поиском по полному пути (см. <see cref="SearchablePopup"/>).
+    ///
+    /// Поведение:
+    ///  • Имена записей с разделителем "." преобразуются в иерархию через "/" — Odin/SearchablePopup
+    ///    строит из них раскрываемые группы (например, <c>"February.miss.en.1"</c> → разделы
+    ///    <c>February → miss → en → 1</c>).
+    ///  • Поиск матчит подстрокой по полному пути, поэтому ввод имени раздела находит весь
+    ///    его поддерев, а в выдаче поиска родительские группы остаются видимыми — лист
+    ///    показывается в контексте своих групп.
+    ///  • Атрибут поддерживает фильтрацию по <see cref="DbRecordAttribute.RecordType"/>
+    ///    (Singleton / MultiInstance / null = обе ветки) и по <see cref="DbRecordAttribute.RecordClass"/>.
+    ///  • Слева от дропдауна — индикатор валидности GUID: красный, если запись с таким GUID
+    ///    отсутствует в Database. Справа — кнопка <c>Find</c>, выделяющая ассет пресета в Project.
+    /// </summary>
     public class DbRecordAttributeDrawer : OdinAttributeDrawer<DbRecordAttribute, string>
     {
+        private readonly List<string> _names = new();
+        private readonly List<string> _guids = new();
+
         protected override void DrawPropertyLayout(GUIContent label)
         {
             var driver = Database.GetDriver() as IDriverEditor;
@@ -27,16 +46,11 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
 
             driver.ReloadDatabase();
 
+            BuildList(driver);
+
             var btnWidth = ValueEntry.SmartValue.IsNullOrWhitespace() ? 0f : 40f;
             var controlRect =
                 EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, EditorStyles.numberField);
-
-            EditorGUI.BeginChangeCheck();
-            var color = GUI.color;
-            var test = TestMethod();
-
-            if (!test)
-                GUI.color = Color.red;
 
             var dropdownRect = new Rect(
                 controlRect.x,
@@ -51,7 +65,40 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                 controlRect.height
             );
 
-            var ddList = new ValueDropdownList<string>();
+            // Префикс-label + индикатор валидности
+            var contentRect = EditorGUI.PrefixLabel(dropdownRect, label);
+
+            var prevColor = GUI.color;
+            var valid = TestRecord();
+            if (!valid) GUI.color = Color.red;
+
+            var currentIndex = _guids.IndexOf(ValueEntry.SmartValue ?? string.Empty);
+            var controlId = GUIUtility.GetControlID(FocusType.Passive);
+
+            EditorGUI.BeginChangeCheck();
+            var newIndex = SearchablePopup.Draw(contentRect, controlId, currentIndex, _names.ToArray());
+            if (EditorGUI.EndChangeCheck() && newIndex != currentIndex)
+            {
+                ValueEntry.SmartValue = newIndex >= 0 && newIndex < _guids.Count
+                    ? _guids[newIndex]
+                    : string.Empty;
+            }
+
+            GUI.color = prevColor;
+
+            if (!ValueEntry.SmartValue.IsNullOrWhitespace() && GUI.Button(buttonRect, "Find"))
+                FindRecordAsset(ValueEntry.SmartValue);
+        }
+
+        /// <summary>
+        /// Перестраивает параллельные списки <see cref="_names"/> + <see cref="_guids"/>
+        /// под текущие настройки атрибута. Имя записи преобразуется заменой "." → "/" —
+        /// SearchablePopup строит из этого иерархию групп.
+        /// </summary>
+        private void BuildList(IDriverEditor driver)
+        {
+            _names.Clear();
+            _guids.Clear();
 
             if (Attribute.RecordType == null || Attribute.RecordType == RecordTypes.Singleton)
             {
@@ -59,13 +106,15 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                     ? Database.GetRecords(Attribute.RecordClass)
                     : Database.GetRecords();
                 foreach (var record in list)
-                    ddList.Add(record.Name.Replace(".", "/"), record.GuidPreset);
+                {
+                    _names.Add(record.Name.Replace(".", "/"));
+                    _guids.Add(record.GuidPreset);
+                }
             }
 
             if (Attribute.RecordType == null || Attribute.RecordType == RecordTypes.MultiInstance)
             {
                 var list = Database.GetMultiInstancePresets();
-
                 foreach (var guid in list)
                 {
                     var record = driver.GetPresetForRecord(guid) as IRecordPreset;
@@ -73,33 +122,24 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                     {
                         Debug.LogError(
                             $"[DbRecordAttributeDrawer] Ошибка приведения элемента GUID#{guid} к типу IRecordPreset.");
-                        return;
+                        continue;
                     }
 
                     if (Attribute.RecordClass != null &&
                         !Attribute.RecordClass.IsAssignableFrom(record.GetData().GetType()))
                         continue;
 
-                    var name = record.Name.Replace(".", "/");
-                    ddList.Add(name, record.GuidPreset);
+                    _names.Add(record.Name.Replace(".", "/"));
+                    _guids.Add(record.GuidPreset);
                 }
-
-                ValueEntry.SmartValue =
-                    OdinDropdownTool.DropdownSelector(dropdownRect, label, ValueEntry.SmartValue, ddList);
             }
-
-            if (EditorGUI.EndChangeCheck())
-                TestMethod();
-
-            GUI.color = color;
-
-            if (!ValueEntry.SmartValue.IsNullOrWhitespace() && GUI.Button(buttonRect, "Find"))
-                FindRecordAsset(ValueEntry.SmartValue);
         }
 
-        private bool TestMethod() =>
+        /// <summary>Текущий GUID валиден — запись с таким ID существует в Database.</summary>
+        private bool TestRecord() =>
             !ValueEntry.SmartValue.IsNullOrWhitespace() && Database.TestRecord(ValueEntry.SmartValue);
 
+        /// <summary>Выделяет в Project View ассет пресета, соответствующий указанному GUID.</summary>
         private void FindRecordAsset(string recordId)
         {
             var driver = Database.GetDriver() as IDriverEditor;
