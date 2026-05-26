@@ -270,6 +270,7 @@ namespace Vortex.Unity.UI.StateSwitcher
             }
 
             Debug.LogError($"[UIStateSwitcher] В '{gameObject.name}' отсутствует состояние '{state}'");
+            Set(stateOnEnable);
         }
 
         /// <summary>

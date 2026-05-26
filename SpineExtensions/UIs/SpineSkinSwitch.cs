@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using Sirenix.OdinInspector;
+using Spine;
 using Spine.Unity;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
@@ -16,7 +18,11 @@ namespace Vortex.SpineExtensions.UIs
         [SerializeField, ValueSelector("GetListSkins")]
         private string skin;
 
-        [SerializeField] private SkeletonGraphic spine;
+        [SerializeField, HideIf("@spine==null&&spineAnimation!=null")]
+        private SkeletonGraphic spine;
+
+        [SerializeField, HideIf("@spine!=null")]
+        private SkeletonAnimation spineAnimation;
 
         public override void Set()
         {
@@ -29,9 +35,22 @@ namespace Vortex.SpineExtensions.UIs
 
         private void SetSkin(string skinName)
         {
-            spine.Skeleton.SetSkin(skinName);
-            spine.Skeleton.SetSlotsToSetupPose();
-            spine.UpdateMesh();
+            var skeleton = spine?.Skeleton;
+            if (skeleton != null)
+            {
+                ApplySkin(skeleton, skinName);
+                spine.UpdateMesh();
+            }
+
+            skeleton = spineAnimation?.Skeleton;
+            if (skeleton != null)
+                ApplySkin(skeleton, skinName);
+        }
+
+        private static void ApplySkin(Skeleton skeleton, string skinName)
+        {
+            skeleton.SetSkin(skinName);
+            skeleton.SetSlotsToSetupPose();
         }
 
 #if UNITY_EDITOR
@@ -44,12 +63,21 @@ namespace Vortex.SpineExtensions.UIs
             return new SpineSkinSwitch
             {
                 skin = skin,
-                spine = spine
+                spine = spine,
+                spineAnimation = spineAnimation,
             };
         }
 
-        private string[] GetListSkins() =>
-            spine?.SkeletonData.Skins.Select(a => a.Name).ToArray() ?? Array.Empty<string>();
+        private string[] GetListSkins()
+        {
+            var data = spine != null
+                ? spine.SkeletonData
+                : spineAnimation != null
+                    ? spineAnimation.SkeletonDataAsset?.GetSkeletonData(true)
+                    : null;
+
+            return data?.Skins.Select(s => s.Name).ToArray() ?? Array.Empty<string>();
+        }
 
 #endif
     }
