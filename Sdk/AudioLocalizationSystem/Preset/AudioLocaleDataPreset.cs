@@ -54,29 +54,14 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Preset
 #if UNITY_EDITOR
         private void OnValidate() => type = RecordTypes.Singleton;
 
-        [FoldoutGroup("Грубый инструментарий массовой замены")]
-        [ShowInInspector, HorizontalGroup("Грубый инструментарий массовой замены/NewChar")]
-        private string charName;
-
         /// <summary>
         /// Подразумевается что ключ локали будет начинатсья с ключа персонажа произносящего фразу
         /// с точкой, отделяющей от остального ключа
         /// </summary>
-        [Button("Замена первой части ключа", ButtonSizes.Medium),
-         HorizontalGroup("Грубый инструментарий массовой замены/NewChar")]
-        private void ChangeChar()
+        [FoldoutGroup("Грубый инструментарий массовой замены")]
+        [Button("Update Voices Array", ButtonSizes.Medium)]
+        private void UpdateVoices()
         {
-            if (string.IsNullOrEmpty(charName)) return;
-
-            // 1. textGuid ← ключ локализации "{charName}.{Name}" (без учёта регистра)
-            var candidateTextKey = $"{charName}.{Name}";
-            var matchedTextKey = Localization.GetLocalizationKeys().FirstOrDefault(k =>
-                string.Equals(k, candidateTextKey, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrEmpty(matchedTextKey))
-                textGuid = matchedTextKey;
-
-            // 2. Для каждого voice — заменяем audio на GUID записи с именем "{charName}.{oldSuffix}",
-            //    где oldSuffix — имя старой записи без первой части до точки включительно
             if (voices != null && voices.Count > 0)
             {
                 var allSounds = Database.GetRecords<Sound>().ToList();
@@ -91,8 +76,7 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Preset
                     var dotIndex = oldRecord.Name.IndexOf('.');
                     if (dotIndex < 0) continue;
 
-                    var oldSuffix = oldRecord.Name.Substring(dotIndex + 1);
-                    var newName = $"{charName}.{oldSuffix}";
+                    var newName = $"{TextGuid}.{voice.language}";
 
                     var newRecord = allSounds.FirstOrDefault(s =>
                         string.Equals(s.Name, newName, StringComparison.OrdinalIgnoreCase));
@@ -104,6 +88,30 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Preset
             }
 
             UnityEditor.EditorUtility.SetDirty(this);
+        }
+
+        [ShowInInspector, HorizontalGroup("Грубый инструментарий массовой замены/NewChar")]
+        private string charName;
+
+        /// <summary>
+        /// Подразумевается что ключ локали будет начинатсья с ключа персонажа произносящего фразу
+        /// с точкой, отделяющей от остального ключа
+        /// </summary>
+        [Button("Замена первой части ключа", ButtonSizes.Medium),
+         HorizontalGroup("Грубый инструментарий массовой замены/NewChar")]
+        private void ChangeChar()
+        {
+            if (string.IsNullOrEmpty(charName)) return;
+
+            // 1. textGuid ← ключ локализации "{charName}.{Name}" (без учёта регистра)
+            var dotIndex = textGuid.IndexOf('.');
+            if (dotIndex < 0) return;
+            var oldSuffix = textGuid.Substring(dotIndex + 1);
+            var candidateTextKey = $"{charName}.{oldSuffix}";
+            var matchedTextKey = Localization.GetLocalizationKeys().FirstOrDefault(k =>
+                string.Equals(k, candidateTextKey, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrEmpty(matchedTextKey))
+                textGuid = matchedTextKey;
         }
 
         [Language, ShowInInspector, HorizontalGroup("Грубый инструментарий массовой замены/NewLang")]
