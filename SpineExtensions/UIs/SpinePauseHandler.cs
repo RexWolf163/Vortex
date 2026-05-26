@@ -1,3 +1,4 @@
+using Sirenix.OdinInspector;
 using Spine.Unity;
 using UnityEngine;
 using Vortex.Sdk.Core.GameCore;
@@ -25,10 +26,7 @@ namespace Vortex.SpineExtensions.UIs
         private void OnDisable()
         {
             GameController.OnGameStateChanged -= OnStateChanged;
-            if (spine != null)
-                spine.freeze = false;
-            if (spineAnimation != null)
-                spineAnimation.timeScale = _oldTimeScale;
+            UnPause();
         }
 
         private void OnStateChanged()
@@ -40,24 +38,31 @@ namespace Vortex.SpineExtensions.UIs
                 case GameStates.Play:
                 case GameStates.Win:
                 case GameStates.Fail:
-                    if (spine != null)
-                        spine.freeze = false;
-                    if (spineAnimation != null)
-                        spineAnimation.timeScale = _oldTimeScale;
+                    UnPause();
                     break;
                 case GameStates.Loading:
                 case GameStates.Paused:
-                    if (spine != null)
-                        spine.freeze = true;
-                    if (spineAnimation != null)
-                    {
-                        if (spineAnimation.timeScale != 0)
-                            _oldTimeScale = spineAnimation.timeScale;
-                        spineAnimation.timeScale = 0;
-                    }
-
+                    Pause();
                     break;
             }
+        }
+
+        [Button, HorizontalGroup("Pause")]
+        private void Pause()
+        {
+            if (spine != null)
+                spine.freeze = true;
+            if (spineAnimation != null)
+                spineAnimation.enabled = false;
+        }
+
+        [Button, HorizontalGroup("Pause")]
+        private void UnPause()
+        {
+            if (spine != null)
+                spine.freeze = false;
+            if (spineAnimation != null)
+                spineAnimation.enabled = true;
         }
     }
 }
