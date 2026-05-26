@@ -15,12 +15,10 @@ namespace Vortex.Unity.UI.Misc
     public class AdvancedButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler,
         IPointerUpHandler
     {
-        /*
         /// <summary>
         /// Время для фиксации клика в миллисекундах
         /// </summary>
-        private const float TimeForClickMs = 100f;
-        */
+        private const float TimeForClickMs = 200f;
 
         /// <summary>
         /// Максимальное смещение для фиксации клика в пикселях
@@ -83,7 +81,7 @@ namespace Vortex.Unity.UI.Misc
 
         private bool _inBorders = false;
 
-        //private DateTime _clickTime;
+        private DateTime _clickTime;
 
         private Vector2 _clickCoords;
 
@@ -99,7 +97,9 @@ namespace Vortex.Unity.UI.Misc
             foreach (var act in onHover)
                 act?.Invoke();
 
-            Set(ButtonVisualState.Hover);
+            // B-2: если палец/курсор всё ещё прижат, возвращаем визуал в Pressed,
+            // а не сбрасываем в Hover. Сценарий: нажали → увели за пределы → вернули обратно.
+            Set(_pressed ? ButtonVisualState.Pressed : ButtonVisualState.Hover);
 
             OnHover?.Invoke();
         }
@@ -123,7 +123,7 @@ namespace Vortex.Unity.UI.Misc
 
             Set(ButtonVisualState.Pressed);
 
-            //_clickTime = DateTime.Now;
+            _clickTime = DateTime.Now;
             _clickCoords = eventData?.position ?? Vector2.zero;
 
             OnPressed?.Invoke();
@@ -135,9 +135,15 @@ namespace Vortex.Unity.UI.Misc
             if (clickRegType == ClickRegType.OnUpAnywhere || _inBorders && clickRegType == ClickRegType.OnUpInBorders)
                 Click();
 
+            // B-1: считаем точку отпускания корректно даже при eventData == null
+            // (внешний Release()). Старая формула из-за приоритета операторов давала
+            // null в Vector2?-вычитании, ?? подставлял _clickCoords, и magnitude
+            // оказывалась расстоянием от (0,0) до точки нажатия — клик никогда не
+            // регистрировался в режиме OnClick для кнопок не у левого верхнего угла.
+            var releasePos = eventData?.position ?? _clickCoords;
             if (clickRegType == ClickRegType.OnClick
-                //&& (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs
-                && (_clickCoords - eventData?.position ?? _clickCoords).magnitude < ShiftForClickLess)
+                && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs
+                && (_clickCoords - releasePos).magnitude < ShiftForClickLess)
                 Click();
 
             Set(_inBorders ? ButtonVisualState.Hover : ButtonVisualState.Free);
@@ -170,6 +176,10 @@ namespace Vortex.Unity.UI.Misc
         public void AddOnClick(UnityAction currentAction)
         {
             _wrappedActions ??= new Dictionary<UnityAction, Action>();
+            // B-3: защита от двойной подписки одного UnityAction. Без неё повторный
+            // AddOnClick перезаписывал словарь новым wrapper'ом, а старый wrapper
+            // оставался подписан на OnClick — RemoveOnClick его уже не находил.
+            if (_wrappedActions.ContainsKey(currentAction)) return;
             Action wrapper = currentAction.Invoke;
             _wrappedActions[currentAction] = wrapper;
             OnClick += wrapper;
