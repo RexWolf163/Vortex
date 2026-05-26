@@ -13,7 +13,7 @@ namespace Vortex.Unity.UI.Misc
     /// Транслирует события Нажал, Отпустил, Вошел в границы и вышел за границы
     /// </summary>
     public class AdvancedButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler,
-        IPointerUpHandler, IBeginDragHandler, IEndDragHandler
+        IPointerUpHandler
     {
         /// <summary>
         /// Время для фиксации клика в миллисекундах
@@ -85,14 +85,6 @@ namespace Vortex.Unity.UI.Misc
 
         private Vector2 _clickCoords;
 
-        /// <summary>
-        /// Был ли в текущем pointer-цикле инициирован drag (скролл-контейнер протащил указатель).
-        /// Поднимается в <see cref="OnBeginDrag"/>, гасится в <see cref="OnEndDrag"/> и
-        /// в <see cref="OnPointerUp"/>. Используется для подавления регистрации клика,
-        /// когда нажатие на кнопку было частью скролла.
-        /// </summary>
-        private bool _dragged;
-
         private void OnDisable()
         {
             _inBorders = false;
@@ -141,47 +133,32 @@ namespace Vortex.Unity.UI.Misc
         {
             _pressed = false;
 
-            // Драг-фильтр: если в этом pointer-цикле был замечен drag (наш собственный
-            // флаг от IBeginDragHandler) или EventSystem помечает событие как drag
-            // (eventData.dragging) или указатель «перенаправлен» на чужой объект
-            // (eventData.pointerDrag != нашему gameObject — типичный случай, когда
-            // протаскивание подхватил родительский ScrollRect) — клик НЕ регистрируем.
-            // OnTap из-под этой защиты исключён намеренно: он срабатывает в OnPointerDown,
-            // до того как EventSystem успевает классифицировать движение как drag.
-            var draggedThisCycle = _dragged
-                                   || (eventData != null
-                                       && (eventData.dragging
-                                           || (eventData.pointerDrag != null
-                                               && eventData.pointerDrag != gameObject)));
+            // Расстояние смещения между нажатием и отпусканием. Главный признак
+            // «это был клик, а не скролл»: если ScrollRect-родитель протащил палец,
+            // releasePos уйдёт далеко от _clickCoords, и дистанционная проверка
+            // сама отсечёт жест. Реализовывать IBeginDragHandler на кнопке нельзя —
+            // это перехватит drag у ScrollRect и сломает сам скролл.
+            // B-1: при eventData == null (внешний Release) считаем нулевое смещение,
+            // чтобы внешний программный клик не зависел от позиции кнопки на экране.
+            var releasePos = eventData?.position ?? _clickCoords;
+            var withinClickShift = (_clickCoords - releasePos).magnitude < ShiftForClickLess;
 
-            if (!draggedThisCycle)
+            if (clickRegType == ClickRegType.OnUpAnywhere
+                || _inBorders && clickRegType == ClickRegType.OnUpInBorders)
             {
-                if (clickRegType == ClickRegType.OnUpAnywhere
-                    || _inBorders && clickRegType == ClickRegType.OnUpInBorders)
-                    Click();
-
-                // B-1: считаем точку отпускания корректно даже при eventData == null
-                // (внешний Release()). Старая формула из-за приоритета операторов давала
-                // null в Vector2?-вычитании, ?? подставлял _clickCoords, и magnitude
-                // оказывалась расстоянием от (0,0) до точки нажатия — клик никогда не
-                // регистрировался в режиме OnClick для кнопок не у левого верхнего угла.
-                var releasePos = eventData?.position ?? _clickCoords;
-                if (clickRegType == ClickRegType.OnClick
-                    && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs
-                    && (_clickCoords - releasePos).magnitude < ShiftForClickLess)
+                if (withinClickShift)
                     Click();
             }
 
-            _dragged = false;
+            if (clickRegType == ClickRegType.OnClick
+                && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs
+                && withinClickShift)
+                Click();
 
             Set(_inBorders ? ButtonVisualState.Hover : ButtonVisualState.Free);
 
             OnReleased?.Invoke();
         }
-
-        public void OnBeginDrag(PointerEventData eventData) => _dragged = true;
-
-        public void OnEndDrag(PointerEventData eventData) => _dragged = false;
 
         private void Click()
         {
