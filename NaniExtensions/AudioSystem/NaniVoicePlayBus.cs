@@ -26,8 +26,12 @@ namespace Vortex.NaniExtensions.AudioSystem
     /// 2) Поллинг ловит любое изменение path:
     ///    - oldPath != null → эмитим <see cref="OnVoiceStop"/>(cachedAuthor);
     ///    - newPath != null → cachedAuthor = currentAuthor (новая озвучка принадлежит активной реплике).
-    /// 3) <see cref="ITextPrinterManager.OnPrintFinished"/> — ничего не делает: voice может прийти async,
-    ///    закрытие всегда идёт либо через поллинг, либо через следующий PrintStarted.
+    /// 3) <see cref="ITextPrinterManager.OnPrintFinished"/>:
+    ///    - если у завершившейся реплики voice не было (_cachedAuthor != _currentAuthor),
+    ///      эмитим <see cref="OnVoiceStop"/>(_currentAuthor) сразу — иначе при отсутствии
+    ///      следующего PrintStarted (конец диалога, ожидание выбора) подписчик залипает;
+    ///    - если voice играет, ничего не делаем: voice имеет право продолжаться после печати,
+    ///      закрытие придёт через поллинг.
     /// </summary>
     public static class NaniVoicePlayBus
     {
@@ -126,8 +130,21 @@ namespace Vortex.NaniExtensions.AudioSystem
 
         private static void HandlePrintFinish(PrintMessageArgs args)
         {
-            // Никаких действий — закрытие реплики идёт либо через поллинг (voice реально остановился
-            // или сменился), либо через следующий PrintStarted (если voice вообще не было).
+            // Если у завершившейся реплики не было собственной voice-дорожки
+            // (_cachedAuthor так и не совпал с _currentAuthor — поллинг ни разу не зафиксировал
+            // воспроизведение для этой реплики), закрываем её немедленно.
+            // Раньше тут было ничего, и при отсутствии voice + отсутствии следующего PrintStarted
+            // (конец диалога, пауза на выбор, простой) OnVoiceStop не эмитился вовсе — подписчики
+            // залипали в состоянии «говорит».
+            //
+            // Если voice играет (_cachedAuthor == _currentAuthor), оставляем закрытие через поллинг:
+            // voice имеет полное право продолжаться после окончания печати текста.
+            if (_currentAuthor != null && _cachedAuthor != _currentAuthor)
+            {
+                var prev = _currentAuthor;
+                _currentAuthor = null;
+                OnVoiceStop?.Invoke(prev);
+            }
         }
 
         private static void HandleNaniStop()
