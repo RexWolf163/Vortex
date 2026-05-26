@@ -153,7 +153,9 @@ Spine then applies the pose in `LateUpdate`.
 
 A `MonoBehaviour` handler that pauses the skeleton on Loading/Paused. Supports both `SkeletonGraphic` and `SkeletonAnimation` on the same object — both fields are bound via `[AutoLink]`.
 
-The pause mechanism differs per skeleton type: `SkeletonGraphic` is driven by its built-in `freeze` flag; `SkeletonAnimation` is paused by zeroing `timeScale` (this component has no `freeze`). Before zeroing, the last non-zero `timeScale` is stored in `_oldTimeScale` and restored on unfreeze (the default fallback is `1f`), so any project-side speed multiplier survives a pause cycle.
+The pause mechanism differs per skeleton type: `SkeletonGraphic` is driven by its built-in `freeze` flag; `SkeletonAnimation` is paused by toggling the MonoBehaviour itself (`enabled = false`). When the component is disabled, Unity does not invoke its `Update` or `LateUpdate`, and `AnimationState` physically does not advance — regardless of what external code writes into the component's fields.
+
+> `timeScale = 0` and `updateMode = UpdateMode.Nothing` are intentionally not used. In projects with external Spine-actor pollers (typical case: Naninovel character actor — its update loop overwrites `timeScale` every frame for fast-forward / skip-mode), both settings are clobbered within 1–2 frames and the skeleton keeps animating. A Unity-disabled MonoBehaviour cannot be re-enabled by such a poller — external systems work through their own Actor layer, not by holding direct references to Spine components.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -162,10 +164,10 @@ The pause mechanism differs per skeleton type: `SkeletonGraphic` is driven by it
 
 Reaction to `GameController.OnGameStateChanged`:
 
-| `GameStates` | `spine.freeze` | `spineAnimation.timeScale` |
-|--------------|----------------|----------------------------|
-| `Off`, `Play`, `Win`, `Fail` | `false` | restored from `_oldTimeScale` |
-| `Loading`, `Paused` | `true` | captured and zeroed |
+| `GameStates` | `spine.freeze` | `spineAnimation.enabled` |
+|--------------|----------------|--------------------------|
+| `Off`, `Play`, `Win`, `Fail` | `false` | `true` |
+| `Loading`, `Paused` | `true` | `false` |
 
 Subscribe/unsubscribe lives in `OnEnable`/`OnDisable`.
 

@@ -153,7 +153,9 @@ Spine применяет позу в `LateUpdate`.
 
 `MonoBehaviour`-хэндлер, останавливающий скелет на паузе/загрузке. Поддерживает одновременно `SkeletonGraphic` и `SkeletonAnimation` на одном объекте — оба поля привязываются через `[AutoLink]`.
 
-Механика заморозки различается по типу скелета: `SkeletonGraphic` управляется штатным флагом `freeze`, `SkeletonAnimation` — обнулением `timeScale` (этот компонент не имеет `freeze`). Перед обнулением последнее ненулевое значение `timeScale` сохраняется в `_oldTimeScale` и возвращается при разморозке (страховое значение по умолчанию — `1f`), поэтому проектный множитель скорости не теряется.
+Механика заморозки различается по типу скелета: `SkeletonGraphic` управляется штатным флагом `freeze`, `SkeletonAnimation` — отключением самого MonoBehaviour (`enabled = false`). Когда компонент выключен, Unity не вызывает у него ни `Update`, ни `LateUpdate`, и `AnimationState` физически не двигается, кто бы что снаружи ни писал в поля.
+
+> `timeScale = 0` и `updateMode = UpdateMode.Nothing` намеренно не используются. В проектах со внешним поллингом Spine-актёров (типичный кейс — Naninovel-character: его update-цикл каждый кадр пишет в `timeScale` нужное себе значение для fast-forward / skip-mode) обе настройки затираются за 1–2 кадра, и скелет продолжает анимироваться. `enabled = false` Unity-механизм поллер обратно включить не может — внешние системы работают через свой Actor-слой, а не через прямой доступ к Spine-компонентам, поэтому ссылку на конкретный MonoBehaviour не держат.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -162,10 +164,10 @@ Spine применяет позу в `LateUpdate`.
 
 Реакция на `GameController.OnGameStateChanged`:
 
-| `GameStates` | `spine.freeze` | `spineAnimation.timeScale` |
-|--------------|----------------|----------------------------|
-| `Off`, `Play`, `Win`, `Fail` | `false` | восстанавливается из `_oldTimeScale` |
-| `Loading`, `Paused` | `true` | сохраняется и обнуляется |
+| `GameStates` | `spine.freeze` | `spineAnimation.enabled` |
+|--------------|----------------|--------------------------|
+| `Off`, `Play`, `Win`, `Fail` | `false` | `true` |
+| `Loading`, `Paused` | `true` | `false` |
 
 Подписка/отписка — в `OnEnable`/`OnDisable`.
 
