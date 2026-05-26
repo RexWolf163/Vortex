@@ -13,17 +13,16 @@ namespace Vortex.Unity.UI.Misc
     /// Транслирует события Нажал, Отпустил, Вошел в границы и вышел за границы
     /// </summary>
     public class AdvancedButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler,
-        IPointerUpHandler
+        IPointerUpHandler, IPointerClickHandler
     {
         /// <summary>
-        /// Время для фиксации клика в миллисекундах
+        /// Максимальная длительность нажатия (мс), при которой release ещё считается частью
+        /// клика в режиме <see cref="ClickRegType.OnClick"/>. Дольше — считается «удержанием»,
+        /// клик не регистрируется. Дистанционный фильтр (drag) выполняется самим EventSystem
+        /// через <see cref="EventSystems.EventSystem.pixelDragThreshold"/> — настраивается
+        /// в EventSystem-компоненте сцены.
         /// </summary>
         private const float TimeForClickMs = 200f;
-
-        /// <summary>
-        /// Максимальное смещение для фиксации клика в пикселях
-        /// </summary>
-        private const float ShiftForClickLess = 20f;
 
         /// <summary>
         /// Способ фиксации кликов
@@ -33,7 +32,7 @@ namespace Vortex.Unity.UI.Misc
             OnTap,
             OnUpInBorders,
             OnUpAnywhere,
-            OnClick, //Нажата и отпущена быстрее чем через 0,1s без смещения больше чем на 10 пикселей
+            OnClick, // Нажата и отпущена быстрее чем за TimeForClickMs, и EventSystem не классифицировала жест как drag
         }
 
         private enum ButtonVisualState
@@ -83,8 +82,6 @@ namespace Vortex.Unity.UI.Misc
 
         private DateTime _clickTime;
 
-        private Vector2 _clickCoords;
-
         private void OnDisable()
         {
             _inBorders = false;
@@ -124,7 +121,6 @@ namespace Vortex.Unity.UI.Misc
             Set(ButtonVisualState.Pressed);
 
             _clickTime = DateTime.Now;
-            _clickCoords = eventData?.position ?? Vector2.zero;
 
             OnPressed?.Invoke();
         }
@@ -133,31 +129,51 @@ namespace Vortex.Unity.UI.Misc
         {
             _pressed = false;
 
-            // Расстояние смещения между нажатием и отпусканием. Главный признак
-            // «это был клик, а не скролл»: если ScrollRect-родитель протащил палец,
-            // releasePos уйдёт далеко от _clickCoords, и дистанционная проверка
-            // сама отсечёт жест. Реализовывать IBeginDragHandler на кнопке нельзя —
-            // это перехватит drag у ScrollRect и сломает сам скролл.
-            // B-1: при eventData == null (внешний Release) считаем нулевое смещение,
-            // чтобы внешний программный клик не зависел от позиции кнопки на экране.
-            var releasePos = eventData?.position ?? _clickCoords;
-            var withinClickShift = (_clickCoords - releasePos).magnitude < ShiftForClickLess;
+            // OnUpAnywhere: контракт режима — release фиксируется где угодно, даже если
+            // EventSystem классифицировала жест как drag. Если такое поведение нежелательно
+            // (типичный кейс — кнопка внутри ScrollRect), используй ClickRegType.OnClick
+            // или ClickRegType.OnUpInBorders: они идут через IPointerClickHandler и
+            // автоматически отсеивают drag.
+            if (clickRegType == ClickRegType.OnUpAnywhere)
+                Click();
 
-            if (clickRegType == ClickRegType.OnUpAnywhere
-                || _inBorders && clickRegType == ClickRegType.OnUpInBorders)
-            {
-                if (withinClickShift)
-                    Click();
-            }
-
-            if (clickRegType == ClickRegType.OnClick
-                && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs
-                && withinClickShift)
+            // Внешний программный клик через Press()/Release(). EventSystem
+            // IPointerClickHandler в этом случае не вызовет (это не пользовательский input),
+            // поэтому режим OnClick/OnUpInBorders требует ручной обработки. Время и
+            // дистанцию проверяем — это согласовано с правилами режима OnClick.
+            if (eventData == null
+                && (clickRegType == ClickRegType.OnClick || clickRegType == ClickRegType.OnUpInBorders)
+                && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs)
                 Click();
 
             Set(_inBorders ? ButtonVisualState.Hover : ButtonVisualState.Free);
 
             OnReleased?.Invoke();
+        }
+
+        /// <summary>
+        /// Канонический сигнал «это был клик, а не drag» от UGUI EventSystem.
+        /// Гарантии Unity:
+        ///   • OnPointerDown был на этом же объекте;
+        ///   • OnPointerUp произошёл, пока указатель находился над этим объектом;
+        ///   • в цикле жеста никто не получил OnBeginDrag (ни эта кнопка, ни родители),
+        ///     то есть смещение не превысило <see cref="EventSystems.EventSystem.pixelDragThreshold"/>;
+        ///   • eventData.eligibleForClick === true.
+        /// Если кнопка лежит в <c>ScrollRect</c>, при скролле родитель получит drag, и
+        /// этот метод не будет вызван вовсе — клик корректно подавится без дополнительных
+        /// флагов.
+        /// </summary>
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (clickRegType == ClickRegType.OnUpInBorders)
+            {
+                Click();
+                return;
+            }
+
+            if (clickRegType == ClickRegType.OnClick
+                && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs)
+                Click();
         }
 
         private void Click()
