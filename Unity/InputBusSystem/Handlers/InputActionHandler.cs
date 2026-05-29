@@ -1,5 +1,4 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Events;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.System.Enums;
