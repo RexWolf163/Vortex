@@ -141,7 +141,7 @@ EffectsCatalog : ScriptableObject
 
 Registered explicitly: `EffectSpawn.RegisterCatalog(catalog)` from startup code.
 
-The `[EffectKey]` attribute on a string field draws a popup of `EffectSpawn.AllKeys`. In Editor mode without registration, the drawer collects the union of keys from all `EffectsCatalog` assets in the project (via `AssetDatabase`).
+The `[EffectKey]` attribute on a string field draws a popup of `EffectSpawn.AllKeys`. In Editor mode without registration, the drawer collects the union of keys from all `EffectsCatalog` assets in the project (via `AssetDatabase`). The key is optional — the first popup entry is `<None>` (value `""`), so the field may be left empty without auto-writing the first available effect.
 
 ### EffectSpawn — Bus
 
@@ -295,6 +295,8 @@ Enemy
 | `Spawn(target, prefab=null)` | `Logger.Error` + null |
 | `Spawn(target, "unknown-key")` | `Logger.Error` + null. Key not found in catalog |
 | `Spawn(target, key)` without a registered catalog | `Logger.Error` + null. Spawn-by-prefab still works |
+| `[EffectKey]` field holds a key missing from current catalogs | Drawer renders the field red with the marker «⚠ X (missing)» and a popup next to it; the value is **not** rewritten until the designer picks an entry explicitly |
+| `[EffectKey]` field left empty | Stored as `""` (the `<None>` option). A Spawn with such a key produces `Logger.Error` — handle on the caller's side |
 | Prefab without `EffectView` | `Logger.Error` + Destroy of the instance; null returned |
 | `EffectsLayer.Target` not set | Parking into the marker's transform |
 | `EffectsLayer` on an inactive object | `GetComponentInParent` skips it (default), fallback to target |
@@ -319,6 +321,12 @@ Enemy
 `EffectKeyAttributeDrawer` — popup of all keys. Sources:
 - if a catalog is registered in `EffectSpawn` → uses `AllKeys`;
 - otherwise (Editor mode without registration) → unions keys from all `EffectsCatalog` assets in the project via `AssetDatabase`.
+
+Popup behaviour:
+- **Optionality.** The first entry is always `<None>` (value `""`). An empty value is not auto-rewritten to «the first available» on draw.
+- **Source symmetry.** Both branches (bus and AssetDatabase) go through one pipeline: `Distinct → OrderBy(Ordinal) → Insert(0, "")`. Empty keys found inside a catalog are filtered out so `<None>` is not duplicated.
+- **Fail-loud on an invalid key.** If a field holds a key that is no longer present in the source (the effect was removed, renamed, or the catalog was unloaded), the drawer does **not** silently rewrite the value. The field is highlighted red with the marker «⚠ X (missing)» and a popup is drawn next to it for an explicit replacement. The write happens only after the designer clicks an entry in the popup — until then the previous value is preserved in serialized data, and the «there used to be key X» fact remains visible in the git diff.
+- **Empty catalogs.** When `keys.Length == 0` (no `EffectsCatalog` assets exist in the project), the drawer falls back to a plain `EditorGUI.PropertyField` plus a warning `HelpBox`.
 
 ---
 

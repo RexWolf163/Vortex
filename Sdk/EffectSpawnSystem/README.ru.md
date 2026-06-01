@@ -141,7 +141,7 @@ EffectsCatalog : ScriptableObject
 
 Регистрируется явно: `EffectSpawn.RegisterCatalog(catalog)` из стартового кода.
 
-`[EffectKey]` атрибут на string-поле даёт popup из `EffectSpawn.AllKeys`. В Editor-mode без регистрации drawer собирает union ключей из всех `EffectsCatalog`-ассетов проекта (через AssetDatabase).
+`[EffectKey]` атрибут на string-поле даёт popup из `EffectSpawn.AllKeys`. В Editor-mode без регистрации drawer собирает union ключей из всех `EffectsCatalog`-ассетов проекта (через AssetDatabase). Ключ опционален — первым пунктом списка идёт `<None>` (значение `""`), чтобы поле можно было оставить пустым без автозаписи на первый эффект.
 
 ### EffectSpawn — Bus
 
@@ -295,6 +295,8 @@ Enemy
 | `Spawn(target, prefab=null)` | `Logger.Error` + null |
 | `Spawn(target, "unknown-key")` | `Logger.Error` + null. Ключ не найден в каталоге |
 | `Spawn(target, key)` без зарегистрированного каталога | `Logger.Error` + null. Spawn-by-prefab продолжает работать |
+| `[EffectKey]`-поле с ключом, отсутствующим в текущих каталогах | Drawer рисует поле красным с пометкой «⚠ X (отсутствует)» и popup рядом, значение **не** перезаписывается до явного выбора в popup'е |
+| `[EffectKey]`-поле оставлено пустым | Сохраняется как `""` (выбран `<None>`), Spawn по такому ключу даст `Logger.Error` — обрабатывать на стороне вызывающего кода |
 | Префаб без `EffectView` | `Logger.Error` + Destroy инстанса; null возврат |
 | `EffectsLayer.Target` не задан | Парковка в transform самого маркера |
 | `EffectsLayer` на неактивном объекте | `GetComponentInParent` его пропустит (по умолчанию), fallback на target |
@@ -319,6 +321,12 @@ Enemy
 `EffectKeyAttributeDrawer` — popup со всеми ключами. Источники:
 - если каталог зарегистрирован в `EffectSpawn` → берёт `AllKeys`;
 - иначе (Editor-mode без регистрации) → собирает union из всех `EffectsCatalog`-ассетов проекта через `AssetDatabase`.
+
+Поведение popup'а:
+- **Опциональность.** Первым пунктом всегда `<None>` (значение `""`). Пустое значение не перезаписывается на «первый из доступных» при отрисовке.
+- **Симметрия источников.** Обе ветки (шина и AssetDatabase) проходят один пайплайн: `Distinct → OrderBy(Ordinal) → Insert(0, "")`. Пустые ключи внутри каталога фильтруются — `<None>` не дублируется.
+- **Fail-loud на невалидный ключ.** Если в поле задан ключ, которого больше нет в источнике (эффект удалили, переименовали, выгрузили каталог), drawer **не** перезаписывает значение молча. Поле подсвечивается красным с пометкой «⚠ X (отсутствует)», рядом рисуется popup для осознанного выбора замены. Запись произойдёт только после явного клика дизайнера в popup'е — до этого старое значение сохраняется в сериализованных данных, и факт «здесь был ключ X» виден в git-diff.
+- **Пустые каталоги.** Если `keys.Length == 0` (нет ни одного `EffectsCatalog`-ассета в проекте), drawer рисует стандартное `EditorGUI.PropertyField` плюс `HelpBox` с предупреждением.
 
 ---
 

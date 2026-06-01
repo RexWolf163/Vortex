@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities;
@@ -29,11 +30,47 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
     ///    (Singleton / MultiInstance / null = обе ветки) и по <see cref="DbRecordAttribute.RecordClass"/>.
     ///  • Слева от дропдауна — индикатор валидности GUID: красный, если запись с таким GUID
     ///    отсутствует в Database. Справа — кнопка <c>Find</c>, выделяющая ассет пресета в Project.
+    ///
+    /// Кеширование:
+    ///  • Список (имена + GUID) собирается тяжело: <see cref="IDriverEditor.ReloadDatabase"/>
+    ///    + два прохода по базе с генерацией параллельных массивов. На инспекторе с несколькими
+    ///    [DbRecord]-полями и большой базой (например, Sound-каталог с сотнями записей)
+    ///    это убивает FPS редактора.
+    ///  • Static-кеш с TTL 1 секунда: drawer-инстансы с одинаковыми настройками атрибута
+    ///    (<see cref="DbRecordAttribute.RecordType"/> + <see cref="DbRecordAttribute.RecordClass"/>)
+    ///    делят результат. После TTL — пересборка с актуальным <c>ReloadDatabase()</c>.
+    ///  • При смене ассетов в проекте лаг видимости — до 1 сек, что приемлемо для редактора.
     /// </summary>
     public class DbRecordAttributeDrawer : OdinAttributeDrawer<DbRecordAttribute, string>
     {
-        private readonly List<string> _names = new();
-        private readonly List<string> _guids = new();
+        private const double CacheTtlSeconds = 1.0;
+
+        private readonly struct CacheKey : IEquatable<CacheKey>
+        {
+            public readonly RecordTypes? RecordType;
+            public readonly Type RecordClass;
+
+            public CacheKey(RecordTypes? recordType, Type recordClass)
+            {
+                RecordType = recordType;
+                RecordClass = recordClass;
+            }
+
+            public bool Equals(CacheKey other) =>
+                RecordType == other.RecordType && RecordClass == other.RecordClass;
+
+            public override bool Equals(object obj) => obj is CacheKey o && Equals(o);
+            public override int GetHashCode() => HashCode.Combine(RecordType, RecordClass);
+        }
+
+        private sealed class CacheEntry
+        {
+            public string[] Names;
+            public string[] Guids;
+            public double LastBuildTime;
+        }
+
+        private static readonly Dictionary<CacheKey, CacheEntry> Cache = new();
 
         protected override void DrawPropertyLayout(GUIContent label)
         {
@@ -44,9 +81,7 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                 return;
             }
 
-            driver.ReloadDatabase();
-
-            BuildList(driver);
+            var (names, guids) = ResolveList(Attribute, driver);
 
             var btnWidth = ValueEntry.SmartValue.IsNullOrWhitespace() ? 0f : 40f;
             var controlRect =
@@ -72,14 +107,14 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
             var valid = TestRecord();
             if (!valid) GUI.color = Color.red;
 
-            var currentIndex = _guids.IndexOf(ValueEntry.SmartValue ?? string.Empty);
+            var currentIndex = Array.IndexOf(guids, ValueEntry.SmartValue ?? string.Empty);
 
-            // Снимок guids на момент открытия попапа — список перестраивается на каждый OnGUI,
-            // но callback срабатывает позже (после закрытия попап-окна). Снимок гарантирует,
-            // что индекс выбора резолвится в тот же GUID, что был под курсором.
-            var guidsSnapshot = _guids.ToArray();
+            // Снимок guids на момент открытия попапа — кеш может обновиться между
+            // открытием попапа и его callback'ом. Снимок гарантирует, что индекс выбора
+            // резолвится в тот же GUID, что был под курсором при открытии.
+            var guidsSnapshot = guids;
 
-            SearchablePopup.Draw(contentRect, _names.ToArray(), currentIndex, null, picked =>
+            SearchablePopup.Draw(contentRect, names, currentIndex, null, picked =>
             {
                 var newGuid = picked >= 0 && picked < guidsSnapshot.Length
                     ? guidsSnapshot[picked]
@@ -96,28 +131,60 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
         }
 
         /// <summary>
-        /// Перестраивает параллельные списки <see cref="_names"/> + <see cref="_guids"/>
-        /// под текущие настройки атрибута. Имя записи преобразуется заменой "." → "/" —
-        /// SearchablePopup строит из этого иерархию групп.
+        /// Достаёт список (имена + GUID) из кеша или перестраивает его при истечении TTL.
+        /// Ключ кеша — <c>(RecordType, RecordClass)</c>: drawer-инстансы с одинаковыми
+        /// настройками атрибута делят результат, на каждое поле в инспекторе пересборка
+        /// не происходит.
         /// </summary>
-        private void BuildList(IDriverEditor driver)
+        private static (string[] names, string[] guids) ResolveList(
+            DbRecordAttribute attribute, IDriverEditor driver)
         {
-            _names.Clear();
-            _guids.Clear();
+            var key = new CacheKey(attribute.RecordType, attribute.RecordClass);
+            var now = EditorApplication.timeSinceStartup;
 
-            if (Attribute.RecordType == null || Attribute.RecordType == RecordTypes.Singleton)
+            if (!Cache.TryGetValue(key, out var entry))
             {
-                var list = Attribute.RecordClass != null
-                    ? Database.GetRecords(Attribute.RecordClass)
+                entry = new CacheEntry();
+                Cache[key] = entry;
+            }
+
+            if (entry.Names == null || (now - entry.LastBuildTime) > CacheTtlSeconds)
+            {
+                // ReloadDatabase делается только когда реально пересобираем кеш —
+                // не на каждый OnGUI, как раньше.
+                driver.ReloadDatabase();
+                BuildLists(attribute, driver, out entry.Names, out entry.Guids);
+                entry.LastBuildTime = now;
+            }
+
+            return (entry.Names, entry.Guids);
+        }
+
+        /// <summary>
+        /// Собирает параллельные массивы имён и GUID'ов под текущие настройки атрибута.
+        /// Имя записи преобразуется заменой "." → "/" — SearchablePopup строит из этого
+        /// иерархию групп.
+        /// </summary>
+        private static void BuildLists(
+            DbRecordAttribute attribute, IDriverEditor driver,
+            out string[] names, out string[] guids)
+        {
+            var n = new List<string>();
+            var g = new List<string>();
+
+            if (attribute.RecordType == null || attribute.RecordType == RecordTypes.Singleton)
+            {
+                var list = attribute.RecordClass != null
+                    ? Database.GetRecords(attribute.RecordClass)
                     : Database.GetRecords();
                 foreach (var record in list)
                 {
-                    _names.Add(record.Name.Replace(".", "/"));
-                    _guids.Add(record.GuidPreset);
+                    n.Add(record.Name.Replace(".", "/"));
+                    g.Add(record.GuidPreset);
                 }
             }
 
-            if (Attribute.RecordType == null || Attribute.RecordType == RecordTypes.MultiInstance)
+            if (attribute.RecordType == null || attribute.RecordType == RecordTypes.MultiInstance)
             {
                 var list = Database.GetMultiInstancePresets();
                 foreach (var guid in list)
@@ -130,14 +197,17 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                         continue;
                     }
 
-                    if (Attribute.RecordClass != null &&
-                        !Attribute.RecordClass.IsAssignableFrom(record.GetData().GetType()))
+                    if (attribute.RecordClass != null &&
+                        !attribute.RecordClass.IsAssignableFrom(record.GetData().GetType()))
                         continue;
 
-                    _names.Add(record.Name.Replace(".", "/"));
-                    _guids.Add(record.GuidPreset);
+                    n.Add(record.Name.Replace(".", "/"));
+                    g.Add(record.GuidPreset);
                 }
             }
+
+            names = n.ToArray();
+            guids = g.ToArray();
         }
 
         /// <summary>Текущий GUID валиден — запись с таким ID существует в Database.</summary>
@@ -145,7 +215,7 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
             !ValueEntry.SmartValue.IsNullOrWhitespace() && Database.TestRecord(ValueEntry.SmartValue);
 
         /// <summary>Выделяет в Project View ассет пресета, соответствующий указанному GUID.</summary>
-        private void FindRecordAsset(string recordId)
+        private static void FindRecordAsset(string recordId)
         {
             var driver = Database.GetDriver() as IDriverEditor;
             if (driver == null)
