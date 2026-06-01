@@ -152,7 +152,7 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Preset
             // Меняем .{templateLang}. на .{newLanguage}. в строке audio образца
             if (!string.IsNullOrEmpty(template.audio) && !string.IsNullOrEmpty(template.language))
             {
-                newAudioName = newAudioName.Replace($".{template.language}.", $".{_newLanguage}.");
+                newAudioName = newAudioName.Replace($".{template.language}", $".{_newLanguage}");
             }
 
             newAudio = Database.GetRecords<Sound>().First(s => s.Name == newAudioName).GuidPreset;
