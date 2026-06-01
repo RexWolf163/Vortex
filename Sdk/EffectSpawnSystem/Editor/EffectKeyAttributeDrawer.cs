@@ -32,7 +32,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Editor
     public class EffectKeyAttributeDrawer : PropertyDrawer
     {
         private const string EmptyKey = "";
-        private const string EmptyLabel = "[None]";
+        private const string EmptyLabel = "[NONE]";
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
