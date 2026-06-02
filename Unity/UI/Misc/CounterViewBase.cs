@@ -114,7 +114,7 @@ namespace Vortex.Unity.UI.Misc
                 _cachedValue = minValue;
             if (maxValue < _cachedValue)
                 _cachedValue = maxValue;
-            value?.SetText(string.Format(patternValue, newValue, maxValue, minValue));
+            value?.SetText(string.Format(patternValue, _cachedValue, maxValue, minValue));
             if (slider != null) slider.Set(_cachedValue, maxValue, minValue);
 
             if (switcher != null)
