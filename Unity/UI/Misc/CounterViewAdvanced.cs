@@ -18,16 +18,6 @@ namespace Vortex.Unity.UI.Misc
     /// </summary>
     public class CounterViewAdvanced : MonoBehaviour
     {
-        private enum CounterStates
-        {
-            Empty,
-            Less20,
-            Less50,
-            Less80,
-            Less100,
-            Fill
-        }
-
         /// <summary>
         /// Ссылка на класс-хранилище модели данных значения
         /// </summary>

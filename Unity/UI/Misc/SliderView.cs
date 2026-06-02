@@ -15,6 +15,7 @@ namespace Vortex.Unity.UI.Misc
     {
         [SerializeField] private Slider slider;
 
+        [SerializeField, Range(0f, 3f)] private float delay;
         [SerializeField, Range(0f, 1f)] private float duration;
 
         [SerializeField] private EaseType ease = EaseType.InQuad;
@@ -30,8 +31,16 @@ namespace Vortex.Unity.UI.Misc
             slider.minValue = min;
             slider.maxValue = max;
             target = value;
+            if (delay > 0)
+                TimeController.Call(Refresh, delay, this);
+            else
+                Refresh();
+        }
+
+        private void Refresh()
+        {
             if (duration == 0)
-                slider.value = value;
+                slider.value = target;
             else
                 _tween.SetSlider(slider, target, duration).SetEase(ease).SetToken(destroyCancellationToken)
                     .Run();

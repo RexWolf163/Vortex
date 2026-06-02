@@ -100,8 +100,11 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                 controlRect.height
             );
 
-            // Префикс-label + индикатор валидности
-            var contentRect = EditorGUI.PrefixLabel(dropdownRect, label);
+            // Префикс-label + индикатор валидности.
+            // Если label пустой (типичный случай элемента списка без [LabelText]) — не резервируем
+            // под него половину rect'а, используем весь dropdownRect под попап.
+            var hasLabel = label != null && !string.IsNullOrEmpty(label.text);
+            var contentRect = hasLabel ? EditorGUI.PrefixLabel(dropdownRect, label) : dropdownRect;
 
             var prevColor = GUI.color;
             var valid = TestRecord();
