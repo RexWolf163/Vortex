@@ -59,7 +59,7 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Анимировать при понижении
         /// </summary>
-        [SerializeField] private bool onDawn = false;
+        [SerializeField] private bool onDown = false;
 
         /// <summary>
         /// Кеш текущего значения
@@ -74,7 +74,7 @@ namespace Vortex.Unity.UI.Misc
             var minValue = GetMinValue();
             var maxValue = GetMaxValue();
             if (slider != null) slider.Set(_cachedValue, maxValue, minValue);
-            value?.SetText(string.Format(patternValue, _cachedValue));
+            value?.SetText(string.Format(patternValue, _cachedValue, maxValue, minValue));
             min?.SetText(string.Format(patternMin, minValue));
             max?.SetText(string.Format(patternMax, maxValue));
             OnValueUpdated();
@@ -90,6 +90,7 @@ namespace Vortex.Unity.UI.Misc
 
         private void UpdateLink()
         {
+            _data = StorageValue.GetData<T>();
             OnMinUpdated();
             OnMaxUpdated();
             OnValueUpdated();
@@ -104,7 +105,7 @@ namespace Vortex.Unity.UI.Misc
         {
             var newValue = GetValue();
             if (tweenPulsation != null
-                && ((newValue > _cachedValue && onUp) || (newValue < _cachedValue && onDawn)))
+                && ((newValue > _cachedValue && onUp) || (newValue < _cachedValue && onDown)))
                 tweenPulsation.Pulse();
             _cachedValue = newValue;
             var minValue = GetMinValue();
