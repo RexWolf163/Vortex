@@ -134,7 +134,7 @@ namespace Vortex.Unity.UI.Misc
                 var diapason = maxValue - minValue;
                 if (diapason <= 0)
                     return;
-                var percent = 100 * _cachedValue / diapason;
+                var percent = 100 * (_cachedValue - minValue) / diapason;
                 if (percent < 20)
                 {
                     switcher.Set(CounterStates.Less20);
