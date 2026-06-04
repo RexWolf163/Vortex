@@ -31,6 +31,29 @@ namespace Vortex.Unity.DatabaseSystem.Presets
         [ShowInInspector, DataModel, HideIf("@type==RecordTypes.MultiInstance&&!UnityEngine.Application.isPlaying")]
         [TabGroup("Debug"), PropertyOrder(100)]
         private T _data;
+
+        private const double DebugDataRefreshInterval = 1.0;
+        private double _debugDataLastRefresh;
+
+        /// <summary>
+        /// Odin вызывает этот метод на каждой перерисовке инспектора. CopyFrom
+        /// потенциально не бесплатный, поэтому кешируем _data на 1 секунду —
+        /// для глаза «живо», для процессора — раз в секунду.
+        /// </summary>
+        [OnInspectorGUI, PropertyOrder(99)]
+        private void RefreshDebugData()
+        {
+            if (Application.isPlaying && type == RecordTypes.MultiInstance)
+                return;
+
+            var now = EditorApplication.timeSinceStartup;
+            if (_data != null && now - _debugDataLastRefresh < DebugDataRefreshInterval)
+                return;
+
+            _debugDataLastRefresh = now;
+            _data ??= new T();
+            _data.CopyFrom(this);
+        }
 #endif
 
         public RecordTypes RecordType => type;
@@ -63,9 +86,6 @@ namespace Vortex.Unity.DatabaseSystem.Presets
         {
             var record = new T();
             record.CopyFrom(this);
-#if UNITY_EDITOR
-            _data = record;
-#endif
             return record;
         }
 

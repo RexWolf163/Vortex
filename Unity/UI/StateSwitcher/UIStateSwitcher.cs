@@ -36,8 +36,16 @@ namespace Vortex.Unity.UI.StateSwitcher
             public void Set()
             {
                 if (stateItems == null) return;
-                foreach (var stateItem in stateItems)
-                    stateItem.Set();
+                try
+                {
+                    foreach (var stateItem in stateItems)
+                        stateItem.Set();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[UIStateSwitcher] Failed to set state item on {name}");
+                    Debug.LogException(e);
+                }
             }
 
             public void DefaultState()
