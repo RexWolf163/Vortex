@@ -5,7 +5,6 @@ using Vortex.Core.DatabaseSystem.Model.Enums;
 using Vortex.Sdk.Quests.QuestRewardLogics;
 using Vortex.Sdk.Quests.QuestsLogics;
 using Vortex.Unity.DatabaseSystem.Presets;
-using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Sdk.Quests
 {

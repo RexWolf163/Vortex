@@ -9,6 +9,7 @@ using Vortex.Unity.EditorTools.DataModelSystem;
 using Vortex.Unity.Extensions.Abstractions;
 #if UNITY_EDITOR
 using UnityEditor;
+using Vortex.Core.DatabaseSystem.Bus;
 #endif
 
 namespace Vortex.Unity.DatabaseSystem.Presets
@@ -28,12 +29,13 @@ namespace Vortex.Unity.DatabaseSystem.Presets
         [PreviewField, SerializeField] private Sprite icon;
 
 #if UNITY_EDITOR
-        [ShowInInspector, DataModel, HideIf("@type==RecordTypes.MultiInstance&&!UnityEngine.Application.isPlaying")]
-        [TabGroup("Debug"), PropertyOrder(100)]
+        [ShowInInspector, DataModel, HideIf("IsHide")] [TabGroup("Debug"), PropertyOrder(100)]
         private T _data;
 
         private const double DebugDataRefreshInterval = 1.0;
         private double _debugDataLastRefresh;
+
+        private bool IsHide() => type == RecordTypes.MultiInstance || !Application.isPlaying;
 
         /// <summary>
         /// Odin вызывает этот метод на каждой перерисовке инспектора. CopyFrom
@@ -43,7 +45,7 @@ namespace Vortex.Unity.DatabaseSystem.Presets
         [OnInspectorGUI, PropertyOrder(99)]
         private void RefreshDebugData()
         {
-            if (Application.isPlaying && type == RecordTypes.MultiInstance)
+            if (!Application.isPlaying || type == RecordTypes.MultiInstance)
                 return;
 
             var now = EditorApplication.timeSinceStartup;
@@ -51,8 +53,7 @@ namespace Vortex.Unity.DatabaseSystem.Presets
                 return;
 
             _debugDataLastRefresh = now;
-            _data ??= new T();
-            _data.CopyFrom(this);
+            _data = Database.GetRecord<T>(guid);
         }
 #endif
 
