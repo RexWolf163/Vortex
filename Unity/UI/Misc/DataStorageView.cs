@@ -49,6 +49,7 @@ namespace Vortex.Unity.UI.Misc
             if (Data == null)
                 return;
             Data.OnUpdateData += OnDataUpdated;
+            OnDataUpdated();
         }
 
         protected virtual void DeInit()

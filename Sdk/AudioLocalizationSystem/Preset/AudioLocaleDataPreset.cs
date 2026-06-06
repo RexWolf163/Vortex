@@ -103,15 +103,45 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Preset
         {
             if (string.IsNullOrEmpty(charName)) return;
 
-            // 1. textGuid ← ключ локализации "{charName}.{Name}" (без учёта регистра)
             var dotIndex = textGuid.IndexOf('.');
             if (dotIndex < 0) return;
             var oldSuffix = textGuid.Substring(dotIndex + 1);
             var candidateTextKey = $"{charName}.{oldSuffix}";
             var matchedTextKey = Localization.GetLocalizationKeys().FirstOrDefault(k =>
                 string.Equals(k, candidateTextKey, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrEmpty(matchedTextKey))
-                textGuid = matchedTextKey;
+            if (string.IsNullOrEmpty(matchedTextKey)) return;
+
+            textGuid = matchedTextKey;
+
+            // Та же логика для аудио: первая часть имени Sound (до точки) меняется на charName,
+            // потом ищем Sound с таким именем и подменяем GUID.
+            if (voices != null && voices.Count > 0)
+            {
+                var allSounds = Database.GetRecords<Sound>().ToList();
+                for (int i = 0; i < voices.Count; i++)
+                {
+                    var voice = voices[i];
+                    if (string.IsNullOrEmpty(voice.audio)) continue;
+
+                    var oldRecord = Database.GetRecord<Sound>(voice.audio);
+                    if (oldRecord == null || string.IsNullOrEmpty(oldRecord.Name)) continue;
+
+                    var audioDot = oldRecord.Name.IndexOf('.');
+                    if (audioDot < 0) continue;
+
+                    var audioSuffix = oldRecord.Name.Substring(audioDot + 1);
+                    var newAudioName = $"{charName}.{audioSuffix}";
+
+                    var newRecord = allSounds.FirstOrDefault(s =>
+                        string.Equals(s.Name, newAudioName, StringComparison.OrdinalIgnoreCase));
+                    if (newRecord == null) continue;
+
+                    voice.audio = newRecord.GuidPreset;
+                    voices[i] = voice;
+                }
+            }
+
+            UnityEditor.EditorUtility.SetDirty(this);
         }
 
         [Language, ShowInInspector, HorizontalGroup("Грубый инструментарий массовой замены/NewLang")]
