@@ -86,6 +86,12 @@ TimeController.Call(() => Save(), 2f, this);
 TimeController.RemoveCall(this);
 ```
 
+> ⚠️ `Call` runs on wall-clock (`DateTime.UtcNow`) and is **unaware of game pause**:
+> a scheduled call fires even while the game is paused or the app is unfocused
+> (project pause is state-based, `Time.timeScale` is never zeroed). For deferred actions
+> that must "freeze" together with the game, use `Timer` —
+> see [Pattern: pausable deferred action](#pattern-pausable-deferred-action).
+
 #### Accumulation
 
 ```csharp
@@ -191,3 +197,66 @@ Resume()
 
 - **Background:** `DateTime.UtcNow` keeps ticking, `LateUpdate` stops. `Remains` is correct after return; callback fires on the first `CheckQueue`.
 - **SetPause — operation order:** freezes `Remains` via property read before setting `IsPaused = true`. After `IsPaused = true`, the getter returns the cached value.
+
+---
+
+## Pattern: pausable deferred action
+
+`Timer` is not just a "timer with progress" — it is a **pause-safe replacement for
+`TimeController.Call`** for deferred gameplay and visual steps.
+
+### Choosing the tool
+
+| Scenario | Tool |
+|---|---|
+| Defer to end of frame / batching | `Call` / `Accumulate` |
+| Deferred call indifferent to pause (app-level, analytics, non-gameplay audio) | `Call(action, delay, owner)` |
+| Deferred **gameplay/visual** step that must freeze on pause (hit resolution, phase change, animation return, hiding a voice line) | `Timer` + pause by state |
+| Need progress / remaining time (sliders, countdowns) | `Timer` (`Remains`, `GetTimePassed`) |
+
+The root of the difference: project pause is a **state** (`MiniGameStates.Paused`),
+not `Time.timeScale = 0`. The `TimeController` queue ticks on wall-clock and keeps firing
+during pause. `Timer` supports `SetPause`/`Resume` with frozen remaining time — but **only
+when explicitly driven from a state-change handler**. A created-and-forgotten `Timer`
+behaves just like a plain `Call`.
+
+### Canonical snippet
+
+```csharp
+private Timer _actionTimer;
+
+// Launch a deferred step (instead of TimeController.Call(cb, delay, this))
+_actionTimer?.SetPause();                    // cancel the previous one, if any
+_actionTimer = new Timer(delay, Callback);   // the constructor starts counting immediately!
+
+// Game state change handler (OnGameStateChanged / OnStateChanged)
+private void OnStateChanged(MiniGameStates state)
+{
+    switch (state)
+    {
+        case MiniGameStates.Play:
+            _actionTimer?.Resume();
+            break;
+        case MiniGameStates.Paused:
+            _actionTimer?.SetPause();
+            break;
+    }
+}
+
+// Cleanup (DeInit / OnDisable / Unbind)
+_actionTimer?.SetPause();   // no cancel method — pause without Resume IS the cancel
+_actionTimer = null;
+```
+
+### Pitfalls
+
+- **The `Timer` constructor starts counting immediately.** "Create while paused" is not
+  possible — only create from code guaranteed to run in `Play` (gameplay event handlers),
+  or pause it right away.
+- **One timer — one action.** For sequential step chains a single field is enough
+  (a new step cancels the previous one). For independent parallel deadlines —
+  keep a list and check against game time (see below).
+- **If there is "game time" (audio track, ticking counter) — it beats a timer.**
+  A deadline bound to the track freezes with it for free: store the target
+  (`targetTime`) and compare in the time-tick handler that is already guarded
+  by the "game is running" state.
