@@ -365,9 +365,16 @@ namespace Vortex.Unity.EditorTools.Elements
 
         private List<RowData> FilterBySearch(string filter)
         {
-            var lo = filter.ToLowerInvariant();
-            // Находим ItemIndex'ы совпавших элементов и их группы
-            var matchedGroups = new HashSet<string>();
+            // Многотокенный иерархический матч: разбиваем запрос по пробелам и
+            // ищем "скользящее окно" подряд идущих сегментов пути, где сегмент i
+            // содержит токен i. Один токен матчит любой отдельный сегмент пути.
+            // Пример: запрос "lin b 1" на пути "LingLing/Bad/1/en" → совпадение
+            // окна (LingLing, Bad, 1), путь подходит.
+            var tokens = filter.ToLowerInvariant()
+                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length == 0)
+                return _allRows;
+
             var result = new List<RowData>();
 
             foreach (var row in _allRows)
@@ -380,25 +387,12 @@ namespace Vortex.Unity.EditorTools.Elements
 
                 if (row.Type == RowType.Item)
                 {
-                    var displayName = row.ItemIndex >= 0 && row.ItemIndex < _items.Length
+                    var fullPath = row.ItemIndex >= 0 && row.ItemIndex < _items.Length
                         ? _items[row.ItemIndex]
                         : row.Label;
-                    if (displayName.ToLowerInvariant().Contains(lo) ||
-                        row.Label.ToLowerInvariant().Contains(lo))
-                    {
+
+                    if (MatchesHierarchy(fullPath, tokens))
                         result.Add(row);
-                        // Собираем все родительские группы
-                        if (!string.IsNullOrEmpty(row.GroupPath))
-                        {
-                            var segs = row.GroupPath.Split('/');
-                            var p = "";
-                            for (int i = 0; i < segs.Length; i++)
-                            {
-                                p = i == 0 ? segs[i] : p + "/" + segs[i];
-                                matchedGroups.Add(p);
-                            }
-                        }
-                    }
                 }
             }
 
@@ -436,6 +430,34 @@ namespace Vortex.Unity.EditorTools.Elements
             }
 
             return withGroups;
+        }
+
+        /// <summary>
+        /// Иерархическое совпадение: каждый токен должен матчиться какому-то сегменту,
+        /// причём сегменты идут по пути в том же порядке что и токены, но не обязательно
+        /// подряд (descendant chain). Например, "zz en" совпадает с "LingLing/Puzzles/Bad/1/en":
+        /// "zz" в Puzzles, дальше "en" в листе — допустимо, между ними промежуточные уровни.
+        /// Токены и сегменты сравниваются как уже приведённые к нижнему регистру.
+        /// </summary>
+        private static bool MatchesHierarchy(string path, string[] tokens)
+        {
+            var segments = path.ToLowerInvariant().Split('/');
+            if (segments.Length < tokens.Length)
+                return false;
+
+            int seg = 0;
+            for (int t = 0; t < tokens.Length; t++)
+            {
+                while (seg < segments.Length && !segments[seg].Contains(tokens[t]))
+                    seg++;
+
+                if (seg >= segments.Length)
+                    return false;
+
+                seg++; // следующий токен ищем со следующего сегмента
+            }
+
+            return true;
         }
 
         /// <summary>
