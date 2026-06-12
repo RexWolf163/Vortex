@@ -199,5 +199,10 @@ public class HeroPanel : MonoBehaviour
 
 **Опциональные:**
 - Addressables — для `AddressablesDriver` пакета `Database` и для `AssetCache` (если не установлен — соответствующие сборки автоматически отключаются через `defineConstraints`)
+- protobuf-net — для сериализации `ComplexModel`
 
 ---
+
+## Лицензия
+
+Проприетарная. Все права защищены.

@@ -85,7 +85,7 @@ MasterOn;MasterVol;MusicOn;MusicVol;SoundOn;SoundVol[;ChName:MuteFlag:Vol]...
 - Поле `channels: string[]` — имена каналов
 - При изменении в редакторе — автоматический `AudioDriver.ResetChannels()`
 
-Меню: `Vortex/Configs/Audio Channels Settings` — навигация к конфигу.
+Меню: `Tools/Vortex/Configs/Audio Channels Settings` — навигация к конфигу.
 
 ### AudioChannelNameAttribute
 
@@ -356,7 +356,8 @@ AudioController.StopCoverMusic(); // основная тема восстано�
 - `AudioHandler`, `MusicPlayer` — кнопки Play/Stop в инспекторе (Play Mode)
 - `[DbRecord]` — picker сэмплов с фильтрацией по типу
 - `[AudioChannelName]` — dropdown каналов
-- `Vortex/Configs/Audio Channels Settings` — быстрая навигация к конфигу каналов
+- `Tools/Vortex/Configs/Audio Channels Settings` — быстрая навигация к конфигу каналов
+- `AudioAssetsCombiner` (`Assets/Vortex/Create Audio Assets`) — editor-тул: создаёт ассеты сэмплов из выделенных аудиоклипов в Project window
 
 ## Граничные случаи
 

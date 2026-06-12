@@ -124,6 +124,23 @@ Sound sound = data.GetLocale();
 SoundClipFixed clip = data.GetSoundClip();
 ```
 
+### Editor tool «Bulk rough toolkit»
+
+The `AudioLocaleDataPreset` inspector exposes a foldout group `Bulk rough toolkit` (Russian label: «Грубый инструментарий массовой замены»). It bundles **Editor-only** helpers for the common patterns of rebuilding voice references. Every action calls `EditorUtility.SetDirty` — changes get into the commit.
+
+| Button | What it does | Why useful |
+|---|---|---|
+| `Update Voices Array` | For each `voice`, takes the current `audio` (Sound), reads its name, splits it on the first dot into `prefix.suffix`. Then looks in the Sound catalog for a record named `"{TextGuid}.{voice.language}"` and writes its GUID into `voice.audio`. | After renaming the preset's `textGuid` — rewire voice references in bulk to the new key |
+| `Замена первой части ключа` (Replace first key segment) | Reads the `charName` field; for every `voice`, looks for a record named `"{charName}.{oldSuffix}"` where `oldSuffix` is the remainder of the old Sound name after the first dot, and writes its GUID. Also rewires the preset's `textGuid` to the localization key `"{charName}.{Name}"` (resolved via `Localization.GetLocalizationKeys()`, case-insensitive). | Cloning a preset for another character: change the prefix, voices automatically point to that character's recordings |
+| `Скопировать первую запись под другой язык` (Copy first entry to another language) | Reads the `_newLanguage` field. Uses the first `voice` as a template, replaces the substring `.{templateLang}` with `.{newLanguage}` inside its Sound name, looks up the matching Sound and appends a new `voice` entry for `_newLanguage`. If an entry for that language already exists, the action is skipped. | Adding a new language: first locale is done; stub the rest with one click |
+
+**Naming convention** the toolkit exploits:
+- `Sound.Name` looks like `Character.{anything}.{lang}.{index}` or similar — language sits in one of the dot-separated positions.
+- `textGuid` looks like `Character.LineKey`.
+- `voice.language` matches the locale code from `Localization`.
+
+When the convention is broken, the toolkit **silently skips** the entry (it carefully checks for a dot in the name, that the target Sound exists, etc.) — nothing crashes, but nothing useful happens either. This is by contract: a «rough toolkit» is a best-effort helper, and the result needs a manual sanity check.
+
 ## Edge Cases
 
 | Situation | Behavior |

@@ -68,7 +68,7 @@ UserInterfaceData : Record
   ├── OnOpen: Action                          ← safe subscribe: если IsOpen — вызов сразу
   ├── OnClose: Action                         ← safe subscribe: если !IsOpen — вызов сразу
   │
-  ├── Init() → foreach Condition.Init(this, CheckConditions)
+  ├── Init() → foreach Condition.Init(this, CheckConditions) → CheckConditions()
   ├── DeInit() → foreach Condition.DeInit()
   ├── Open() → IsOpen=true, OnOpen, UIProvider.CallOnOpen
   ├── Close() → IsOpen=false, OnClose, UIProvider.CallOnClose
@@ -99,7 +99,7 @@ UserInterfaceTypes
 
 ### Механизм условий
 
-1. `Init()` вызывает `Condition.Init(data, CheckConditions)` для каждого условия
+1. `Init()` вызывает `Condition.Init(data, CheckConditions)` для каждого условия, затем сразу выполняет `CheckConditions()` для начальной синхронизации состояния
 2. Условие в `Run()` подписывается на внешние события и вызывает `RunCallback()` при изменении
 3. `RunCallback()` запускает `CheckConditions()` — проверку всех условий
 4. `CheckConditions()`: начальное состояние = текущее (`IsOpen`). Для каждого условия:
@@ -214,7 +214,7 @@ uiData.OnClose += () => Debug.Log("Closed");
 | `Close` на уже закрытом UI | No-op |
 | GUID не найден в индексе | `Log.Print(Error)`, no-op |
 | `Register` при `App.GetState() < Starting` | Возвращает `null` |
-| Условие выбрасывает исключение в `Check()` | `Debug.LogException`, немедленный `Close()` |
+| Условие выбрасывает исключение в `Check()` | `Log.Print(LogLevel.Error, ...)`, немедленный `Close()` |
 | Все условия `Idle` | Состояние не изменяется (остаётся текущим) |
 | Подписка на `OnOpen` при `IsOpen == true` | Callback вызывается немедленно |
 | Подписка на `OnClose` при `IsOpen == false` | Callback вызывается немедленно |

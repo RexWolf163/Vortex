@@ -13,9 +13,10 @@ Object serialization and deserialization to JSON strings without external librar
 Capabilities:
 
 - Convert objects to formatted JSON strings and back
-- Property-based (public getter + any setter)
+- Property-based (getter + setter): public getter by default, non-public when marked `[IsPOCO]`
 - Serialization control via `[POCO]` attribute on types
 - Exclusion of individual properties via `[NotPOCO]`
+- Custom converters for types outside the standard rules (`RegisterCustomSerializer`)
 - Nested objects, collections, dictionaries
 - Type-safe deserialization with `IsAssignableFrom` validation
 - Cyclic reference protection
@@ -43,7 +44,7 @@ Out of scope:
 
 ## Architecture
 
-Partial class `SerializeController` split into 4 files:
+Partial class `SerializeController` split into 5 files:
 
 | File | Purpose |
 |------|---------|
@@ -51,8 +52,9 @@ Partial class `SerializeController` split into 4 files:
 | `SerializeControllerExtSerialization.cs` | Object serialization to JSON string |
 | `SerializeControllerExtDeserialization.cs` | JSON string deserialization into new objects |
 | `SerializeControllerExtUploading.cs` | Loading data from JSON into existing objects |
+| `SerializeControllerExtRegistration.cs` | Custom converter registration (`RegisterCustomSerializer`) |
 
-Additionally — two attributes in `POCOAttribute.cs`.
+Additionally — three attributes in `POCOAttribute.cs`.
 
 ### Attributes
 
@@ -60,6 +62,7 @@ Additionally — two attributes in `POCOAttribute.cs`.
 |-----------|---------|--------|
 | `[POCO]` | Marks a type as serializable | Class, struct, interface |
 | `[NotPOCO]` | Excludes a property from serialization | Property |
+| `[IsPOCO]` | Forces a non-public property (internal/protected/private) into serialization | Property |
 
 ### Type filtering rules
 
@@ -72,6 +75,39 @@ Additionally — two attributes in `POCOAttribute.cs`.
 | Properties with `[NotPOCO]` | Always skipped |
 
 `[POCO]` on an interface applies to all its implementations.
+
+### Property selection rules
+
+A property is included in serialization if:
+
+- it has a getter **and** a setter (setter visibility doesn't matter — reflection invokes any);
+- the property type is serializable (see type filtering rules);
+- it has no `[NotPOCO]` attribute;
+- the getter is public **OR** the property is marked `[IsPOCO]`.
+
+Non-public properties without `[IsPOCO]` are excluded — this keeps the class's
+internal/private state (caches, shadow states) isolated from the save while exposing
+IReadOnly facades outward.
+
+### Custom converters
+
+For types that fall outside `IsSimpleType` and the `[POCO]` attribute, custom converters
+are registered via `RegisterCustomSerializer`. A registered type family behaves like a
+simple type: it is serialized to a JSON string and deserialized back through the supplied
+functions.
+
+```csharp
+SerializeController.RegisterCustomSerializer(
+    matches:     type => typeof(ExtensibleEnum).IsAssignableFrom(type),
+    serialize:   obj => ((ExtensibleEnum)obj).Key,
+    deserialize: (type, str) => ExtensibleEnum.Deserialize(type, str));
+```
+
+Use case — types whose singleton instances cannot be recreated via
+`Activator.CreateInstance` (e.g. type-safe enum-like classes) but which have a stable
+string representation. Registration is idempotent by the combination of the three
+delegates (calling again with the same references does not duplicate the entry), so it is
+safe to call from a static initializer across domain reloads.
 
 ### Serialization flow
 
@@ -215,7 +251,7 @@ Each complex object contains a type marker `"__"` with `AssemblyQualifiedName`:
 | `CacheFields` | `Dictionary<Type, PropertyInfo[]>` — type properties (filtered by `[NotPOCO]` and `IsSerializableType`) |
 | `CachePOCO` | `Dictionary<Type, bool>` — `[POCO]` check result for type and its interfaces |
 
-Both caches are populated on first access and never cleared.
+Both caches are populated on first access and never cleared. The visited-object registry `VisitedObjects` (cycle protection), by contrast, is cleared at the start of each `SerializeProperties` and in the `finally` on completion.
 
 ### Framework integration
 
@@ -238,12 +274,22 @@ public override void LoadFromSaveData(string data)
 
 ### Input
 
-An object whose type is marked `[POCO]` (or implements an interface with `[POCO]`), with public properties (getter + any setter).
+An object whose type is marked `[POCO]` (or implements an interface with `[POCO]`), with properties that have a getter + setter: public getter by default, non-public when marked `[IsPOCO]`.
+
+### Public API
+
+| Method | Purpose |
+|--------|---------|
+| `string SerializeProperties(this object)` | Serialize an object to a JSON string |
+| `T DeserializeProperties<T>(this string)` | Deserialize a JSON string into a new instance |
+| `void UploadProperties<T>(this string data, T target)` | Load JSON data into an existing `target` (merge, no recreation) |
+| `void RegisterCustomSerializer(matches, serialize, deserialize)` | Register a custom converter for a type family |
 
 ### Output
 
 - Serialization: formatted JSON string with type markers
 - Deserialization: typed object instance or `default(T)` on error
+- Upload: data is overlaid onto the supplied `target` (returns `void`)
 
 ### Supported property types
 

@@ -5,7 +5,7 @@
 
 ## Activation
 
-The package is activated through `SdkSettings` (menu **Vortex → Configs → SDK Settings**), toggle **`mapLevelsSdk`**. The toggle controls the define symbol `USING_VORTEX_MAP_LEVELS`, listed in the asmdef's `defineConstraints` — when disabled, the package is not compiled and its types are unavailable.
+The package is activated through `SdkSettings` (menu **Tools → Vortex → Configs → SDK Settings**), toggle **`mapLevelsSdk`**. The toggle controls the define symbol `USING_VORTEX_MAP_LEVELS`, listed in the asmdef's `defineConstraints` — when disabled, the package is not compiled and its types are unavailable.
 
 Reference for SDK-package activation: `Vortex/Sdk/SdkSettingsSystem/README.en.md`.
 
@@ -123,6 +123,7 @@ ru.vortex.sdk.maplevels
 ### Output
 - `MapLevelsBus.OnReady` (`InitValve`) — controller initialized
 - `MapLevelsBus.OnRelease` — controller cleaned up
+- `MapLevelsBus.OnMapsContainerRegistered` / `OnMapsContainerReleased` — scene container bound (`RegisterMapsParent`) / unbound (`UnregisterMapsParent`)
 - `IMapLevelsController.OnActiveLevelChanged(guid, gateId)` — active level switched
 - `IMapLevelsController.OnLevelLoaded(guid)` / `OnLevelUnloaded(guid)` — streaming events
 - `MapLevelsModel.ActiveLevelGuid` — `StringData` for subscription

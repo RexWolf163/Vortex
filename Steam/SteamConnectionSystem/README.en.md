@@ -33,7 +33,8 @@ Out of scope:
 | Dependency | Purpose |
 |------------|---------|
 | `Steamworks.NET` | `SteamAPI`, `SteamUser`, `SteamFriends`, `CSteamID` |
-| `Vortex.Unity.EditorTools` | `[OnChanged]`, `[ToggleButton]` for Inspector |
+| `Vortex.Unity.EditorTools` | `[ToggleButton]` for Inspector |
+| `Sirenix.OdinInspector` | `[OnValueChanged]` for Inspector |
 
 ---
 
@@ -52,6 +53,7 @@ SteamManager : MonoBehaviour (singleton)
   ├── [RuntimeInitializeOnLoadMethod] Init()
   │   └── new GameObject("SteamManager").AddComponent<SteamManager>()
   ├── Awake()
+  │   ├── Packsize.Test() / DllCheck.Test() → Debug.LogError on version mismatch
   │   ├── RestartAppIfNecessary(AppId) → Application.Quit() if not via Steam
   │   ├── SteamAPI.Init() → m_bInitialized
   │   ├── Callback<UserStatsReceived_t>.Create()
@@ -77,7 +79,7 @@ SteamUserShortData
 
 SteamConnectionSettings : ScriptableObject
   ├── steamAppId: uint (default 480)
-  ├── isEnabled: bool                   ← [OnChanged] → DefineSymbolManager.Refresh()
+  ├── isEnabled: bool                   ← [OnValueChanged("OnSteamEnabledChanged")] → DefineSymbolManager.Refresh()
   ├── isTestBuild: bool                 ← skips RestartAppIfNecessary
   └── OnAppUdChanged() → File.WriteAllText("steam_appid.txt")
 
@@ -95,7 +97,7 @@ Settings (internal)
 1. `DefineSymbolManager.Refresh()` — on Editor load, sets/removes `USING_STEAM`
 2. `Settings.CheckSteamAppId()` — synchronizes `steam_appid.txt` with the settings asset
 3. `SteamManager.Init()` — `RuntimeInitializeOnLoadMethod`, creates GameObject
-4. `SteamManager.Awake()` — `SteamAPI.Init()`, loads user data
+4. `SteamManager.Awake()` — `Packsize.Test()`/`DllCheck.Test()`, then `RestartAppIfNecessary`, `SteamAPI.Init()`, loads user data
 5. `SteamBus.LoadServices()` — `OnCallServices` for subscribers (e.g., `AchievementsController`)
 
 ### Conditional Compilation
@@ -199,7 +201,8 @@ if (SteamBus.SteamEnabled)
 | `steam_api.dll` not found | `DllNotFoundException`, `Application.Quit()` |
 | `isTestBuild = false`, launched outside Steam | `RestartAppIfNecessary()` → `true`, restart via Steam client |
 | `isTestBuild = true` | `RestartAppIfNecessary()` skipped |
-| Duplicate `SteamManager` initialization | `Debug.LogError`, `Destroy(gameObject)` |
+| Duplicate `SteamManager` instance (`s_instance != null`) | `Destroy(gameObject)` without log |
+| Re-initialization when `SteamBus.IsInitialized` | `Debug.LogError`, `return` (no `Destroy`) |
 | `USING_STEAM` not defined | `SteamBus.SteamEnabled = false`, `IsInitialized` always `false` |
 | Duplicate friend in list | `TryAdd` → `Debug.LogError("There is broken data")` |
 | Domain Reload disabled | `InitOnPlayMode()` resets static fields |

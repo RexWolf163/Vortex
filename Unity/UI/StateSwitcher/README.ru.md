@@ -26,6 +26,7 @@
 | `Vortex.Unity.UI.TweenerSystem.UniTaskTweener` | `AsyncTween` — анимация цвета в `ColorsSwitch` |
 | `Vortex.Unity.EditorTools` | `DrawingUtility`, `ToolsSettings` — рендеринг `StateSwitcherDrawer` |
 | `Vortex.Unity.AppSystem.System.TimeSystem` | `TimeController` — покадровая задержка в `GameObjectsSwitch` |
+| `Vortex.Core.ExtensibleEnumSystem` | `ExtensibleEnum` — перегрузка `Set(ExtensibleEnum)` по `Order` |
 | Odin Inspector | `[ValueDropdown]`, `[ShowInInspector]`, `[Button]` |
 
 ---
@@ -66,6 +67,7 @@ switcher.Set(0);                        // по индексу
 switcher.Set("Active");                 // по имени
 switcher.Set(MyEnum.Active);            // по enum
 switcher.Set((byte)2);                  // по byte
+switcher.Set(myExtensibleEnum);         // по ExtensibleEnum (через Order, null → no-op)
 switcher.ResetStates();                 // сброс всех item'ов + начальное состояние
 
 int current = switcher.State;           // текущее состояние (-1 = нет)
@@ -144,6 +146,7 @@ MonoBehaviour — переключает `UIStateSwitcher` в заданное �
 | `Set()` во время переключения | Защита от реентрантности (`_isSwitching` guard) |
 | `Set()` до `Awake` | Состояние сохраняется в `_startState`, применяется в `Awake` |
 | `GetState("несуществующее")` | Возвращает -1 |
-| `Set("несуществующее")` | `LogError`, состояние не меняется |
+| `Set("несуществующее")` | `LogError`, **затем откат к `stateOnEnable`** — switcher не остаётся в неопределённом состоянии |
+| `StateItem.Set()` бросает исключение | Перехват `try/catch` вокруг цикла `foreach`: `LogError` + `LogException`, остальные `StateItem` в этом состоянии **не отрабатываются** (быстрый откат, чтобы не маскировать настоящую проблему) |
 | `ColorsSwitch` с `_smoothChange` и нулевой `_duration` | Мгновенная смена (AsyncTween с duration ≤ 0) |
 | Дублирующийся `DropDownGroupName/DropDownItemName` у StateItem-классов | `LogError`, дубликат пропущен в dropdown |

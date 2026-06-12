@@ -117,7 +117,7 @@ MENU_EXIT   | Exit         | Выход        |
 | Атрибут | Тип поля | Описание |
 |---------|----------|----------|
 | `[LocalizationKey]` | `string` | Dropdown выбора ключа из индекса + превью перевода. Odin-drawer |
-| `[Language]` | `string` | Selector языка из списка `GetLanguages()`. MultiDrawer |
+| `[Language]` | `string` | Selector языка из списка `GetLanguages()`. Odin-drawer (`OdinAttributeDrawer<LanguageAttribute, string>`) |
 
 ### Гарантии
 
@@ -130,7 +130,7 @@ MENU_EXIT   | Exit         | Выход        |
 | Ограничение | Причина |
 |-------------|---------|
 | `LocalizationPreset` в `Resources/Localization/` | Загрузка через `Resources.LoadAll` |
-| `SetLanguage` — `async void` | fire-and-forget при смене языка |
+| `SetLanguage` — `async UniTask SetLanguage(string)` | асинхронная смена языка |
 | Языки привязаны к `SystemLanguage` | Валидация через `Enum.TryParse` |
 | Ключи — `ToUpper()` | Регистронезависимый поиск |
 
@@ -193,10 +193,10 @@ MENU_EXIT   | Exit         | Выход        |
 
 | Пункт | Описание |
 |-------|----------|
-| `Vortex/Localization/Load data` | Загрузить данные из Google Sheets в `LocalizationPreset` |
-| `Vortex/Localization/Update index` | Перестроить индекс из текущего пресета |
-| `Vortex/Localization/Set Default Locale` | Сбросить язык на системный/сохранённый |
-| `Vortex/Localization/Set Next Locale` | Переключить на следующий язык циклически |
+| `Tools/Vortex/Localization/Load data` | Загрузить данные из Google Sheets в `LocalizationPreset` |
+| `Tools/Vortex/Localization/Update index` | Перестроить индекс из текущего пресета |
+| `Tools/Vortex/Localization/Set Default Locale` | Сбросить язык на системный/сохранённый |
+| `Tools/Vortex/Localization/Set Next Locale` | Переключить на следующий язык циклически |
 
 ### LocalizationPreset Inspector
 

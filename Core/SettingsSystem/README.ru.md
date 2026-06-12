@@ -49,10 +49,13 @@ SettingsModel : SystemModel  (partial)
 
 `SettingsModel` — пустой partial-класс в Core. Каждая система, нуждающаяся в конфигурационных параметрах, добавляет свои свойства:
 
+Состав таблицы примерный — конкретный набор расширений зависит от подключённых пакетов:
+
 | Расширение | Свойства | Система |
 |------------|----------|---------|
 | `SettingsModelExtUnity` | `StartScene` | Unity SettingsSystem |
 | `SettingsModelExtDebug` | `DebugMode` | Core DebugSystem |
+| `SettingsModelExtDebug` (UIProvider) | `UiDebugMode` | Core UIProviderSystem (`Debug/Model/`) |
 | `SettingsModelExtDatabase` | Параметры Database | Unity DatabaseSystem |
 | `SettingsModelExtAsyncTweener` | Параметры TweenerSystem | Unity TweenerSystem |
 | `SettingsModelExtInput` | Параметры InputBus | Unity InputBusSystem |

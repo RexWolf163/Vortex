@@ -32,6 +32,7 @@
 |-------------|-----------|
 | `Vortex.Core.System` | `SystemController<T, TD>`, `ISystemDriver` |
 | `Vortex.Core.Extensions` | `StringExt.IsNullOrWhitespace()`, `DictionaryExt.AddNew()` |
+| `Cysharp.Threading.Tasks` | `UniTask` — возвращаемый тип `IDriver.SetLanguage(string)` |
 
 ---
 
@@ -46,14 +47,14 @@ Localization (SystemController<Localization, IDriver>)
 
 IDriver (интерфейс)
   ├── GetDefaultLanguage() → string
-  ├── SetLanguage(string)
+  ├── SetLanguage(string) → UniTask
   ├── SetIndex(Dictionary<string, string>)
   ├── GetLanguages() → string[]
   └── OnLocalizationChanged (event)
 
 StringExt (extension-методы)
   ├── "KEY".Translate()      → индекс[key] или "##!key!##"
-  └── "KEY".TryTranslate()   → индекс[KEY] или исходная строка
+  └── "KEY".TryTranslate()   → индекс[key] или исходная строка
 ```
 
 ### Индекс переводов
@@ -67,7 +68,7 @@ StringExt (extension-методы)
 | Метод | Описание |
 |-------|----------|
 | `GetDefaultLanguage()` | Язык по умолчанию (системный или сохранённый) |
-| `SetLanguage(string)` | Установка языка. Драйвер перезагружает данные и вызывает `OnLocalizationChanged` |
+| `SetLanguage(string)` → `UniTask` | Установка языка. Драйвер асинхронно перезагружает данные и вызывает `OnLocalizationChanged` |
 | `SetIndex(Dictionary<string, string>)` | Привязка индекса из ядра к драйверу |
 | `GetLanguages()` | Список доступных языков |
 | `OnLocalizationChanged` | Событие — вызывается драйвером после смены языка |
@@ -102,7 +103,7 @@ StringExt (extension-методы)
 | Метод | Описание |
 |-------|----------|
 | `"KEY".Translate()` | `Localization.GetTranslate(key)`. Пустая строка → `""` |
-| `"KEY".TryTranslate()` | Если перевод есть для `KEY.ToUpper()` — возвращает перевод, иначе исходную строку |
+| `"KEY".TryTranslate()` | Если перевод для ключа есть — возвращает его, иначе исходную строку. Поиск регистронезависим |
 
 ### Editor API (partial Localization)
 
@@ -124,7 +125,7 @@ StringExt (extension-методы)
 | Ограничение | Причина |
 |-------------|---------|
 | Один язык одновременно | Один индекс на приложение |
-| Ключи не регистрозависимы только в `TryTranslate` | `TryTranslate` вызывает `ToUpper()`, `Translate` — нет |
+| Ключи регистронезависимы | Индекс создан с `StringComparer.OrdinalIgnoreCase` — `Translate` и `TryTranslate` ищут без учёта регистра |
 | `"##!key!##"` при отсутствии ключа | Визуальный маркер для отладки |
 | Индекс перестраивается полностью при смене языка | Драйвер очищает и заполняет заново |
 

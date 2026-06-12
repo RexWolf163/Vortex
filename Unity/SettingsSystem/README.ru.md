@@ -17,7 +17,7 @@ Unity-слой системы настроек. Предоставляет др�
 - `StartSettings` — встроенный пресет: стартовая сцена для Editor
 - Автосоздание ассетов: при загрузке Editor для каждого `SettingsPreset`-наследника без ассета создаётся файл
 - `StartSceneHandler` — загрузка стартовой сцены при Play Mode в Editor
-- Меню `Vortex > Configs > Application Start Config` — навигация к ассету `StartSettings`
+- Меню `Tools > Vortex > Configs > Application Start Config` — навигация к ассету `StartSettings`
 
 Вне ответственности:
 
@@ -66,7 +66,7 @@ StartSceneHandler  (Editor, static)
        └── SceneManager.LoadScene(Settings.Data().StartScene)
 
 MenuController  (Editor, static)
-  └── [MenuItem("Vortex/Configs/Application Start Config")]
+  └── [MenuItem("Tools/Vortex/Configs/Application Start Config")]
        └── навигация к ассету StartSettings
 ```
 
@@ -157,7 +157,7 @@ public class GameplaySettings : SettingsPreset
 
 ### Навигация к настройкам
 
-`Menu: Vortex > Configs > Application Start Config` — открывает ассет `StartSettings` в Inspector.
+`Menu: Tools > Vortex > Configs > Application Start Config` — открывает ассет `StartSettings` в Inspector.
 
 ---
 

@@ -75,7 +75,7 @@ Config/
     DebugSettingsExtAssetsCache     — AssetCacheDebugLogs toggle (respects DebugMode)
 
 Editor/
-  MenuController                    — Vortex/Configs/AssetCache Settings → ping the asset
+  MenuController                    — Tools/Vortex/Configs/AssetCache Settings → ping the asset
 ```
 
 ### Bootstrap lifecycle

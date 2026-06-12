@@ -81,16 +81,17 @@ UserInterface : MonoBehaviour (partial)
 CallUIHandler : MonoBehaviour
   ├── uiId: string (GUID)
   ├── closeUI: bool
-  └── OnClick() → UIProvider.Open/Close/Toggle
+  ├── CallUI() → UIProvider.Open/Close
+  └── ToggleUI() → UIProvider.Toggle
 
 CallUIClose : MonoBehaviour
   └── userInterface: UserInterface → Close()
 
 UIDragHandler : MonoBehaviour, IDragHandler, IPointerDownHandler, IPointerUpHandler
-  ├── dragStateSwitcher: UIStateSwitcher
+  ├── uiStateSwitcher: UIStateSwitcher [StateSwitcher(typeof(DragState))]
   ├── OnDrag(delta) → callback
-  ├── OnPointerDown → switcher.On
-  └── OnPointerUp → switcher.Off
+  ├── OnPointerDown → uiStateSwitcher.Set(DragState.Dragging)
+  └── OnPointerUp → uiStateSwitcher.Set(DragState.Free)
 
 UnityUserInterfaceCondition : UserInterfaceCondition
   └── [DisplayAsString] Name (для Inspector)
@@ -246,7 +247,7 @@ public sealed class MyCondition : UnityUserInterfaceCondition
 
 | Ситуация | Поведение |
 |----------|-----------|
-| `CanvasScaler` отсутствует при drag | Drag отключён, `Debug.LogError` |
+| `CanvasScaler` отсутствует при drag | Drag молча отключён (`return` в `UserInterfaceExtDrag`), без лога |
 | `UserInterface.OnEnable` до `App.Started` | Подписка на `App.OnStart`, регистрация отложена |
 | `UserInterface.OnEnable` после `App.Started` | `TimeController.Call(Init)` — регистрация в следующем кадре |
 | Пустой массив `tweeners` | Открытие/закрытие без анимации |

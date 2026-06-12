@@ -11,6 +11,7 @@ This folder holds the **source** of the skills. To make Claude Code use them, co
 | [vortex-layer-detect](vortex-layer-detect/SKILL.md) | Pick the architectural layer (1/2/3) for a new Vortex system before any code is written | "let's add system X", "new subsystem Y", "I want a package for Z" in a Vortex context |
 | [vortex-initial-architecture](vortex-initial-architecture/SKILL.md) | Design the initial architecture of a Vortex package via the canonical algorithm (Stage 0 + 7 steps) | "design the architecture", "lay out the package structure", "sketch system X" |
 | [code-quality](code-quality/SKILL.md) | Strict Unity code quality assessment by formula with an architectural multiplier. 4 branches by size (≤3000 LOC / 3000–12000 / partial / subjective) | "assess code quality", "run the criteria", "check the package quality" |
+| [tz-design](tz-design/SKILL.md) | Authoring a technical specification (TZ) for a new feature/subsystem, or a self-audit of an existing TZ. Two-tier document structure, calibrated to target maturity | "write it up as a TZ", "make a TZ", "draft a technical spec", "review this TZ", "assess the TZ for completeness" |
 
 ## Workflow
 
@@ -25,6 +26,7 @@ New Vortex system
 - **vortex-layer-detect** — first step when adding any new system. MUST run before code generation.
 - **vortex-initial-architecture** — after the layer is fixed. Produces the structure (bus, config, controller, model, presets, interface, views).
 - **code-quality** — after implementation (or for auditing existing packages). Returns a 0–10 score with an architectural-defect breakdown.
+- **tz-design** — a standalone skill, not part of the linear code flow. Used before design (to author a TZ for a feature/subsystem) or to audit an existing TZ.
 
 ## Installation
 
@@ -42,6 +44,7 @@ Claude Code loads skills from two locations:
 cp -r Vortex/AITools/ClaudeCodeSkills/vortex-layer-detect ~/.claude/skills/
 cp -r Vortex/AITools/ClaudeCodeSkills/vortex-initial-architecture ~/.claude/skills/
 cp -r Vortex/AITools/ClaudeCodeSkills/code-quality ~/.claude/skills/
+cp -r Vortex/AITools/ClaudeCodeSkills/tz-design ~/.claude/skills/
 
 # Project-level (current project only)
 mkdir -p .claude/skills

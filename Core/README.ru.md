@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Core.*`
 **Платформа:** чистый C# + UniTask
-**Файлов:** ~89 (.cs), 16 систем
+**Файлов:** 111 (.cs), 17 систем
 
 ---
 
@@ -68,7 +68,7 @@ Vortex не использует DI-контейнеры. Вместо этог�
 
 | Система | Что делает | Ключевые типы |
 |---------|-----------|---------------|
-| **System** | Базовые абстракции | `Singleton<T>`, `SystemController<T,TD>`, `ReactiveValue<T>`, `IProcess`, `DateTimeTimer` |
+| **System** | Базовые абстракции | `Singleton<T>`, `SystemController<T,TD>`, `IProcess`, `DateTimeTimer` |
 | **DatabaseSystem** | Шина данных | `Database`, `Record` |
 | **AppSystem** | Жизненный цикл | `App` (static), `AppModel`, `AppStates` |
 | **LoaderSystem** | Загрузчик | `Loader` — регистрация, топологическая сортировка, `async Run()` |
@@ -76,13 +76,15 @@ Vortex не использует DI-контейнеры. Вместо этог�
 | **SettingsSystem** | Настройки | `Settings`, `SettingsModel` (partial, расширяется другими системами) |
 | **UIProviderSystem** | Управление UI | `UIProvider`, `UserInterfaceData`, `UserInterfaceCondition` |
 | **AudioSystem** | Аудио | `AudioController`, `AudioSample`, `MusicSample`, `SoundSample` |
+| **VideoSystem** | Видео | `VideoController`, `IVideoDriver`, `ScreenMode` |
 | **LocalizationSystem** | Локализация | `Localization`, `StringExt` |
 | **LoggerSystem** | Логирование | `Log`, `LogData`, `LogLevel` |
 | **LogicChainsSystem** | Цепочки логики | `LogicChains`, `LogicChain`, `ChainStep`, `Connector` |
 | **MappedParametersSystem** | Параметрические карты | `ParameterMaps`, `IMappedModel`, `GenericParameter` |
 | **ComplexModelSystem** | Составные модели | `ComplexModel` |
+| **ExtensibleEnumSystem** | Расширяемые enum-наборы | `ExtensibleEnum`, `ExtEnumData` |
 | **DebugSystem** | Отладка | `SettingsModelExtDebug` — partial-расширение `SettingsModel` |
-| **Extensions** | Утилиты | `ActionExt`, `SerializeController`, `Crypto`, `ListExt` |
+| **Extensions** | Утилиты | `ReactiveValue<T>`, `ActionExt`, `SerializeController`, `Crypto`, `ListExt` |
 
 ---
 

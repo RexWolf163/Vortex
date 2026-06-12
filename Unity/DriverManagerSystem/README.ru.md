@@ -38,7 +38,7 @@ DriverManagerSystem/
 │   ├── DriverConfig.cs                 # ScriptableObject — таблица соответствий
 │   └── DriverRecord.cs                 # Строка таблицы: система → драйвер
 ├── Editor/
-│   └── MenuConfigSearchController.cs   # Меню: Vortex → Configs → Drivers Config
+│   └── MenuController.cs               # Меню: Tools/Vortex/Configs/Drivers Config
 └── (generated) DriversGenericList.cs   # Автогенерируемый белый список
 ```
 
@@ -87,7 +87,7 @@ ScriptableObject (`ICoreAsset`), хранит массив `DriverRecord[]`. Р�
 
 ## Использование
 
-1. Открыть `DriverConfig` через меню **Vortex → Configs → Drivers Config**
+1. Открыть `DriverConfig` через меню **Tools/Vortex/Configs/Drivers Config**
 2. Нажать **Reload** для обнаружения всех систем
 3. Назначить драйвер каждой системе через dropdown
 4. Нажать **Save Config** — сгенерируется `DriversGenericList.cs`

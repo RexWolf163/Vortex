@@ -81,16 +81,17 @@ UserInterface : MonoBehaviour (partial)
 CallUIHandler : MonoBehaviour
   ├── uiId: string (GUID)
   ├── closeUI: bool
-  └── OnClick() → UIProvider.Open/Close/Toggle
+  ├── CallUI() → UIProvider.Open/Close
+  └── ToggleUI() → UIProvider.Toggle
 
 CallUIClose : MonoBehaviour
   └── userInterface: UserInterface → Close()
 
 UIDragHandler : MonoBehaviour, IDragHandler, IPointerDownHandler, IPointerUpHandler
-  ├── dragStateSwitcher: UIStateSwitcher
+  ├── uiStateSwitcher: UIStateSwitcher [StateSwitcher(typeof(DragState))]
   ├── OnDrag(delta) → callback
-  ├── OnPointerDown → switcher.On
-  └── OnPointerUp → switcher.Off
+  ├── OnPointerDown → uiStateSwitcher.Set(DragState.Dragging)
+  └── OnPointerUp → uiStateSwitcher.Set(DragState.Free)
 
 UnityUserInterfaceCondition : UserInterfaceCondition
   └── [DisplayAsString] Name (for Inspector)
@@ -246,7 +247,7 @@ Logging: Register/Unregister in `UIProvider` when active
 
 | Scenario | Behavior |
 |----------|----------|
-| `CanvasScaler` missing during drag | Drag disabled, `Debug.LogError` |
+| `CanvasScaler` missing during drag | Drag silently disabled (`return` in `UserInterfaceExtDrag`), no log |
 | `UserInterface.OnEnable` before `App.Started` | Subscribes to `App.OnStart`, registration deferred |
 | `UserInterface.OnEnable` after `App.Started` | `TimeController.Call(Init)` — registration next frame |
 | Empty `tweeners` array | Open/close without animation |

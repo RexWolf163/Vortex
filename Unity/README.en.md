@@ -135,16 +135,17 @@ StateItem is an extensible type: the programmer creates a subclass and it automa
 
 ### EditorTools (~60 files)
 
-Inspector customization package. Provides 20 attributes that configure field display without writing Editor code:
+Inspector customization package. Provides ~11 attributes that configure field display without writing Editor code:
 
 - `[AutoLink]` — auto-bind component when null
-- `[OnChanged("Method")]` — callback on change
-- `[ValueSelector("Method")]` — SearchablePopup from method
-- `[ToggleButton]` — bool as styled button
-- `[ToggleBox("field")]` — conditional field grouping
-- `[Show]` / `[Hide]` / `[ShowInPlay]` / `[HideInEditor]` — conditional visibility
+- `[ClassFilter(typeof(IMyInterface))]` — filter ObjectField by type/interface
 - `[ClassLabel("$Method")]` — custom collection element header
-- `[VortexCollection]` — collection rendering with drag & drop, fold, context menus
+- `[ValueSelector("Method")]` — SearchablePopup from array/list/dictionary
+- `[ToggleButton("Labels", "Colors")]` — toggle buttons for bool/int/byte/enum
+- `[DateTimeDraw]` / `[TimeDraw]` — render `long` as date / time
+- `[TimerDraw]` / `[DateTimerDraw]` — read-only timer / date
+- `[DataModel]` — data model drawer (+`[DataModelMethod]`)
+- `[PropertyFoldoutGroup("name")]` — extended foldout group with property in the header
 
 EditorTools is built entirely on top of Sirenix Odin Inspector — the native `PropertyDrawer` pipeline is not used. Odin drawers live in a separate assembly `ru.vortex.unity.editortools.sirenix` with `defineConstraints: ["ODIN_INSPECTOR"]`.
 

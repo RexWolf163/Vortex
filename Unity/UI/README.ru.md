@@ -14,11 +14,13 @@ UI-слой фреймворка. Всё, что касается визуала
 
 **PoolSystem** — пул с data-ключами. `Pool` создаёт, переиспользует и деактивирует `PoolItem`. Элементы не уничтожаются — отключаются и возвращаются в очередь.
 
-**Misc** — утилиты. `AdvancedButton` с четырьмя режимами клика и визуальными состояниями. `CounterView` для анимированных счётчиков. `SliderView` с плавным движением. `DataStorage` как универсальный контейнер. `DropDown` — выпадающий список на Pool с сортировкой, дедупликацией и scroll-позиционированием. `AutoRectSetter`, `EnableDelayForChild`, `ScrollRectResetHandler`.
+**Misc** — утилиты. `AdvancedButton` с четырьмя режимами клика и защитой от scroll-drag через `IPointerClickHandler`. `CounterViewBase`/`CounterViewAdvanced` для счётчиков с порогами и пульсацией. `SliderView` с плавным движением. `DataStorage` как универсальный контейнер. `DropDown` — выпадающий список на Pool с сортировкой, дедупликацией и scroll-позиционированием. `AutoRectSetter`, `EnableDelayForChild`, `ScrollRectResetHandler`.
+
+**CursorSystem** — кастомный системный курсор. Дефолтный спрайт, отдельные на LMB/RMB, массив hover-вариантов по UI-зонам. Унифицированный API через `MouseHoverListener` на UGUI-объектах + публичный `CursorController.OnHover/OnUnHover` для не-UGUI источников. Защита от alt-tab из коробки (через Input System soft-reset).
 
 ## Зависимости
 
-UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeController`, `ActionExt`, `IDataStorage`, `EditorTools`.
+UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeController`, `ActionExt`, `IDataStorage`, `EditorTools`, `SettingsSystem` (для `CursorSystem`).
 
 ## Документация подсистем
 
@@ -29,3 +31,4 @@ UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeControl
 - `StateSwitcher/` — машина состояний
 - `PoolSystem/` — пул объектов
 - `Misc/` — утилитарные компоненты
+- `CursorSystem/` — кастомный курсор

@@ -38,7 +38,7 @@ DriverManagerSystem/
 │   ├── DriverConfig.cs                 # ScriptableObject — mapping table
 │   └── DriverRecord.cs                 # Table row: system → driver
 ├── Editor/
-│   └── MenuConfigSearchController.cs   # Menu: Vortex → Configs → Drivers Config
+│   └── MenuController.cs               # Menu: Tools/Vortex/Configs/Drivers Config
 └── (generated) DriversGenericList.cs   # Auto-generated whitelist
 ```
 
@@ -87,7 +87,7 @@ Used in `SystemController<T, TD>.SetDriver()` for runtime validation: only the d
 
 ## Usage
 
-1. Open `DriverConfig` via menu **Vortex → Configs → Drivers Config**
+1. Open `DriverConfig` via menu **Tools/Vortex/Configs/Drivers Config**
 2. Click **Reload** to discover all systems
 3. Assign a driver to each system via dropdown
 4. Click **Save Config** — `DriversGenericList.cs` is generated

@@ -32,7 +32,8 @@ AppModel (sealed partial)
 └── AppModelExtTime.cs — GetStartTime()
 
 SettingsModelExtDebug (partial SettingsModel)
-└── AppStateDebugMode  — bool property
+├── AppStateDebugMode   — bool property
+└── IgnorePauseInEditor — bool property
 ```
 
 ### States

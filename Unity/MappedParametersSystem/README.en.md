@@ -124,7 +124,7 @@ On list changes (`OnListChanged`), `CheckErrors()` executes:
 
 ### Input
 
-- `ParametersMapStorage` created via `Create > Vortex > Parameters Map`
+- `ParametersMapStorage` auto-created (`EditorRegister`) in `Resources/MapsConfig/` when missing — no `[CreateAssetMenu]`
 - `guid` points to `FullName` of `IMappedModel` type
 - Base and derived parameters configured in Inspector
 
@@ -158,7 +158,7 @@ Both drawers support a `Find` button — navigates to the `ParametersMapStorage`
 
 ### Creating a parameter map
 
-1. `Create > Vortex > Parameters Map` — create `ParametersMapStorage`
+1. Open `ParametersMapStorage` — the asset is auto-created by `EditorRegister` in `Resources/MapsConfig/`
 2. Select model type (`IMappedModel`) in `guid` dropdown
 3. Add base parameters (`baseParams`) — string names
 4. Add derived parameters (`mappedParams`) — name, parents with costs, `CostLogic` when >1 parent
@@ -207,7 +207,7 @@ public class SkillButton : MonoBehaviour
 
 ### DOT Graph Export
 
-`Menu: Vortex > Debug > Export Mapped Parameters into Graph`
+`Menu: Tools > Vortex > Debug > Export Mapped Parameters into Graph`
 
 Exports each `ParametersMapStorage` to a `.dot` file (Graphviz). Base parameters are highlighted with `#b3e5fc` color. Links are labeled with cost. Visualization: [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/).
 

@@ -34,7 +34,7 @@ Out of scope:
 ```
 LogicConditionsSystem/
 └── Conditions/
-    ├── _UnityCondition.cs      # Abstract base: Inspector display
+    ├── UnityCondition.cs       # Abstract base: Inspector display
     ├── MinTimeCondition.cs     # Timer-based wait
     ├── SceneLoaded.cs          # Scene loading wait
     └── SystemsLoaded.cs        # AppStates.Running wait

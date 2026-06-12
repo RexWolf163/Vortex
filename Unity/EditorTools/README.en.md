@@ -198,6 +198,15 @@ GUI primitives over `EditorGUI`:
 
 Popup with built-in search and `/`-based grouping. Used by `ValueSelectorAttributeDrawer` and `DrawSelector`.
 
+The `Draw` API has two overloads built for different state-ownership patterns:
+
+| Overload | Signature | When to use |
+|---|---|---|
+| **Stateful** | `Draw(rect, controlId, selectedIndex, items, placeholder?)` | The caller stores the "current index" in its own field, not in an external source. The popup maintains `SelectionCache[controlId]` and remembers the active selection between frames. |
+| **Stateless** | `Draw(rect, items, selectedIndex, placeholder, onPicked)` | The current index is derived from an external source of truth (Odin `ValueEntry`, `SerializedProperty`, a domain model) on every OnGUI. `SelectionCache` is not used — the choice arrives **only** via `onPicked(index)`, and the caller is responsible for writing the result into the external state. |
+
+The stateless overload is needed where the popup acts as a "selection view" rather than a "selection owner". Without it, a caller with an authoritative external state runs into a race: the popup window asynchronously writes into the cache, while on the next OnGUI the caller passes the old value from its source, the cache is overwritten, and the choice is lost. See `DbRecordAttributeDrawer` for the canonical example.
+
 ### `InspectorHandler`
 
 `SerializedProperty` helpers: `IsPropertyNullable(property)` (true for String/ObjectReference), `GetPropertyValue(property)` (boxed primitive value).

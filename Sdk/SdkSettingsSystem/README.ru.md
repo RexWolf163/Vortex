@@ -33,7 +33,7 @@ sdk.settings.system  (asmdef)
 ├── Attribute/
 │   └── DefineSymbolAttribute.cs
 └── Editor/
-    └── MenuController.cs     ← пункт меню Vortex/Configs/SDK Settings
+    └── MenuController.cs     ← пункт меню Tools/Vortex/Configs/SDK Settings
 
 <package>/DefineSettings/
 ├── SdkSettings.<Package>.cs  ← partial-кусок с bool-полем
@@ -48,7 +48,7 @@ sdk.settings.system  (asmdef)
 |-------|-----|-----------|
 | `SdkSettings` | `partial ScriptableObject`, `ICoreAsset` | Главный ассет, partial-кусками собирает поля из всех Sdk-пакетов |
 | `DefineSymbolAttribute` | `Attribute` | Метка bool-поля: с каким `define` в PlayerSettings оно связано |
-| `MenuController` | static, Editor-only | Пункт меню `Vortex/Configs/SDK Settings` для перехода к ассету |
+| `MenuController` | static, Editor-only | Пункт меню `Tools/Vortex/Configs/SDK Settings` для перехода к ассету |
 
 ## Как добавить новый Sdk-пакет
 
@@ -131,4 +131,4 @@ sdk.settings.system  (asmdef)
 
 ## Меню
 
-`Vortex → Configs → SDK Settings` — поиск ассета `SdkSettings` в проекте и переход к нему через `MenuConfigSearchController`.
+`Tools → Vortex → Configs → SDK Settings` — поиск ассета `SdkSettings` в проекте и переход к нему через `MenuConfigSearchController`.

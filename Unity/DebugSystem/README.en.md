@@ -10,7 +10,7 @@ ScriptableObject debug settings asset with toggle buttons for each system.
 - Local toggles: `appStates`, `inputLogs`, `uiLogs`, `asyncTweenerLogs`
 - Each local toggle is a partial `DebugSettings` extension from the corresponding system
 - Final property: `XxxDebugMode => DebugMode && xxxToggle`
-- Menu `Vortex/Configs/Debug Settings` for quick asset access
+- Menu `Tools/Vortex/Configs/Debug Settings` for quick asset access (pings the `StartSettings` asset)
 
 Out of scope: logging logic, Core `SettingsModel` properties — these belong to Core (Layer 1).
 
@@ -31,7 +31,7 @@ DebugSettings (partial, SettingsPreset)
 └── UI/TweenerSystem/Debug/Presets/           → asyncTweenerLogs → AsyncTweenerDebugMode
 
 MenuController (Editor)
-└── Vortex/Configs/Debug Settings             — asset navigation
+└── Tools/Vortex/Configs/Debug Settings       — pings the StartSettings asset
 ```
 
 ### Extension Pattern
@@ -60,7 +60,7 @@ The `MyDebugMode` property is `true` only when both `DebugMode` AND `myToggle` a
 - All properties accessible via `Settings.Data()` (copied to `SettingsModel` on load)
 
 ### Guarantees
-- `[Position(-100)]` — `DebugMode` renders first in Inspector
+- `[PropertyOrder(-100)]` (Odin) — `DebugMode` renders first in Inspector
 - All local toggles depend on `DebugMode` — disabling global disables all
 
 ### Limitations
@@ -77,7 +77,7 @@ The `MyDebugMode` property is `true` only when both `DebugMode` AND `myToggle` a
 
 ### Asset Access
 
-Menu: `Vortex → Configs → Debug Settings`
+Menu: `Tools/Vortex/Configs/Debug Settings` (pings the `StartSettings` asset)
 
 ### Code Check
 

@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Sdk.*`
 **Layer:** 3 (AppSDK)
-**Packages:** 3 (GameCore, Quests, MiniGamesSystem)
+**Packages:** 11 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, MapLevels, RewardsSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
 
 ---
 
@@ -50,9 +50,17 @@ State changes only through the controller. UI observes but does not decide.
 
 | Package | Assembly | Purpose |
 |---------|----------|---------|
-| **GameCore** | `ru.vortex.sdk.game.core` | Game session: states, pause, serialization, reactive data model |
+| **Core** | `ru.vortex.sdk.game.core` | Game session: states, pause, serialization, reactive data model |
 | **Quests** | `ru.vortex.sdk.game.quests` | Quest system: conditions, async logic execution, autorun |
 | **MiniGamesSystem** | `ru.vortex.sdk.minigames` + concrete games | Mini-game framework: Hub → Controller → Data → View |
+| **AudioLocalizationSystem** | `ru.vortex.sdk.localization.audio` | Localized line voice-over: binds voice to Sound by language |
+| **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Playable character: bus, controllers, view, save/load |
+| **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Spawns visual effects from a catalog by key through a pool |
+| **MapLevels** | `ru.vortex.sdk.maplevels` | Streaming map levels: switching, load/unload |
+| **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Rewards system |
+| **SdkSettingsSystem** | `sdk.settings.system` | SDK-package activation config via define symbols |
+| **UIs/RoofTransparentSystem** | `ru.vortex.sdk.ui.rooftransparent` | Roof transparency when the character is occluded |
+| **UIs/SaveLoad** | `ru.vortex.sdk.game.uis.saveload` | Save/load UI wrapper |
 
 ---
 

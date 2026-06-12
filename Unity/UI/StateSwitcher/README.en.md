@@ -26,6 +26,7 @@ Out of scope:
 | `Vortex.Unity.UI.TweenerSystem.UniTaskTweener` | `AsyncTween` — color animation in `ColorsSwitch` |
 | `Vortex.Unity.EditorTools` | `DrawingUtility`, `ToolsSettings` — `StateSwitcherDrawer` rendering |
 | `Vortex.Unity.AppSystem.System.TimeSystem` | `TimeController` — frame-delayed switching in `GameObjectsSwitch` |
+| `Vortex.Core.ExtensibleEnumSystem` | `ExtensibleEnum` — `Set(ExtensibleEnum)` overload by `Order` |
 | Odin Inspector | `[ValueDropdown]`, `[ShowInInspector]`, `[Button]` |
 
 ---
@@ -66,6 +67,7 @@ switcher.Set(0);                        // by index
 switcher.Set("Active");                 // by name
 switcher.Set(MyEnum.Active);            // by enum
 switcher.Set((byte)2);                  // by byte
+switcher.Set(myExtensibleEnum);         // by ExtensibleEnum (via Order, null → no-op)
 switcher.ResetStates();                 // reset all items + initial state
 
 int current = switcher.State;           // current state (-1 = none)
@@ -144,6 +146,7 @@ MonoBehaviour — switches a `UIStateSwitcher` to a given state on `OnEnable`.
 | `Set()` during transition | Reentrancy guard (`_isSwitching`) |
 | `Set()` before `Awake` | State saved in `_startState`, applied in `Awake` |
 | `GetState("nonexistent")` | Returns -1 |
-| `Set("nonexistent")` | `LogError`, state unchanged |
+| `Set("nonexistent")` | `LogError`, **then falls back to `stateOnEnable`** — the switcher never sits in an undefined state |
+| `StateItem.Set()` throws an exception | A `try/catch` wraps the `foreach`: `LogError` + `LogException`, the remaining `StateItem`s in this state are **not applied** (fail fast, do not mask the actual problem) |
 | `ColorsSwitch` with `_smoothChange` and zero `_duration` | Instant change (AsyncTween with duration ≤ 0) |
 | Duplicate `DropDownGroupName/DropDownItemName` across StateItem classes | `LogError`, duplicate skipped in dropdown |

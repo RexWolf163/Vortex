@@ -55,8 +55,8 @@ MonoBehaviour bridging Unity lifecycle with the `App` bus.
 
 | Event | Action |
 |-------|--------|
-| `OnApplicationFocus(false)` | `App.SetState(Unfocused)` |
-| `OnApplicationPause(true)` | `App.SetState(Unfocused)` |
+| `OnApplicationFocus(false)` | `App.SetState(Unfocused)`; in the editor, when `IgnorePauseInEditor` is set — `return` without changing state |
+| `OnApplicationPause(true)` | `App.SetState(Unfocused)`; in the editor, when `IgnorePauseInEditor` is set — `return` without changing state |
 | Focus restored | `App.SetState(_oldState)` — restores previous state |
 | `OnStateChanged(Stopping)` | `Application.Quit()` (in editor: `EditorApplication.isPlaying = false`) |
 | `OnStateChanged(Unfocused)` | Ignored — `_oldState` not updated |
@@ -74,6 +74,8 @@ The `_started` flag is set 1 second after `Start` (coroutine). `OnDestroy` befor
 Partial extension of `DebugSettings`. Adds an `appStates` toggle with the `[ToggleButton]` attribute.
 
 The `AppStateDebugMode` property is `true` only when both global `DebugMode` and local `appStates` are enabled. Used in `App.SetState()` for conditional transition logging.
+
+It also adds an `ignorePauseInEditor` toggle (`IgnorePauseInEditor` property). When enabled, in the editor `AppStateHandler` ignores `OnApplicationFocus(false)` / `OnApplicationPause(true)` — no transition to `Unfocused` happens (convenient when debugging while the Unity window is out of focus).
 
 ---
 

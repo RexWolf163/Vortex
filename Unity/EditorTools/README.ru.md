@@ -198,6 +198,15 @@ public class PlayerStateModel
 
 Попап со встроенным поиском и группировкой по разделителю `/`. Используется `ValueSelectorAttributeDrawer` и `DrawSelector`.
 
+API имеет две перегрузки `Draw`, рассчитанные на разные паттерны хранения состояния:
+
+| Перегрузка | Сигнатура | Когда использовать |
+|---|---|---|
+| **Stateful** | `Draw(rect, controlId, selectedIndex, items, placeholder?)` | Caller хранит «текущий индекс» в своём поле, не во внешнем источнике. Попап ведёт `SelectionCache[controlId]`, между фреймами помнит активный выбор. |
+| **Stateless** | `Draw(rect, items, selectedIndex, placeholder, onPicked)` | Текущий индекс выводится из внешнего источника истины (Odin `ValueEntry`, `SerializedProperty`, доменная модель) на каждом OnGUI. Кеш `SelectionCache` не задействован — выбор приходит **только** через `onPicked(index)`, caller сам пишет результат во внешнее состояние. |
+
+Stateless-перегрузка нужна там, где попап используется как «представление выбора», а не как «носитель выбора». Без неё caller с авторитативным внешним состоянием попадал в гонку: попап-окно асинхронно писало в кеш, а на следующем OnGUI caller передавал старое значение из своего источника — кеш затирался, выбор терялся. См. `DbRecordAttributeDrawer` как пример.
+
 ### `InspectorHandler`
 
 Утилиты `SerializedProperty`: `IsPropertyNullable(property)` (true для String/ObjectReference), `GetPropertyValue(property)` (boxed-значение примитивов).

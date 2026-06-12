@@ -4,27 +4,54 @@ using UnityEngine.EventSystems;
 
 namespace Vortex.Unity.UI.CursorSystem
 {
+    /// <summary>
+    /// MonoBehaviour-маркер UI-зоны, при наведении на которую <see cref="CursorController"/>
+    /// показывает hover-вариант курсора. Вешается на любой UGUI-объект с <c>RectTransform</c>
+    /// и <c>Raycast Target</c>; вешать дополнительные коллайдеры не требуется.
+    ///
+    /// Поле <see cref="index"/> сериализованно через <c>[ValueDropdown]</c> — в инспекторе
+    /// выпадает список спрайтов из активного <see cref="CursorSettings"/>, выбор по имени
+    /// спрайта. Пункт «[NONE]» = <c>-1</c> отключает hover-смену для этой зоны.
+    ///
+    /// При выключении объекта (<see cref="OnDisable"/>) автоматически шлёт <see cref="CursorController.OnUnHover"/>,
+    /// чтобы курсор не залип в hover-состоянии после скрытия зоны.
+    /// </summary>
     public class MouseHoverListener : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
+        /// <summary>
+        /// Индекс варианта курсора из <see cref="CursorSettings.CursorOnHover"/>. <c>-1</c> = «без смены».
+        /// </summary>
         [SerializeField, ValueDropdown("GetList")]
         private int index = -1;
 
+        /// <summary>Курсор зашёл в зону — сообщаем контроллеру наш индекс.</summary>
         public void OnPointerEnter(PointerEventData eventData)
         {
             CursorController.OnHover(index);
         }
 
+        /// <summary>Курсор покинул зону — снимаем наш индекс (контроллер игнорирует, если перехватил другой listener).</summary>
         public void OnPointerExit(PointerEventData eventData)
         {
             CursorController.OnUnHover(index);
         }
 
+        /// <summary>
+        /// При выключении компонента форсируем выход из hover-зоны: <c>OnPointerExit</c> от
+        /// EventSystem не приходит автоматически, и курсор может застрять в hover-варианте.
+        /// </summary>
         private void OnDisable()
         {
             OnPointerExit(null);
         }
 
 #if UNITY_EDITOR
+        /// <summary>
+        /// Editor-only: формирует список значений для <c>[ValueDropdown]</c>. Подтягивает
+        /// первый <see cref="CursorSettings"/>-ассет из <c>Resources</c> и составляет
+        /// dropdown «имя спрайта → индекс». Если массив пуст — сбрасывает <see cref="index"/> в <c>-1</c>
+        /// и оставляет только «[NONE]».
+        /// </summary>
         private ValueDropdownList<int> GetList()
         {
             var result = new ValueDropdownList<int> { new ValueDropdownItem<int>("[NONE]", -1) };

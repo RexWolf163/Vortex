@@ -55,7 +55,9 @@ ParametersMap
   ├── GetParameterMap(name) → IParameterMap
   └── GetParameters() → GenericParameter[]   ← new array per call
 
-GenericParameter [Serializable]
+GenericParameter [Serializable, POCO]
+  ├── GenericParameter()         ← parameterless ctor (Name = "")
+  ├── GenericParameter(string)   ← ctor with a name
   ├── Name: string
   ├── Value: int
   ├── SetValue(int) → OnUpdate event

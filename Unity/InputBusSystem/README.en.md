@@ -1,7 +1,7 @@
 # InputBusSystem
 
 **Namespace:** `Vortex.Unity.InputBusSystem`
-**Assembly:** `ru.vortex.unity.inputbus`
+**Assembly:** `ru.vortex.unity.inputbussystem`
 
 ## Purpose
 
@@ -27,7 +27,7 @@ Out of scope:
 | `Vortex.Core.AppSystem` | `App.GetState()`, `App.OnStateChanged`, `App.OnExit` |
 | `Vortex.Core.SettingsSystem` | `Settings.Data().DebugMode` — diagnostic logging |
 | `Vortex.Core.Extensions` | `AddNew`, `AddOnce` — collection helpers |
-| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[VortexCollection]` |
+| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[ClassLabel]` |
 | `Vortex.Unity.UI.Misc` | `AdvancedButton` — optional integration |
 
 ---
@@ -187,7 +187,7 @@ The map is active as long as at least one `InputMapHandler` for it is enabled in
 
 ## Debug
 
-Diagnostic logging is controlled via `Settings.Data().InputDebugMode`. Configured in the `DebugSettings` asset (`InputDebugMode` toggle).
+Diagnostic logging for `InputController` is controlled via `Settings.Data().InputDebugMode`; `KeyboardHandler` logs under the general `Settings.Data().DebugMode`. Configured in the `DebugSettings` asset (`InputDebugMode` toggle).
 
 When enabled, logs: subscriber registration/removal, `performed`/`canceled` delivery, map activation/deactivation.
 

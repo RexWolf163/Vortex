@@ -33,7 +33,7 @@ sdk.settings.system  (asmdef)
 ├── Attribute/
 │   └── DefineSymbolAttribute.cs
 └── Editor/
-    └── MenuController.cs     ← Vortex/Configs/SDK Settings menu item
+    └── MenuController.cs     ← Tools/Vortex/Configs/SDK Settings menu item
 
 <package>/DefineSettings/
 ├── SdkSettings.<Package>.cs  ← partial chunk with one bool field
@@ -48,7 +48,7 @@ The `asmref` ensures partial chunks are physically compiled into the same assemb
 |-------|------|---------|
 | `SdkSettings` | `partial ScriptableObject`, `ICoreAsset` | Master asset; partial chunks contribute fields from each Sdk package |
 | `DefineSymbolAttribute` | `Attribute` | Marker on a bool field: which `define` in PlayerSettings it controls |
-| `MenuController` | static, Editor-only | `Vortex/Configs/SDK Settings` menu item to locate the asset |
+| `MenuController` | static, Editor-only | `Tools/Vortex/Configs/SDK Settings` menu item to locate the asset |
 
 ## How to add a new Sdk package
 
@@ -131,4 +131,4 @@ The flag is serialized in the asset (hidden from the inspector via `[HideInInspe
 
 ## Menu
 
-`Vortex → Configs → SDK Settings` — locates the `SdkSettings` asset in the project and pings it via `MenuConfigSearchController`.
+`Tools → Vortex → Configs → SDK Settings` — locates the `SdkSettings` asset in the project and pings it via `MenuConfigSearchController`.

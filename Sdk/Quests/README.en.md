@@ -5,7 +5,7 @@
 
 ## Activation
 
-The package is activated via `SdkSettings` (menu **Vortex → Configs → SDK Settings**), toggle **`questsSdk`**. The toggle controls the `USING_VORTEX_QUESTS` define symbol, listed in the asmdef's `defineConstraints` — when disabled, the package does not compile and its types are unavailable.
+The package is activated via `SdkSettings` (menu **Tools → Vortex → Configs → SDK Settings**), toggle **`questsSdk`**. The toggle controls the `USING_VORTEX_QUESTS` define symbol, listed in the asmdef's `defineConstraints` — when disabled, the package does not compile and its types are unavailable.
 
 Activation canon for SDK packages: `Vortex/Sdk/SdkSettingsSystem/README.en.md`.
 
@@ -113,7 +113,7 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 ### Input
 - `QuestPreset` — ScriptableObject registered in Database as MultiInstance
 - `GameController.OnNewGame` — new game trigger
-- `GameController.OnLoadData` — save load trigger
+- `GameController.OnLoadGame` — save load trigger
 
 ### Output
 - `QuestController.OnUpdateData` — change event

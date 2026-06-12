@@ -32,6 +32,7 @@ Out of scope:
 |------------|---------|
 | `Vortex.Core.System` | `SystemController<T, TD>`, `ISystemDriver` |
 | `Vortex.Core.Extensions` | `StringExt.IsNullOrWhitespace()`, `DictionaryExt.AddNew()` |
+| `Cysharp.Threading.Tasks` | `UniTask` — return type of `IDriver.SetLanguage(string)` |
 
 ---
 
@@ -46,14 +47,14 @@ Localization (SystemController<Localization, IDriver>)
 
 IDriver (interface)
   ├── GetDefaultLanguage() → string
-  ├── SetLanguage(string)
+  ├── SetLanguage(string) → UniTask
   ├── SetIndex(Dictionary<string, string>)
   ├── GetLanguages() → string[]
   └── OnLocalizationChanged (event)
 
 StringExt (extension methods)
   ├── "KEY".Translate()      → index[key] or "##!key!##"
-  └── "KEY".TryTranslate()   → index[KEY] or original string
+  └── "KEY".TryTranslate()   → index[key] or original string
 ```
 
 ### Translation index
@@ -67,7 +68,7 @@ StringExt (extension methods)
 | Method | Description |
 |--------|-------------|
 | `GetDefaultLanguage()` | Default language (system or saved) |
-| `SetLanguage(string)` | Set language. Driver reloads data and fires `OnLocalizationChanged` |
+| `SetLanguage(string)` → `UniTask` | Set language. Driver asynchronously reloads data and fires `OnLocalizationChanged` |
 | `SetIndex(Dictionary<string, string>)` | Binds core index to driver |
 | `GetLanguages()` | List of available languages |
 | `OnLocalizationChanged` | Event — fired by driver after language change |
@@ -102,7 +103,7 @@ StringExt (extension methods)
 | Method | Description |
 |--------|-------------|
 | `"KEY".Translate()` | `Localization.GetTranslate(key)`. Empty string → `""` |
-| `"KEY".TryTranslate()` | If translation exists for `KEY.ToUpper()` — returns translation, otherwise original string |
+| `"KEY".TryTranslate()` | If a translation for the key exists — returns it, otherwise the original string. Lookup is case-insensitive |
 
 ### Editor API (partial Localization)
 
@@ -124,7 +125,7 @@ StringExt (extension methods)
 | Limitation | Reason |
 |------------|--------|
 | One language at a time | Single index per application |
-| Keys case-insensitive only in `TryTranslate` | `TryTranslate` calls `ToUpper()`, `Translate` does not |
+| Keys are case-insensitive | The index is built with `StringComparer.OrdinalIgnoreCase` — both `Translate` and `TryTranslate` look up keys ignoring case |
 | `"##!key!##"` on missing key | Visual debug marker |
 | Index fully rebuilt on language change | Driver clears and refills |
 

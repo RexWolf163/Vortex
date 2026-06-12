@@ -136,7 +136,7 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → {guid}.save
   │    ├── SaveSummary → XML → {guid}.summary
-  │    └── При новом GUID — _increment++ → запись в файл .in
+  │    └── При новом GUID — _increment = GetNumberLastSave() + 1 → запись в файл .in
   │
   ├── Load(guid)
   │    ├── File.ReadAllText({guid}.save) → Decompress(guid) → XML → SavePreset
@@ -254,7 +254,7 @@ SaveController.Remove(selectedGuid);
 | Ситуация | Поведение |
 |----------|-----------|
 | Активный драйвер не задан в `DriverConfig` | Whitelist пустой, ни один драйвер не пройдёт `SetDriver`; `SaveController` без драйвера |
-| Дубликат GUID при `Save` | PlayerPrefsDriver: `Saves.Add` бросит исключение; FileSystemDriver: `Saves[guid] = summary` перезапишет, файл будет перезаписан |
+| Дубликат GUID при `Save` | PlayerPrefsDriver: `Saves.Add` обёрнут в try/catch — исключение логируется (`Debug.LogException`) и не пробрасывается; FileSystemDriver: `Saves[guid] = summary` перезапишет, файл будет перезаписан |
 | Повреждённый XML при десериализации | `SavePreset = null`, `LogError` |
 | `UISaveLoadComponent` выключен во время процесса | `OnDisable` → `StopAllCoroutines` |
 

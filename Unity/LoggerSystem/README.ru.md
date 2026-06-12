@@ -67,7 +67,7 @@ Editor-расширение выводит подтверждающее сооб
 [SourceName] Message text
 ```
 
-`Source` обрабатывается: если `string` — используется напрямую, иначе — `Source.GetType().Name`.
+`Source` обрабатывается: если `string` — используется напрямую, иначе — `Source.GetType().Name`, при `null` — `"Unknown"` (`log.Source as string ?? log.Source?.GetType().Name ?? "Unknown"`).
 
 ---
 
@@ -86,7 +86,7 @@ Editor-расширение выводит подтверждающее сооб
 | Ограничение | Причина |
 |-------------|---------|
 | Нет фильтрации по уровню | Все сообщения выводятся; фильтрация средствами Unity Console |
-| `Source = null` | `NullReferenceException` — драйвер обращается к `Source` без проверки |
+| `Source = null` | Подставляется `"Unknown"` — код null-безопасен, исключение не бросается |
 | Нет записи в файл | Только `Debug.Log*`; файловое логирование требует отдельного драйвера |
 
 ---
@@ -117,6 +117,6 @@ Log.Print(LogLevel.Error, "Save file corrupted", "SaveSystem");
 | Editor mode | Драйвер регистрируется через `[InitializeOnLoad]`, логирование работает |
 | Play mode | Драйвер регистрируется через `[RuntimeInitializeOnLoadMethod]` |
 | Двойная регистрация | `Log.SetDriver()` возвращает `false`, повторного подключения не происходит |
-| `Source` — `null` | `NullReferenceException` в `Print` |
+| `Source` — `null` | Вывод: `[Unknown] message` (без исключения) |
 | `Source` — строка `"MySystem"` | Вывод: `[MySystem] message` |
 | `Source` — объект `MonoBehaviour` | Вывод: `[ClassName] message` |

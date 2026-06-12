@@ -30,8 +30,11 @@
 AITools/
 ├── AIContextCreator.cs                  # Editor-only утилита агрегации
 ├── Prompt code quality analysis.md      # Промпт: оценка качества кода
-└── Prompt create docs.md                # Промпт: генерация документации
+├── Prompt create docs.md                # Промпт: генерация документации
+└── ClaudeCodeSkills/                    # Скиллы для Claude Code (+ собственный README)
 ```
+
+Подпакет [ClaudeCodeSkills](ClaudeCodeSkills/) содержит набор скиллов для Claude Code, упаковывающих методики Vortex (определение слоя, начальная архитектура, оценка качества, оформление ТЗ) в исполняемый формат. Подробности — в его собственном README.
 
 ### AIContextCreator
 

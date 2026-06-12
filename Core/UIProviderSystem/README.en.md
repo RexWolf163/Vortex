@@ -68,7 +68,7 @@ UserInterfaceData : Record
   ├── OnOpen: Action                          ← safe subscribe: if IsOpen — fires immediately
   ├── OnClose: Action                         ← safe subscribe: if !IsOpen — fires immediately
   │
-  ├── Init() → foreach Condition.Init(this, CheckConditions)
+  ├── Init() → foreach Condition.Init(this, CheckConditions) → CheckConditions()
   ├── DeInit() → foreach Condition.DeInit()
   ├── Open() → IsOpen=true, OnOpen, UIProvider.CallOnOpen
   ├── Close() → IsOpen=false, OnClose, UIProvider.CallOnClose
@@ -99,7 +99,7 @@ UserInterfaceTypes
 
 ### Condition Mechanism
 
-1. `Init()` calls `Condition.Init(data, CheckConditions)` for each condition
+1. `Init()` calls `Condition.Init(data, CheckConditions)` for each condition, then immediately runs `CheckConditions()` for initial state synchronization
 2. Condition subscribes to external events in `Run()` and calls `RunCallback()` on change
 3. `RunCallback()` triggers `CheckConditions()` — checks all conditions
 4. `CheckConditions()`: initial state = current (`IsOpen`). For each condition:
@@ -214,7 +214,7 @@ uiData.OnClose += () => Debug.Log("Closed");
 | `Close` on already closed UI | No-op |
 | GUID not found in index | `Log.Print(Error)`, no-op |
 | `Register` when `App.GetState() < Starting` | Returns `null` |
-| Condition throws exception in `Check()` | `Debug.LogException`, immediate `Close()` |
+| Condition throws exception in `Check()` | `Log.Print(LogLevel.Error, ...)`, immediate `Close()` |
 | All conditions return `Idle` | State unchanged (remains current) |
 | Subscribe to `OnOpen` when `IsOpen == true` | Callback fires immediately |
 | Subscribe to `OnClose` when `IsOpen == false` | Callback fires immediately |

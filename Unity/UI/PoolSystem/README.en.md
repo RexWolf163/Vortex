@@ -22,6 +22,8 @@ Out of scope:
 | Dependency | Purpose |
 |------------|---------|
 | `Vortex.Core.System` | `IDataStorage` — data storage interface |
+| `Vortex.Core.Extensions.LogicExtensions` | `AddNew` — adds entries to the pool index |
+| `Vortex.Unity.AppSystem` | `TimeController.RemoveCall` — cancels deferred calls |
 | Odin Inspector | `[ShowInInspector]` — data display in Editor |
 
 ---

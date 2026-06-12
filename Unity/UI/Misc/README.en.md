@@ -13,20 +13,29 @@ General-purpose utility UI components: advanced button, counters, animated slide
 
 ### AdvancedButton
 
-Extended button with click modes, visual states, and gesture tracking. Implements `IPointerEnterHandler`, `IPointerExitHandler`, `IPointerDownHandler`, `IPointerUpHandler`.
+Extended button with click modes, visual states, and correct behaviour inside `ScrollRect`. Implements `IPointerEnterHandler`, `IPointerExitHandler`, `IPointerDownHandler`, `IPointerUpHandler`, `IPointerClickHandler`.
 
 Visual states (via `UIStateSwitcher`): Free, Hover, Pressed.
 
-| Click Mode | Description |
-|------------|-------------|
-| `OnTap` | Fires immediately on press |
-| `OnUpInBorders` | Fires on release within bounds |
-| `OnUpAnywhere` | Fires on release anywhere |
-| `OnClick` | Fires if press+release without movement > 20px |
+| Click Mode | Handler | Scroll-drag protection |
+|---|---|---|
+| `OnTap` | `OnPointerDown` (immediate response) | none (by design — fires before any movement) |
+| `OnUpInBorders` | `OnPointerClick` (release on the same object) | ✅ automatic (Unity does not invoke `OnPointerClick` if the EventSystem classified the gesture as a drag) |
+| `OnUpAnywhere` | `OnPointerUp` (any release on this object) | none (by contract — release anywhere) |
+| `OnClick` | `OnPointerClick` + time check `< TimeForClickMs (200ms)` | ✅ automatic |
+
+`OnUpInBorders` and `OnClick` go through Unity's canonical `IPointerClickHandler`: the EventSystem decides whether the gesture was a click or a drag based on `EventSystem.pixelDragThreshold`. When the button lives inside a `ScrollRect`, the parent receives the drag on scrolling and `OnPointerClick` is not invoked on the button — clicks are correctly suppressed without timers or custom thresholds.
+
+If a custom distance threshold is needed, set it globally via `EventSystem.current.pixelDragThreshold` (a Unity setting that affects all of UGUI).
 
 Events (Action): `OnClick`, `OnPressed`, `OnReleased`, `OnHover`, `OnExit`.
 UnityEvents (arrays): `onClick[]`, `onHover[]`, `onExit[]`.
 External control: `Press()`, `Release()`, `AddOnClick(UnityAction)`, `RemoveOnClick(UnityAction)`.
+
+Notes:
+- `OnPointerEnter` keeps the Pressed visual when the button is still held (scenario: pressed → cursor leaves → cursor returns).
+- `AddOnClick(UnityAction)` is idempotent: a repeated subscription with the same `UnityAction` is ignored (via `_wrappedActions` dictionary); `RemoveOnClick` still detaches the wrapper.
+- External `Press()`/`Release()` works in `OnClick` mode: with `eventData == null` the shift is treated as zero, and the time check still applies.
 
 ### DataStorage
 
@@ -61,29 +70,55 @@ capturer.OnUpdateLink += () =>
 
 Lifecycle:
 - `Awake` — caches `PropertyInfo`. If the property is missing, logs the error, disables the component (`enabled = false`), and does not subscribe to the source.
-- If the source implements `IReactiveData`, subscribes to its `OnUpdateData` to track recreation of reactive fields.
+- If the source implements `IDataSource`, subscribes to its `OnUpdateLink` to track recreation of reactive fields.
 - `Start` — first `RefreshLink()` after all scene `Awake`s; consumers have time to subscribe.
 - `RefreshLink` compares new and old references via `ReferenceEquals` and fires `OnUpdateLink` only on actual reference change.
 - `OnDestroy` — unsubscribes from the source, nullifies cache.
 
 Use case: bindings that cannot be hard-wired via `[UIComponentLink]` (attribute binding in widget code) — generic Pool items, template widgets, inspector-time wiring on prefabs. The source is always a `MonoBehaviour` — for `ScriptableObject` settings/presets use a direct `[SerializeField]` reference, not `DataCapturer`.
 
-### CounterView (abstract)
+### CounterViewBase&lt;T&gt; (abstract)
 
-Abstract component for displaying numeric counters with change animation.
+Base component for a counter view with min/max/current value, slider, pulse animation, and threshold visual states.
 
 Subclass implements:
 - `int GetValue()` — current value
-- `int? GetMaxValue()` — maximum value (nullable)
+- `int GetMinValue()` — range minimum
+- `int GetMaxValue()` — range maximum
+- `void Init()` / `void DeInit()` — domain subscriptions
 
-Capabilities:
-- Support for Text, TextMeshPro, TextMeshProUGUI (arrays)
-- Separate arrays for max values
-- Format patterns (`pattern`, `patternMax`)
-- Tweener animation on increase (`onUp`) and/or decrease (`onDawn`)
-- `SliderView` integration
-- Value caching to prevent redundant updates
-- `Refresh()` — manual update
+The data model is accessed via `protected T Data` (cached on first access, reset on `UpdateLink`).
+
+Inspector fields (all optional — the component works with any subset):
+
+| Group | Field | Description |
+|---|---|---|
+| Source | `sourceValue` | `IDataStorage` (via `ClassFilter` + `AutoLink`) — data model source |
+| Min Value UI | `min` (UIComponent), `patternMin = "{0}"` | Min text widget and its format pattern |
+| Max Value UI | `max` (UIComponent), `patternMax = "{0}"` | Max text widget |
+| Current Value UI | `value` (UIComponent), `patternValue = "{2} < {0} < {1}"` | Current value text widget. Receives three args: `{0}` = value, `{1}` = max, `{2}` = min |
+| — | `slider` (SliderView) | Animated slider |
+| — | `tweenPulsation` (TweenerHub) | Pulse animation on value change |
+| — | `switcher` (UIStateSwitcher over `CounterStates`) | Threshold visual states |
+| Animations | `onUp` / `onDown` | Animate on increase / decrease |
+
+`CounterStates` thresholds (based on fill percentage of the range):
+
+| State | Condition |
+|---|---|
+| `Empty` | `value == minValue` |
+| `Less20` | < 20% of range |
+| `Less50` | < 50% |
+| `Less80` | < 80% |
+| `Less100` | ≥ 80% and < `maxValue` |
+| `Fill` | `value == maxValue` |
+
+Subclass API:
+- `UpdateValue()` / `UpdateMinValue()` / `UpdateMaxValue()` — manually refresh the corresponding block.
+
+### CounterViewAdvanced
+
+A ready-to-use `CounterViewBase<T>` subclass for the typical "model with three `IntData` (current/min/max)" scenario. Holds `[SerializeField]` references to the source's reactive properties, maps them to `GetValue`/`GetMinValue`/`GetMaxValue`, and subscribes in `Init()`.
 
 ### SliderView
 
@@ -96,6 +131,7 @@ sliderView.Set(0.75f, 1f);   // value, max
 | Field | Type | Description |
 |-------|------|-------------|
 | `slider` | `Slider` | Target slider |
+| `delay` | `float` | Delay before animation (`[Range(0, 3)]`) |
 | `duration` | `float` | Animation duration (0..1 sec) |
 | `ease` | `EaseType` | Easing type |
 
@@ -169,15 +205,18 @@ The list is instantiated into the `Canvas` on first open, deactivated on close, 
 
 | Situation | Behavior |
 |-----------|----------|
-| `AdvancedButton.OnClick` in `OnClick` mode — swipe | Does not fire (movement > 20px) |
-| `AdvancedButton.Press()` / `Release()` externally | Works without pointer events |
+| `AdvancedButton` in `OnClick`/`OnUpInBorders` mode inside a `ScrollRect` | When scrolling, `OnPointerClick` is not invoked — clicks are suppressed automatically |
+| `AdvancedButton` in `OnUpAnywhere` mode inside a `ScrollRect` | Fires on any release (by the mode's contract, no drag protection) |
+| `AdvancedButton.Press()` / `Release()` externally | Works without pointer events; in `OnClick` mode the shift is treated as zero and the time check is applied |
+| `AdvancedButton.AddOnClick(action)` repeated with the same `action` | Ignored (idempotent); `RemoveOnClick` still detaches the wrapper |
+| `AdvancedButton.OnPointerEnter` after exit with the button held | The visual returns to Pressed rather than Hover |
+| `CounterViewBase.OnEnable` with an empty source | NRE on `StorageValue.OnUpdateLink += ...` (fail-fast) |
 | `DataStorage.GetData<T>()` — type not found | Returns `null` |
 | `DataStorage.AddData()` — addition | `OnUpdateLink` not fired (link-level not violated) |
 | `DataCapturer` — property renamed or missing | `Debug.LogError` + `enabled = false`; `Start`/`RefreshLink` do not run |
-| `DataCapturer` — source implements `IReactiveData` | Subscribes to source `OnUpdateData`, `RefreshLink` on signal |
+| `DataCapturer` — source implements `IDataSource` | Subscribes to source `OnUpdateLink`, `RefreshLink` on signal |
 | `DataCapturer.RefreshLink` — reference unchanged | `OnUpdateLink` not fired (`ReferenceEquals`) |
 | `DataCapturer` — `source` or property not assigned in inspector | NRE in `Awake` (fail-fast by canon) |
-| `CounterView.Refresh()` — value unchanged | Update skipped (cache) |
 | `SliderView.Set()` — same value/max | Update skipped |
 | `EnableDelayForChild` — `OnDisable` before delay | Children deactivated, timer removed |
 | `AutoRectSetter` in Editor | Updates on `OnValidate` |

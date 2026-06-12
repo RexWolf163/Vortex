@@ -135,16 +135,17 @@ StateItem — расширяемый тип: программист создаё
 
 ### EditorTools (~60 файлов)
 
-Пакет для кастомизации Inspector. Предоставляет 20 атрибутов, которые позволяют настроить отображение полей без написания Editor-кода:
+Пакет для кастомизации Inspector. Предоставляет ~11 атрибутов, которые позволяют настроить отображение полей без написания Editor-кода:
 
 - `[AutoLink]` — автопривязка компонента при null
-- `[OnChanged("Method")]` — callback при изменении
-- `[ValueSelector("Method")]` — SearchablePopup из метода
-- `[ToggleButton]` — bool как стилизованная кнопка
-- `[ToggleBox("field")]` — условная группировка полей
-- `[Show]` / `[Hide]` / `[ShowInPlay]` / `[HideInEditor]` — условная видимость
+- `[ClassFilter(typeof(IMyInterface))]` — фильтрация ObjectField по типу/интерфейсу
 - `[ClassLabel("$Method")]` — кастомный заголовок элемента коллекции
-- `[VortexCollection]` — рендеринг коллекций с drag & drop, fold, контекстными меню
+- `[ValueSelector("Method")]` — SearchablePopup из массива/списка/словаря
+- `[ToggleButton("Labels", "Colors")]` — кнопки-переключатели для bool/int/byte/enum
+- `[DateTimeDraw]` / `[TimeDraw]` — отображение `long` как даты / времени
+- `[TimerDraw]` / `[DateTimerDraw]` — read-only таймер / дата
+- `[DataModel]` — drawer модели данных (+`[DataModelMethod]`)
+- `[PropertyFoldoutGroup("name")]` — расширенный foldout-группа с property в заголовке
 
 EditorTools полностью построен поверх Sirenix Odin Inspector — нативный пайплайн `PropertyDrawer` не используется. Odin-drawer'ы вынесены в отдельную сборку `ru.vortex.unity.editortools.sirenix` с `defineConstraints: ["ODIN_INSPECTOR"]`.
 

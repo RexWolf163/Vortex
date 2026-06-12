@@ -147,7 +147,7 @@ settings.video.MaximizedWindow     → Развёрнутое окно
 | Сценарий | Поведение |
 |----------|----------|
 | Первый запуск (нет сохранения) | Используются текущие параметры экрана, сохраняются |
-| Сохранённое разрешение недоступно | Настройки загружаются, но `SetResolution` бросит `KeyNotFoundException` при попытке применить |
+| Сохранённое разрешение недоступно | `SetResolution` делает `TryGetValue` + `Debug.LogError` + `return` (без исключения); `KeyNotFoundException` возможно в `SetScreenMode` |
 | Повреждённые данные в `PlayerPrefs` | `try/catch` → сброс к текущим параметрам экрана |
 | Пустой `whiteList` в `ScreenModeHandler` | Пустой выпадающий список |
 | `OnEnable` до `VideoController.OnInit` | Пустые реестры — выпадающий список пуст |

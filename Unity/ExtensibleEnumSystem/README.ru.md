@@ -83,7 +83,7 @@ Late-binding мост `ExtEnumData<T>` → `UIStateSwitcher`. Конфигури
 - `OnDataChanged` — читает `Index` через рефлексию, при `index >= 0` дёргает `switcher.Set(index)`.
 - `OnDestroy` — отписка + зануление кеша.
 
-Связь между ключом и слотом switcher'а — через `Order` значения (заданный автором класса при объявлении `new MoveState("Run", 2)`). Слоты switcher'а должны быть в том же порядке, что и значения в типе.
+Связь между ключом и слотом switcher'а — через `Index` значения: handler читает `ExtEnumData.Index` и при `index >= 0` дёргает `switcher.Set(index)`. Слоты switcher'а должны быть в том же порядке, что и значения в типе.
 
 Editor-helper `GetExtEnumDataProperties()` под `#if UNITY_EDITOR` собирает список свойств `source`, тип которых — наследник `ExtEnumData<>`. Готов для подключения к будущему drawer'у с дропдауном (сейчас поле `property` — обычный string-input).
 

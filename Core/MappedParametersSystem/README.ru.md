@@ -55,7 +55,9 @@ ParametersMap
   ├── GetParameterMap(name) → IParameterMap
   └── GetParameters() → GenericParameter[]   ← новый массив при каждом вызове
 
-GenericParameter [Serializable]
+GenericParameter [Serializable, POCO]
+  ├── GenericParameter()         ← безпараметрический ctor (Name = "")
+  ├── GenericParameter(string)   ← ctor с именем
   ├── Name: string
   ├── Value: int
   ├── SetValue(int) → OnUpdate event

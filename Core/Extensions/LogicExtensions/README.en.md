@@ -54,7 +54,7 @@ Extension methods for `Action` and `Func` delegates enabling safe invocation wit
 | `FireAnd` | `Func<.., bool>.FireAnd(args, returnOnZero)` | AND aggregation: `false` on first `false`. Short-circuits (0–5 parameters) |
 | `FireOr` | `Func<.., bool>.FireOr(args, returnOnZero)` | OR aggregation: `true` if at least one returns `true`. All subscribers invoked (0–5 parameters) |
 | `Accumulate<T>` | `Func<T[]>.Accumulate()`, `Func<T>.Accumulate()` | Collects results from all subscribers into a single array |
-| `FirstNotNull<T>` | `Func<T>.FirstNotNull()`, `Func<T1,T2>.FirstNotNull(arg)` | First non-null result among subscribers |
+| `FirstNotNull<T>` | `Func<T>.FirstNotNull()`, `Func<T1,T2>.FirstNotNull(arg)` | First non-null result among subscribers (`where T : class` constraint) |
 | `AddSafe` | `Action.AddSafe(value)` | Subscribe with duplicate protection |
 
 ### Usage
@@ -96,9 +96,9 @@ Thread-safe initialization gate. Accumulates subscriptions until opened; after o
 ### Lifecycle
 
 ```
-Create(out openValve)  →  valve += handler  →  openValve()  →  valve += lateHandler (immediate call)
-                                                                  │
-                                                             valve.Dispose()
+Create(out openValve)  →  valve.Subscribe(handler)  →  openValve()  →  valve.Subscribe(lateHandler) (immediate call)
+                                                                          │
+                                                                     valve.Dispose()
 ```
 
 ### API
@@ -106,8 +106,8 @@ Create(out openValve)  →  valve += handler  →  openValve()  →  valve += la
 | Method | Description |
 |--------|-------------|
 | `InitValve.Create(out Action openValve)` | Factory. Returns instance and `Action` to open the valve |
-| `operator +` | Subscribe. Before opening — accumulates; after — immediate invocation |
-| `operator -` | Unsubscribe (only before opening) |
+| `Subscribe(Action)` | Subscribe. Before opening — accumulates; after — immediate invocation |
+| `Unsubscribe(Action)` | Unsubscribe (only before opening) |
 | `Dispose()` | Blocks further operations |
 
 ### Usage
@@ -115,18 +115,23 @@ Create(out openValve)  →  valve += handler  →  openValve()  →  valve += la
 ```csharp
 public class MySystem
 {
-    public InitValve OnReady { get; } = InitValve.Create(out var open);
-    private Action _open = open;
+    public InitValve OnReady { get; }
+    private readonly Action _open;
+
+    public MySystem()
+    {
+        OnReady = InitValve.Create(out _open);
+    }
 
     public void Initialize()
     {
         // ... initialization ...
-        _open(); // all accumulated subscriptions fire
+        _open?.Invoke(); // all accumulated subscriptions fire
     }
 }
 
 // Subscriber:
-mySystem.OnReady += () => Debug.Log("System ready");
+mySystem.OnReady.Subscribe(() => Log.Print(LogLevel.Info, "System ready"));
 ```
 
 ### Edge Cases
@@ -146,7 +151,7 @@ Hashing, identifier generation, data packing (compression + encryption).
 | Method | Description |
 |--------|-------------|
 | `GetHashSha256(string text)` | SHA256 hash of a string (hex, lowercase) |
-| `GetNewGuid()` | Deterministic GUID: `SHA256(timestamp + counter + random + random)` |
+| `GetNewGuid()` | GUID: `SHA256(timestamp + counter + random + random)` |
 | `SetCryptoPack(string data, string pass)` | Compression (GZip) + encryption (AES-256-CBC). Returns Base64 string |
 | `GetCryptoPack(string cryptoData, string pass)` | Decryption + decompression. Reverse of `SetCryptoPack` |
 

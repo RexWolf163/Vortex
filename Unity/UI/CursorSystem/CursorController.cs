@@ -29,8 +29,23 @@ namespace Vortex.Unity.UI.CursorSystem
         private static InputAction _leftMouseAction;
         private static InputAction _rightMouseAction;
         private static readonly object Key = new();
+
+        /// <summary>
+        /// Публичный наблюдаемый снимок текущего состояния мыши: нажатие LMB/RMB
+        /// и активный hover-индекс. Поля — <see cref="Vortex.Core.Extensions.ReactiveValues.BoolData"/>
+        /// и <see cref="Vortex.Core.Extensions.ReactiveValues.IntData"/>, можно подписаться
+        /// на <c>OnUpdate</c> для реакции на изменения снаружи.
+        ///
+        /// Запись в эти поля защищена <c>SetOwner(Key)</c> — снаружи изменить значения
+        /// невозможно, мутацию делает только сам <see cref="CursorController"/>.
+        /// </summary>
         public static MouseKeyMap MouseKeys { get; } = new();
 
+        /// <summary>
+        /// Авто-инициализация при старте рантайма: подписка на <see cref="Settings.OnInit"/>
+        /// (контроллер дёрнется, когда настройки прочитаны) и закрепление owner'а за полями
+        /// <see cref="MouseKeys"/>, чтобы их нельзя было перезаписать снаружи.
+        /// </summary>
         [RuntimeInitializeOnLoadMethod]
         private static void Run()
         {
@@ -41,6 +56,15 @@ namespace Vortex.Unity.UI.CursorSystem
             MouseKeys.HoverIndex.SetOwner(Key);
         }
 
+        /// <summary>
+        /// Читает текущие настройки курсора и поднимает подписки на InputSystem.
+        /// Если <c>cursorDefault</c> не задан — считаем что пользователь хочет аппаратный
+        /// курсор, контроллер ничего не делает и подписки не создаёт.
+        ///
+        /// Повторный вызов (рестарт без выгрузки домена) сначала отвязывает старые
+        /// <see cref="InputAction"/> через <see cref="DisposeActions"/> — двойной подписки
+        /// не происходит.
+        /// </summary>
         private static void Init()
         {
             _cursorDefault = Settings.Data().CursorDefault;
@@ -68,6 +92,11 @@ namespace Vortex.Unity.UI.CursorSystem
             App.OnExit += DisposeActions;
         }
 
+        /// <summary>
+        /// Отвязывает коллбэки от LMB/RMB <see cref="InputAction"/> и освобождает их.
+        /// Зовётся в начале <see cref="Init"/> (для защиты от двойной подписки при рестарте)
+        /// и из <see cref="App.OnExit"/> (для штатной очистки ресурсов InputSystem).
+        /// </summary>
         private static void DisposeActions()
         {
             if (_leftMouseAction != null)
@@ -111,12 +140,31 @@ namespace Vortex.Unity.UI.CursorSystem
             ApplyByPriority();
         }
 
+        /// <summary>
+        /// Сигнал «курсор зашёл в hover-зону с этим индексом». Индекс соответствует позиции
+        /// в массиве <see cref="CursorSettings.CursorOnHover"/>. Применение нового спрайта
+        /// идёт сразу через <see cref="ApplyByPriority"/> с учётом приоритетов (LMB > RMB > Hover).
+        ///
+        /// Типичный источник вызова — <see cref="MouseHoverListener"/> на UI-элементах,
+        /// но публичный API позволяет и программные сценарии (например, hover-зона
+        /// в world-space без UGUI EventSystem).
+        /// </summary>
+        /// <param name="index">Индекс hover-варианта; <c>-1</c> = «нет hover».</param>
         public static void OnHover(int index = -1)
         {
             MouseKeys.HoverIndex.Set(index, Key);
             ApplyByPriority();
         }
 
+        /// <summary>
+        /// Сигнал «курсор покинул hover-зону с этим индексом». Защищён от гонки:
+        /// если активный <see cref="MouseKeyMap.HoverIndex"/> уже не равен <paramref name="index"/>
+        /// (другая зона перехватила hover в том же кадре), вызов игнорируется и текущий
+        /// курсор сохраняется. Сценарий гонки типичен для вложенных hover-зон в UGUI,
+        /// где EventSystem шлёт <c>OnPointerEnter</c> вложенной зоны до <c>OnPointerExit</c>
+        /// родительской.
+        /// </summary>
+        /// <param name="index">Индекс зоны, из которой ушли; <c>-1</c> = «нет hover».</param>
         public static void OnUnHover(int index = -1)
         {
             if (MouseKeys.HoverIndex != index)
@@ -126,6 +174,17 @@ namespace Vortex.Unity.UI.CursorSystem
             ApplyByPriority();
         }
 
+        /// <summary>
+        /// Выбирает спрайт курсора по приоритету состояний и применяет его через <see cref="Apply"/>:
+        /// 1) нажата LMB → <c>cursorLeftMouseDown</c>;
+        /// 2) нажата RMB → <c>cursorRightMouseDown</c>;
+        /// 3) активен hover → <c>cursorOnHover[HoverIndex]</c>;
+        /// 4) ничего из перечисленного → <c>cursorDefault</c>.
+        ///
+        /// Fail-fast: некорректный <c>HoverIndex</c> (вне диапазона массива) бросает
+        /// <see cref="IndexOutOfRangeException"/> — это сигнал об ошибке конфигурации,
+        /// должен быть исправлен на этапе разработки, а не маскироваться.
+        /// </summary>
         private static void ApplyByPriority()
         {
             if (_cursorLeftMouseDown != null && MouseKeys.LeftKeyPressed)
@@ -157,9 +216,12 @@ namespace Vortex.Unity.UI.CursorSystem
         }
 
         /// <summary>
-        /// Применение текстуры на курсор
+        /// Применяет переданный спрайт к системному курсору. Hotspot курсора берётся из
+        /// <see cref="Sprite.pivot"/> и конвертируется в пиксельные координаты с инверсией
+        /// по Y (Unity Sprite использует bottom-left, <c>Cursor.SetCursor</c> — top-left).
+        /// При <c>sprite == null</c> откатывается на <c>_cursorDefault</c>.
         /// </summary>
-        /// <param name="sprite"></param>
+        /// <param name="sprite">Спрайт курсора. Если <c>null</c> — берётся дефолтный.</param>
         private static void Apply(Sprite sprite)
         {
             var texture = sprite?.texture ?? _cursorDefault.texture;

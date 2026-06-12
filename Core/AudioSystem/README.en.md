@@ -182,7 +182,7 @@ IAudioSample sample = AudioController.GetSample("explosion_01");
 
 ## Edge Cases
 
-- **Driver not registered:** playback calls access `Driver` — behavior defined by `SystemController` (null-guard at the base class level).
+- **Driver not registered:** bus methods call `Driver.X(...)` directly, with no null-guard in `SystemController` — accessing an unregistered driver throws a `NullReferenceException`.
 - **Duplicate GUID:** during index population by the driver — depends on implementation (Unity driver uses `AddNew`, last one overwrites).
 - **OnSettingsChanged without subscribers:** safe invocation via `?.Invoke()`.
 - **Channel not found:** `GetChVolume` returns `baseValue` (default 1f), `GetChannel` returns `null`, calculated methods use multiplier 1.

@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Sdk.*`
 **Слой:** 3 (AppSDK)
-**Пакетов:** 3 (GameCore, Quests, MiniGamesSystem)
+**Пакетов:** 11 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, MapLevels, RewardsSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
 
 ---
 
@@ -50,9 +50,17 @@ SDK — это контракт: «в наших проектах игра ус�
 
 | Пакет | Assembly | Назначение |
 |-------|----------|-----------|
-| **GameCore** | `ru.vortex.sdk.game.core` | Игровая сессия: состояния, пауза, сериализация, реактивная модель данных |
+| **Core** | `ru.vortex.sdk.game.core` | Игровая сессия: состояния, пауза, сериализация, реактивная модель данных |
 | **Quests** | `ru.vortex.sdk.game.quests` | Квестовая система: условия, асинхронное выполнение логик, автозапуск |
 | **MiniGamesSystem** | `ru.vortex.sdk.minigames` + конкретные игры | Фреймворк миниигр: Hub → Controller → Data → View |
+| **AudioLocalizationSystem** | `ru.vortex.sdk.localization.audio` | Локализованная озвучка реплик: привязка voice к Sound по языку |
+| **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Играбельный персонаж: шина, контроллеры, view, сохранение/загрузка |
+| **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Спавн визуальных эффектов из каталога по ключу через пул |
+| **MapLevels** | `ru.vortex.sdk.maplevels` | Стриминговые уровни на карте: переключение, загрузка/выгрузка |
+| **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Система наград |
+| **SdkSettingsSystem** | `sdk.settings.system` | Конфиг активации SDK-пакетов через define-символы |
+| **UIs/RoofTransparentSystem** | `ru.vortex.sdk.ui.rooftransparent` | Прозрачность крыш при заслонении персонажа |
+| **UIs/SaveLoad** | `ru.vortex.sdk.game.uis.saveload` | UI-обёртка сохранения/загрузки |
 
 ---
 

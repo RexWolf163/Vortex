@@ -24,7 +24,7 @@ The package is enabled through `SdkSettingsSystem`:
 
 - Toggle: `roofTransparentSdk` in the `SdkSettings` asset inspector
 - Define symbol: `USING_VORTEX_ROOF_TRANSPARENCY`
-- Menu: `Vortex → Configs → SDK Settings`
+- Menu: `Tools → Vortex → Configs → SDK Settings`
 
 When the toggle is off, the define is removed from PlayerSettings and the package does not compile (the asmdef declares `defineConstraints: ["USING_VORTEX_ROOF_TRANSPARENCY"]`). Activation canon — `Vortex/Sdk/SdkSettingsSystem/README.en.md`.
 

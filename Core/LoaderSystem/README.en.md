@@ -113,8 +113,8 @@ Open fields without encapsulation (access optimization):
 |--------|-------------|
 | `Register(IProcess)` | Register module. Duplicate by type — `Warning`, skip |
 | `UnRegister<T>()` / `UnRegister(Type)` / `UnRegister(IProcess)` | Remove from registration |
-| `Run()` | Start full loading. Protected from repeated calls |
-| `RunAlone(IProcess)` | Load a single module outside the main queue |
+| `UniTask Run()` | Start full loading. Protected from repeated calls |
+| `UniTask RunAlone(IProcess)` | Load a single module outside the main queue |
 | `GetProgress()` | Current step number (1-based) |
 | `GetSize()` | Total number of modules |
 | `GetCurrentLoadingData()` | `ProcessData` of the currently loading module |
@@ -140,7 +140,7 @@ Open fields without encapsulation (access optimization):
 | Strictly sequential loading | No parallelism for independent modules |
 | Cancellation does not roll back state | Already loaded modules remain in memory |
 | `_isRunning` is never reset | Repeated `Run()` impossible without restart |
-| `CancellationTokenSource` is readonly static | Single token for the application lifetime |
+| `CancellationTokenSource` is a mutable static field | `_cts` is not `readonly`: `RunAlone()` cancels, disposes and recreates the token source before a single-module load |
 | `Queue` is `Dictionary<Type, IProcess>` | One instance per type |
 
 ---

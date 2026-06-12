@@ -24,7 +24,7 @@
 
 - Тоггл: `roofTransparentSdk` в инспекторе ассета `SdkSettings`
 - Define-символ: `USING_VORTEX_ROOF_TRANSPARENCY`
-- Меню: `Vortex → Configs → SDK Settings`
+- Меню: `Tools → Vortex → Configs → SDK Settings`
 
 При выключенном тоггле define снимается из PlayerSettings, и пакет не компилируется (asmdef содержит `defineConstraints: ["USING_VORTEX_ROOF_TRANSPARENCY"]`). Канон активации — `Vortex/Sdk/SdkSettingsSystem/README.ru.md`.
 

@@ -201,8 +201,9 @@ var preset = driver?.GetPresetForRecord(guid);
 ## Editor Tools
 
 - `RecordPreset.ResetGuid()` — button for new GUID generation
-- `RecordPreset.OnNameChanged()` — automatic asset file renaming
-- `DbRecordAttribute` — picker with type and mode filtering
+- `RecordPreset.OnNameChanged()` — automatic asset file renaming. If the supplied name does not start with a letter (digit, symbol, whitespace), the name falls back to `DefaultName` — guards against invalid asset names that would break C# code generation.
+- `RecordPreset` debug `_data` field — shows the current record state in the inspector in Play mode. Cached for 1 second (`DebugDataRefreshInterval`) — "live" to the eye, but only one `CopyFrom` per second under the hood instead of every OnGUI. Hidden for MultiInstance presets and in Edit mode.
+- `DbRecordAttribute` — picker with type and mode filtering. **Cache TTL 1 sec:** `ReloadDatabase()` and the names/GUIDs list rebuild run once per second per unique `(RecordType, RecordClass)`, not on every OnGUI. Critical for an inspector with several `[DbRecord]` fields over a large database (e.g. a Sound catalog with hundreds of records) — without the cache the editor FPS drops by an order of magnitude. When assets in the project change, the dropdown visibility lag is up to 1 sec.
 - `IDriverEditor.ReloadDatabase()` — cache refresh without restart
 - `IDriverEditor.GetPresetForRecord(guid)` — get preset by GUID
 - Code generation: `Assets/Create/Vortex Templates/Record`, `Assets/Create/Vortex Templates/Preset for Record`

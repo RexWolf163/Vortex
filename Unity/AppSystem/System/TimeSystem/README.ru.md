@@ -112,6 +112,20 @@ DateTime local  = TimeController.DateFromSeconds(unixSec);
 DateTime local  = TimeController.DateFromTicks(ticks);
 ```
 
+#### Покадровые колбэки (FixedUpdate)
+
+Помимо отложенных вызовов, `TimeController` ведёт реестр колбэков `FixUpdateIndex`, вызываемых каждый кадр на `FixedUpdate`:
+
+```csharp
+// Регистрация колбэка, вызываемого каждый FixedUpdate
+TimeController.AddCallback(Tick);
+
+// Снятие из реестра
+TimeController.RemoveCallback(Tick);
+```
+
+Колбэки вызываются в `FixedUpdate` в порядке регистрации; исключение в одном колбэке изолируется (`try/catch` + `Debug.LogException`) и не блокирует остальные.
+
 ### Граничные случаи
 
 - **StepTime (0.1с):** `CheckQueue` выполняется раз в ~100мс. При `stepSecs <= 0` форсируется проверка на текущем `LateUpdate`.

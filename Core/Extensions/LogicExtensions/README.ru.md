@@ -54,7 +54,7 @@ LogicExtensions/
 | `FireAnd` | `Func<.., bool>.FireAnd(args, returnOnZero)` | AND-агрегация: `false` при первом `false`. Раннее прерывание (0–5 параметров) |
 | `FireOr` | `Func<.., bool>.FireOr(args, returnOnZero)` | OR-агрегация: `true` если хотя бы один `true`. Все подписчики вызываются (0–5 параметров) |
 | `Accumulate<T>` | `Func<T[]>.Accumulate()`, `Func<T>.Accumulate()` | Сбор результатов всех подписчиков в единый массив |
-| `FirstNotNull<T>` | `Func<T>.FirstNotNull()`, `Func<T1,T2>.FirstNotNull(arg)` | Первый ненулевой результат среди подписчиков |
+| `FirstNotNull<T>` | `Func<T>.FirstNotNull()`, `Func<T1,T2>.FirstNotNull(arg)` | Первый ненулевой результат среди подписчиков (ограничение `where T : class`) |
 | `AddSafe` | `Action.AddSafe(value)` | Подписка с защитой от дублирования |
 
 ### Использование
@@ -96,9 +96,9 @@ onUpdate = onUpdate.AddSafe(MyHandler);
 ### Жизненный цикл
 
 ```
-Create(out openValve)  →  valve += handler  →  openValve()  →  valve += lateHandler (вызов немедленно)
-                                                                  │
-                                                             valve.Dispose()
+Create(out openValve)  →  valve.Subscribe(handler)  →  openValve()  →  valve.Subscribe(lateHandler) (вызов немедленно)
+                                                                          │
+                                                                     valve.Dispose()
 ```
 
 ### API
@@ -106,8 +106,8 @@ Create(out openValve)  →  valve += handler  →  openValve()  →  valve += la
 | Метод | Описание |
 |-------|----------|
 | `InitValve.Create(out Action openValve)` | Фабрика. Возвращает экземпляр и `Action` для открытия |
-| `operator +` | Подписка. До открытия — накопление; после — немедленный вызов |
-| `operator -` | Отписка (только до открытия) |
+| `Subscribe(Action)` | Подписка. До открытия — накопление; после — немедленный вызов |
+| `Unsubscribe(Action)` | Отписка (только до открытия) |
 | `Dispose()` | Блокирует дальнейшие операции |
 
 ### Использование
@@ -115,8 +115,13 @@ Create(out openValve)  →  valve += handler  →  openValve()  →  valve += la
 ```csharp
 public class MySystem
 {
-    public InitValve OnReady { get; } = InitValve.Create(out _open);
-    private Action _open;
+    public InitValve OnReady { get; }
+    private readonly Action _open;
+
+    public MySystem()
+    {
+        OnReady = InitValve.Create(out _open);
+    }
 
     public void Initialize()
     {
@@ -126,7 +131,7 @@ public class MySystem
 }
 
 // Подписчик:
-mySystem.OnReady.Subscribe(() => Debug.Log("System ready"));
+mySystem.OnReady.Subscribe(() => Log.Print(LogLevel.Info, "System ready"));
 ```
 
 ### Граничные случаи
@@ -146,7 +151,7 @@ mySystem.OnReady.Subscribe(() => Debug.Log("System ready"));
 | Метод | Описание |
 |-------|----------|
 | `GetHashSha256(string text)` | SHA256-хеш строки (hex, lowercase) |
-| `GetNewGuid()` | Детерминированный GUID: `SHA256(timestamp + counter + random + random)` |
+| `GetNewGuid()` | GUID: `SHA256(timestamp + counter + random + random)` |
 | `SetCryptoPack(string data, string pass)` | Сжатие (GZip) + шифрование (AES-256-CBC). Результат — Base64-строка |
 | `GetCryptoPack(string cryptoData, string pass)` | Расшифровка + распаковка. Обратная операция к `SetCryptoPack` |
 

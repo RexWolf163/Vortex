@@ -10,6 +10,7 @@ Unity extensions for the core: MonoBehaviour singleton abstractions, texture con
 - `MonoBehaviourSingleton<T>` — MonoBehaviour-based singleton
 - `SoData` / `SoDataController` — ScriptableObject abstraction with property reflection
 - `TextureExtBase64` — `Texture2D` ↔ Base64 conversion with GZip compression
+- `Vector2Data` (`Vortex.Unity.Extensions.ReactiveValues`) — `ReactiveValue<Vector2>` for Unity vectors
 - `SimpleTypeMarkerExtUnity` — partial extension for platform type marker
 - `DefineSymbolManager` — automatic define symbol management based on package presence
 - VTP Template System — code template generation and deployment
@@ -113,12 +114,20 @@ Partial extension of `SimpleTypeMarker` from Core. Adds `UnityEngine.Object` as 
 
 ### AssetFinder
 
-Asset search utility via `AssetDatabase`.
+Asset search utility via `AssetDatabase`. Namespace is `Vortex.Unity.EditorTools` (not `Vortex.Unity.Extensions.Editor`).
 
 | Method | Description |
 |--------|-------------|
 | `FindAssets<T>(params string[] searchInFolders)` | All assets of type `T` in the project (or in specified folders) |
 | `FindAsset<T>(params string[] searchInFolders)` | First asset of type `T` or `null` |
+
+### AssetDatabaseExt
+
+Namespace is `Vortex.Unity.Extensions`. Provides `GetSingletonAsset<T>(bool canBeChildren = true)` — finds the single instance of an asset of type `T` in the project (runtime via `Resources.LoadAll`). Logs an error on multiplicity.
+
+### AnimatorExt
+
+Namespace is `Vortex.Unity.Extensions.Editor.Misc`. Extension methods for `Animator`: `GetAnimatorParameters<T>()`, `GetAnimatorTriggers()` — extract animator parameter / trigger names.
 
 ### MenuConfigSearchController
 

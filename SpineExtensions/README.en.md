@@ -29,7 +29,7 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 | Subfolder | Purpose |
 |-----------|---------|
 | [TweenerSystem](TweenerSystem/) | `TweenLogic` implementations: single-clip and weighted-random animation for `SkeletonGraphic` and `SkeletonAnimation` |
-| [UIs](UIs/) | Scene handlers: `FloatData`-driven scrub, freeze on `GameStates`, desync, skin switcher |
+| [UIs](UIs/) | Scene handlers: `FloatData`-driven scrub, Spine/`Animator` freeze on `GameStates`, desync, skin and `MeshRenderer` order switchers |
 | [DefineSettings](DefineSettings/) | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
 
 ## Dependencies
@@ -193,6 +193,34 @@ A `StateItem` for `UIStateSwitcher`: when the owning state activates, it applies
 | `spine` | `SkeletonGraphic` | Target skeleton |
 
 `Set()` invokes `Skeleton.SetSkin` + `SetSlotsToSetupPose` + `UpdateMesh`. In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch Spine Skin**.
+
+### AnimatorPauseHandler
+
+A `MonoBehaviour` handler that freezes a Unity `Animator` (not Spine) based on game state. The target is wired via `[AutoLink]`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `animator` | `Animator` | Target animator, `[AutoLink]` |
+
+Reaction to `GameController.OnGameStateChanged`:
+
+| `GameStates` | Action |
+|--------------|--------|
+| `Off`, `Play`, `Win`, `Fail` | `UnPause()` — restores the saved `animator.speed` |
+| `Loading`, `Paused` | `Pause()` — saves current speed, `animator.speed = 0` |
+
+Subscription happens in `OnEnable` (with an immediate call), unsubscription and `UnPause()` in `OnDisable`. The `Pause`/`UnPause` methods are exposed as Odin buttons (`[Button, HorizontalGroup]`).
+
+### MeshRendererOrderSwitch
+
+A `StateItem` for `UIStateSwitcher`: when the owning state activates it sets `sortingOrder` on an array of `MeshRenderer`, and `DefaultState()` returns it to `0`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order` | `int` (`[Min(1)]`) | Sorting order in the active state |
+| `meshRenderers` | `MeshRenderer[]` | Target renderers |
+
+In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch MeshRenderer Order**.
 
 ---
 

@@ -5,7 +5,7 @@
 
 ## Активация
 
-Пакет активируется через `SdkSettings` (меню **Vortex → Configs → SDK Settings**), тоггл **`questsSdk`**. Тоггл управляет define-символом `USING_VORTEX_QUESTS`, который указан в `defineConstraints` asmdef'а — при выключении пакет не компилируется и его типы недоступны.
+Пакет активируется через `SdkSettings` (меню **Tools → Vortex → Configs → SDK Settings**), тоггл **`questsSdk`**. Тоггл управляет define-символом `USING_VORTEX_QUESTS`, который указан в `defineConstraints` asmdef'а — при выключении пакет не компилируется и его типы недоступны.
 
 Канон описания активации SDK-пакетов: `Vortex/Sdk/SdkSettingsSystem/README.ru.md`.
 
@@ -113,7 +113,7 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 ### Вход
 - `QuestPreset` — ScriptableObject, зарегистрированный в Database как MultiInstance
 - `GameController.OnNewGame` — триггер новой игры
-- `GameController.OnLoadData` — триггер загрузки сохранения
+- `GameController.OnLoadGame` — триггер загрузки сохранения
 
 ### Выход
 - `QuestController.OnUpdateData` — событие изменений

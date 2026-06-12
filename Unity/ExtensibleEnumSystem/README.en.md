@@ -83,7 +83,7 @@ Lifecycle:
 - `OnDataChanged` — reads `Index` via reflection; if `index >= 0`, calls `switcher.Set(index)`.
 - `OnDestroy` — unsubscribe + cache nullification.
 
-The link between key and switcher slot is the `Order` of the value (set by the author when declaring `new MoveState("Run", 2)`). The switcher's slots must be in the same order as the values in the type.
+The link between key and switcher slot is the value's `Index`: the handler reads `ExtEnumData.Index` and, when `index >= 0`, calls `switcher.Set(index)`. The switcher's slots must be in the same order as the values in the type.
 
 The editor-helper `GetExtEnumDataProperties()` (under `#if UNITY_EDITOR`) collects the list of `source`'s properties whose type derives from `ExtEnumData<>`. Ready to be wired into a future drawer with a dropdown (currently the `property` field is a plain string input).
 

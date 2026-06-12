@@ -55,8 +55,8 @@ MonoBehaviour, связывающий Unity lifecycle с шиной `App`.
 
 | Событие | Действие |
 |---------|----------|
-| `OnApplicationFocus(false)` | `App.SetState(Unfocused)` |
-| `OnApplicationPause(true)` | `App.SetState(Unfocused)` |
+| `OnApplicationFocus(false)` | `App.SetState(Unfocused)`; в редакторе при `IgnorePauseInEditor` — `return` без смены состояния |
+| `OnApplicationPause(true)` | `App.SetState(Unfocused)`; в редакторе при `IgnorePauseInEditor` — `return` без смены состояния |
 | Возврат фокуса | `App.SetState(_oldState)` — восстановление предыдущего состояния |
 | `OnStateChanged(Stopping)` | `Application.Quit()` (в редакторе: `EditorApplication.isPlaying = false`) |
 | `OnStateChanged(Unfocused)` | Игнорируется — `_oldState` не обновляется |
@@ -74,6 +74,8 @@ MonoBehaviour, связывающий Unity lifecycle с шиной `App`.
 Partial-расширение `DebugSettings`. Добавляет toggle `appStates` с атрибутом `[ToggleButton]`.
 
 Свойство `AppStateDebugMode` — `true` только если включены и глобальный `DebugMode`, и локальный `appStates`. Используется в `App.SetState()` для условного логирования переходов.
+
+Также добавляет toggle `ignorePauseInEditor` (свойство `IgnorePauseInEditor`). Когда включён, `AppStateHandler` в редакторе игнорирует `OnApplicationFocus(false)` / `OnApplicationPause(true)` — переходы в `Unfocused` не происходят (удобно при отладке вне фокуса окна Unity).
 
 ---
 

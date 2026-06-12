@@ -30,8 +30,11 @@ Out of scope:
 AITools/
 ├── AIContextCreator.cs                  # Editor-only aggregation utility
 ├── Prompt code quality analysis.md      # Prompt: code quality evaluation
-└── Prompt create docs.md               # Prompt: documentation generation
+├── Prompt create docs.md               # Prompt: documentation generation
+└── ClaudeCodeSkills/                    # Skills for Claude Code (+ its own README)
 ```
+
+The [ClaudeCodeSkills](ClaudeCodeSkills/) subpackage contains a set of Claude Code skills that package Vortex methodologies (layer detection, initial architecture, quality evaluation, TZ design) into an executable format. See its own README for details.
 
 ### AIContextCreator
 

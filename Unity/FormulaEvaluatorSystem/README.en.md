@@ -9,13 +9,14 @@ String-based mathematical formula evaluation with Inspector-driven parameter bin
 - Preview evaluation results using test values in Inspector
 - Dependency-free recursive descent math parser
 
-Out of scope: runtime formula evaluation binding (parser is available, binding is project responsibility).
+Runtime evaluation is supported: `FormulaEvaluator.Calc(...)` / `TryCalc(...)` resolve slots to class members and evaluate the formula from code (see [API](#api)).
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `ru.vortex.unity.editortools` | MultiDrawer, PropertyData, DrawingUtility, SearchablePopup |
+| `ru.vortex.unity.editortools` | DrawingUtility, SearchablePopup, `Elements` |
+| Odin Inspector | `FormulaDrawer` — `OdinAttributeDrawer<FormulaAttribute, string>` (`#if UNITY_EDITOR && ODIN_INSPECTOR`), `SirenixEditorGUI` |
 
 ## Formula Format
 
@@ -39,9 +40,10 @@ FormulaEvaluatorSystem/
 │   └── FormulaAttribute.cs          → [Formula("slotsFieldName")] attribute
 ├── Model/
 │   └── FormulaSlot.cs               → serializable binding: memberName + testValue
-├── FormulaParser.cs                  → recursive descent expression parser
-├── FormulaReflectionResolver.cs      → #if UNITY_EDITOR: numeric member discovery
-└── FormulaDrawer.cs                  → #if UNITY_EDITOR: MultiDrawer rendering
+├── FormulaEvaluator.cs                 → runtime: Calc / TryCalc (slot resolution + evaluation)
+├── FormulaParser.cs                    → recursive descent expression parser
+├── FormulaReflectionResolver.cs        → #if UNITY_EDITOR: numeric member discovery
+└── FormulaDrawer.cs                    → OdinAttributeDrawer<FormulaAttribute, string> (#if UNITY_EDITOR && ODIN_INSPECTOR)
 ```
 
 ## Usage
@@ -98,15 +100,35 @@ Constants/
 - Numeric types: `int`, `float`, `double`, `long`, `decimal`, `byte`, `short`, `uint`, `ulong`, `ushort`, `sbyte`
 - Inherited `private` members are excluded (inaccessible)
 
-## Parser API
+## API
+
+### FormulaEvaluator (runtime)
+
+Resolves slots to members of `owner` and evaluates the formula — the "string + slots + object" binding.
+
+| Method | Description |
+|--------|-------------|
+| `FormulaEvaluator.Calc(formula, slots, owner)` | Evaluate with slots bound to `owner` members. Throws on error |
+| `FormulaEvaluator.TryCalc(formula, slots, owner, out result, out error)` | Safe version (try/catch; parse and resolution errors go to `error`) |
+
+```csharp
+double dmg = FormulaEvaluator.Calc(damageFormula, damageSlots, this);
+
+if (FormulaEvaluator.TryCalc(damageFormula, damageSlots, this, out var result, out var error))
+    Debug.Log($"Damage: {result}");
+else
+    Debug.LogError(error);
+```
+
+### FormulaParser (low-level)
+
+Operates on an already-resolved `double[]` parameter array.
 
 | Method | Description |
 |--------|-------------|
 | `FormulaParser.Evaluate(formula, parameters)` | Evaluate. Throws on error |
 | `FormulaParser.TryEvaluate(formula, parameters, out result, out error)` | Safe evaluation |
 | `FormulaParser.GetMaxSlotIndex(formula)` | Highest `{N}` index in formula (-1 if none) |
-
-### Runtime Evaluation Example
 
 ```csharp
 var parameters = new double[] { 10.0, 5.0, 2.0 };

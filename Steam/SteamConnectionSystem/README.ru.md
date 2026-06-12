@@ -33,7 +33,8 @@
 | Зависимость | Назначение |
 |-------------|-----------|
 | `Steamworks.NET` | `SteamAPI`, `SteamUser`, `SteamFriends`, `CSteamID` |
-| `Vortex.Unity.EditorTools` | `[OnChanged]`, `[ToggleButton]` для Inspector |
+| `Vortex.Unity.EditorTools` | `[ToggleButton]` для Inspector |
+| `Sirenix.OdinInspector` | `[OnValueChanged]` для Inspector |
 
 ---
 
@@ -52,6 +53,7 @@ SteamManager : MonoBehaviour (singleton)
   ├── [RuntimeInitializeOnLoadMethod] Init()
   │   └── new GameObject("SteamManager").AddComponent<SteamManager>()
   ├── Awake()
+  │   ├── Packsize.Test() / DllCheck.Test() → Debug.LogError при несовпадении версий
   │   ├── RestartAppIfNecessary(AppId) → Application.Quit() если не через Steam
   │   ├── SteamAPI.Init() → m_bInitialized
   │   ├── Callback<UserStatsReceived_t>.Create()
@@ -77,7 +79,7 @@ SteamUserShortData
 
 SteamConnectionSettings : ScriptableObject
   ├── steamAppId: uint (default 480)
-  ├── isEnabled: bool                   ← [OnChanged] → DefineSymbolManager.Refresh()
+  ├── isEnabled: bool                   ← [OnValueChanged("OnSteamEnabledChanged")] → DefineSymbolManager.Refresh()
   ├── isTestBuild: bool                 ← пропускает RestartAppIfNecessary
   └── OnAppUdChanged() → File.WriteAllText("steam_appid.txt")
 
@@ -95,7 +97,7 @@ Settings (internal)
 1. `DefineSymbolManager.Refresh()` — при загрузке Editor устанавливает/удаляет `USING_STEAM`
 2. `Settings.CheckSteamAppId()` — синхронизирует `steam_appid.txt` с ассетом настроек
 3. `SteamManager.Init()` — `RuntimeInitializeOnLoadMethod`, создаёт GameObject
-4. `SteamManager.Awake()` — `SteamAPI.Init()`, загрузка данных пользователя
+4. `SteamManager.Awake()` — `Packsize.Test()`/`DllCheck.Test()`, затем `RestartAppIfNecessary`, `SteamAPI.Init()`, загрузка данных пользователя
 5. `SteamBus.LoadServices()` — `OnCallServices` для подписчиков (например, `AchievementsController`)
 
 ### Условная компиляция
@@ -199,7 +201,8 @@ if (SteamBus.SteamEnabled)
 | `steam_api.dll` не найден | `DllNotFoundException`, `Application.Quit()` |
 | `isTestBuild = false`, запуск не через Steam | `RestartAppIfNecessary()` → `true`, перезапуск через Steam-клиент |
 | `isTestBuild = true` | `RestartAppIfNecessary()` пропускается |
-| Повторная инициализация `SteamManager` | `Debug.LogError`, `Destroy(gameObject)` |
+| Дубликат экземпляра `SteamManager` (`s_instance != null`) | `Destroy(gameObject)` без лога |
+| Повторная инициализация при `SteamBus.IsInitialized` | `Debug.LogError`, `return` (без `Destroy`) |
 | `USING_STEAM` не определён | `SteamBus.SteamEnabled = false`, `IsInitialized` всегда `false` |
 | Дублирующий друг в списке | `TryAdd` → `Debug.LogError("There is broken data")` |
 | Domain Reload отключён | `InitOnPlayMode()` сбрасывает статические поля |

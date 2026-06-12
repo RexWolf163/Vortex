@@ -27,14 +27,14 @@ The visual side is driven by `TweenerHub` on the prefab (it triggers Animator/Sp
 ### Two-layer storage (lazy auto-create)
 
 ```
-[EffectPool]                          ← root, active, DontDestroyOnLoad
+[EffectVoid]                          ← root, active, DontDestroyOnLoad
     └── Storage                       ← child, INACTIVE — all idle instances live here
             ├── ExplosionPrefab(Clone)    (parent inactive → child does not Update)
             ├── DustPrefab(Clone)
             └── ...
 ```
 
-`EffectPool` is created **lazily** on first access from `EffectSpawn` (modeled after `MapLevelsController.VoidParent`). No scene objects placed manually — the pool appears when needed.
+The pool's root GameObject is named `[EffectVoid]` and carries the `EffectPool` component. It is created **lazily** on first access from `EffectSpawn` (modeled after `MapLevelsController.VoidParent`). No scene objects placed manually — the pool appears when needed.
 
 **Idle**: child of inactive `Storage` → `activeInHierarchy = false` → `Update`/`OnEnable` are not called. No manual `SetActive` anywhere.
 
@@ -139,20 +139,21 @@ EffectsCatalog : ScriptableObject
   └── ScanProject() / Validate()        — Editor-only
 ```
 
-Registered explicitly: `EffectSpawn.RegisterCatalog(catalog)` from startup code.
+Registered automatically: `EffectSpawn.RegisterCatalog()` (`[RuntimeInitializeOnLoadMethod]`) loads the singleton catalog at startup via `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. There is no parameterized overload and no `UnregisterCatalog`.
 
-The `[EffectKey]` attribute on a string field draws a popup of `EffectSpawn.AllKeys`. In Editor mode without registration, the drawer collects the union of keys from all `EffectsCatalog` assets in the project (via `AssetDatabase`). The key is optional — the first popup entry is `<None>` (value `""`), so the field may be left empty without auto-writing the first available effect.
+The `[EffectKey]` attribute on a string field draws a popup of `EffectSpawn.AllKeys`. In Editor mode without registration, the drawer collects the union of keys from all `EffectsCatalog` assets in the project (via `AssetDatabase`). The key is optional — the first popup entry is `[NONE]` (value `""`), so the field may be left empty without auto-writing the first available effect.
 
 ### EffectSpawn — Bus
 
 ```
 EffectSpawn (static)
-  ├── RegisterCatalog(catalog) / UnregisterCatalog(catalog)
+  ├── RegisterCatalog()                       ← [RuntimeInitializeOnLoadMethod], auto-loads the singleton catalog
   ├── AllKeys → IReadOnlyList<string>
   ├── IsPaused → GameController.GetState() == Paused
   │
-  ├── Spawn(target, prefab) → EffectView      ← target is required
-  ├── Spawn(target, key)    → EffectView
+  ├── Spawn(target, prefab)  → EffectView     ← target is required
+  ├── Spawn(target, key)     → EffectView
+  ├── Spawn(rectTarget, key) → EffectView     ← UI variant: random spread within rect
   ├── Release(view)
   │
   └── (static-ctor)
@@ -161,7 +162,7 @@ EffectSpawn (static)
               └── else    → Pool.ResumeAll()
 ```
 
-`Spawn`'s first parameter is `target` — without it the API is not callable (Logger.Error + null).
+`Spawn`'s first parameter is `target` — without it the API is not callable (`Debug.LogError` + null). The UI overload `Spawn(RectTransform target, string key, ...)` additionally spreads the position randomly within `target.rect`.
 
 ---
 
@@ -249,19 +250,9 @@ public class Weapon : MonoBehaviour
 }
 ```
 
-### Catalog registration at startup
+### Catalog registration
 
-```csharp
-public class GameBootstrap : MonoBehaviour
-{
-    [SerializeField] private EffectsCatalog effectsCatalog;
-
-    private void Awake()
-    {
-        EffectSpawn.RegisterCatalog(effectsCatalog);
-    }
-}
-```
+Registration is **automatic** — no bootstrap code required. `EffectSpawn.RegisterCatalog()` is marked `[RuntimeInitializeOnLoadMethod]` and loads the singleton catalog at startup via `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. It is enough to have a single `EffectsCatalog` asset in the project. There is no parameterized overload and no `UnregisterCatalog`.
 
 ### EffectsLayer in the scene
 
@@ -291,13 +282,13 @@ Enemy
 
 | Scenario | Behavior |
 |---|---|
-| `Spawn(null, ...)` | `Logger.Error` + null. target is required by contract |
-| `Spawn(target, prefab=null)` | `Logger.Error` + null |
-| `Spawn(target, "unknown-key")` | `Logger.Error` + null. Key not found in catalog |
-| `Spawn(target, key)` without a registered catalog | `Logger.Error` + null. Spawn-by-prefab still works |
+| `Spawn(null, ...)` | `Debug.LogError` + null. target is required by contract |
+| `Spawn(target, prefab=null)` | `Debug.LogError` + null |
+| `Spawn(target, "unknown-key")` | `Debug.LogError` + null. Key not found in catalog |
+| `Spawn(target, key)` without a registered catalog | `Debug.LogError` + null. Spawn-by-prefab still works |
 | `[EffectKey]` field holds a key missing from current catalogs | Drawer renders the field red with the marker «⚠ X (missing)» and a popup next to it; the value is **not** rewritten until the designer picks an entry explicitly |
-| `[EffectKey]` field left empty | Stored as `""` (the `<None>` option). A Spawn with such a key produces `Logger.Error` — handle on the caller's side |
-| Prefab without `EffectView` | `Logger.Error` + Destroy of the instance; null returned |
+| `[EffectKey]` field left empty | Stored as `""` (the `[NONE]` option). A Spawn with such a key produces `Debug.LogError` — handle on the caller's side |
+| Prefab without `EffectView` | `Debug.LogError` + Destroy of the instance; null returned |
 | `EffectsLayer.Target` not set | Parking into the marker's transform |
 | `EffectsLayer` on an inactive object | `GetComponentInParent` skips it (default), fallback to target |
 | Multiple `EffectsLayer`s in the parent chain | Closest one wins (default `GetComponentInParent` behavior) |
@@ -323,8 +314,8 @@ Enemy
 - otherwise (Editor mode without registration) → unions keys from all `EffectsCatalog` assets in the project via `AssetDatabase`.
 
 Popup behaviour:
-- **Optionality.** The first entry is always `<None>` (value `""`). An empty value is not auto-rewritten to «the first available» on draw.
-- **Source symmetry.** Both branches (bus and AssetDatabase) go through one pipeline: `Distinct → OrderBy(Ordinal) → Insert(0, "")`. Empty keys found inside a catalog are filtered out so `<None>` is not duplicated.
+- **Optionality.** The first entry is always `[NONE]` (value `""`). An empty value is not auto-rewritten to «the first available» on draw.
+- **Source symmetry.** Both branches (bus and AssetDatabase) go through one pipeline: `Distinct → OrderBy(Ordinal) → Insert(0, "")`. Empty keys found inside a catalog are filtered out so `[NONE]` is not duplicated.
 - **Fail-loud on an invalid key.** If a field holds a key that is no longer present in the source (the effect was removed, renamed, or the catalog was unloaded), the drawer does **not** silently rewrite the value. The field is highlighted red with the marker «⚠ X (missing)» and a popup is drawn next to it for an explicit replacement. The write happens only after the designer clicks an entry in the popup — until then the previous value is preserved in serialized data, and the «there used to be key X» fact remains visible in the git diff.
 - **Empty catalogs.** When `keys.Length == 0` (no `EffectsCatalog` assets exist in the project), the drawer falls back to a plain `EditorGUI.PropertyField` plus a warning `HelpBox`.
 
@@ -340,13 +331,15 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
         public static IReadOnlyList<string> AllKeys { get; }
         public static bool IsPaused { get; }
 
-        public static void RegisterCatalog(EffectsCatalog catalog);
-        public static void UnregisterCatalog(EffectsCatalog catalog);
+        [RuntimeInitializeOnLoadMethod]
+        public static void RegisterCatalog(); // auto-loads the singleton catalog via AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()
 
         public static EffectView Spawn(Transform target, GameObject prefab,
             Vector3? position = null, Quaternion? rotation = null);
         public static EffectView Spawn(Transform target, string key,
             Vector3? position = null, Quaternion? rotation = null);
+        public static EffectView Spawn(RectTransform target, string key,
+            Vector3? deltaPosition = null, Quaternion? rotation = null); // UI variant: random spread within rect
         public static void Release(EffectView view);
     }
 }

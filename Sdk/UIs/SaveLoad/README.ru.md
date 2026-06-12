@@ -9,7 +9,7 @@
 
 - Тоггл: `saveLoadWrapperSdk` в инспекторе ассета `SdkSettings`
 - Define-символ: `USING_VORTEX_SAVE_LOAD_WRAPPER`
-- Меню: `Vortex → Configs → SDK Settings`
+- Меню: `Tools → Vortex → Configs → SDK Settings`
 
 При выключенном тоггле define снимается из PlayerSettings, и пакет не компилируется (asmdef содержит `defineConstraints: ["USING_VORTEX_SAVE_LOAD_WRAPPER"]`). Канон активации — `Vortex/Sdk/SdkSettingsSystem/README.ru.md`.
 

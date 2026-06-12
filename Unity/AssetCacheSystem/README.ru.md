@@ -75,7 +75,7 @@ Config/
     DebugSettingsExtAssetsCache     — toggle AssetCacheDebugLogs (учитывает DebugMode)
 
 Editor/
-  MenuController                    — Vortex/Configs/AssetCache Settings → ping ассета
+  MenuController                    — Tools/Vortex/Configs/AssetCache Settings → ping ассета
 ```
 
 ### Lifecycle bootstrap

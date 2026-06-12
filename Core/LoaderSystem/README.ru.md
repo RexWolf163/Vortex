@@ -113,8 +113,8 @@ OnComplete → App.SetState(Running)
 |-------|----------|
 | `Register(IProcess)` | Регистрация модуля. Дубликат по типу — `Warning`, пропуск |
 | `UnRegister<T>()` / `UnRegister(Type)` / `UnRegister(IProcess)` | Снятие с регистрации |
-| `Run()` | Запуск полной загрузки. Защита от повторного вызова |
-| `RunAlone(IProcess)` | Загрузка одного модуля вне общей очереди |
+| `UniTask Run()` | Запуск полной загрузки. Защита от повторного вызова |
+| `UniTask RunAlone(IProcess)` | Загрузка одного модуля вне общей очереди |
 | `GetProgress()` | Текущий номер шага (1-based) |
 | `GetSize()` | Общее количество модулей |
 | `GetCurrentLoadingData()` | `ProcessData` текущего загружаемого модуля |
@@ -140,7 +140,7 @@ OnComplete → App.SetState(Running)
 | Строго последовательная загрузка | Нет параллелизма независимых модулей |
 | Отмена не откатывает состояние | Уже загруженные модули остаются в памяти |
 | `_isRunning` не сбрасывается | Повторный `Run()` невозможен без перезапуска |
-| `CancellationTokenSource` — readonly static | Один токен на всю жизнь приложения |
+| `CancellationTokenSource` — изменяемое static-поле | `_cts` не `readonly`: `RunAlone()` отменяет, освобождает и пересоздаёт токен-источник перед одиночной загрузкой |
 | `Queue` — `Dictionary<Type, IProcess>` | Один экземпляр на тип |
 
 ---

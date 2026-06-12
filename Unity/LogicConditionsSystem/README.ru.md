@@ -34,7 +34,7 @@ Unity-реализации условий (`Condition`) для системы л
 ```
 LogicConditionsSystem/
 └── Conditions/
-    ├── _UnityCondition.cs      # Абстрактная база: Inspector-отображение
+    ├── UnityCondition.cs       # Абстрактная база: Inspector-отображение
     ├── MinTimeCondition.cs     # Ожидание по таймеру
     ├── SceneLoaded.cs          # Ожидание загрузки сцены
     └── SystemsLoaded.cs        # Ожидание AppStates.Running

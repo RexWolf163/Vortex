@@ -201,8 +201,9 @@ var preset = driver?.GetPresetForRecord(guid);
 ## Редакторские инструменты
 
 - `RecordPreset.ResetGuid()` — кнопка генерации нового GUID
-- `RecordPreset.OnNameChanged()` — автоматическое переименование файла ассета
-- `DbRecordAttribute` — picker с фильтрацией по типу и режиму
+- `RecordPreset.OnNameChanged()` — автоматическое переименование файла ассета. При попытке задать имя, начинающееся не с буквы (цифра, символ, пробел), подставляется `DefaultName` — защита от невалидных имён ассетов, которые ломают C#-кодогенерацию.
+- `RecordPreset` debug-поле `_data` — показывает текущее состояние записи в инспекторе в Play-режиме. Кешируется на 1 секунду (`DebugDataRefreshInterval`) — для глаза «живо», для процессора — раз в секунду, без аллокаций `CopyFrom` на каждый OnGUI. Скрыто для MultiInstance-пресетов и в Edit-режиме.
+- `DbRecordAttribute` — picker с фильтрацией по типу и режиму. **Кеш TTL 1 сек:** `ReloadDatabase()` и пересборка списка имён/GUID'ов выполняются раз в секунду на уникальный `(RecordType, RecordClass)`, а не на каждый OnGUI. Это критично для инспектора с несколькими `[DbRecord]`-полями над большой базой (например, Sound-каталог с сотнями записей) — без кеша FPS падает на порядок. При смене ассетов в проекте лаг видимости в выпадашке — до 1 сек.
 - `IDriverEditor.ReloadDatabase()` — обновление кеша без перезапуска
 - `IDriverEditor.GetPresetForRecord(guid)` — получение пресета по GUID
 - Кодогенерация: `Assets/Create/Vortex Templates/Record`, `Assets/Create/Vortex Templates/Preset for Record`

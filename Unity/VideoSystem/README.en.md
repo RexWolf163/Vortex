@@ -147,7 +147,7 @@ settings.video.MaximizedWindow     → Maximized Window
 | Scenario | Behavior |
 |----------|----------|
 | First launch (no save) | Current screen parameters used and saved |
-| Saved resolution unavailable | Settings load, but `SetResolution` throws `KeyNotFoundException` on apply |
+| Saved resolution unavailable | `SetResolution` does `TryGetValue` + `Debug.LogError` + `return` (no exception); `KeyNotFoundException` is possible in `SetScreenMode` |
 | Corrupt data in `PlayerPrefs` | `try/catch` → reset to current screen parameters |
 | Empty `whiteList` in `ScreenModeHandler` | Empty dropdown list |
 | `OnEnable` before `VideoController.OnInit` | Empty registries — dropdown is empty |

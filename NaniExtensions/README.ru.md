@@ -16,9 +16,14 @@
 | Подпакет | Сборка | Слой | Назначение |
 |----------|--------|------|-----------|
 | [Core](Core/) | `ru.vortex.nani.core` | 3 | `NaniWrapper` — ленивый доступ к сервисам Naninovel |
-| [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Трансляция громкости, управление Nani-аудио |
+| [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Трансляция громкости, управление Nani-аудио, `NaniVoicePlayBus` |
 | [CutsceneSystem](CutsceneSystem/) | `ru.vortex.nani.cutscenes` | 3 | Контроллер Spine-катсцен |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Драйвер локализации с каналами |
+| [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
+| [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — сохранение/восстановление Nani-переменных через `GameController` |
+| [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Точечные хэндлеры сцены (активный говорящий, баббл, эмоции, ZPosition, тестовые тулзы галереи) |
+
+Активация всего семейства Nani-пакетов — через символ `USING_NANINOVELL`, который выставляется тогглом `naninovellExt` (`SdkSettings`, атрибут `[DefineSymbol("USING_NANINOVELL")]`).
 
 ---
 
@@ -35,7 +40,8 @@
 ### Жизненный цикл
 
 - `[RuntimeInitializeOnLoadMethod]` — подписка на `GameController.OnNewGame`, `OnLoadGame`, `OnGameStateChanged`
-- `OnNewGame` / `OnLoadGame` → `ScriptPlayer.Stop()` + `ResetNani()`
+- `OnNewGame` → `ScriptPlayer.Stop()` + `ResetNani()` + `VariablesManager.ResetAllVariables()`
+- `OnLoadGame` → `ScriptPlayer.Stop()` + `ResetNani()`
 - `GameStates.Off/Win/Fail` → `ScriptPlayer.Stop()` + `ResetNani()`
 
 ### API
@@ -87,6 +93,29 @@ public sealed class NaniSessionService : IGameSessionService
 
 Partial-расширение `AudioChannelsConfig` (сборка `ru.vortex.unity.audiosystem.ext`). Добавляет 4 поля с атрибутом `[AudioChannelName]` для маппинга Nani-каналов на Vortex-каналы.
 
+### NaniVoicePlayBus
+
+Шина событий начала/завершения реплики персонажа. Объединяет два источника — `ITextPrinterManager` и `IAudioManager` — в единый контракт:
+
+```csharp
+public static event Action<string> OnVoiceStart;   // authorId говорящего
+public static event Action<string> OnVoiceStop;    // authorId говорящего
+```
+
+Воспроизведение voice детектируется поллингом `IAudioManager.GetPlayedVoice()`. Шина корректно ловит:
+- конец voice (path → null);
+- смену voice на другого актора (pathA → pathB) даже без null-окна между ними;
+- «тихий переход» (тот же автор продолжает с новой voice-дорожкой — аниматор остаётся в Forward, ни Stop, ни Start не эмитятся);
+- реплику без voice — Stop эмитится в `PrintFinished`, чтобы подписчик не залипал в состоянии «говорит» при отсутствии следующей `PrintStarted` (конец диалога, пауза на выбор).
+
+Алгоритм:
+1. `OnPrintStarted` — закрытие предыдущей реплики (если без voice), эмит `OnVoiceStart`, старт/продолжение поллинга, немедленная реконсиляция через `PollVoice()` (voice мог уже играть к моменту события: `@print` awaitит `PlayVoice` до фаер'инга).
+2. Поллинг через `TimeController.AddCallback` ловит любые transitions path и эмитит `OnVoiceStop` / запоминает нового автора как cached.
+3. `OnPrintFinished` — `OnVoiceStop`, если у завершившейся реплики не было собственной voice. Если voice играет — закрытие через поллинг (voice имеет право продолжаться после печати текста).
+4. `OnNaniStop` / `App.OnExit` — `FlushAll`, закрытие всех открытых реплик.
+
+Жизненный цикл: подписки в `App.OnStart`, отписка в `App.OnExit`. Не требует регистрации/инициализации со стороны проекта.
+
 ---
 
 ## CutsceneSystem
@@ -129,4 +158,25 @@ Open(key) → загрузка CutsceneData → SpineBackground → LoadPhase �
 | `EventToAudioData` | Маппинг Spine-события → звук: `EventName`, `AudioPack` |
 
 `CutsceneData.SyncWithSpine()` — Editor-кнопка: синхронизирует фазы и события с `SkeletonDataAsset`.
+
+---
+
+## Misc
+
+**Namespace:** `Vortex.NaniExtensions.Misc`
+**Сборка:** `ru.vortex.nani.misc`
+
+Точечные хэндлеры для интеграции Nani-сцены с проектным UI и логикой. Каждый — самостоятельный MonoBehaviour, вешается на UI-объекты сцены и работает поверх `NaniWrapper`/`NaniVoicePlayBus`.
+
+| Хэндлер | Что делает |
+|---|---|
+| `ActiveCharacterHandler` | Отслеживает «кто говорит» через `NaniVoicePlayBus.OnVoiceStart/Stop` и переключает визуал активного актора (StateSwitcher / выделение). |
+| `CharacterVoiceTweenerHandler` | Связывает `NaniVoicePlayBus` с `TweenerHub` на персонаже: Forward на старте voice, Back на завершении. |
+| `LookCharacterHandler` | Поворот персонажа на текущего говорящего (источник — `NaniVoicePlayBus`). |
+| `VisibilityCharacterHandler` | Скрытие/показ персонажей по правилам сцены (на основе `CharacterManager.GetActor`/`Appearance`). |
+| `DialogBubbleSwitcher` | Переключатель состояний диалогового баббла (типы реплик, эмоции, фон). |
+| `BubblePositionTarget` | Якорь позиции баббла относительно мирового объекта (актор/слот). |
+| `TextBubbleResizer` | Динамический размер баббла под длину текста реплики (после `OnPrintStarted`). |
+| `ZPositionSwitch` | Переключение Z-позиции по доменному стейту (Active/Inactive говорящий). |
+| `ResetAllGalleryCardsHandler` | Editor-инструмент: сбрасывает прогресс открытых карт галереи в `UnlockableManager` (для тестирования сцен галереи в чистом состоянии). |
 

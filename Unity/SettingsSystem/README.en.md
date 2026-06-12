@@ -17,7 +17,7 @@ Capabilities:
 - `StartSettings` — built-in preset: start scene for Editor
 - Auto-creation: on Editor load, creates an asset for every `SettingsPreset` subclass without one
 - `StartSceneHandler` — loads start scene on Play Mode in Editor
-- Menu `Vortex > Configs > Application Start Config` — navigates to `StartSettings` asset
+- Menu `Tools > Vortex > Configs > Application Start Config` — navigates to `StartSettings` asset
 
 Out of scope:
 
@@ -66,7 +66,7 @@ StartSceneHandler  (Editor, static)
        └── SceneManager.LoadScene(Settings.Data().StartScene)
 
 MenuController  (Editor, static)
-  └── [MenuItem("Vortex/Configs/Application Start Config")]
+  └── [MenuItem("Tools/Vortex/Configs/Application Start Config")]
        └── navigate to StartSettings asset
 ```
 
@@ -157,7 +157,7 @@ public class GameplaySettings : SettingsPreset
 
 ### Navigating to settings
 
-`Menu: Vortex > Configs > Application Start Config` — opens `StartSettings` asset in Inspector.
+`Menu: Tools > Vortex > Configs > Application Start Config` — opens `StartSettings` asset in Inspector.
 
 ---
 

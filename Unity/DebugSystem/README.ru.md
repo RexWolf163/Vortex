@@ -10,7 +10,7 @@ ScriptableObject-ассет настроек отладки с toggle-кнопк
 - Локальные toggle: `appStates`, `inputLogs`, `uiLogs`, `asyncTweenerLogs`
 - Каждый локальный toggle — partial-расширение `DebugSettings` из соответствующей системы
 - Итоговое свойство: `XxxDebugMode => DebugMode && xxxToggle`
-- Меню `Vortex/Configs/Debug Settings` для быстрого доступа к ассету
+- Меню `Tools/Vortex/Configs/Debug Settings` для быстрого доступа к ассету (пингует ассет `StartSettings`)
 
 Вне ответственности: логика логирования, Core-свойства `SettingsModel` — это Core (Layer 1).
 
@@ -31,7 +31,7 @@ DebugSettings (partial, SettingsPreset)
 └── UI/TweenerSystem/Debug/Presets/           → asyncTweenerLogs → AsyncTweenerDebugMode
 
 MenuController (Editor)
-└── Vortex/Configs/Debug Settings             — навигация к ассету
+└── Tools/Vortex/Configs/Debug Settings       — пинг ассета StartSettings
 ```
 
 ### Паттерн расширения
@@ -60,7 +60,7 @@ public partial class DebugSettings
 - Все свойства доступны через `Settings.Data()` (копируются в `SettingsModel` при загрузке)
 
 ### Гарантии
-- `[Position(-100)]` — `DebugMode` отрисовывается первым в Inspector
+- `[PropertyOrder(-100)]` (Odin) — `DebugMode` отрисовывается первым в Inspector
 - Все локальные toggle зависят от `DebugMode` — выключение глобального отключает все
 
 ### Ограничения
@@ -77,7 +77,7 @@ public partial class DebugSettings
 
 ### Доступ к ассету
 
-Меню: `Vortex → Configs → Debug Settings`
+Меню: `Tools/Vortex/Configs/Debug Settings` (пингует ассет `StartSettings`)
 
 ### Проверка в коде
 

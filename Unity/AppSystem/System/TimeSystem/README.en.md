@@ -112,6 +112,20 @@ DateTime local  = TimeController.DateFromSeconds(unixSec);
 DateTime local  = TimeController.DateFromTicks(ticks);
 ```
 
+#### Per-frame callbacks (FixedUpdate)
+
+In addition to deferred calls, `TimeController` keeps a `FixUpdateIndex` registry of callbacks invoked every frame on `FixedUpdate`:
+
+```csharp
+// Register a callback invoked every FixedUpdate
+TimeController.AddCallback(Tick);
+
+// Remove from the registry
+TimeController.RemoveCallback(Tick);
+```
+
+Callbacks are invoked in `FixedUpdate` in registration order; an exception in one callback is isolated (`try/catch` + `Debug.LogException`) and does not block the rest.
+
 ### Edge Cases
 
 - **StepTime (0.1s):** `CheckQueue` runs every ~100ms. When `stepSecs <= 0`, check is forced on the current `LateUpdate`.

@@ -9,7 +9,7 @@ The package is enabled through `SdkSettingsSystem`:
 
 - Toggle: `saveLoadWrapperSdk` in the `SdkSettings` asset inspector
 - Define symbol: `USING_VORTEX_SAVE_LOAD_WRAPPER`
-- Menu: `Vortex → Configs → SDK Settings`
+- Menu: `Tools → Vortex → Configs → SDK Settings`
 
 When the toggle is off, the define is removed from PlayerSettings and the package does not compile (the asmdef declares `defineConstraints: ["USING_VORTEX_SAVE_LOAD_WRAPPER"]`). Activation canon — `Vortex/Sdk/SdkSettingsSystem/README.en.md`.
 

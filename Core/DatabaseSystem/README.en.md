@@ -111,7 +111,7 @@ Marker interface (empty).
 ### Limitations
 - Duplicate GUIDs — last one overwrites (driver-dependent)
 - Access before initialization — NRE
-- Subscribing to `OnInit` after initialization — callback won't fire
+- Subscribing to `OnInit` after initialization — callback fires immediately (the accessor checks `IsInit` and invokes the delegate at once)
 - `GetDataForSave()` returning `null/empty` — record skipped during save
 - `Record` is abstract — instances created through the driver
 
@@ -172,6 +172,6 @@ Database.OnInit += () =>
 | MultiInstance requested as Singleton | `null` + `Error` log |
 | Type mismatch on `GetRecord<T>` | `null` + `Error` log |
 | Driver not assigned | `Instance` not created, all calls — NRE |
-| Subscribing to `OnInit` after loading | Callback won't fire |
+| Subscribing to `OnInit` after loading | Callback fires immediately |
 | `GetDataForSave()` → `null` | Record skipped during save |
 | Record in save but not in registry | Ignored during load |

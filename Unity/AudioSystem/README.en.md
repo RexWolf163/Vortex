@@ -85,7 +85,7 @@ Example: `Y;0.8;Y;1;Y;1;dialog:Y:0.7;ambient:Y:0.5`
 - Field `channels: string[]` — channel names
 - On editor change — automatic `AudioDriver.ResetChannels()`
 
-Menu: `Vortex/Configs/Audio Channels Settings` — navigate to config.
+Menu: `Tools/Vortex/Configs/Audio Channels Settings` — navigate to config.
 
 ### AudioChannelNameAttribute
 
@@ -356,7 +356,8 @@ Add `MusicHandler` to a GameObject, assign GUID via `[DbRecord(typeof(Music))]`.
 - `AudioHandler`, `MusicPlayer` — Play/Stop buttons in the inspector (Play Mode)
 - `[DbRecord]` — sample picker with type filtering
 - `[AudioChannelName]` — channel dropdown
-- `Vortex/Configs/Audio Channels Settings` — quick navigation to channel config
+- `Tools/Vortex/Configs/Audio Channels Settings` — quick navigation to channel config
+- `AudioAssetsCombiner` (`Assets/Vortex/Create Audio Assets`) — editor tool: creates sample assets from audio clips selected in the Project window
 
 ## Edge Cases
 

@@ -1,7 +1,7 @@
 # InputBusSystem
 
 **Namespace:** `Vortex.Unity.InputBusSystem`
-**Сборка:** `ru.vortex.unity.inputbus`
+**Сборка:** `ru.vortex.unity.inputbussystem`
 
 ## Назначение
 
@@ -27,7 +27,7 @@
 | `Vortex.Core.AppSystem` | `App.GetState()`, `App.OnStateChanged`, `App.OnExit` |
 | `Vortex.Core.SettingsSystem` | `Settings.Data().DebugMode` — диагностическое логирование |
 | `Vortex.Core.Extensions` | `AddNew`, `AddOnce` — хелперы коллекций |
-| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[VortexCollection]` |
+| `Vortex.Unity.EditorTools` | `[ValueSelector]`, `[ClassLabel]` |
 | `Vortex.Unity.UI.Misc` | `AdvancedButton` — опциональная интеграция |
 
 ---
@@ -187,7 +187,7 @@ InputController.RemoveActionUser("Jump", this);
 
 ## Debug
 
-Диагностическое логирование управляется через `Settings.Data().InputDebugMode`. Настраивается в ассете `DebugSettings` (toggle `InputDebugMode`).
+Диагностическое логирование `InputController` управляется через `Settings.Data().InputDebugMode`; `KeyboardHandler` логирует под общим `Settings.Data().DebugMode`. Настраивается в ассете `DebugSettings` (toggle `InputDebugMode`).
 
 При включении логируются: регистрация/отписка подписчиков, доставка `performed`/`canceled`, активация/деактивация карт.
 

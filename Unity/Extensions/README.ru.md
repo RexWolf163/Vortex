@@ -10,6 +10,7 @@ Unity-расширения ядра: абстракции для MonoBehaviour-�
 - `MonoBehaviourSingleton<T>` — синглтон на базе `MonoBehaviour`
 - `SoData` / `SoDataController` — абстракция ScriptableObject с рефлексией свойств
 - `TextureExtBase64` — конвертация `Texture2D` ↔ Base64 с GZip-сжатием
+- `Vector2Data` (`Vortex.Unity.Extensions.ReactiveValues`) — `ReactiveValue<Vector2>` для Unity-векторов
 - `SimpleTypeMarkerExtUnity` — partial-расширение маркера платформенных типов
 - `DefineSymbolManager` — автоматическое управление define-символами по наличию пакетов
 - VTP Template System — генерация и развёртывание `.vtp` шаблонов кода
@@ -113,12 +114,20 @@ Partial-расширение `SimpleTypeMarker` из Core. Добавляет `U
 
 ### AssetFinder
 
-Утилита поиска ассетов через `AssetDatabase`.
+Утилита поиска ассетов через `AssetDatabase`. Namespace — `Vortex.Unity.EditorTools` (не `Vortex.Unity.Extensions.Editor`).
 
 | Метод | Описание |
 |-------|----------|
 | `FindAssets<T>(params string[] searchInFolders)` | Все ассеты типа `T` в проекте (или в указанных папках) |
 | `FindAsset<T>(params string[] searchInFolders)` | Первый ассет типа `T` или `null` |
+
+### AssetDatabaseExt
+
+Namespace — `Vortex.Unity.Extensions`. Содержит `GetSingletonAsset<T>(bool canBeChildren = true)` — поиск единственного экземпляра ассета типа `T` в проекте (runtime через `Resources.LoadAll`). При множественности — логирует ошибку.
+
+### AnimatorExt
+
+Namespace — `Vortex.Unity.Extensions.Editor.Misc`. Extension-методы для `Animator`: `GetAnimatorParameters<T>()`, `GetAnimatorTriggers()` — извлечение имён параметров / триггеров аниматора.
 
 ### MenuConfigSearchController
 

@@ -29,7 +29,7 @@
 | Подпапка | Назначение |
 |----------|-----------|
 | [TweenerSystem](TweenerSystem/) | `TweenLogic`-реализации: одиночная и взвешенная случайная анимация для `SkeletonGraphic` и `SkeletonAnimation` |
-| [UIs](UIs/) | Хэндлеры сцены: скраб-анимация по `FloatData`, заморозка по `GameStates`, рассинхрон, переключатель скина |
+| [UIs](UIs/) | Хэндлеры сцены: скраб-анимация по `FloatData`, заморозка Spine/`Animator` по `GameStates`, рассинхрон, переключатели скина и порядка `MeshRenderer` |
 | [DefineSettings](DefineSettings/) | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
 
 ## Зависимости
@@ -193,6 +193,34 @@ Spine применяет позу в `LateUpdate`.
 | `spine` | `SkeletonGraphic` | Целевой скелет |
 
 В `Set()` вызывается `Skeleton.SetSkin` + `SetSlotsToSetupPose` + `UpdateMesh`. В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Animator Control → Switch Spine Skin**.
+
+### AnimatorPauseHandler
+
+`MonoBehaviour`-хэндлер «заморозки» Unity-`Animator` (не Spine) по состоянию игры. Цель привязывается через `[AutoLink]`.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `animator` | `Animator` | Целевой аниматор, `[AutoLink]` |
+
+Реакция на `GameController.OnGameStateChanged`:
+
+| `GameStates` | Действие |
+|--------------|----------|
+| `Off`, `Play`, `Win`, `Fail` | `UnPause()` — восстановление сохранённого `animator.speed` |
+| `Loading`, `Paused` | `Pause()` — сохранение текущей скорости, `animator.speed = 0` |
+
+Подписка — в `OnEnable` (с немедленным вызовом), отписка и `UnPause()` — в `OnDisable`. Методы `Pause`/`UnPause` доступны как Odin-кнопки (`[Button, HorizontalGroup]`).
+
+### MeshRendererOrderSwitch
+
+`StateItem` для `UIStateSwitcher`: при срабатывании состояния выставляет `sortingOrder` для массива `MeshRenderer`, в `DefaultState()` возвращает `0`.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `order` | `int` (`[Min(1)]`) | Порядок сортировки при активном состоянии |
+| `meshRenderers` | `MeshRenderer[]` | Целевые рендереры |
+
+В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Animator Control → Switch MeshRenderer Order**.
 
 ---
 

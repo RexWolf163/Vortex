@@ -123,7 +123,7 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 | Type | Purpose |
 |------|---------|
 | `SaveData` | struct: `Id`, `Data` — data unit |
-| `SaveFolder` | struct: `Id`, `SaveData[]` — module folder |
+| `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — module folder |
 | `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp` — save metadata (XML-serializable) |
 | `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
 

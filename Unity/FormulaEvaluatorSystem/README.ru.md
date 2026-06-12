@@ -9,13 +9,14 @@
 - Предварительный просмотр результата вычисления по тестовым значениям в Inspector
 - Рекурсивный парсер математических выражений без внешних зависимостей
 
-Вне ответственности: runtime-вычисление формулы (парсер доступен, привязка — ответственность проекта).
+Runtime-вычисление поддерживается: `FormulaEvaluator.Calc(...)` / `TryCalc(...)` разрешают слоты к членам класса и вычисляют формулу из кода (см. [API](#api)).
 
 ## Зависимости
 
 | Пакет | Назначение |
 |-------|-----------|
-| `ru.vortex.unity.editortools` | MultiDrawer, PropertyData, DrawingUtility, SearchablePopup |
+| `ru.vortex.unity.editortools` | DrawingUtility, SearchablePopup, `Elements` |
+| Odin Inspector | `FormulaDrawer` — `OdinAttributeDrawer<FormulaAttribute, string>` (`#if UNITY_EDITOR && ODIN_INSPECTOR`), `SirenixEditorGUI` |
 
 ## Формат формулы
 
@@ -39,9 +40,10 @@ FormulaEvaluatorSystem/
 │   └── FormulaAttribute.cs          → атрибут [Formula("slotsFieldName")]
 ├── Model/
 │   └── FormulaSlot.cs               → сериализуемая привязка: memberName + testValue
-├── FormulaParser.cs                  → рекурсивный парсер выражений
-├── FormulaReflectionResolver.cs      → #if UNITY_EDITOR: сбор числовых членов класса
-└── FormulaDrawer.cs                  → #if UNITY_EDITOR: отрисовка через MultiDrawer
+├── FormulaEvaluator.cs                 → runtime: Calc / TryCalc (резолв слотов + вычисление)
+├── FormulaParser.cs                    → рекурсивный парсер выражений
+├── FormulaReflectionResolver.cs        → #if UNITY_EDITOR: сбор числовых членов класса
+└── FormulaDrawer.cs                    → OdinAttributeDrawer<FormulaAttribute, string> (#if UNITY_EDITOR && ODIN_INSPECTOR)
 ```
 
 ## Использование
@@ -98,15 +100,35 @@ Constants/
 - Числовые типы: `int`, `float`, `double`, `long`, `decimal`, `byte`, `short`, `uint`, `ulong`, `ushort`, `sbyte`
 - Унаследованные `private` члены исключаются (недоступны)
 
-## API парсера
+## API
+
+### FormulaEvaluator (runtime)
+
+Резолвит слоты к членам `owner` и вычисляет формулу — связка «строка + слоты + объект».
+
+| Метод | Описание |
+|-------|----------|
+| `FormulaEvaluator.Calc(formula, slots, owner)` | Вычисление с привязкой слотов к членам `owner`. Исключение при ошибке |
+| `FormulaEvaluator.TryCalc(formula, slots, owner, out result, out error)` | Безопасная версия (try/catch, ошибки парсинга и резолва — в `error`) |
+
+```csharp
+double dmg = FormulaEvaluator.Calc(damageFormula, damageSlots, this);
+
+if (FormulaEvaluator.TryCalc(damageFormula, damageSlots, this, out var result, out var error))
+    Debug.Log($"Damage: {result}");
+else
+    Debug.LogError(error);
+```
+
+### FormulaParser (низкоуровневый)
+
+Работает с уже разрешённым массивом `double[]` параметров.
 
 | Метод | Описание |
 |-------|----------|
 | `FormulaParser.Evaluate(formula, parameters)` | Вычисление. Исключение при ошибке |
 | `FormulaParser.TryEvaluate(formula, parameters, out result, out error)` | Безопасное вычисление |
 | `FormulaParser.GetMaxSlotIndex(formula)` | Максимальный индекс `{N}` в формуле (-1 если нет) |
-
-### Пример runtime-вычисления
 
 ```csharp
 var parameters = new double[] { 10.0, 5.0, 2.0 };

@@ -67,7 +67,7 @@ The editor extension prints a `Warning`-level confirmation message upon connecti
 [SourceName] Message text
 ```
 
-`Source` handling: if `string` — used directly, otherwise — `Source.GetType().Name`.
+`Source` handling: if `string` — used directly, otherwise — `Source.GetType().Name`, and `"Unknown"` when `null` (`log.Source as string ?? log.Source?.GetType().Name ?? "Unknown"`).
 
 ---
 
@@ -86,7 +86,7 @@ The editor extension prints a `Warning`-level confirmation message upon connecti
 | Constraint | Reason |
 |------------|--------|
 | No level filtering | All messages output; filtering via Unity Console |
-| `Source = null` | `NullReferenceException` — driver accesses `Source` without null check |
+| `Source = null` | Falls back to `"Unknown"` — code is null-safe, no exception thrown |
 | No file logging | `Debug.Log*` only; file logging requires a separate driver |
 
 ---
@@ -117,6 +117,6 @@ Result in Unity Console:
 | Editor mode | Driver registers via `[InitializeOnLoad]`, logging works |
 | Play mode | Driver registers via `[RuntimeInitializeOnLoadMethod]` |
 | Double registration | `Log.SetDriver()` returns `false`, no duplicate connection |
-| `Source` is `null` | `NullReferenceException` in `Print` |
+| `Source` is `null` | Output: `[Unknown] message` (no exception) |
 | `Source` is string `"MySystem"` | Output: `[MySystem] message` |
 | `Source` is `MonoBehaviour` object | Output: `[ClassName] message` |

@@ -22,6 +22,8 @@
 | Зависимость | Назначение |
 |-------------|-----------|
 | `Vortex.Core.System` | `IDataStorage` — интерфейс хранилища данных |
+| `Vortex.Core.Extensions.LogicExtensions` | `AddNew` — добавление в индекс пула |
+| `Vortex.Unity.AppSystem` | `TimeController.RemoveCall` — снятие отложенных вызовов |
 | Odin Inspector | `[ShowInInspector]` — отображение данных в Editor |
 
 ---

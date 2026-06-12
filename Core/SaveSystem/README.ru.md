@@ -123,7 +123,7 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 | Тип | Назначение |
 |-----|-----------|
 | `SaveData` | struct: `Id`, `Data` — единица данных |
-| `SaveFolder` | struct: `Id`, `SaveData[]` — папка модуля |
+| `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — папка модуля |
 | `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp` — метаданные сохранения (XML-сериализуемый) |
 | `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
 

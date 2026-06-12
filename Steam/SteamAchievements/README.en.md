@@ -34,7 +34,8 @@ Out of scope:
 | `Steamworks.NET` | `SteamUserStats` — reading/writing achievements |
 | `Vortex.Steam.SteamConnectionSystem` | `SteamBus` — connection state, `SteamUserData` — extension method anchor |
 | `Vortex.Unity.AppSystem` | `TimeController.Accumulate()` — `StoreStats()` batching |
-| `Vortex.Unity.EditorTools` | `[VortexCollection]`, `[ClassLabel]`, `[ToggleButton]`, `[OnChanged]`, `[LabelText]` |
+| `Vortex.Unity.EditorTools` | `[ClassLabel]`, `[ToggleButton]` |
+| `Sirenix.OdinInspector` | `[LabelText]`, `[InfoBox]`, `[OnValueChanged]` |
 
 ---
 
@@ -53,7 +54,7 @@ AchievementsController (internal static)
 AchievementsExtensions (static, extension on SteamUserData)
   ├── UnlockAchievement(id)
   │   ├── SteamUserStats.SetAchievement(id)
-  │   └── TimeController.Accumulate(() => StoreStats())
+  │   └── TimeController.Accumulate(() => StoreStats(), "AchievementsExtensions")
   ├── GetAchievement(id) → Achievement
   ├── GetAllAchievementsID() → string[]
   ├── ClearAchievement(id)          ← Editor-only
@@ -67,13 +68,13 @@ Achievement
   └── IsHidden: bool
 
 AchievementsManager : MonoBehaviour (Editor-only singleton)
-  ├── index: AchievementHandler[]    ← [VortexCollection]
+  ├── index: AchievementHandler[]    ← [LabelText("Ачивки")]
   ├── [RuntimeInitializeOnLoadMethod] Init() → creates test GameObject
   ├── Start() → SteamBus.User.OnUpdated += Refresh
   └── Refresh() → populates index from SteamBus
 
 AchievementHandler (Editor-only, Serializable)
-  ├── isUnlocked: bool               ← [ToggleButton] + [OnChanged("UpdateAchievements")]
+  ├── isUnlocked: bool               ← [ToggleButton] + [OnValueChanged("UpdateAchievements")]
   ├── Id, Name, Description
   ├── Label() → [ClassLabel]
   └── UpdateAchievements() → Unlock/Clear

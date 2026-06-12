@@ -27,14 +27,14 @@
 ### Двухслойное хранилище (lazy auto-create)
 
 ```
-[EffectPool]                          ← root, active, DontDestroyOnLoad
+[EffectVoid]                          ← root, active, DontDestroyOnLoad
     └── Storage                       ← child, INACTIVE — все idle-инстансы тут
             ├── ExplosionPrefab(Clone)    (parent inactive → ребёнок не Update'ит)
             ├── DustPrefab(Clone)
             └── ...
 ```
 
-`EffectPool` создаётся **lazy** при первом обращении в `EffectSpawn` (по образцу `MapLevelsController.VoidParent`). Никаких сценных объектов руками — пул возникает сам, когда нужен.
+Корневой GameObject пула называется `[EffectVoid]` и несёт компонент `EffectPool`. Создаётся **lazy** при первом обращении в `EffectSpawn` (по образцу `MapLevelsController.VoidParent`). Никаких сценных объектов руками — пул возникает сам, когда нужен.
 
 **Idle**: ребёнок неактивного `Storage` → `activeInHierarchy = false` → `Update`/`OnEnable` не вызываются. Никаких ручных `SetActive`.
 
@@ -139,20 +139,21 @@ EffectsCatalog : ScriptableObject
   └── ScanProject() / Validate()        — Editor-only
 ```
 
-Регистрируется явно: `EffectSpawn.RegisterCatalog(catalog)` из стартового кода.
+Регистрируется автоматически: `EffectSpawn.RegisterCatalog()` (`[RuntimeInitializeOnLoadMethod]`) при старте загружает singleton-каталог через `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. Параметра и метода `UnregisterCatalog` нет.
 
-`[EffectKey]` атрибут на string-поле даёт popup из `EffectSpawn.AllKeys`. В Editor-mode без регистрации drawer собирает union ключей из всех `EffectsCatalog`-ассетов проекта (через AssetDatabase). Ключ опционален — первым пунктом списка идёт `<None>` (значение `""`), чтобы поле можно было оставить пустым без автозаписи на первый эффект.
+`[EffectKey]` атрибут на string-поле даёт popup из `EffectSpawn.AllKeys`. В Editor-mode без регистрации drawer собирает union ключей из всех `EffectsCatalog`-ассетов проекта (через AssetDatabase). Ключ опционален — первым пунктом списка идёт `[NONE]` (значение `""`), чтобы поле можно было оставить пустым без автозаписи на первый эффект.
 
 ### EffectSpawn — Bus
 
 ```
 EffectSpawn (static)
-  ├── RegisterCatalog(catalog) / UnregisterCatalog(catalog)
+  ├── RegisterCatalog()                       ← [RuntimeInitializeOnLoadMethod], авто-загрузка singleton-каталога
   ├── AllKeys → IReadOnlyList<string>
   ├── IsPaused → GameController.GetState() == Paused
   │
-  ├── Spawn(target, prefab) → EffectView      ← target обязателен
-  ├── Spawn(target, key)    → EffectView
+  ├── Spawn(target, prefab)  → EffectView     ← target обязателен
+  ├── Spawn(target, key)     → EffectView
+  ├── Spawn(rectTarget, key) → EffectView     ← UI-вариант: случайный разброс в пределах rect
   ├── Release(view)
   │
   └── (static-ctor)
@@ -161,7 +162,7 @@ EffectSpawn (static)
               └── иначе   → Pool.ResumeAll()
 ```
 
-Spawn первым параметром принимает `target` — без него API не вызывается (Logger.Error + null).
+Spawn первым параметром принимает `target` — без него API не вызывается (`Debug.LogError` + null). UI-перегрузка `Spawn(RectTransform target, string key, ...)` дополнительно раскидывает позицию случайно в пределах `target.rect`.
 
 ---
 
@@ -249,19 +250,9 @@ public class Weapon : MonoBehaviour
 }
 ```
 
-### Регистрация каталога при старте
+### Регистрация каталога
 
-```csharp
-public class GameBootstrap : MonoBehaviour
-{
-    [SerializeField] private EffectsCatalog effectsCatalog;
-
-    private void Awake()
-    {
-        EffectSpawn.RegisterCatalog(effectsCatalog);
-    }
-}
-```
+Регистрация **автоматическая** — код в бутстрапе не нужен. `EffectSpawn.RegisterCatalog()` помечен `[RuntimeInitializeOnLoadMethod]` и при старте сам загружает singleton-каталог через `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. Достаточно, чтобы в проекте был единственный ассет `EffectsCatalog`. Ручной перегрузки с параметром и метода `UnregisterCatalog` нет.
 
 ### EffectsLayer на сцене
 
@@ -291,13 +282,13 @@ Enemy
 
 | Ситуация | Поведение |
 |---|---|
-| `Spawn(null, ...)` | `Logger.Error` + null. target обязателен по контракту |
-| `Spawn(target, prefab=null)` | `Logger.Error` + null |
-| `Spawn(target, "unknown-key")` | `Logger.Error` + null. Ключ не найден в каталоге |
-| `Spawn(target, key)` без зарегистрированного каталога | `Logger.Error` + null. Spawn-by-prefab продолжает работать |
+| `Spawn(null, ...)` | `Debug.LogError` + null. target обязателен по контракту |
+| `Spawn(target, prefab=null)` | `Debug.LogError` + null |
+| `Spawn(target, "unknown-key")` | `Debug.LogError` + null. Ключ не найден в каталоге |
+| `Spawn(target, key)` без зарегистрированного каталога | `Debug.LogError` + null. Spawn-by-prefab продолжает работать |
 | `[EffectKey]`-поле с ключом, отсутствующим в текущих каталогах | Drawer рисует поле красным с пометкой «⚠ X (отсутствует)» и popup рядом, значение **не** перезаписывается до явного выбора в popup'е |
-| `[EffectKey]`-поле оставлено пустым | Сохраняется как `""` (выбран `<None>`), Spawn по такому ключу даст `Logger.Error` — обрабатывать на стороне вызывающего кода |
-| Префаб без `EffectView` | `Logger.Error` + Destroy инстанса; null возврат |
+| `[EffectKey]`-поле оставлено пустым | Сохраняется как `""` (выбран `[NONE]`), Spawn по такому ключу даст `Debug.LogError` — обрабатывать на стороне вызывающего кода |
+| Префаб без `EffectView` | `Debug.LogError` + Destroy инстанса; null возврат |
 | `EffectsLayer.Target` не задан | Парковка в transform самого маркера |
 | `EffectsLayer` на неактивном объекте | `GetComponentInParent` его пропустит (по умолчанию), fallback на target |
 | Несколько `EffectsLayer` в parent-цепочке | Берётся ближайший (поведение `GetComponentInParent` по умолчанию) |
@@ -323,8 +314,8 @@ Enemy
 - иначе (Editor-mode без регистрации) → собирает union из всех `EffectsCatalog`-ассетов проекта через `AssetDatabase`.
 
 Поведение popup'а:
-- **Опциональность.** Первым пунктом всегда `<None>` (значение `""`). Пустое значение не перезаписывается на «первый из доступных» при отрисовке.
-- **Симметрия источников.** Обе ветки (шина и AssetDatabase) проходят один пайплайн: `Distinct → OrderBy(Ordinal) → Insert(0, "")`. Пустые ключи внутри каталога фильтруются — `<None>` не дублируется.
+- **Опциональность.** Первым пунктом всегда `[NONE]` (значение `""`). Пустое значение не перезаписывается на «первый из доступных» при отрисовке.
+- **Симметрия источников.** Обе ветки (шина и AssetDatabase) проходят один пайплайн: `Distinct → OrderBy(Ordinal) → Insert(0, "")`. Пустые ключи внутри каталога фильтруются — `[NONE]` не дублируется.
 - **Fail-loud на невалидный ключ.** Если в поле задан ключ, которого больше нет в источнике (эффект удалили, переименовали, выгрузили каталог), drawer **не** перезаписывает значение молча. Поле подсвечивается красным с пометкой «⚠ X (отсутствует)», рядом рисуется popup для осознанного выбора замены. Запись произойдёт только после явного клика дизайнера в popup'е — до этого старое значение сохраняется в сериализованных данных, и факт «здесь был ключ X» виден в git-diff.
 - **Пустые каталоги.** Если `keys.Length == 0` (нет ни одного `EffectsCatalog`-ассета в проекте), drawer рисует стандартное `EditorGUI.PropertyField` плюс `HelpBox` с предупреждением.
 
@@ -340,13 +331,15 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
         public static IReadOnlyList<string> AllKeys { get; }
         public static bool IsPaused { get; }
 
-        public static void RegisterCatalog(EffectsCatalog catalog);
-        public static void UnregisterCatalog(EffectsCatalog catalog);
+        [RuntimeInitializeOnLoadMethod]
+        public static void RegisterCatalog(); // авто-загрузка singleton-каталога через AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()
 
         public static EffectView Spawn(Transform target, GameObject prefab,
             Vector3? position = null, Quaternion? rotation = null);
         public static EffectView Spawn(Transform target, string key,
             Vector3? position = null, Quaternion? rotation = null);
+        public static EffectView Spawn(RectTransform target, string key,
+            Vector3? deltaPosition = null, Quaternion? rotation = null); // UI-вариант: случайный разброс в пределах rect
         public static void Release(EffectView view);
     }
 }

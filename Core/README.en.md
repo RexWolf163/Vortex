@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Core.*`
 **Platform:** pure C# + UniTask
-**Files:** ~89 (.cs), 16 systems
+**Files:** 111 (.cs), 17 systems
 
 ---
 
@@ -68,7 +68,7 @@ Each module implements `IProcess`: `RunAsync()` for loading and `WaitingFor()` f
 
 | System | What It Does | Key Types |
 |--------|-------------|-----------|
-| **System** | Base abstractions | `Singleton<T>`, `SystemController<T,TD>`, `ReactiveValue<T>`, `IProcess`, `DateTimeTimer` |
+| **System** | Base abstractions | `Singleton<T>`, `SystemController<T,TD>`, `IProcess`, `DateTimeTimer` |
 | **DatabaseSystem** | Data bus | `Database`, `Record` |
 | **AppSystem** | Lifecycle | `App` (static), `AppModel`, `AppStates` |
 | **LoaderSystem** | Loader | `Loader` — registration, topological sort, `async Run()` |
@@ -76,13 +76,15 @@ Each module implements `IProcess`: `RunAsync()` for loading and `WaitingFor()` f
 | **SettingsSystem** | Settings | `Settings`, `SettingsModel` (partial, extended by other systems) |
 | **UIProviderSystem** | UI management | `UIProvider`, `UserInterfaceData`, `UserInterfaceCondition` |
 | **AudioSystem** | Audio | `AudioController`, `AudioSample`, `MusicSample`, `SoundSample` |
+| **VideoSystem** | Video | `VideoController`, `IVideoDriver`, `ScreenMode` |
 | **LocalizationSystem** | Localization | `Localization`, `StringExt` |
 | **LoggerSystem** | Logging | `Log`, `LogData`, `LogLevel` |
 | **LogicChainsSystem** | Logic chains | `LogicChains`, `LogicChain`, `ChainStep`, `Connector` |
 | **MappedParametersSystem** | Parameter maps | `ParameterMaps`, `IMappedModel`, `GenericParameter` |
 | **ComplexModelSystem** | Composite models | `ComplexModel` |
+| **ExtensibleEnumSystem** | Extensible enum sets | `ExtensibleEnum`, `ExtEnumData` |
 | **DebugSystem** | Debugging | `SettingsModelExtDebug` — partial extension of `SettingsModel` |
-| **Extensions** | Utilities | `ActionExt`, `SerializeController`, `Crypto`, `ListExt` |
+| **Extensions** | Utilities | `ReactiveValue<T>`, `ActionExt`, `SerializeController`, `Crypto`, `ListExt` |
 
 ---
 

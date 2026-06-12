@@ -124,7 +124,7 @@ MappedModelStorage : MonoBehaviour, IDataStorage  (abstract)
 
 ### Вход
 
-- `ParametersMapStorage` создаётся через `Create > Vortex > Parameters Map`
+- `ParametersMapStorage` создаётся автоматически (`EditorRegister`) в `Resources/MapsConfig/` при отсутствии — `[CreateAssetMenu]` отсутствует
 - `guid` указывает на `FullName` типа `IMappedModel`
 - Базовые и производные параметры настраиваются в Inspector
 
@@ -158,7 +158,7 @@ MappedModelStorage : MonoBehaviour, IDataStorage  (abstract)
 
 ### Создание карты параметров
 
-1. `Create > Vortex > Parameters Map` — создать `ParametersMapStorage`
+1. Открыть `ParametersMapStorage` — ассет авто-создаётся `EditorRegister` в `Resources/MapsConfig/`
 2. В `guid` выбрать тип модели (`IMappedModel`) из dropdown
 3. Добавить базовые параметры (`baseParams`) — строковые имена
 4. Добавить производные параметры (`mappedParams`) — имя, родители с стоимостями, `CostLogic` при >1 родителе
@@ -207,7 +207,7 @@ public class SkillButton : MonoBehaviour
 
 ### Экспорт графа в DOT
 
-`Menu: Vortex > Debug > Export Mapped Parameters into Graph`
+`Menu: Tools > Vortex > Debug > Export Mapped Parameters into Graph`
 
 Экспортирует каждую `ParametersMapStorage` в файл `.dot` (Graphviz). Базовые параметры выделены цветом `#b3e5fc`. Связи помечены стоимостью. Визуализация: [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/).
 
