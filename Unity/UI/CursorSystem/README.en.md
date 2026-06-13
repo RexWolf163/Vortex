@@ -7,7 +7,7 @@
 
 ## Purpose
 
-Custom cursor for UGUI projects: default sprite, separate sprites for LMB/RMB, and an array of hover variants switched by UI zones. Applying a sprite to the system cursor goes through `Cursor.SetCursor`; mouse events go through Unity Input System (no polling).
+Custom cursor for UGUI projects: a default sprite, separate LMB/RMB sprites, and an array of hover variants switched by UI zones. Cursors are grouped into **resolution packs** — the controller selects the matching pack for the current `Screen.height` (one set of sprites for 1080p, another for 4K). Applying a sprite to the system cursor goes through `Cursor.SetCursor` in `ForceSoftware` mode; mouse events go through Unity Input System (no polling).
 
 Out of scope:
 - Gestures, drag logic, click feedback for game mechanics — that's the job of `AdvancedButton` / `InputBusSystem`.
@@ -23,12 +23,11 @@ Out of scope:
 | `Vortex.Core.SettingsSystem` | `Settings.OnInit`, partial extension of `SettingsModel` |
 | `Vortex.Core.Extensions.ReactiveValues` | `BoolData`, `IntData` with owner-protected writes |
 | `Vortex.Unity.SettingsSystem` | `SettingsPreset` — config base class |
-| `Vortex.Unity.UI.UIComponents` | (optional, via `UIComponent` in consumers) |
 | `Unity.InputSystem` | `InputAction` for LMB/RMB |
 | `UnityEngine.UI.EventSystems` | `IPointerEnter/Exit` in `MouseHoverListener` |
 | Sirenix Odin Inspector | `[BoxGroup]`, `[InfoBox]`, `[ValueDropdown]` |
 
-`SettingsModelExt/ru.vortex.settings.asmref` injects the partial extension of the settings model into the `ru.vortex.settings` assembly so cursor fields live in the unified `SettingsModel`.
+`SettingsModelExt/ru.vortex.settings.asmref` injects the partial extension of the settings model into the `ru.vortex.settings` assembly so cursor fields live in the unified `SettingsModel`. The `CursorPack` and `CursorResolutionPack` types also live in `SettingsModelExt/` and compile into the settings assembly — a back-reference from it to the cursor package is impossible (cycle), so the data models are placed where both the settings assembly and the cursor package can see them.
 
 ---
 
@@ -36,19 +35,26 @@ Out of scope:
 
 ```
 [CursorSettings] (SettingsPreset, SO)
-   └── cursorDefault / cursorLeftMouseDown / cursorRightMouseDown / cursorOnHover[]
-           │
-           │  (via Settings.OnInit + partial SettingsModel)
-           ▼
+   └── cursorPacks: CursorResolutionPack[]
+          ├── { maxScreenHeight, CursorPack }   ← pack for resolutions ≤ maxScreenHeight
+          ├── { maxScreenHeight, CursorPack }
+          └── ...
+                  │  CursorPack = { cursorDefault, cursorLeftMouseDown,
+                  │                 cursorRightMouseDown, cursorOnHover[] }
+                  │
+                  │  (via Settings.OnInit + partial SettingsModel)
+                  ▼
 [Settings.Data() in SettingsModel]
-   └── CursorDefault, CursorLeftMouseDown, CursorRightMouseDown, CursorOnHover[]
+   └── CursorPacks: CursorResolutionPack[]
 
 [CursorController] (static)
-   ├── Settings.OnInit → Init() — reads the settings, raises the InputActions
+   ├── Settings.OnInit → Init() — reads packs, SelectPack by Screen.height, raises InputActions
+   ├── SelectPack(packs) — picks the pack for the current resolution
+   ├── RefreshResolution() — public re-selection after a resolution change
    ├── InputAction "<Mouse>/leftButton"  → started/canceled → MouseKeys.LeftKeyPressed
    ├── InputAction "<Mouse>/rightButton" → started/canceled → MouseKeys.RightKeyPressed
    ├── OnHover(index) / OnUnHover(index) ← public API from the view layer
-   └── ApplyByPriority() — LMB > RMB > Hover > Default → Cursor.SetCursor
+   └── ApplyByPriority() — LMB > RMB > Hover > Default → Cursor.SetCursor(ForceSoftware)
 
 [MouseHoverListener] (MonoBehaviour, on UGUI objects)
    └── IPointerEnter/Exit → CursorController.OnHover(index) / OnUnHover(index)
@@ -58,6 +64,25 @@ Out of scope:
    ├── BoolData RightKeyPressed
    └── IntData  HoverIndex     (-1 = no hover)
 ```
+
+### Pack selection by resolution
+
+`SelectPack(CursorResolutionPack[])` (in `CursorController.cs`) picks a pack as follows:
+
+1. Among packs with `MaxScreenHeight >= Screen.height`, the **smallest** matching threshold is taken — the "tightest" pack that still covers the current resolution.
+2. If the current resolution exceeds every threshold, the **largest** pack is taken (highest `MaxScreenHeight`).
+
+Example: packs with thresholds `1080`, `1440`, `2160`. At `Screen.height == 1440` → the `1440` pack. At `Screen.height == 3000` (above all) → the `2160` pack.
+
+`cursorOnHover[]` **must have the same length and order across all packs** — the `MouseHoverListener.index` is shared across resolutions. `CursorSettings.OnValidate` logs a warning if hover-array lengths diverge between packs.
+
+### Re-selection after a resolution change
+
+```csharp
+CursorController.RefreshResolution();
+```
+
+A public method. Call it after applying video settings (resolution / window-mode change) — the controller re-selects the pack for the new `Screen.height` and applies a sprite via the priority cascade. Button and hover state is preserved. It is a no-op if the cursor is hardware or the controller is not initialised.
 
 ### Sprite priority
 
@@ -72,7 +97,11 @@ LMB overrides RMB and hover. RMB overrides hover. Hover is active only when no m
 
 ### Hardware cursor
 
-If `cursorDefault` is not set in `CursorSettings`, `Init()` returns early, no `InputAction`s are created, `Cursor.SetCursor` is never called — the cursor stays as the OS-native one. This lets you globally disable the custom cursor by nulling a single `[SerializeField]`, without touching code.
+If the pack list in `CursorSettings` is empty (or `null`), `Init()` returns early, no `InputAction`s are created, `Cursor.SetCursor` is never called — the cursor stays OS-native. This lets you globally disable the custom cursor by clearing the list, without touching code.
+
+### ForceSoftware mode
+
+`Apply(Sprite)` calls `Cursor.SetCursor(texture, hotspot, CursorMode.ForceSoftware)`. The OS hardware cursor is limited in size and format (on most platforms 32×32, a fixed texture format), and `CursorMode.Auto` hands the sprite to the hardware, cropping/scaling it to those limits. `ForceSoftware` makes the engine draw the cursor itself — the sprite is shown "as authored", at any size and quality. The cost is that the cursor is drawn one frame later than a hardware one, which is visually unnoticeable for a custom cursor.
 
 ### Alt-tab protection
 
@@ -98,10 +127,15 @@ In `Apply(Sprite)` the cursor hotspot is taken from `Sprite.pivot` and inverted 
 
 `Assets → Create → Vortex → CursorSettings` (the exact menu depends on how the `SettingsPreset` pipeline is wired in your project).
 
-Fill in:
-- `cursorDefault` — main sprite (required to activate the system).
-- `cursorLeftMouseDown` / `cursorRightMouseDown` — optional, for click feedback.
-- `cursorOnHover[]` — array of sprites for different UI-zone types (over a button, an inventory icon, a link, etc.).
+Fill in `cursorPacks` — an array of resolution packs. In each pack:
+- `maxScreenHeight` — the upper bound of vertical resolution for this pack.
+- `Pack.cursorDefault` — main sprite (required to activate the system).
+- `Pack.cursorLeftMouseDown` / `cursorRightMouseDown` — optional, for click feedback.
+- `Pack.cursorOnHover[]` — array of sprites for different UI-zone types.
+
+> ⚠️ **The length and order of `cursorOnHover[]` must match across all packs** — `MouseHoverListener.index` addresses the same logical hover across resolutions. `OnValidate` warns on a mismatch.
+
+The minimal configuration is a single pack with a large `maxScreenHeight` (e.g. `99999`): it applies at any resolution.
 
 ### 2. Attach `MouseHoverListener` to a UGUI element
 
@@ -111,9 +145,17 @@ EnemyPortrait (UGUI Image)
 └── MouseHoverListener (index is picked from the dropdown in the inspector)
 ```
 
-The inspector dropdown reads sprite names from the active `CursorSettings` — designers don't memorize indices, they pick by name. The `[NONE]` entry (`-1`) disables hover switching for that zone (useful when the zone must receive clicks but shouldn't change the cursor).
+The inspector dropdown reads sprite names from the largest pack of the active `CursorSettings` (indices are shared across resolutions) — designers don't memorize numbers, they pick by name. The `[NONE]` entry (`-1`) disables hover switching for that zone. Empty array slots show as `[EMPTY] {i}`.
 
-### 3. Programmatic hover
+### 3. Re-select the cursor after a resolution change
+
+```csharp
+// In your video-settings apply handler:
+VideoController.ApplyResolution(newResolution);
+CursorController.RefreshResolution();   // picks the pack for the new Screen.height
+```
+
+### 4. Programmatic hover
 
 If the hover zone is not UGUI (a world-space collider, a custom raycast, a hotkey emulator) — call directly:
 
@@ -127,7 +169,7 @@ public class WorldHoverTrigger : MonoBehaviour
 }
 ```
 
-### 4. Subscribing to mouse state externally
+### 5. Subscribing to mouse state externally
 
 ```csharp
 private void OnEnable()
@@ -154,18 +196,22 @@ External writeback via `MouseKeys.LeftKeyPressed.Set(true, ?)` won't go through 
 
 | Situation | Behaviour |
 |-----------|-----------|
-| `cursorDefault == null` in settings | The controller does not activate, the cursor stays system-native |
+| `cursorPacks` list is empty or `null` | The controller does not activate, the cursor stays system-native |
+| Selected pack has no `cursorDefault` | `Apply` throws on `_cursorDefault.texture` (fail-fast: a pack must have a default) |
+| `Screen.height` above all thresholds | The largest pack is taken (highest `maxScreenHeight`) |
+| `Screen.height` below all thresholds | The pack with the smallest threshold is taken |
+| `cursorOnHover[]` lengths diverge between packs | `OnValidate` → `LogWarning`; at runtime the index addresses the "wrong" hover |
 | `cursorLeftMouseDown == null` with LMB pressed | Skip the branch, continue down the priority chain (RMB → Hover → Default) |
-| `cursorOnHover` is empty or `null` | Any `OnHover(index >= 0)` → `IndexOutOfRangeException` (fail-fast: invalid configuration) |
-| `OnHover(index)` with an index outside the array | `IndexOutOfRangeException` (fail-fast) |
-| `cursorOnHover[index] == null` (valid index, but the sprite is missing) | Fall back to default |
+| `cursorOnHover` empty / index out of range | Any `OnHover(index >= 0)` → `IndexOutOfRangeException` (fail-fast) |
+| `cursorOnHover[index] == null` (valid index, missing sprite) | Fall back to default |
+| `RefreshResolution()` with a hardware cursor / before Init | No-op |
 | Alt-tab / focus loss with a button held | Input System sends `canceled` → state resets → cursor reverts to default |
 | Nested hover zones (A contains B) | `Enter(B)` sets the index to B; a late `Exit(A)` is ignored (race) |
 | Reinitialisation (restart without domain reload) | Old `InputAction`s are released before the new ones are raised |
 | `App.OnExit` | `DisposeActions` releases the `InputAction`s cleanly |
 | Scene opened without an active `EventSystem` | `MouseHoverListener` receives no Enter/Exit — the cursor only reacts to LMB/RMB and default |
 
-The fail-fast policy on `cursorOnHover` is intentional: a wrong array configuration should crash early and loudly so the designer sees the issue during development, not as a silent "wrong cursor" in production. See `architecture _context.md` for the fail-fast stance in the framework core.
+The fail-fast policy on `cursorOnHover` and a missing `cursorDefault` is intentional: a wrong configuration should crash early and loudly so the designer sees the issue during development, not as a silent "wrong cursor" in production. See `architecture _context.md` for the fail-fast stance in the framework core.
 
 ---
 
@@ -173,12 +219,14 @@ The fail-fast policy on `cursorOnHover` is intentional: a wrong array configurat
 
 ```
 CursorSystem/
-├── CursorController.cs                       # static bus, Input System subscriptions, priority cascade
-├── CursorSettings.cs                         # SettingsPreset (SO) with 4 sprite fields
+├── CursorController.cs                       # static bus, pack selection, Input System subscriptions, priority cascade
+├── CursorSettings.cs                         # SettingsPreset (SO) with a CursorResolutionPack array + OnValidate
 ├── MouseHoverListener.cs                     # MonoBehaviour for UGUI zones
 ├── MouseKeyMap.cs                            # POCO model: BoolData/IntData with owner protection
 ├── SettingsModelExt/
-│   ├── SettingsModelExtCursor.cs             # partial SettingsModel with cursor fields
-│   └── ru.vortex.settings.asmref             # injects the partial extension into the settings assembly
+│   ├── CursorPack.cs                         # set of 4 sprites (in the settings assembly)
+│   ├── CursorResolutionPack.cs               # CursorPack + maxScreenHeight threshold (in the settings assembly)
+│   ├── SettingsModelExtCursor.cs             # partial SettingsModel with the CursorPacks field
+│   └── ru.vortex.settings.asmref             # injects the types + partial into the settings assembly
 └── ru.vortex.unity.cursorsystem.asmdef
 ```
