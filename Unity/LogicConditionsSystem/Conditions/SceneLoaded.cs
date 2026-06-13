@@ -9,13 +9,10 @@ namespace Vortex.Unity.LogicConditionsSystem.Conditions
         [SerializeField, ValueDropdown("@DropDawnHandler.GetScenes()")]
         protected string SceneName;
 
-        private bool _completed = false;
-
         protected override void Start()
         {
-            if (SceneManager.GetActiveScene().name == SceneName)
+            if (Check())
             {
-                _completed = true;
                 RunCallback();
                 return;
             }
@@ -25,17 +22,22 @@ namespace Vortex.Unity.LogicConditionsSystem.Conditions
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (SceneManager.GetActiveScene().name != SceneName)
+            // scene — именно загруженная сцена (в т.ч. Additive), а не активная
+            if (scene.name != SceneName)
                 return;
 
             SceneManager.sceneLoaded -= OnSceneLoaded;
-            _completed = true;
             RunCallback();
         }
 
         public override void DeInit() => SceneManager.sceneLoaded -= OnSceneLoaded;
 
-        public override bool Check() => _completed;
+        // Живое состояние, а не кешированный флаг: GetSceneByName видит и Additive-сцены
+        public override bool Check()
+        {
+            var scene = SceneManager.GetSceneByName(SceneName);
+            return scene.IsValid() && scene.isLoaded;
+        }
 
         protected override string ConditionName => $"Wait {SceneName} loading";
     }
