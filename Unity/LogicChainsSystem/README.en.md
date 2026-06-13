@@ -68,6 +68,10 @@ LoadScene : UnityLogicAction
   ├── _additiveMode: bool
   └── _async: bool                         ← default true
 
+UnLoadScene : UnityLogicAction
+  ├── SceneName                            ← [ValueDropdown] from Build Settings
+  └── _async: bool                         ← default true
+
 LogicChainStarter : MonoBehaviour
   ├── logicChain: string                   ← [DbRecord(LogicChain, MultiInstance)]
   └── Start → Database.OnInit += CallChain
@@ -87,17 +91,41 @@ LogicChainStarter : MonoBehaviour
 
 ---
 
+## Element distribution across packages
+
+Actions (`LogicAction`) and conditions (`Condition`) are not concentrated in a single package — **each package contributes its own chain elements**, next to the functionality they exercise. They appear in the `[SerializeReference]` inspector dropdowns automatically through Odin type-scanning (no manual registration). This is the same `package-composition-first` principle used across the rest of the framework (see `COMPOSITION.md`).
+
+To use an element, its package just needs to be present in the project — removing the package drops its elements from the dropdowns while the rest of the chain still compiles.
+
+| Element | Kind | Package | Purpose |
+|---------|------|---------|---------|
+| `LoadScene` | Action | `ru.vortex.unity.logicchains` | Load a scene (single/additive, sync/async) |
+| `UnLoadScene` | Action | `ru.vortex.unity.logicchains` | Unload a scene (sync/async) |
+| `SceneLoaded` | Condition | `ru.vortex.unity.logicconditions` | Scene is loaded (sees Additive scenes too) |
+| `SystemsLoaded` | Condition | `ru.vortex.unity.logicconditions` | `App.GetState() == Running` (Vortex systems ready) |
+| `MinTimeCondition` | Condition | `ru.vortex.unity.logicconditions` | ≥ N seconds elapsed (minimum step duration) |
+| `OpenUI` | Action | `ru.vortex.unity.uiprovider` | Open an interface via `UIProvider.Open` |
+| `CloseUI` | Action | `ru.vortex.unity.uiprovider` | Close an interface via `UIProvider.Close` |
+| `CloseAllUI` | Action | `ru.vortex.unity.uiprovider` | Close all common interfaces |
+| `NaninovelInitialized` | Condition | `ru.vortex.nani.core` | Naninovel engine initialised (`Engine.Initialized`) |
+
+**Reentrancy convention.** Actions that touch scenes or UI (`LoadScene`, `UnLoadScene`, `OpenUI`, `CloseUI`, `CloseAllUI`) defer the real work to the end of the frame via `TimeController.Call`/`Accumulate`. The reason: `Invoke()` is called from the chain-advance stack (`RunChain → CheckConditions → RunChain`), and a synchronous scene load/UI close right inside that call would re-enter. A custom action that changes scenes/UI should follow the same pattern.
+
+---
+
 ## Conditions (LogicConditionsSystem)
 
 Separate assembly `ru.vortex.unity.logicconditions`. Base class `UnityCondition : Condition` with `[ClassLabel("@ConditionName")]`.
 
 | Condition | Description | Check |
 |-----------|-------------|-------|
-| `SceneLoaded` | Waits for scene to load | `SceneManager.GetActiveScene().name == SceneName` |
+| `SceneLoaded` | Waits for a scene to load by name | `GetSceneByName(name).IsValid() && isLoaded` — sees Additive scenes too, not only the active one; subscribes to `SceneManager.sceneLoaded` |
 | `SystemsLoaded` | Waits for `App.GetState() == Running` | Subscribes to `App.OnStateChanged` |
 | `MinTimeCondition` | Minimum wait time (seconds) | `DateTime.UtcNow >= target` via `TimeController` |
 
 All conditions follow the pattern: check in `Start()` → if already fulfilled, `RunCallback()` immediately; otherwise subscribe to event.
+
+`NaninovelInitialized` (the Naninovel engine readiness condition) lives in the `ru.vortex.nani.core` package — see the "Element distribution across packages" table.
 
 ---
 
@@ -127,6 +155,9 @@ All conditions follow the pattern: check in `Start()` → if already fulfilled, 
 | Action | Description |
 |--------|-------------|
 | `LoadScene` | Scene loading (sync/async, single/additive) via `TimeController.Call` |
+| `UnLoadScene` | Scene unloading (sync/async) via `TimeController.Call` |
+
+For the full list of actions and conditions across all packages, see "Element distribution across packages".
 
 ### Constraints
 
@@ -152,6 +183,83 @@ All conditions follow the pattern: check in `Start()` → if already fulfilled, 
 ### Launching from scene
 
 Add `LogicChainStarter` to a GameObject, select chain preset via `[DbRecord]` field.
+
+---
+
+### Example: app loading through a chain
+
+The canonical app-startup scenario — a loader chain that waits for the systems to be ready, loads the main scene, and removes the loading screen.
+
+#### Two layout variants
+
+**Classic (without Naninovel).** `Preloader` (the loading screen) is the start scene itself. This is simpler: you don't need a separate object to load it — it is already open at startup. The chain loads `Main` additively and just unloads `Preloader` at the end:
+
+```
+Preloader (start scene = loading screen)
+└── [Autorun]
+    ├── LoaderStarter            (kicks off Loader → Vortex systems loading)
+    └── LogicChainStarter        (Logic Chain: LoaderChain)
+```
+Chain: wait for systems → load `Main` (Additive) → unload `Preloader`.
+
+**With Naninovel.** Naninovel is finicky about **unloading the start scene** — you cannot cleanly unload the scene that was the very first one. So a thin service scene `Loading` is made the start scene, and it additively loads `Preloader`. Now `Preloader` is **not** the start scene and can be safely unloaded at the end of the chain. That is the layout shown below (and in the first screenshot).
+
+#### Scene and `[Autorun]` components (the Naninovel variant)
+
+```
+Loading (thin start scene)
+└── [Autorun]
+    ├── LoadSceneHandler         (Scene Name: Preloader, Additive Mode ✓)
+    │       └── loads the loading screen additively (as a separate, non-start scene)
+    ├── LoaderStarter            (kicks off Loader → Vortex systems loading)
+    ├── LogicChainStarter        (Logic Chain: LoaderChain)
+    └── MonoBehaviourEventsHandler
+            └── On Enable → LoadSceneHandler.Run()
+```
+
+Component roles:
+- **`LoaderStarter`** — on `App.OnStarting`, calls `Loader.Run()`: starts the asynchronous loading of every framework system. When done, `App` transitions to `Running`.
+- **`LoadSceneHandler`** (from `Unity/Components/SceneControllers`) — loads the `Preloader` loading-screen scene additively. Invoked from `MonoBehaviourEventsHandler.OnEnable`.
+- **`LogicChainStarter`** — on `Database.OnInit`, instantiates the `LoaderChain` preset and runs it.
+
+#### `LoaderChain` preset (Logic Chain, Multi Instance)
+
+Three steps, `Start Step = "Waiting Loading"`:
+
+```
+1. Waiting Loading  (description: "Systems loading")
+   Actions:    — (empty, the step only waits)
+   Connector → LoadScene
+      Conditions (AND):
+        • SystemsLoaded         → "Wait all systems loading"
+        • NaninovelInitialized  → "Wait Naninovel initialization"
+
+2. LoadScene
+   Actions:
+        • LoadScene(Main, Additive ✓, Async ✓)  → "Call load for «Main» scene"
+   Connector → Hide Loader UI
+      Conditions:
+        • SceneLoaded(Main)     → "Wait Main loading"
+
+3. Hide Loader UI  (description: "hide the loading UI")
+   Actions:
+        • UnLoadScene(Preloader, Async ✓)        → "Call unload for «Preloader» scene"
+   Connector → _CompleteChain
+      Conditions: — (empty → automatic transition → the chain completes and is removed)
+```
+
+#### Step-by-step
+
+1. The `Loading` scene starts. `[Autorun].OnEnable` → `LoadSceneHandler.Run()` loads `Preloader` (the loading screen) on top. In parallel `LoaderStarter` starts systems loading and `LogicChainStarter` runs `LoaderChain`.
+2. **Step "Waiting Loading"** has no actions — it waits until **both** conditions on a single connector are met: Vortex systems are up (`SystemsLoaded` → `App.Running`) **and** Naninovel has initialised (`NaninovelInitialized`). Two conditions on one connector form a conjunction — the transition happens only when both subsystems are ready, regardless of which finishes first.
+3. **Step "LoadScene"** — the `LoadScene` action loads the main `Main` scene additively and asynchronously. The connector waits for `SceneLoaded(Main)` — the event fires for the loaded scene (including Additive) matched by name.
+4. **Step "Hide Loader UI"** — the `UnLoadScene` action unloads `Preloader` (removes the loading screen). The connector has no conditions → an automatic transition to `_CompleteChain` → the chain completes and is removed from the registry.
+
+The result: the loading screen stays from start until `Main` is fully loaded, then is removed by a single scene unload. No orchestrator code — the order and conditions are declared in the preset.
+
+> 💡 If the loading screen is a `UIProvider` interface rather than a separate scene, the final step uses `CloseUI`/`CloseAllUI` (package `ru.vortex.unity.uiprovider`) instead of `UnLoadScene(Preloader)`.
+
+---
 
 ### Creating a custom action
 
@@ -203,6 +311,7 @@ public class ButtonClicked : UnityCondition
 | Connector without target | `"Empty Connector"` in Inspector, error on transition |
 | `LogicChainStarter` before Database init | Subscribes to `Database.OnInit`, launch deferred |
 | Multiple connectors without conditions | First one executes, others ignored |
-| `LoadScene` with `_async = false` | Synchronous load, possible frame freeze |
+| Multiple conditions on a single connector | Conjunction (AND) — the transition happens only when `Check()` of every condition returned true, regardless of completion order |
+| `LoadScene` / `UnLoadScene` with `_async = false` | Synchronous load/unload, possible frame freeze |
 | Step without actions | Allowed — proceeds directly to connector condition checks |
 | Step without connectors | Chain stops at this step permanently |

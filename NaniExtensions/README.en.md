@@ -63,6 +63,14 @@ public sealed class NaniSessionService : IGameSessionService
 }
 ```
 
+### LogicChainsExt — `NaninovelInitialized`
+
+A condition for logic chains (`LogicChainsSystem`), located in `Core/LogicChainsExt/`. A `UnityCondition` subclass that waits for `Engine.Initialized` (via `Engine.OnInitializationFinished`).
+
+Symmetric to the `SystemsLoaded` condition from `ru.vortex.unity.logicconditions` (which waits for `App.Running`): placed **on the same connector**, together they form a conjunction — the chain transitions only when both subsystems, Vortex and Naninovel, are ready, regardless of which finishes first. A typical use is the "Waiting Loading" step of an app loader chain (a detailed example is in the `LogicChainsSystem (Unity)` README).
+
+It appears in the chain condition dropdowns automatically as long as `ru.vortex.nani.core` is present.
+
 ---
 
 ## AudioSystem

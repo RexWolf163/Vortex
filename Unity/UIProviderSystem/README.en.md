@@ -130,6 +130,18 @@ Built-in conditions:
 
 During `Check()`, iterates nested conditions; the first returning `conditionPriority` determines the result.
 
+### Logic-chain actions (`LogicChains/`)
+
+The package contributes three `LogicAction` subclasses for driving interfaces from logic chains (`LogicChainsSystem`). They show up in the chain action dropdowns automatically as long as the `ru.vortex.unity.uiprovider` package is in the project.
+
+| Action | Field | What it does |
+|--------|-------|--------------|
+| `OpenUI` | `uiId` (`[DbRecord(UserInterfaceData)]`) | `UIProvider.Open(uiId)` |
+| `CloseUI` | `uiId` (`[DbRecord(UserInterfaceData)]`) | `UIProvider.Close(uiId)` |
+| `CloseAllUI` | — | `UIProvider.CloseAll()` |
+
+All three defer the call to the end of the frame via `TimeController.Accumulate`: `LogicAction.Invoke()` is called from the chain-advance stack (`RunChain → CheckConditions → RunChain`), and opening/closing UI right inside that call would re-enter. A typical use is to remove the loading screen on the final step of a loader chain, after the readiness conditions are met. A detailed app-loading example is in the `LogicChainsSystem (Unity)` README.
+
 ---
 
 ## Contract

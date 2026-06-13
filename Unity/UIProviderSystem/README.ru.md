@@ -130,6 +130,18 @@ UnityUserInterfaceCondition : UserInterfaceCondition
 
 При `Check()` перебирает вложенные условия; первое, вернувшее `conditionPriority`, определяет результат.
 
+### Действия для логических цепочек (`LogicChains/`)
+
+Пакет добавляет три `LogicAction`-наследника для управления интерфейсами из логических цепочек (`LogicChainsSystem`). В дропдаунах действий цепочки они появляются автоматически, пока пакет `ru.vortex.unity.uiprovider` в проекте.
+
+| Действие | Поле | Что делает |
+|----------|------|-----------|
+| `OpenUI` | `uiId` (`[DbRecord(UserInterfaceData)]`) | `UIProvider.Open(uiId)` |
+| `CloseUI` | `uiId` (`[DbRecord(UserInterfaceData)]`) | `UIProvider.Close(uiId)` |
+| `CloseAllUI` | — | `UIProvider.CloseAll()` |
+
+Все три откладывают вызов на конец кадра через `TimeController.Accumulate`: `LogicAction.Invoke()` вызывается из стека продвижения цепочки (`RunChain → CheckConditions → RunChain`), и открытие/закрытие UI прямо внутри этого вызова было бы реентрантным. Типовое применение — снять загрузочный экран на финальном шаге цепочки-загрузчика, после того как условия готовности выполнены. Детальный пример загрузки приложения — в README `LogicChainsSystem (Unity)`.
+
 ---
 
 ## Контракт

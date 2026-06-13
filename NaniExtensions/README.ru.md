@@ -63,6 +63,14 @@ public sealed class NaniSessionService : IGameSessionService
 }
 ```
 
+### LogicChainsExt — `NaninovelInitialized`
+
+Условие для логических цепочек (`LogicChainsSystem`), лежит в `Core/LogicChainsExt/`. Наследник `UnityCondition`, ждёт `Engine.Initialized` (через `Engine.OnInitializationFinished`).
+
+Симметрично условию `SystemsLoaded` из `ru.vortex.unity.logicconditions` (которое ждёт `App.Running`): поставленные **на один коннектор** вместе они дают конъюнкцию — переход цепочки происходит только когда готовы обе подсистемы, и Vortex, и Naninovel, независимо от того, кто финишировал первым. Типовое применение — этап «Waiting Loading» цепочки-загрузчика приложения (детальный пример — в README `LogicChainsSystem (Unity)`).
+
+Появляется в дропдаунах условий цепочки автоматически, пока подключён `ru.vortex.nani.core`.
+
 ---
 
 ## AudioSystem

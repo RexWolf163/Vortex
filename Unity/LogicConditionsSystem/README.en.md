@@ -69,19 +69,29 @@ On `Start()`, computes the target time (`DateTime.UtcNow + seconds`). Schedules 
 
 ### SceneLoaded
 
-Waits for a specific scene to load.
+Waits for a specific scene to load by name.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `SceneName` | `string` | Scene name (`[ValueDropdown]` from Build Settings) |
 
-On `Start()`, checks the active scene. If the target scene is already loaded — `RunCallback()` immediately. Otherwise subscribes to `SceneManager.sceneLoaded` and waits for a name match. Unsubscribes after firing.
+`Check()` uses `SceneManager.GetSceneByName(SceneName)` and verifies `IsValid() && isLoaded` — a **live** state rather than a cached flag, and it sees **Additive scenes**, not only the active one. This matters for loading chains: the main scene is usually loaded additively on top of the loader, and `GetActiveScene` would not see it.
+
+On `Start()`, if the scene is already loaded — `RunCallback()` immediately. Otherwise it subscribes to `SceneManager.sceneLoaded`; the handler compares the name of the actually loaded scene (from the event argument, including Additive), then unsubscribes and fires the callback.
 
 ### SystemsLoaded
 
 Waits for application initialization to complete.
 
 No parameters. On `Start()`, checks `App.GetState() == AppStates.Running`. If already `Running` — `RunCallback()` immediately. Otherwise subscribes to `App.OnStateChanged`.
+
+### Conditions in other packages
+
+A condition is a `[SerializeReference]` subclass of `Condition`, so packages can add their own conditions next to their functionality; they appear in the chain dropdowns automatically (Odin type-scanning).
+
+| Condition | Package | Waits for |
+|-----------|---------|-----------|
+| `NaninovelInitialized` | `ru.vortex.nani.core` | `Engine.Initialized` — the Naninovel engine is up. Symmetric to `SystemsLoaded`; on a single connector they form the conjunction "both Vortex AND Naninovel ready" |
 
 ---
 
@@ -134,7 +144,8 @@ public class MyCondition : UnityCondition
 | Situation | Behavior |
 |-----------|----------|
 | `MinTimeCondition` with `seconds = 0` | Triggers immediately in `Start()` |
-| `SceneLoaded` — scene already loaded | Callback immediately, no subscription created |
+| `SceneLoaded` — scene already loaded (including Additive) | Callback immediately, no subscription created |
+| `SceneLoaded` — target scene loaded additively on top of another | Fires: checked via `GetSceneByName`, not via the active scene |
 | `SystemsLoaded` — app already `Running` | Callback immediately |
 | `DeInit()` called before trigger | Subscriptions removed, callback not invoked |
 | `MinTimeCondition` — repeated `Start()` | `TimeController` replaces previous call (owner binding) |
