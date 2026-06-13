@@ -37,7 +37,23 @@ namespace Vortex.Unity.SettingsSystem
             }
         }
 
-        private void CheckPath() => FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
+        /// <summary>
+        /// Создание физической папки Resources/Settings нужно ТОЛЬКО в редакторе —
+        /// чтобы дизайнеры могли класть туда SettingsPreset. В билде Resources запечён,
+        /// его не создать и не нужно: <see cref="Resources.LoadAll{T}(string)"/> читает
+        /// запечённое независимо от наличия физической папки.
+        ///
+        /// На Android <c>Application.dataPath</c> указывает на сам apk-файл
+        /// (<c>/data/app/.../base.apk</c>), и попытка создать в нём подпапку валит
+        /// <c>IOException ('base.apk' already exists)</c> — это рушило инициализацию
+        /// настроек и весь бут (чёрный экран после прелоадера). В плеере метод — no-op.
+        /// </summary>
+        private void CheckPath()
+        {
+#if UNITY_EDITOR
+            FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
+#endif
+        }
 
         private bool LoadData()
         {

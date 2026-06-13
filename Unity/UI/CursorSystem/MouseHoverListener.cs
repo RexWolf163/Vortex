@@ -19,7 +19,8 @@ namespace Vortex.Unity.UI.CursorSystem
     public class MouseHoverListener : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         /// <summary>
-        /// Индекс варианта курсора из <see cref="CursorSettings.CursorOnHover"/>. <c>-1</c> = «без смены».
+        /// Индекс варианта курсора из <see cref="CursorPack.CursorOnHover"/>. <c>-1</c> = «без смены».
+        /// Индекс общий для всех наборов разрешений — порядок ховеров должен совпадать во всех пакетах.
         /// </summary>
         [SerializeField, ValueDropdown("GetList")]
         private int index = -1;
@@ -49,7 +50,8 @@ namespace Vortex.Unity.UI.CursorSystem
         /// <summary>
         /// Editor-only: формирует список значений для <c>[ValueDropdown]</c>. Подтягивает
         /// первый <see cref="CursorSettings"/>-ассет из <c>Resources</c> и составляет
-        /// dropdown «имя спрайта → индекс». Если массив пуст — сбрасывает <see cref="index"/> в <c>-1</c>
+        /// dropdown «имя спрайта → индекс» из самого крупного набора (индексы общие
+        /// для всех разрешений). Если наборов нет — сбрасывает <see cref="index"/> в <c>-1</c>
         /// и оставляет только «[NONE]».
         /// </summary>
         private ValueDropdownList<int> GetList()
@@ -59,16 +61,34 @@ namespace Vortex.Unity.UI.CursorSystem
             if (settings == null || settings.Length == 0)
                 return result;
 
-            var list = settings[0].CursorOnHover;
+            var packs = settings[0].CursorPacks;
+            if (packs == null || packs.Length == 0)
+            {
+                index = -1;
+                return result;
+            }
+
+            CursorPack largest = null;
+            var largestMax = int.MinValue;
+            foreach (var entry in packs)
+            {
+                if (entry?.Pack == null || entry.MaxScreenHeight <= largestMax)
+                    continue;
+                largestMax = entry.MaxScreenHeight;
+                largest = entry.Pack;
+            }
+
+            var list = largest?.CursorOnHover;
             if (list == null || list.Length == 0)
             {
                 index = -1;
                 return result;
             }
+
             for (var i = 0; i < list.Length; i++)
             {
                 var sprite = list[i];
-                result.Add(new ValueDropdownItem<int>(sprite.name, i));
+                result.Add(new ValueDropdownItem<int>(sprite != null ? sprite.name : $"[EMPTY] {i}", i));
             }
 
             return result;

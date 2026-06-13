@@ -19,7 +19,7 @@ namespace Vortex.Unity.UI.CursorSystem
         public BoolData RightKeyPressed { get; internal set; } = new(false);
 
         /// <summary>
-        /// Индекс активной hover-зоны (соответствует индексу в <see cref="CursorSettings.CursorOnHover"/>).
+        /// Индекс активной hover-зоны (соответствует индексу в <see cref="CursorPack.CursorOnHover"/>).
         /// <c>-1</c> означает «hover отсутствует».
         /// </summary>
         public IntData HoverIndex { get; internal set; } = new(-1);

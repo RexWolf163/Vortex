@@ -9,7 +9,9 @@ namespace Vortex.Unity.UI.CursorSystem
     /// <summary>
     /// Контроллер с состоянием курсора
     ///
-    /// Логика работы - если нет дефолтной текстуры в настройках - значит курсор аппаратный
+    /// Логика работы - если в настройках нет наборов курсоров - значит курсор аппаратный.
+    /// Набор выбирается по текущему Screen.height (см. <see cref="SelectPack"/>);
+    /// после смены разрешения перевыбор делается через <see cref="RefreshResolution"/>
     ///
     /// Кнопки мыши слушаются через собственные InputAction (событийно, без полинга).
     /// Выделенные экшены не конфликтуют с картами InputController: action'ы не
@@ -57,9 +59,9 @@ namespace Vortex.Unity.UI.CursorSystem
         }
 
         /// <summary>
-        /// Читает текущие настройки курсора и поднимает подписки на InputSystem.
-        /// Если <c>cursorDefault</c> не задан — считаем что пользователь хочет аппаратный
-        /// курсор, контроллер ничего не делает и подписки не создаёт.
+        /// Читает текущие настройки курсора, выбирает набор под разрешение и поднимает
+        /// подписки на InputSystem. Если наборы не заданы — считаем что пользователь
+        /// хочет аппаратный курсор, контроллер ничего не делает и подписки не создаёт.
         ///
         /// Повторный вызов (рестарт без выгрузки домена) сначала отвязывает старые
         /// <see cref="InputAction"/> через <see cref="DisposeActions"/> — двойной подписки
@@ -67,12 +69,11 @@ namespace Vortex.Unity.UI.CursorSystem
         /// </summary>
         private static void Init()
         {
-            _cursorDefault = Settings.Data().CursorDefault;
-            if (_cursorDefault == null)
+            var packs = Settings.Data().CursorPacks;
+            if (packs == null || packs.Length == 0)
                 return; //Аппаратный курсор
-            _cursorLeftMouseDown = Settings.Data().CursorLeftMouseDown;
-            _cursorRightMouseDown = Settings.Data().CursorRightMouseDown;
-            _cursorOnHover = Settings.Data().CursorOnHover;
+
+            SelectPack(packs);
             Apply(_cursorDefault);
 
             //Пересоздание при повторной инициализации (рестарт без выгрузки домена)
@@ -97,6 +98,60 @@ namespace Vortex.Unity.UI.CursorSystem
         /// Зовётся в начале <see cref="Init"/> (для защиты от двойной подписки при рестарте)
         /// и из <see cref="App.OnExit"/> (для штатной очистки ресурсов InputSystem).
         /// </summary>
+        /// <summary>
+        /// Выбор набора курсоров под текущее разрешение.
+        /// Берётся набор с минимальным MaxScreenHeight >= Screen.height;
+        /// если разрешение выше всех порогов — самый крупный набор
+        /// </summary>
+        private static void SelectPack(CursorResolutionPack[] packs)
+        {
+            var height = Screen.height;
+            CursorPack selected = null;
+            CursorPack largest = null;
+            var bestMax = int.MaxValue;
+            var largestMax = int.MinValue;
+
+            foreach (var entry in packs)
+            {
+                if (entry?.Pack == null)
+                    continue;
+
+                if (entry.MaxScreenHeight >= height && entry.MaxScreenHeight < bestMax)
+                {
+                    bestMax = entry.MaxScreenHeight;
+                    selected = entry.Pack;
+                }
+
+                if (entry.MaxScreenHeight > largestMax)
+                {
+                    largestMax = entry.MaxScreenHeight;
+                    largest = entry.Pack;
+                }
+            }
+
+            selected ??= largest;
+
+            _cursorDefault = selected.CursorDefault;
+            _cursorLeftMouseDown = selected.CursorLeftMouseDown;
+            _cursorRightMouseDown = selected.CursorRightMouseDown;
+            _cursorOnHover = selected.CursorOnHover;
+        }
+
+        /// <summary>
+        /// Перевыбор набора курсоров под текущее разрешение.
+        /// Дёргать после применения видеонастроек (смена разрешения/режима окна).
+        /// Состояние кнопок и ховера сохраняется — применяется через приоритеты
+        /// </summary>
+        public static void RefreshResolution()
+        {
+            var packs = Settings.Data().CursorPacks;
+            if (packs == null || packs.Length == 0 || _cursorDefault == null)
+                return; //Аппаратный курсор или контроллер не инициализирован
+
+            SelectPack(packs);
+            ApplyByPriority();
+        }
+
         private static void DisposeActions()
         {
             if (_leftMouseAction != null)
@@ -142,7 +197,8 @@ namespace Vortex.Unity.UI.CursorSystem
 
         /// <summary>
         /// Сигнал «курсор зашёл в hover-зону с этим индексом». Индекс соответствует позиции
-        /// в массиве <see cref="CursorSettings.CursorOnHover"/>. Применение нового спрайта
+        /// в массиве <see cref="CursorPack.CursorOnHover"/> (общий для всех наборов разрешений).
+        /// Применение нового спрайта
         /// идёт сразу через <see cref="ApplyByPriority"/> с учётом приоритетов (LMB > RMB > Hover).
         ///
         /// Типичный источник вызова — <see cref="MouseHoverListener"/> на UI-элементах,
@@ -228,7 +284,7 @@ namespace Vortex.Unity.UI.CursorSystem
             // Конвертируем нормализованный pivot в пиксельные координаты для hotspot
             _hotspot = sprite?.pivot ?? _cursorDefault.pivot;
             _hotspot.y = texture.height - _hotspot.y;
-            Cursor.SetCursor(texture, _hotspot, CursorMode.Auto);
+            Cursor.SetCursor(texture, _hotspot, CursorMode.ForceSoftware);
         }
     }
 }

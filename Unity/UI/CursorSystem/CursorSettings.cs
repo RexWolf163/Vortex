@@ -10,43 +10,46 @@ namespace Vortex.Unity.UI.CursorSystem
     /// <see cref="CursorController"/> через <c>Settings.OnInit</c> и копируется в
     /// partial-расширение <see cref="Vortex.Core.SettingsSystem.Model.SettingsModel"/>.
     ///
-    /// Логика «нет спрайта = нет курсора»: если <see cref="CursorDefault"/> не задан,
-    /// контроллер не активируется и курсор остаётся системным (аппаратным). Это позволяет
-    /// глобально отключить кастомный курсор, обнулив один SerializeField, без правки кода.
+    /// Наборы курсоров задаются по диапазонам разрешения (см. <see cref="CursorResolutionPack"/>):
+    /// контроллер выбирает набор с минимальным порогом, покрывающим текущий Screen.height;
+    /// если разрешение выше всех порогов — самый крупный набор.
+    ///
+    /// Логика «нет наборов = нет курсора»: при пустом списке контроллер не активируется
+    /// и курсор остаётся системным (аппаратным). Это позволяет глобально отключить
+    /// кастомный курсор, очистив список, без правки кода.
     /// </summary>
     [Serializable]
     public class CursorSettings : SettingsPreset
     {
-        /// <summary>Спрайт по умолчанию. <c>null</c> = аппаратный курсор (контроллер не запускается).</summary>
-        [BoxGroup("Cursor Settings")] [SerializeField]
-        private Sprite cursorDefault;
+        [BoxGroup("Cursor Settings")]
+        [SerializeField]
+        [InfoBox("Наборы курсоров по диапазонам разрешения. Пустой список = аппаратный курсор.\n" +
+                 "Порядок и длина hover-массивов должны совпадать во всех наборах — " +
+                 "индексы MouseHoverListener общие для всех разрешений.")]
+        private CursorResolutionPack[] cursorPacks = new CursorResolutionPack[0];
 
-        /// <summary>Спрайт во время удержания левой кнопки мыши. <c>null</c> = не менять при LMB.</summary>
-        [BoxGroup("Cursor Settings")] [SerializeField]
-        private Sprite cursorLeftMouseDown;
+        /// <inheritdoc cref="cursorPacks"/>
+        public CursorResolutionPack[] CursorPacks => cursorPacks;
 
-        /// <summary>Спрайт во время удержания правой кнопки мыши. <c>null</c> = не менять при RMB.</summary>
-        [BoxGroup("Cursor Settings")] [SerializeField]
-        private Sprite cursorRightMouseDown;
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (cursorPacks == null || cursorPacks.Length < 2)
+                return;
 
-        /// <summary>
-        /// Массив hover-вариантов. Индекс в этом массиве соответствует значению поля
-        /// <c>index</c> в <see cref="MouseHoverListener"/>. <c>null</c>-элементы массива
-        /// для соответствующего индекса трактуются как «использовать default».
-        /// </summary>
-        [BoxGroup("Cursor Settings")] [SerializeField] [InfoBox("Список вариантов отображения ховера")]
-        private Sprite[] cursorOnHover = new Sprite[0];
-
-        /// <inheritdoc cref="cursorDefault"/>
-        public Sprite CursorDefault => cursorDefault;
-
-        /// <inheritdoc cref="cursorLeftMouseDown"/>
-        public Sprite CursorLeftMouseDown => cursorLeftMouseDown;
-
-        /// <inheritdoc cref="cursorRightMouseDown"/>
-        public Sprite CursorRightMouseDown => cursorRightMouseDown;
-
-        /// <inheritdoc cref="cursorOnHover"/>
-        public Sprite[] CursorOnHover => cursorOnHover;
+            var reference = cursorPacks[0]?.Pack?.CursorOnHover?.Length ?? 0;
+            for (var i = 1; i < cursorPacks.Length; i++)
+            {
+                var length = cursorPacks[i]?.Pack?.CursorOnHover?.Length ?? 0;
+                if (length == reference)
+                    continue;
+                Debug.LogWarning(
+                    $"[CursorSettings] Длина hover-массива в наборе #{i} ({length}) не совпадает " +
+                    $"с набором #0 ({reference}). Индексы MouseHoverListener должны совпадать во всех наборах.",
+                    this);
+                break;
+            }
+        }
+#endif
     }
 }
