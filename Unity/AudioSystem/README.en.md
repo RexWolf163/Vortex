@@ -301,6 +301,24 @@ UI volume slider.
 - `RecordTypes.Singleton` (forced in `OnValidate`)
 - Editor: `TestSound` / `StopSound` buttons
 
+### SoundSampleAddressablePreset (`#if ENABLE_ADDRESSABLES`)
+
+`ScriptableObject` (`RecordPreset<Sound>`), menu: `Database/SoundSampleAddressable`. A variant of `SoundSamplePreset` where clips are stored as `AssetReferenceAudioClip[]` (addressable link) instead of a direct `AudioClip[]`.
+
+- The record stays **light**: the clip is not brought into memory when Database loads; it is pulled on demand on the first `GetClip` (synchronously, via `WaitForCompletion`).
+- Use for heavy/rare sounds to avoid loading them at startup.
+- Light always-needed sounds (short UI clicks) are simpler kept in the plain `SoundSamplePreset` — addressable loading would add latency to them for no reason.
+
+---
+
+## Applicability boundary: system-wide vs internal sounds
+
+`AudioSystem` through `Database` is the system for **system-wide** sounds — those shared across the whole app (UI clicks, common SFX, menu background music). They are justified on the bus: GUID access from anywhere, a single point of editing.
+
+**Internal** sounds of loadable/unloadable systems (mini-games, individual scenes, cutscenes) should **not** be registered in the shared `Database` — they are better wired through **linked sound assets** in that system's own config. Otherwise a mini-game's local sound sits in the shared bus for the whole session, although it is needed only while the system is loaded.
+
+This is a direct application of the data placement matrix (see `Core/DatabaseSystem` → "Extension boundaries"): a system-wide sound is "shared", its home is the bus; a system's internal sound is "private", its home is the system's own config via linkage.
+
 ---
 
 ## Usage

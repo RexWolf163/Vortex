@@ -4,7 +4,9 @@ Platform-independent application data bus with GUID-based access.
 
 ## Purpose
 
-Centralized record storage: GUID indexing, two storage modes (Singleton / MultiInstance), SaveSystem integration, event model, driver interface.
+Centralized storage of **light records** of a common type: GUID indexing, two storage modes (Singleton / MultiInstance), SaveSystem integration, event model, driver interface.
+
+Records are kept **light** — without direct references to heavy assets (see "Extension boundaries") — which lets the whole database stay resident in memory.
 
 - Indexed record storage (`Dictionary<GUID, Record>`)
 - Singleton records: single instance, persistent via `SaveSystem`
@@ -114,6 +116,42 @@ Marker interface (empty).
 - Subscribing to `OnInit` after initialization — callback fires immediately (the accessor checks `IsInit` and invokes the delegate at once)
 - `GetDataForSave()` returning `null/empty` — record skipped during save
 - `Record` is abstract — instances created through the driver
+
+## Extension boundaries
+
+Database is a **bus for shared data**, not an asset store. It has a boundary of applicability: not everything you'd like to "fetch by key" should become a `Record`.
+
+### Rule: light presets only
+
+Database entities are extended with **light presets only**. "Light" means the record does not drag heavy assets (audio clips, textures, prefabs, meshes) along via a **direct serialized reference**. Heavy content is moved into a separate asset and pulled in by linkage (addressable key / path); the `Record` itself holds only the link + light metadata.
+
+The reason is loading. On initialization the driver brings up **all** presets at once (`Resources.LoadAll` / `Addressables` by labels), and direct references to heavy assets cascade them into memory at startup. Light records are cheap to keep resident (a thousand empty SOs ≈ a few–tens of ms); heavy ones are not. So the whole DB can live in memory in full, as long as every record is light and heavy loading is deferred on demand at the asset level (outside Database).
+
+### The "does the record belong on the bus" test
+
+A record is justified in Database if at least one holds:
+- **Save** — `GetDataForSave()` returns meaningful state (not `null`). The record takes part in save/load as domain state.
+- **MultiInstance** — working copies with mutable state are needed (`GetNewRecord`).
+- **Cross-domain** — referenced by GUID from several independent systems or from save data.
+
+If none holds, and the record is essentially an **asset registry** ("a named asset + params") with a single consumer, its home is not Database but the **system's own catalog** (modeled on `EffectsCatalog` in `EffectSpawnSystem`), with linkage through its own key attribute.
+
+`GetDataForSave() => null` is a direct tell: the record does not use the bus's save axis. By itself it is not a verdict (a stateless Singleton config is allowed), but together with "single consumer + it's an asset registry" it means the record's place is a catalog, not the bus.
+
+### Data placement matrix
+
+Two axes: **accessibility** (private / shared) and **weight** (light / heavy).
+
+| | Light | Heavy |
+|---|---|---|
+| **Shared** | Database (light preset directly) | Database (light record) + heavy asset by linkage, loading/lifetime owned by the consuming view |
+| **Private** | The system's own asset-config (not in Database) | Own asset-config + linked heavy asset |
+
+- **Shared-light** → Database. The pure bus case: GUID access, typing, save/MultiInstance.
+- **Shared-heavy** → Database holds the light record (identity, params, the link), while the heavy asset is linked and loaded on demand by the consuming system (the view), not by the bus. Database's contract stays synchronous and light; ownership of the asset's lifetime is on the consumer.
+- **Private** (regardless of weight) → **not in Database**. A system's local data lives in its own asset-config; heavy content inside it goes by linkage. Putting private data on the shared bus violates "shared → bus, private → inside the component."
+
+> **Note on AudioSystem.** Use `AudioSystem` (sounds/music via `Database`) as the system for **system-wide** sounds — those shared across the whole app (UI clicks, common SFX, menu background music). **Internal** sounds of loadable/unloadable systems (mini-games, individual scenes, cutscenes) are better wired through **linked sound assets** in that system's own config, rather than registered in the shared `Database`. Otherwise a mini-game's local sound sits in the shared bus for the whole session, although it is needed only while the system is loaded. This is a direct application of the "private-heavy → own asset-config + linkage" axis.
 
 ## Usage
 
