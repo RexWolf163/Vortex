@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
+using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.LoaderSystem.Bus;
 using Vortex.Core.System.ProcessInfo;
 using Vortex.Unity.DatabaseSystem.Presets;
@@ -44,29 +45,31 @@ namespace Vortex.Unity.DatabaseSystem.Drivers.ResourcesDriver
             DatabaseDriverBase.Clean();
 
             _resources = Resources.LoadAll(Path);
-
             _processData.Size = _resources.Length;
+
+            const double frameBudgetMs = 8.0; // ~полкадра при 60fps
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
             foreach (var resource in _resources)
             {
                 if (cancellationToken.IsCancellationRequested)
-                {
-                    await UniTask.CompletedTask;
                     return;
-                }
 
                 _processData.Progress++;
-                if (resource is not IRecordPreset data)
-                    continue;
-                DatabaseDriverBase.PutData(data);
+                if (resource is IRecordPreset data)
+                    DatabaseDriverBase.PutData(data);
 
-                await UniTask.Yield();
+                if (sw.Elapsed.TotalMilliseconds >= frameBudgetMs)
+                {
+                    await UniTask.Yield();
+                    sw.Restart();
+                }
             }
 
             CallOnInit();
 #if !UNITY_EDITOR
-            _resources = null;
+    _resources = null;
 #endif
-            await UniTask.CompletedTask;
         }
 
         public Type[] WaitingFor() => Type.EmptyTypes;

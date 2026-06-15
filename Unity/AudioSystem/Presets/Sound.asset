@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 626ce079f7334134b5e3275729b24b50, type: 3}
+  m_Name: Sound
+  m_EditorClassIdentifier: ru.vortex.unity.audio::Vortex.Unity.AudioSystem.Presets.SoundSampleAddressablePreset
+  type: 1
+  guid: 3ce632677e93eed1ba95cbbb5f865baa6ed9ee2cc1329460e7b43b1f7837541b
+  nameRecord: Sound
+  description: 
+  icon: {fileID: 0}
+  audioClips: []
+  pitchRange: {x: 1, y: 1}
+  valueRange: {x: 1, y: 1}
+  channel: 
