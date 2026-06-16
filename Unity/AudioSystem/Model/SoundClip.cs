@@ -4,9 +4,6 @@ using Vortex.Core.AudioSystem.Bus;
 using Vortex.Core.AudioSystem.Model;
 using Vortex.Core.Extensions.LogicExtensions;
 using Random = UnityEngine.Random;
-#if ENABLE_ADDRESSABLES
-using UnityEngine.ResourceManagement.AsyncOperations;
-#endif
 
 namespace Vortex.Unity.AudioSystem.Model
 {
@@ -128,6 +125,14 @@ namespace Vortex.Unity.AudioSystem.Model
             AudioClips = new AudioClip[_audioClipRefs.Length];
             for (var i = 0; i < _audioClipRefs.Length; i++)
             {
+#if UNITY_EDITOR
+                if (!Application.isPlaying)
+                {
+                    AudioClips[i] = _audioClipRefs[i].editorAsset;
+                    continue;
+                }
+#endif
+
                 var handle = _audioClipRefs[i].LoadAssetAsync<AudioClip>();
                 AudioClips[i] = handle.WaitForCompletion(); // синхронно, валидный клип, без дедлока
             }

@@ -53,6 +53,19 @@ namespace Vortex.Unity.AssetCacheSystem.Abstractions
             where T : Object;
 
         /// <summary>
+        /// Зарегистрировать <paramref name="owner"/> и синхронно вернуть ассет по <paramref name="reference"/>.
+        /// Если ассет уже в кэше (active или survivor) — мгновенно.
+        /// Иначе запускается новая загрузка через <c>Addressables.LoadAssetAsync</c>.
+        /// </summary>
+        /// <typeparam name="T">Ожидаемый тип ассета. <see cref="UnityEngine.Object"/> и наследники.</typeparam>
+        /// <param name="owner">Владелец. Не может быть null.</param>
+        /// <param name="reference">AssetReference. Не может быть null.</param>
+        /// <param name="ct">Токен waiter'а. Отмена waiter'а НЕ прерывает реальную загрузку — она нужна другим.</param>
+        /// <returns>Загруженный ассет.</returns>
+        /// <exception cref="ArgumentNullException">owner или reference == null.</exception>
+        T LoadSync<T>(object owner, AssetReference reference) where T : Object;
+
+        /// <summary>
         /// Освободить все ассеты владельца. Заодно sweep'ит UnityEngine.Object-owner'ов,
         /// которые были тихо уничтожены без вызова Release.
         /// Ассеты без других активных владельцев уходят в survivors (LRU). При переполнении

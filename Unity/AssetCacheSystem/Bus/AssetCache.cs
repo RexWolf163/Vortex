@@ -62,6 +62,12 @@ namespace Vortex.Unity.AssetCacheSystem.Bus
             => Controller.Load<T>(owner, reference, ct);
 
         /// <summary>
+        /// Запрос ассета. См. <see cref="IAssetCacheController.LoadSync{T}"/>.
+        /// </summary>
+        public static T LoadSync<T>(object owner, AssetReference reference) where T : Object
+            => Controller.LoadSync<T>(owner, reference);
+
+        /// <summary>
         /// Освобождение всех ассетов владельца. См. <see cref="IAssetCacheController.Release"/>.
         /// </summary>
         public static void Release(object owner) => Controller?.Release(owner);
@@ -80,7 +86,7 @@ namespace Vortex.Unity.AssetCacheSystem.Bus
         {
             Settings.OnInit -= CreateController;
             App.OnExit -= Dispose;
-            Controller?.Cleanup();
+            Controller.Cleanup();
         }
 
         private static void CreateController()

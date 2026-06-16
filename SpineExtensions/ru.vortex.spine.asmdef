@@ -9,7 +9,10 @@
         "spine-unity",
         "spine-csharp",
         "ru.vortex.system",
-        "ru.vortex.unity.app"
+        "ru.vortex.unity.app",
+        "Unity.Addressables",
+        "ru.vortex.unity.assetcachesystem",
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

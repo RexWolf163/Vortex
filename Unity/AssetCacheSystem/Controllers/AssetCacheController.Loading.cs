@@ -21,6 +21,47 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
 
             RegisterOwner(owner, reference);
 
+            try
+            {
+                // 1. Уже в кэше (active или survivor) — мгновенный возврат + revive из survivors.
+                if (Model.Handles.TryGetValue(reference, out var ready))
+                {
+                    ReviveFromSurvivor(reference);
+                    if (_debugLogging)
+                        Debug.Log($"[{LogTag}] HIT  ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)}");
+                    return (T)ready.Result;
+                }
+
+                // 2. Идёт inflight — присоединяемся к нему.
+                if (Model.Inflight.TryGetValue(reference, out var slot))
+                {
+                    if (_debugLogging)
+                        Debug.Log($"[{LogTag}] JOIN ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)}");
+                    var joined = await slot.Completion.Task.AttachExternalCancellation(ct);
+                    return (T)joined;
+                }
+
+                // 3. Новая загрузка.
+                return await StartLoad<T>(reference, ct);
+            }
+            catch
+            {
+                // Загрузка провалилась или waiter отменён — снимаем lock владельца, иначе
+                // фантомный lock не даст ассету уйти в survivors/выгрузиться. Реальную загрузку
+                // для остальных waiter'ов это не затрагивает (она живёт в StartLoad).
+                UnregisterOwner(owner, reference);
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
+        public T LoadSync<T>(object owner, AssetReference reference) where T : Object
+        {
+            if (owner == null) throw new ArgumentNullException(nameof(owner));
+            if (reference == null) throw new ArgumentNullException(nameof(reference));
+
+            RegisterOwner(owner, reference);
+
             // 1. Уже в кэше (active или survivor) — мгновенный возврат + revive из survivors.
             if (Model.Handles.TryGetValue(reference, out var ready))
             {
@@ -33,14 +74,28 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             // 2. Идёт inflight — присоединяемся к нему.
             if (Model.Inflight.TryGetValue(reference, out var slot))
             {
-                if (_debugLogging)
-                    Debug.Log($"[{LogTag}] JOIN ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)}");
-                var joined = await slot.Completion.Task.AttachExternalCancellation(ct);
-                return (T)joined;
+                slot.Handle.WaitForCompletion();
+                if (slot.Handle.Status != AsyncOperationStatus.Succeeded)
+                {
+                    UnregisterOwner(owner, reference);
+                    return null;
+                }
+
+                return (T)slot.Handle.Result; // Handles проставит StartLoad, owner уже зарегистрирован
             }
 
             // 3. Новая загрузка.
-            return await StartLoad<T>(reference, ct);
+            var handle = Addressables.LoadAssetAsync<T>(reference);
+            handle.WaitForCompletion();
+            if (handle.Status != AsyncOperationStatus.Succeeded)
+            {
+                if (handle.IsValid()) Addressables.Release(handle);
+                UnregisterOwner(owner, reference);
+                return null;
+            }
+
+            Model.Handles[reference] = handle;
+            return handle.Result;
         }
 
         /// <summary>
@@ -71,6 +126,12 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             {
                 // Внимание: реальная загрузка НЕ привязана к ct waiter'а — она нужна другим waiter'ам.
                 var loaded = await handle.ToUniTask();
+
+                // Пока шла загрузка, мог пройти Cleanup: Model обнулён, наш handle уже освобождён
+                // в Cleanup, waiter'ы там же отменены. Больше делать нечего, выходим отменой.
+                if (Model == null)
+                    throw new OperationCanceledException();
+
                 Model.Handles[reference] = handle;
                 slot.Completion.TrySetResult(loaded);
 
@@ -88,12 +149,12 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
                 // Реальный сбой загрузки (не отмена waiter'а). Чистим handle и сообщаем всем waiter'ам.
                 slot.Completion.TrySetException(ex);
                 if (handle.IsValid()) Addressables.Release(handle);
-                Model.Handles.Remove(reference);
+                Model?.Handles.Remove(reference);
                 throw;
             }
             finally
             {
-                Model.Inflight.Remove(reference);
+                Model?.Inflight.Remove(reference);
             }
         }
 
@@ -107,7 +168,27 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
                 refs = new HashSet<AssetReference>();
                 Model.Locks[owner] = refs;
             }
+
             refs.Add(reference);
+        }
+
+        /// <summary>
+        /// Снимает удержание <paramref name="reference"/> с <paramref name="owner"/> после
+        /// провала/отмены загрузки. Если ассет всё же успел загрузиться, но активных владельцев
+        /// не осталось — отправляет его в survivors (иначе handle осиротеет: не в survivors —
+        /// не выгрузится по LRU). Null-safe относительно Model (мог пройти Cleanup).
+        /// </summary>
+        private void UnregisterOwner(object owner, AssetReference reference)
+        {
+            if (Model == null) return;
+            if (!Model.Locks.TryGetValue(owner, out var refs)) return;
+            if (!refs.Remove(reference)) return;
+
+            if (refs.Count == 0)
+                Model.Locks.Remove(owner);
+
+            if (!IsHeldByAnyOwner(reference) && Model.Handles.ContainsKey(reference))
+                PushSurvivor(reference);
         }
 
         /// <summary>
