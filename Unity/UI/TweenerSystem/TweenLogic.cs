@@ -32,12 +32,14 @@ namespace Vortex.Unity.UI.TweenerSystem
         private float _progress;
         private DateTime _startTween;
         private Action _onComplete;
+        private bool _isDead = false;
 
         private CancellationTokenSource _cts;
         private CancellationToken Token => (_cts ??= new CancellationTokenSource()).Token;
 
         protected internal virtual void Init()
         {
+            _isDead = false;
             _isForward = false;
             _progress = 0f;
             var eased = preset.curve.Evaluate(0f);
@@ -48,6 +50,7 @@ namespace Vortex.Unity.UI.TweenerSystem
 
         protected internal virtual void DeInit()
         {
+            _isDead = true;
             if (_cts == null) return;
             _cts.Cancel();
             _cts.Dispose();
@@ -58,6 +61,9 @@ namespace Vortex.Unity.UI.TweenerSystem
 
         protected internal virtual void Forward(bool skip = false)
         {
+            if (_isDead)
+                return;
+
             if (preset.offOnStartPoint)
                 SwitchOn();
             if (!skip)
@@ -96,6 +102,9 @@ namespace Vortex.Unity.UI.TweenerSystem
 
         protected internal virtual void Back(bool skip = false)
         {
+            if (_isDead)
+                return;
+
             if (preset.offOnEndPoint)
                 SwitchOn();
             if (!skip)
@@ -133,6 +142,9 @@ namespace Vortex.Unity.UI.TweenerSystem
 
         protected internal virtual void Pulse()
         {
+            if (_isDead)
+                return;
+
             if (preset.offOnStartPoint)
                 SwitchOn();
             if (_isForward)
@@ -164,6 +176,9 @@ namespace Vortex.Unity.UI.TweenerSystem
             {
                 while (_progress > 0 && !_isForward || _progress < 1 && _isForward)
                 {
+                    if (_isDead)
+                        return;
+
                     if (token.IsCancellationRequested)
                     {
                         _progress = _isForward ? 1 : 0;
@@ -186,6 +201,9 @@ namespace Vortex.Unity.UI.TweenerSystem
 
                     await UniTask.Yield();
                 }
+
+                if (_isDead)
+                    return;
 
                 _tweenTask = default;
                 var action = _onComplete;

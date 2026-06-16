@@ -51,8 +51,8 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Handlers
 
         private void OnUpdateLink()
         {
-            if (_data != null)
-                _data.OnGameStateChanged -= Refresh;
+            if (Data != null)
+                Data.OnGameStateChanged -= Refresh;
             _data = null;
             if (Data == null)
                 return;

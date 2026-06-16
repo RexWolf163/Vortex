@@ -22,46 +22,50 @@ namespace Vortex.Unity.UI.Misc
         [SerializeField]
         [InfoBox("Переключает свитчер по факту наличия-отсутствия данных в контейнере\n<b>Опционально</b>")]
         [StateSwitcher(typeof(SwitcherState))]
-        private UIStateSwitcher dataSwitcher;
+        protected UIStateSwitcher dataSwitcher;
 
         [DataModel, ShowInInspector, HideInEditorMode]
-        private List<Object> _data = new();
+        protected List<Object> Data = new();
 
         public event Action OnUpdateLink;
 
-        private void OnEnable() => dataSwitcher?.Set(IsEmpty() ? SwitcherState.Off : SwitcherState.On);
+        protected virtual void OnEnable() => dataSwitcher?.Set(IsEmpty() ? SwitcherState.Off : SwitcherState.On);
+
+        protected virtual void OnDisable()
+        {
+        }
 
         public void SetData(Object data)
         {
-            _data.Clear();
-            _data.Add(data);
+            Data.Clear();
+            Data.Add(data);
             dataSwitcher?.Set(IsEmpty() ? SwitcherState.Off : SwitcherState.On);
             OnUpdateLink?.Invoke();
         }
 
         public void SetData(Object[] data)
         {
-            _data.Clear();
+            Data.Clear();
             if (data is { Length: > 0 })
-                _data.AddRange(data);
+                Data.AddRange(data);
             dataSwitcher?.Set(IsEmpty() ? SwitcherState.Off : SwitcherState.On);
             OnUpdateLink?.Invoke();
         }
 
         public void AddData(Object data)
         {
-            foreach (var o in _data.ToArray())
+            foreach (var o in Data.ToArray())
             {
                 if (o.GetType() != data.GetType())
                     continue;
-                _data.Remove(o);
+                Data.Remove(o);
             }
 
-            _data.Add(data);
+            Data.Add(data);
             dataSwitcher?.Set(IsEmpty() ? SwitcherState.Off : SwitcherState.On);
         }
 
-        public T GetData<T>() where T : class => _data.FirstOrDefault(o => o is T) as T;
+        public T GetData<T>() where T : class => Data.FirstOrDefault(o => o is T) as T;
 
         /// <summary>
         /// Возвращает TRUE, если имеется хотя бы один NULL элемент в данных
@@ -72,9 +76,9 @@ namespace Vortex.Unity.UI.Misc
         /// </summary>
         private bool IsEmpty()
         {
-            if (_data == null || _data.Count == 0)
+            if (Data == null || Data.Count == 0)
                 return true;
-            foreach (var o in _data)
+            foreach (var o in Data)
                 if (o == null)
                     return true;
 

@@ -1,34 +1,39 @@
-﻿using Sirenix.OdinInspector;
+﻿using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 
 namespace Vortex.Unity.LogicChainsSystem.Actions
 {
+    [Serializable]
     public class LoadScene : UnityLogicAction
     {
-        [SerializeField, ValueDropdown("@DropDawnHandler.GetScenes()")]
-        protected string SceneName;
+        [FormerlySerializedAs("SceneName")] [SerializeField, ValueDropdown("@DropDawnHandler.GetScenes()")]
+        protected string sceneName;
 
-        [SerializeField] private bool _additiveMode;
+        [FormerlySerializedAs("_additiveMode")] [SerializeField]
+        private bool additiveMode;
 
-        [SerializeField] private bool _async = true;
+        [FormerlySerializedAs("_async")] [SerializeField]
+        private bool async = true;
 
         public override void Invoke()
         {
             TimeController.Call(() =>
             {
-                if (_async)
-                    SceneManager.LoadSceneAsync(SceneName,
-                        _additiveMode ? LoadSceneMode.Additive : LoadSceneMode.Single);
+                if (async)
+                    SceneManager.LoadSceneAsync(sceneName,
+                        additiveMode ? LoadSceneMode.Additive : LoadSceneMode.Single);
                 else
-                    SceneManager.LoadScene(SceneName,
-                        _additiveMode ? LoadSceneMode.Additive : LoadSceneMode.Single);
+                    SceneManager.LoadScene(sceneName,
+                        additiveMode ? LoadSceneMode.Additive : LoadSceneMode.Single);
             });
         }
 
         protected override string NameAction =>
-            $"Call load for «{(SceneName.IsNullOrWhitespace() ? "???" : SceneName)}» scene";
+            $"Call load for «{(sceneName.IsNullOrWhitespace() ? "???" : sceneName)}» scene";
     }
 }

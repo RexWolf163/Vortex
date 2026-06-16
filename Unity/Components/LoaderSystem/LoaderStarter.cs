@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Cysharp.Threading.Tasks;
+using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.LoaderSystem.Bus;
 using Vortex.Core.System.Enums;
@@ -22,7 +23,7 @@ namespace Vortex.Unity.Components.LoaderSystem
 
         private void Run()
         {
-            Loader.Run();
+            Loader.Run().Forget(Debug.LogException);
         }
     }
 }

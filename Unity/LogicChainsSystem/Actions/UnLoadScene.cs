@@ -1,30 +1,34 @@
+using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 
 namespace Vortex.Unity.LogicChainsSystem.Actions
 {
+    [Serializable]
     public class UnLoadScene : UnityLogicAction
     {
-        [SerializeField, ValueDropdown("@DropDawnHandler.GetScenes()")]
-        protected string SceneName;
+        [FormerlySerializedAs("SceneName")] [SerializeField, ValueDropdown("@DropDawnHandler.GetScenes()")]
+        protected string sceneName;
 
-        [SerializeField] private bool _async = true;
+        [FormerlySerializedAs("_async")] [SerializeField]
+        private bool async = true;
 
         public override void Invoke()
         {
             TimeController.Call(() =>
             {
-                if (_async)
-                    SceneManager.UnloadSceneAsync(SceneName);
+                if (async)
+                    SceneManager.UnloadSceneAsync(sceneName);
                 else
-                    SceneManager.UnloadScene(SceneName);
+                    SceneManager.UnloadScene(sceneName);
             });
         }
 
         protected override string NameAction =>
-            $"Call unload for «{(SceneName.IsNullOrWhitespace() ? "???" : SceneName)}» scene";
+            $"Call unload for «{(sceneName.IsNullOrWhitespace() ? "???" : sceneName)}» scene";
     }
 }
