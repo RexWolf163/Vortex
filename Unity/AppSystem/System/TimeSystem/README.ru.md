@@ -32,9 +32,10 @@ TimeController (MonoBehaviour, auto-create)
 ├── _queue           — Dictionary<object, QueuedAction>  (с владельцем, перезаписывается)
 ├── _anonymousQueue  — List<QueuedAction>                (без владельца, FIFO)
 ├── NextWaveQueue    — Dictionary<object, Action>         (Accumulate)
-├── ReadyQueue       — List<Action>                       (буфер)
-├── RemoveBuffer     — List<object>                       (буфер)
-└── RemoveIndices    — List<int>                          (буфер)
+├── ReadyQueue       — List<QueuedAction>                  (снимок текущей волны: Owner + Action)
+├── HotRemovedOwners — HashSet<object>                     (отмены, пришедшие во время волны)
+├── RemoveBuffer     — List<object>                        (буфер)
+└── RemoveIndices    — List<int>                           (буфер)
 ```
 
 Цикл обработки:
@@ -62,6 +63,7 @@ LateUpdate()  → SetTimeValue()
 - Исключение в одном callback не блокирует остальные (`try/catch` + `Debug.LogError`)
 - `_nextTimer` оптимизация: `CheckQueue` пропускается при отсутствии готовых к выполнению действий
 - `Call(null, owner)` — удаляет pending-вызов owner из очереди
+- **Реентрантная отмена в волне:** `RemoveCall(owner)`, вызванный из action'а, который выполняется прямо сейчас в текущей волне, корректно гасит ещё не выполненные action'ы того же owner из снимка `ReadyQueue`. Пока волна идёт (`_inWave`), отменённый owner попадает в `HotRemovedOwners`, и его action не выстрелит из уже снятого снимка. Остальные action'ы волны выполняются нормально. Без этого механизма отмена «изнутри волны» опаздывала (снимок уже снят) и action срабатывал вопреки `RemoveCall`.
 
 **Ограничения:**
 - Гранулярность ~100мс (`StepTime`). При `stepSecs <= 0` проверка форсируется на текущем `LateUpdate`
@@ -129,7 +131,8 @@ TimeController.RemoveCallback(Tick);
 ### Граничные случаи
 
 - **StepTime (0.1с):** `CheckQueue` выполняется раз в ~100мс. При `stepSecs <= 0` форсируется проверка на текущем `LateUpdate`.
-- **Буферы:** `ReadyQueue`, `RemoveBuffer`, `RemoveIndices` — статические, переиспользуемые, без GC-давления.
+- **Буферы:** `ReadyQueue`, `RemoveBuffer`, `RemoveIndices`, `HotRemovedOwners` — статические, переиспользуемые, без GC-давления.
+- **`RemoveCall` из выполняемого action'а:** безопасно. Отмена owner'а во время волны гарантированно гасит его ещё не выполненные action'ы текущего снимка (через `HotRemovedOwners`) и удаляет из `NextWaveQueue`.
 - **Timestamp при Date.Year <= 1:** возвращает `0` (защита от `DateTimeOffset` на неинициализированной дате).
 
 ---

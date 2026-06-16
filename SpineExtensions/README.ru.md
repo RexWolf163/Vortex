@@ -30,6 +30,7 @@
 |----------|-----------|
 | [TweenerSystem](TweenerSystem/) | `TweenLogic`-реализации: одиночная и взвешенная случайная анимация для `SkeletonGraphic` и `SkeletonAnimation` |
 | [UIs](UIs/) | Хэндлеры сцены: скраб-анимация по `FloatData`, заморозка Spine/`Animator` по `GameStates`, рассинхрон, переключатели скина и порядка `MeshRenderer` |
+| [Addressable](Addressable/) | Addressable-поддержка Spine: типизированная ссылка `AssetReferenceSkeletonDataAsset`, гейт слоёв по готовности скелета `SpineReadyGateHandler` |
 | [DefineSettings](DefineSettings/) | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
 
 ## Зависимости
@@ -44,6 +45,9 @@
 | `ru.vortex.sdk.game.core` | `GameController`, `GameStates` |
 | `ru.vortex.system` | базовые абстракции (через ссылку asmdef) |
 | `sdk.settings.system` (через `.asmref`) | partial `SdkSettings` + `[DefineSymbol]` |
+| `Unity.Addressables` | `AssetReferenceT<SkeletonDataAsset>` (подпапка `Addressable/`, под `#if ENABLE_ADDRESSABLES`) |
+| `ru.vortex.unity.assetcachesystem` | загрузка addressable-скелетов через `AssetCache` (опционально) |
+| `UniTask` | асинхронная загрузка addressable-ассетов |
 | Sirenix Odin Inspector | `[InfoBox]`, `[OnValueChanged]`, `[OnInspectorGUI]`, `[HideReferenceObjectPicker]` |
 
 > Модуль одновременно опирается на сборки слоя 2 (Unity) и слоя 3 (Sdk). Это сделано осознанно: единая сборка под `USING_SPINE` проще в управлении, изоляция от остального фреймворка обеспечивается constraint'ом, а не разделением слоёв.
@@ -221,6 +225,40 @@ Spine применяет позу в `LateUpdate`.
 | `meshRenderers` | `MeshRenderer[]` | Целевые рендереры |
 
 В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Animator Control → Switch MeshRenderer Order**.
+
+---
+
+## Addressable
+
+**Namespace:** `Vortex.SpineExtensions.Addressable`
+
+Поддержка загрузки Spine-скелетов через Addressables — чтобы тяжёлый `SkeletonDataAsset` (атлас + меши + анимации) не висел в памяти всё время, а подтягивался по требованию.
+
+### AssetReferenceSkeletonDataAsset (`#if ENABLE_ADDRESSABLES`)
+
+Типизированная concrete-обёртка `AssetReferenceT<SkeletonDataAsset>` (встроенной у Addressables нет, как и для `AudioClip`). `[Serializable]`, конструктор от `string guid`. Используется в полях, где скелет линкуется addressable-ссылкой вместо прямой ссылки на `SkeletonDataAsset` — пикер в инспекторе фильтруется по `SkeletonDataAsset`, ассет грузится по требованию.
+
+### SpineReadyGateHandler
+
+`MonoBehaviour`-гейт: держит набор UI-слоёв выключенными, пока скелет не получит свой `skeletonDataAsset` (типичный кейс — скелет грузится addressable-ссылкой асинхронно, и слой нельзя показывать до готовности).
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `skeletonAnimation` | `SkeletonAnimation` | Mesh-скелет (опционально), `[AutoLink]` |
+| `skeletonGraphic` | `SkeletonGraphic` | UGUI-скелет (опционально), `[AutoLink]` |
+| `targets` | `GameObject[]` | Слои, гейтируемые по готовности скелета |
+
+Жизненный цикл:
+- `Awake` — выключает все `targets` (рекомендуется и в редакторе держать их выключенными; есть Editor-кнопка `PreparingForStart` для этого).
+- `OnEnable` — ставит `Check` в очередь `TimeController.Accumulate`.
+- `Check` — если у назначенного скелета `skeletonDataAsset == null` (ещё не загружен), перепланирует себя на следующий тик; как только данные есть — включает все `targets`.
+- `OnDisable` — снимает `TimeController.RemoveCall(this)` и снова выключает `targets`.
+
+> Гейт проверяет **только** появление `skeletonDataAsset`, не отслеживает потерю данных после загрузки. Это вход-гейт, не наблюдатель.
+
+### SpineAnimationLogicBase и asmdef
+
+Сборка `ru.vortex.spine` под коммитом получила ссылки на `Unity.Addressables`, `ru.vortex.unity.assetcachesystem`, `UniTask` (для addressable-загрузки скелетов). Логика самих `TweenLogic`-классов (`SpineAnimationLogicBase` и т. д.) не изменилась — это только подготовка сборки под addressable-подпапку. `defineConstraints: ["USING_SPINE"]` сохранён; addressable-специфичный код дополнительно guard'ится `#if ENABLE_ADDRESSABLES`.
 
 ---
 

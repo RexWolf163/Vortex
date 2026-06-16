@@ -199,6 +199,18 @@ SoundClip (ICloneable)
 
 Конструкторы принимают `string channelName` или `AudioChannel channel`. При `channelName` — резолв через `AudioController.GetChannel()`.
 
+#### Lazy-загрузка addressable-клипов (`#if ENABLE_ADDRESSABLES`)
+
+`SoundClip` поддерживает второй набор конструкторов — от `AssetReferenceAudioClip[]` (вместо прямого `AudioClip[]`). В этом режиме:
+
+- `AudioClips == null` при создании — клип в память **не грузится**; запись остаётся лёгкой при загрузке Database.
+- При первом `GetClip()` срабатывает `LoadAssets()`: для каждой ссылки `LoadAssetAsync<AudioClip>().WaitForCompletion()` — **синхронная** загрузка, без async и без дедлока. Результат кешируется в `AudioClips`, повторные `GetClip()` отдают готовое.
+- **Политика never-release.** Загруженные клипы держатся в памяти до конца приложения — release намеренно не делается. Иное потребовало бы счётчика владельцев и размыло бы контракт лёгких записей Database. Память возвращается ОС при выходе.
+
+Цена режима — стопор кадра на время первой загрузки клипа (`WaitForCompletion`). Приемлемо для локальных бандлов; для редких/тяжёлых звуков латентность первого проигрывания заметна. `Clone()` для addressable-клипа переносит ссылки (`AudioClips == null`), не загруженные данные.
+
+> Для удалённого контента или агрессивной выгрузки лучше идти через `AssetCacheSystem` (owner-based ref-count + LRU). `SoundClip` же реализует простейший never-release lazy — под локальные звуки, которые нужны всю сессию.
+
 ### SoundClipFixed
 
 Наследник `SoundClip`. Значения pitch, volume и клип фиксируются при создании.
@@ -376,6 +388,8 @@ AudioController.StopCoverMusic(); // основная тема восстано�
 - `[AudioChannelName]` — dropdown каналов
 - `Tools/Vortex/Configs/Audio Channels Settings` — быстрая навигация к конфигу каналов
 - `AudioAssetsCombiner` (`Assets/Vortex/Create Audio Assets`) — editor-тул: создаёт ассеты сэмплов из выделенных аудиоклипов в Project window
+- `SoundSamplePresetConverter` (`Assets/Vortex/Convert to Addressable Sound`, `#if ENABLE_ADDRESSABLES`) — конвертирует выделенные `SoundSamplePreset` в `SoundSampleAddressablePreset` на месте. **Сохраняет framework-GUID** (`GuidPreset`) — ссылки `[DbRecord]` не рвутся (они хранят `GuidPreset`, а не Unity-GUID ассета). Прямые `AudioClip` переводятся в `AssetReferenceAudioClip`; если клип ещё не addressable — регистрируется в дефолтной группе. Замена деструктивная (с диалогом-подтверждением): дубликат `guid` в Database недопустим, поэтому исходный ассет заменяется, а не дублируется.
+- `SoundSampleAddressablePreset.TestSound()` — прослушивание через `AssetReferenceAudioClip.editorAsset` (без рантайм-загрузки и ref-count)
 
 ## Граничные случаи
 
@@ -391,6 +405,9 @@ AudioController.StopCoverMusic(); // основная тема восстано�
 | Нет настроек в `PlayerPrefs` | Значения по умолчанию (всё включено, громкость 1) |
 | Некорректные данные в `PlayerPrefs` | `try/catch`, настройки сбрасываются к дефолтам |
 | `MusicHandler` быстрый disable/enable | `TimeController.RemoveCall` отменяет pending stop, `UniTask.DelayFrame(2)` обеспечивает play после stop |
+| Первый `GetClip()` у addressable-звука | Синхронная загрузка `WaitForCompletion` — возможен короткий стопор кадра; далее клип закеширован |
+| Addressable-клип удалён/отсутствует в билде | `WaitForCompletion` вернёт `null` → NRE в `SoundClipFixed` (fail-fast; проверь, что клип в addressable-группе) |
+| Конвертация `SoundSamplePreset` → addressable | Framework-GUID сохраняется, `[DbRecord]`-ссылки живут; Unity-GUID ассета меняется |
 | pitch == 0 в `SoundClipFixed` | `GetDuration()` → `float.MaxValue` |
 | `StopAllSounds(channel)` с `null` | Очищает весь пул |
 | `StopAllSounds(channel)` с именем | Удаляет из пула только звуки с совпадающим `Channel.Name` |

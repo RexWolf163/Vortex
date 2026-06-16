@@ -199,6 +199,18 @@ SoundClip (ICloneable)
 
 Constructors accept `string channelName` or `AudioChannel channel`. With `channelName` — resolved via `AudioController.GetChannel()`.
 
+#### Lazy loading of addressable clips (`#if ENABLE_ADDRESSABLES`)
+
+`SoundClip` supports a second set of constructors — from `AssetReferenceAudioClip[]` (instead of a direct `AudioClip[]`). In this mode:
+
+- `AudioClips == null` on creation — the clip is **not** loaded into memory; the record stays light when Database loads.
+- On the first `GetClip()`, `LoadAssets()` fires: for each reference `LoadAssetAsync<AudioClip>().WaitForCompletion()` — a **synchronous** load, no async and no deadlock. The result is cached in `AudioClips`; subsequent `GetClip()` returns the cached value.
+- **Never-release policy.** Loaded clips stay in memory until the application exits — release is intentionally not performed. Otherwise it would require an owner counter and would blur the light-record contract of Database. Memory is reclaimed by the OS on exit.
+
+The cost of this mode is a frame stall during the first clip load (`WaitForCompletion`). Acceptable for local bundles; for rare/heavy sounds the first-play latency is noticeable. `Clone()` of an addressable clip carries the references (`AudioClips == null`), not the loaded data.
+
+> For remote content or aggressive unloading, go through `AssetCacheSystem` (owner-based ref-count + LRU). `SoundClip` implements the simplest never-release lazy — for local sounds needed for the whole session.
+
 ### SoundClipFixed
 
 Inherits `SoundClip`. Pitch, volume, and clip are fixed at creation.
@@ -376,6 +388,8 @@ Add `MusicHandler` to a GameObject, assign GUID via `[DbRecord(typeof(Music))]`.
 - `[AudioChannelName]` — channel dropdown
 - `Tools/Vortex/Configs/Audio Channels Settings` — quick navigation to channel config
 - `AudioAssetsCombiner` (`Assets/Vortex/Create Audio Assets`) — editor tool: creates sample assets from audio clips selected in the Project window
+- `SoundSamplePresetConverter` (`Assets/Vortex/Convert to Addressable Sound`, `#if ENABLE_ADDRESSABLES`) — converts selected `SoundSamplePreset` into `SoundSampleAddressablePreset` in place. **Preserves the framework GUID** (`GuidPreset`) — `[DbRecord]` references do not break (they store `GuidPreset`, not the Unity asset GUID). Direct `AudioClip`s are turned into `AssetReferenceAudioClip`; if a clip is not addressable yet, it is registered in the default group. The replacement is destructive (with a confirmation dialog): a duplicate `guid` in Database is not allowed, so the source asset is replaced, not duplicated.
+- `SoundSampleAddressablePreset.TestSound()` — preview via `AssetReferenceAudioClip.editorAsset` (no runtime load or ref-count)
 
 ## Edge Cases
 
@@ -391,6 +405,9 @@ Add `MusicHandler` to a GameObject, assign GUID via `[DbRecord(typeof(Music))]`.
 | No settings in `PlayerPrefs` | Default values (everything on, volume 1) |
 | Corrupt data in `PlayerPrefs` | `try/catch`, defaults restored |
 | `MusicHandler` quick disable/enable | `TimeController.RemoveCall` cancels pending stop, `UniTask.DelayFrame(2)` ensures play-after-stop order |
+| First `GetClip()` of an addressable sound | Synchronous `WaitForCompletion` load — a short frame stall is possible; the clip is cached afterwards |
+| Addressable clip removed/absent from the build | `WaitForCompletion` returns `null` → NRE in `SoundClipFixed` (fail-fast; verify the clip is in an addressable group) |
+| Converting `SoundSamplePreset` → addressable | The framework GUID is preserved, `[DbRecord]` references survive; the Unity asset GUID changes |
 | pitch == 0 in `SoundClipFixed` | `GetDuration()` → `float.MaxValue` |
 | `StopAllSounds(channel)` with `null` | Clears entire pool |
 | `StopAllSounds(channel)` with name | Removes only sounds with matching `Channel.Name` from pool |

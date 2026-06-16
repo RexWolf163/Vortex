@@ -30,6 +30,7 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 |-----------|---------|
 | [TweenerSystem](TweenerSystem/) | `TweenLogic` implementations: single-clip and weighted-random animation for `SkeletonGraphic` and `SkeletonAnimation` |
 | [UIs](UIs/) | Scene handlers: `FloatData`-driven scrub, Spine/`Animator` freeze on `GameStates`, desync, skin and `MeshRenderer` order switchers |
+| [Addressable](Addressable/) | Addressable support for Spine: typed `AssetReferenceSkeletonDataAsset` reference, layer gate by skeleton readiness `SpineReadyGateHandler` |
 | [DefineSettings](DefineSettings/) | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
 
 ## Dependencies
@@ -44,6 +45,9 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 | `ru.vortex.sdk.game.core` | `GameController`, `GameStates` |
 | `ru.vortex.system` | base abstractions (asmdef reference) |
 | `sdk.settings.system` (via `.asmref`) | partial `SdkSettings` + `[DefineSymbol]` |
+| `Unity.Addressables` | `AssetReferenceT<SkeletonDataAsset>` (the `Addressable/` subfolder, under `#if ENABLE_ADDRESSABLES`) |
+| `ru.vortex.unity.assetcachesystem` | loading addressable skeletons via `AssetCache` (optional) |
+| `UniTask` | async loading of addressable assets |
 | Sirenix Odin Inspector | `[InfoBox]`, `[OnValueChanged]`, `[OnInspectorGUI]`, `[HideReferenceObjectPicker]` |
 
 > The module references both layer-2 (Unity) and layer-3 (Sdk) assemblies. This is intentional: a single assembly under `USING_SPINE` is easier to manage; isolation from the rest of the framework is provided by the constraint, not by layer separation.
@@ -221,6 +225,40 @@ A `StateItem` for `UIStateSwitcher`: when the owning state activates it sets `so
 | `meshRenderers` | `MeshRenderer[]` | Target renderers |
 
 In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch MeshRenderer Order**.
+
+---
+
+## Addressable
+
+**Namespace:** `Vortex.SpineExtensions.Addressable`
+
+Support for loading Spine skeletons through Addressables — so the heavy `SkeletonDataAsset` (atlas + meshes + animations) is not resident the whole time but pulled in on demand.
+
+### AssetReferenceSkeletonDataAsset (`#if ENABLE_ADDRESSABLES`)
+
+A typed concrete wrapper `AssetReferenceT<SkeletonDataAsset>` (Addressables ships none built-in, same as for `AudioClip`). `[Serializable]`, constructor from `string guid`. Used in fields where the skeleton is linked by an addressable reference instead of a direct `SkeletonDataAsset` reference — the inspector picker is filtered to `SkeletonDataAsset`, and the asset loads on demand.
+
+### SpineReadyGateHandler
+
+A `MonoBehaviour` gate: keeps a set of UI layers disabled until the skeleton has its `skeletonDataAsset` (typical case — the skeleton is loaded by an addressable reference asynchronously, and the layer must not show before it is ready).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skeletonAnimation` | `SkeletonAnimation` | Mesh skeleton (optional), `[AutoLink]` |
+| `skeletonGraphic` | `SkeletonGraphic` | UGUI skeleton (optional), `[AutoLink]` |
+| `targets` | `GameObject[]` | Layers gated by skeleton readiness |
+
+Lifecycle:
+- `Awake` — disables all `targets` (it is recommended to keep them disabled in the editor too; there is an editor button `PreparingForStart` for that).
+- `OnEnable` — queues `Check` via `TimeController.Accumulate`.
+- `Check` — if the assigned skeleton's `skeletonDataAsset == null` (not loaded yet), reschedules itself for the next tick; once the data is present, enables all `targets`.
+- `OnDisable` — `TimeController.RemoveCall(this)` and disables `targets` again.
+
+> The gate checks **only** the appearance of `skeletonDataAsset`; it does not track data loss after loading. It is an entry gate, not an observer.
+
+### SpineAnimationLogicBase and asmdef
+
+The `ru.vortex.spine` assembly gained references to `Unity.Addressables`, `ru.vortex.unity.assetcachesystem`, `UniTask` (for addressable skeleton loading). The logic of the `TweenLogic` classes themselves (`SpineAnimationLogicBase` etc.) did not change — this is only the assembly prep for the addressable subfolder. `defineConstraints: ["USING_SPINE"]` is preserved; addressable-specific code is additionally guarded with `#if ENABLE_ADDRESSABLES`.
 
 ---
 

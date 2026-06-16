@@ -51,6 +51,11 @@ storage.OnUpdateLink += ReBindAll;           // re-bind all references
 
 `OnUpdateLink` is link-level: fired only on full content replacement (`SetData`), which invalidates references previously obtained via `GetData<T>()`. `AddData` does not fire the event since existing references remain valid.
 
+**Extension points for subclasses:**
+- `Data` (`protected`) — direct access to the internal list from subclasses. Use with care: writing past `SetData`/`AddData` does not fire `OnUpdateLink`.
+- `dataSwitcher` (`protected`) — control of the visual state from a subclass.
+- `OnEnable()` / `OnDisable()` (`virtual`) — overridden in subclasses to hook extra logic (e.g. a reactive layer). Used in particular by `DataStorageTransport` (`AssetCacheSystem`), which loads a prefab by an addressable reference in `OnEnable` and releases it in `OnDisable`.
+
 ### DataCapturer
 
 Late-binding bridge: `MonoBehaviour` source + reactive property name → `IDataStorage`. Implements `IDataStorage : IDataSource`. Configured in the inspector; in editor mode the property dropdown is built via reflection by filtering for `IReactiveData` (covers `IntData` / `BoolData` / `FloatData` / any `ReactiveValue<T>` descendant).

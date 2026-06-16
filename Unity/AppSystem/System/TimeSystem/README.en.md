@@ -32,9 +32,10 @@ TimeController (MonoBehaviour, auto-create)
 ├── _queue           — Dictionary<object, QueuedAction>  (with owner, overwrites)
 ├── _anonymousQueue  — List<QueuedAction>                (no owner, FIFO)
 ├── NextWaveQueue    — Dictionary<object, Action>         (Accumulate)
-├── ReadyQueue       — List<Action>                       (buffer)
-├── RemoveBuffer     — List<object>                       (buffer)
-└── RemoveIndices    — List<int>                          (buffer)
+├── ReadyQueue       — List<QueuedAction>                  (current-wave snapshot: Owner + Action)
+├── HotRemovedOwners — HashSet<object>                     (cancellations arriving during the wave)
+├── RemoveBuffer     — List<object>                        (buffer)
+└── RemoveIndices    — List<int>                           (buffer)
 ```
 
 Processing cycle:
@@ -62,6 +63,7 @@ LateUpdate()  → SetTimeValue()
 - Exception in one callback does not block others (`try/catch` + `Debug.LogError`)
 - `_nextTimer` optimization: `CheckQueue` is skipped when no actions are ready
 - `Call(null, owner)` — removes pending call for owner from the queue
+- **Reentrant cancellation during a wave:** `RemoveCall(owner)` invoked from an action that is executing right now in the current wave correctly suppresses the not-yet-executed actions of the same owner from the `ReadyQueue` snapshot. While the wave runs (`_inWave`), the cancelled owner goes into `HotRemovedOwners`, and its action will not fire from the already-taken snapshot. Other actions of the wave run normally. Without this mechanism, a cancellation "from inside the wave" was late (the snapshot was already taken) and the action fired despite `RemoveCall`.
 
 **Limitations:**
 - Granularity ~100ms (`StepTime`). When `stepSecs <= 0`, check is forced on the current `LateUpdate`
@@ -129,7 +131,8 @@ Callbacks are invoked in `FixedUpdate` in registration order; an exception in on
 ### Edge Cases
 
 - **StepTime (0.1s):** `CheckQueue` runs every ~100ms. When `stepSecs <= 0`, check is forced on the current `LateUpdate`.
-- **Buffers:** `ReadyQueue`, `RemoveBuffer`, `RemoveIndices` — static, reusable, no GC pressure.
+- **Buffers:** `ReadyQueue`, `RemoveBuffer`, `RemoveIndices`, `HotRemovedOwners` — static, reusable, no GC pressure.
+- **`RemoveCall` from an executing action:** safe. Cancelling an owner during the wave is guaranteed to suppress its not-yet-executed actions in the current snapshot (via `HotRemovedOwners`) and to remove it from `NextWaveQueue`.
 - **Timestamp when Date.Year <= 1:** returns `0` (guard against `DateTimeOffset` on uninitialized date).
 
 ---

@@ -51,6 +51,11 @@ storage.OnUpdateLink += ReBindAll;           // переподцепить вс�
 
 `OnUpdateLink` — link-level: вызывается только при полной замене содержимого (`SetData`), которая инвалидирует ранее полученные через `GetData<T>()` ссылки. `AddData` не инвоцирует событие, поскольку существующие ссылки остаются валидными.
 
+**Точки расширения для наследников:**
+- `Data` (`protected`) — прямой доступ к внутреннему списку из подклассов. Использовать осторожно: запись мимо `SetData`/`AddData` не инвоцирует `OnUpdateLink`.
+- `dataSwitcher` (`protected`) — управление визуальным состоянием из подкласса.
+- `OnEnable()` / `OnDisable()` (`virtual`) — переопределяются в наследниках для подключения дополнительной логики (например, реактивного слоя). Используется, в частности, `DataStorageTransport` (`AssetCacheSystem`), который грузит префаб по addressable-ссылке в `OnEnable` и освобождает в `OnDisable`.
+
 ### DataCapturer
 
 Late-binding мост: `MonoBehaviour`-источник + имя реактивного свойства → `IDataStorage`. Реализует `IDataStorage : IDataSource`. Конфигурируется в инспекторе; в редакторе выпадающий список свойств собирается через рефлексию по типу `IReactiveData` (включая `IntData`/`BoolData`/`FloatData`/любых наследников `ReactiveValue<T>`).
