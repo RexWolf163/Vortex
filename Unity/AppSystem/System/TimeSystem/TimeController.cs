@@ -38,14 +38,16 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         /// </summary>
         private static double _lastCheckTime = -1;
 
-        // Переиспользуемый буффер, избавляемся от пересоздания списков
-        private static readonly List<Action> ReadyQueue = new();
+        // Переиспользуемый буффер. Снапшот текущей волны: каждый элемент несёт
+        // Owner+Action, порядок сохранён. Чистится в конце волны (без пересоздания).
+        private static readonly List<QueuedAction> ReadyQueue = new();
 
-        // Переиспользуемый буффер, действия отменяемые во время волны
-        private static readonly List<Action> HotRemoveActions = new();
+        // Владельцы, чьи экшены отменены во время текущей волны (через RemoveCall).
+        // Наполняется только при фактической отмене; чистится в конце волны.
+        private static readonly HashSet<object> HotRemovedOwners = new();
 
-        // Переиспользуемый буффер, действия отменяемые во время волны
-        private static readonly Dictionary<object, Action> HotActions = new();
+        // true, пока идёт обработка волны — только тогда RemoveCall помечает owner'а.
+        private static bool _inWave;
 
         // Переиспользуемый буффер, избавляемся от пересоздания списков
         private static readonly List<object> RemoveBuffer = new();
@@ -163,11 +165,10 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         /// <param name="owner">Владелец запроса</param>
         public static void RemoveCall<T>(T owner) where T : class
         {
-            if (HotActions.Count > 0)
-            {
-                if (HotActions.TryGetValue(owner, out var action))
-                    HotRemoveActions.Add(action);
-            }
+            // Если owner отменяется во время идущей волны — пометить, чтобы его экшен
+            // не выстрелил из уже снятого снапшота (реентрантная отмена).
+            if (_inWave)
+                HotRemovedOwners.Add(owner);
 
             _queue.Remove(owner);
             NextWaveQueue.Remove(owner);
@@ -304,7 +305,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
                 var actionData = _anonymousQueue[i];
                 if (actionData.Timestamp <= Time)
                 {
-                    ReadyQueue.Add(actionData.Action);
+                    ReadyQueue.Add(actionData);
                     RemoveIndices.Add(i);
                 }
                 else
@@ -327,7 +328,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
                 {
                     //Очистка залагавших удаленных объектов
                     if (key != null)
-                        ReadyQueue.Add(actionData.Action);
+                        ReadyQueue.Add(actionData);
                     RemoveBuffer.Add(key);
                 }
                 else
@@ -337,29 +338,27 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
             }
 
             foreach (var key in RemoveBuffer)
-            {
-                HotActions[key] = _queue[key].Action;
                 _queue.Remove(key);
-            }
 
 
-            foreach (var action in ReadyQueue)
+            _inWave = true;
+            foreach (var queued in ReadyQueue)
             {
                 try
                 {
-                    if (HotRemoveActions.Contains(action))
+                    if (queued.Owner != null && HotRemovedOwners.Contains(queued.Owner))
                         continue;
-                    action?.Invoke();
+                    queued.Action?.Invoke();
                 }
                 catch (Exception ex)
                 {
                     Debug.LogError(ex);
                 }
             }
+            _inWave = false;
 
-            HotRemoveActions.Clear();
+            HotRemovedOwners.Clear();
             ReadyQueue.Clear();
-            HotActions.Clear();
         }
 
         /// <summary>
@@ -413,28 +412,28 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
                 return;
 
             ReadyQueue.Clear();
-            ReadyQueue.AddRange(NextWaveQueue.Values);
-            foreach (var (k, a) in NextWaveQueue)
-                HotActions[k] = a;
+            foreach (var (owner, action) in NextWaveQueue)
+                ReadyQueue.Add(new QueuedAction { Owner = owner, Action = action });
             NextWaveQueue.Clear();
 
-            foreach (var action in ReadyQueue)
+            _inWave = true;
+            foreach (var queued in ReadyQueue)
             {
                 try
                 {
-                    if (HotRemoveActions.Contains(action))
+                    if (queued.Owner != null && HotRemovedOwners.Contains(queued.Owner))
                         continue;
-                    action?.Invoke();
+                    queued.Action?.Invoke();
                 }
                 catch (Exception ex)
                 {
                     Debug.LogError(ex);
                 }
             }
+            _inWave = false;
 
-            HotRemoveActions.Clear();
+            HotRemovedOwners.Clear();
             ReadyQueue.Clear();
-            HotActions.Clear();
         }
 
         #endregion
