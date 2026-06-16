@@ -3,10 +3,11 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using Vortex.Core.UIProviderSystem.Bus;
+using Vortex.Core.UIProviderSystem.Model;
+using Vortex.Unity.DatabaseSystem.Attributes;
 using Vortex.Unity.UI.Attributes;
 using Vortex.Unity.UI.Misc.DropDown;
 using Vortex.Unity.UI.StateSwitcher;
-using Vortex.Unity.UIProviderSystem.View;
 
 namespace Vortex.Sdk.Core.RollbackSettingsHandlers
 {
@@ -26,7 +27,8 @@ namespace Vortex.Sdk.Core.RollbackSettingsHandlers
 
         private readonly Dictionary<Slider, float> _slidersIndex = new();
 
-        [SerializeField] private UserInterface ui;
+        [SerializeField, DbRecord(typeof(UserInterfaceData))]
+        private string ui;
 
         [SerializeField, StateSwitcher(typeof(WorkState))]
         private UIStateSwitcher switcher;
@@ -84,7 +86,7 @@ namespace Vortex.Sdk.Core.RollbackSettingsHandlers
                 switcher.Set(WorkState.RollbackRequest);
             else
             {
-                UIProvider.Close(ui.GetId());
+                UIProvider.Close(ui);
                 _requested = false;
             }
         }
@@ -113,13 +115,5 @@ namespace Vortex.Sdk.Core.RollbackSettingsHandlers
             if (_hasChanges && !_requested)
                 switcher.Set(WorkState.HasChanges);
         }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            if (ui != null) return;
-            ui = GetComponentInParent<UserInterface>();
-        }
-#endif
     }
 }

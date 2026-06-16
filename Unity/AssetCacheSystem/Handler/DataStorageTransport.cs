@@ -37,12 +37,7 @@ namespace Vortex.Unity.AssetCacheSystem.Handler
                 targetForInstance = transform;
         }
 
-        protected override void OnEnable()
-        {
-            if (targetForInstance == null)
-                targetForInstance = transform;
-            Load().Forget(Debug.LogException);
-        }
+        protected override void OnEnable() => Load().Forget(Debug.LogException);
 
         protected override void OnDisable()
         {
@@ -74,20 +69,27 @@ namespace Vortex.Unity.AssetCacheSystem.Handler
         }
 
 #if UNITY_EDITOR
+
+        private Transform GetTarget()
+        {
+            var target = targetForInstance;
+            if (targetForInstance == null)
+                target = transform;
+            return target;
+        }
+
         [HorizontalGroup, Button]
         private void Connect()
         {
             var go = prefabReference.editorAsset;
-            _instance = Instantiate(go, targetForInstance ?? transform);
+            _instance = Instantiate(go, GetTarget());
             _instance.GetComponent<DataStorage>();
         }
 
         [HorizontalGroup, Button]
         private void Disconnect()
         {
-            var target = targetForInstance;
-            if (targetForInstance == null)
-                target = transform;
+            var target = GetTarget();
 
             var childrensCount = target.childCount;
             for (var i = childrensCount - 1; i >= 0; i--)
@@ -97,12 +99,7 @@ namespace Vortex.Unity.AssetCacheSystem.Handler
             }
         }
 
-        private bool HasChilds()
-        {
-            if (targetForInstance == null)
-                return transform.childCount > 0;
-            return targetForInstance.childCount > 0;
-        }
+        private bool HasChilds() => GetTarget().childCount > 0;
 
 #endif
     }
