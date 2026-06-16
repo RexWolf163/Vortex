@@ -28,10 +28,10 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 
 | Subfolder | Purpose |
 |-----------|---------|
-| [TweenerSystem](TweenerSystem/) | `TweenLogic` implementations: single-clip and weighted-random animation for `SkeletonGraphic` and `SkeletonAnimation` |
-| [UIs](UIs/) | Scene handlers: `FloatData`-driven scrub, Spine/`Animator` freeze on `GameStates`, desync, skin and `MeshRenderer` order switchers |
-| [Addressable](Addressable/) | Addressable support for Spine: typed `AssetReferenceSkeletonDataAsset` reference, layer gate by skeleton readiness `SpineReadyGateHandler` |
-| [DefineSettings](DefineSettings/) | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
+| TweenerSystem | `TweenLogic` implementations: single-clip and weighted-random animation for `SkeletonGraphic` and `SkeletonAnimation` |
+| UIs | Scene handlers: `FloatData`-driven scrub, Spine/`Animator` freeze on `GameStates`, desync, skin and `MeshRenderer` order switchers |
+| Addressable | Addressable support for Spine: typed `AssetReferenceSkeletonDataAsset` reference, layer gate by skeleton readiness `SpineReadyGateHandler` |
+| DefineSettings | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
 
 ## Dependencies
 
