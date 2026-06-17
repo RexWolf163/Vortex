@@ -15,6 +15,8 @@ namespace Vortex.Core.SaveSystem.Abstraction
 
         [XmlElement] public string Name { get; set; }
 
+        [XmlElement] public string Version { get; set; }
+
         [XmlElement]
         public long UnixTimestamp
         {

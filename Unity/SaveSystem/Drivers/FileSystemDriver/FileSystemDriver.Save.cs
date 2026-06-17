@@ -27,7 +27,10 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
                 var savePath = GetSaveFilePath(guid);
                 File.WriteAllText(savePath, $"{dataXml}");
 
-                var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc());
+                var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc())
+                {
+                    Version = Application.version
+                };
                 var summaryXml = SerializeSummary(summary);
                 File.WriteAllText(GetSummaryFilePath(guid), summaryXml);
 

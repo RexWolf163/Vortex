@@ -92,7 +92,10 @@ namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
                 var saveData = sw.ToString();
                 PlayerPrefs.SetString(GetSaveName(guid), saveData.Compress(guid));
 
-                var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc());
+                var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc())
+                {
+                    Version = Application.version
+                };
                 xmls = new XmlSerializer(typeof(SaveSummary));
                 sw = new StringWriter();
                 xmls.Serialize(sw, summary);
