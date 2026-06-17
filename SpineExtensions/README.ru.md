@@ -28,10 +28,10 @@
 
 | Подпапка | Назначение |
 |----------|-----------|
-| [TweenerSystem](TweenerSystem/) | `TweenLogic`-реализации: одиночная и взвешенная случайная анимация для `SkeletonGraphic` и `SkeletonAnimation` |
-| [UIs](UIs/) | Хэндлеры сцены: скраб-анимация по `FloatData`, заморозка Spine/`Animator` по `GameStates`, рассинхрон, переключатели скина и порядка `MeshRenderer` |
-| [Addressable](Addressable/) | Addressable-поддержка Spine: типизированная ссылка `AssetReferenceSkeletonDataAsset`, гейт слоёв по готовности скелета `SpineReadyGateHandler` |
-| [DefineSettings](DefineSettings/) | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
+| TweenerSystem | `TweenLogic`-реализации: одиночная и взвешенная случайная анимация для `SkeletonGraphic` и `SkeletonAnimation` |
+| UIs | Хэндлеры сцены: скраб-анимация по `FloatData`, заморозка Spine/`Animator` по `GameStates`, рассинхрон, переключатели скина и порядка `MeshRenderer` |
+| Addressable | Addressable-поддержка Spine: типизированная ссылка `AssetReferenceSkeletonDataAsset`, гейт слоёв по готовности скелета `SpineReadyGateHandler` |
+| DefineSettings | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
 
 ## Зависимости
 
