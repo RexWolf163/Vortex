@@ -81,7 +81,11 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
         {
             SwitchOff();
             foreach (var gameObject in links)
+            {
+                if (gameObject == null)
+                    continue;
                 TimeController.RemoveCall(gameObject.transform);
+            }
             base.Dispose();
         }
 

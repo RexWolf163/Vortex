@@ -82,10 +82,16 @@ namespace Vortex.Unity.UI.Misc
 
         private DateTime _clickTime;
 
+        private void OnEnable()
+        {
+            _pressed = false;
+            uiStateSwitcher?.ResetStates();
+            Set(ButtonVisualState.Free);
+        }
+
         private void OnDisable()
         {
             _inBorders = false;
-            Set(ButtonVisualState.Free);
         }
 
         public void OnPointerEnter(PointerEventData eventData)

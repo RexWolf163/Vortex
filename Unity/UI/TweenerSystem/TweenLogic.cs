@@ -64,10 +64,10 @@ namespace Vortex.Unity.UI.TweenerSystem
             if (_isDead)
                 return;
 
-            if (preset.offOnStartPoint)
-                SwitchOn();
             if (!skip)
             {
+                if (preset.offOnStartPoint)
+                    SwitchOn();
                 if (_isForward)
                     return;
                 _isForward = true;
@@ -105,10 +105,10 @@ namespace Vortex.Unity.UI.TweenerSystem
             if (_isDead)
                 return;
 
-            if (preset.offOnEndPoint)
-                SwitchOn();
             if (!skip)
             {
+                if (preset.offOnEndPoint)
+                    SwitchOn();
                 if (!_isForward)
                     return;
                 _isForward = false;
