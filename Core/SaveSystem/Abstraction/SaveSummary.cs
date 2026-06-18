@@ -10,6 +10,7 @@ namespace Vortex.Core.SaveSystem.Abstraction
         {
             Date = DateTime.Now;
             Name = name;
+            Version = string.Empty;
             UnixTimestamp = unixTimestamp;
         }
 
