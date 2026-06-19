@@ -96,6 +96,8 @@ namespace Vortex.Unity.UI.TweenerSystem
                 OnEnd();
                 if (preset.offOnEndPoint)
                     SwitchOff();
+                else if (preset.offOnStartPoint)
+                    SwitchOn();
             }
         }
 
@@ -137,6 +139,8 @@ namespace Vortex.Unity.UI.TweenerSystem
                 OnStart();
                 if (preset.offOnStartPoint)
                     SwitchOff();
+                else if (preset.offOnEndPoint)
+                    SwitchOn();
             }
         }
 
