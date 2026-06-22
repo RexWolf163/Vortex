@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Cysharp.Threading.Tasks;
+using UnityEngine;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Core.System.Abstractions;
 using Vortex.Sdk.UIs.SaveLoad.Models;
@@ -36,7 +37,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
                 return;
             }
 
-            SaveController.Load(saveSlot.Guid);
+            SaveController.Load(saveSlot.Guid).Forget(Debug.LogException);
         }
     }
 }

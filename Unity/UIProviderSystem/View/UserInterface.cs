@@ -53,10 +53,6 @@ namespace Vortex.Unity.UIProviderSystem.View
 
         private void OnEnable()
         {
-            /*
-            foreach (var tweener in tweeners)
-                tweener.Back(true);
-            */
             _isOpen = false;
             _isRegistred = false;
             if (App.GetState() >= AppStates.Running)
