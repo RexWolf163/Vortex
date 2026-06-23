@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using UnityEngine.AddressableAssets;
 using Vortex.Unity.AssetCacheSystem.Models;
 using Object = UnityEngine.Object;
