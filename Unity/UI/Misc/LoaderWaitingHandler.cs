@@ -3,19 +3,12 @@ using UnityEngine;
 using Vortex.Core.System.Abstractions;
 using Vortex.Core.System.Models;
 using Vortex.Unity.EditorTools.Attributes;
-using Vortex.Unity.UI.Attributes;
-using Vortex.Unity.UI.StateSwitcher;
+using Vortex.Unity.UI.TweenerSystem;
 
 namespace Vortex.Unity.UI.Misc
 {
     public class LoaderWaitingHandler : MonoBehaviour
     {
-        private enum DelayedState
-        {
-            Waiting,
-            Ready
-        }
-
         private DelayedObserver _valve;
 
         [SerializeField, ClassFilter(typeof(INeedDelay))]
@@ -23,25 +16,25 @@ namespace Vortex.Unity.UI.Misc
 
         [SerializeField] private bool callOnError = true;
 
-        [SerializeField, StateSwitcher(typeof(DelayedState))]
-        private UIStateSwitcher stateSwitcher;
+        [SerializeField] private TweenerHub tweener;
 
-        private void Awake() => stateSwitcher.ResetStates();
+        private void Awake() => tweener.Back(true);
 
         private void OnEnable()
         {
-            stateSwitcher.Set(DelayedState.Waiting);
             var ar = delayed.Select(d => d as INeedDelay).ToArray();
             _valve = new DelayedObserver(ar, OnReady, OnError, callOnError);
         }
 
-        private void OnDisable() => _valve.Dispose();
-
-        private void OnReady() => stateSwitcher.Set(DelayedState.Ready);
-
-        private void OnError(INeedDelay loader)
+        private void OnDisable()
         {
-            Debug.LogError($"[LoaderWaitingHandler] loading failed for {loader.GetType().Name}.");
+            _valve.Dispose();
+            tweener.Back(true);
         }
+
+        private void OnReady() => tweener.Forward();
+
+        private void OnError(INeedDelay loader) =>
+            Debug.LogError($"[LoaderWaitingHandler] loading failed for {loader.GetType().Name}.");
     }
 }
