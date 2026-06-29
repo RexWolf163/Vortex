@@ -194,7 +194,7 @@ namespace Vortex.Unity.UI.Misc.DropDown
         private void Select(int selectedIndex)
         {
             var index = _mapBack[selectedIndex];
-            _currentValue = index;
+            _currentValue = selectedIndex;
             _callback?.Invoke(index);
             onSelected?.Invoke(index);
             var c = _sorted.Length;
