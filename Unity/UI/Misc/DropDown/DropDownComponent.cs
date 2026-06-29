@@ -113,8 +113,8 @@ namespace Vortex.Unity.UI.Misc.DropDown
         {
             if (_sorted.Length == 0)
                 return;
-            _currentValue = _map[value];
-            Select(_currentValue);
+            //_currentValue = _map[value];
+            Select(_map[value]);
             if (_opened)
                 DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected);
         }
@@ -194,7 +194,7 @@ namespace Vortex.Unity.UI.Misc.DropDown
         private void Select(int selectedIndex)
         {
             var index = _mapBack[selectedIndex];
-            //_currentValue = index;
+            _currentValue = index;
             _callback?.Invoke(index);
             onSelected?.Invoke(index);
             var c = _sorted.Length;
