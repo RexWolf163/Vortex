@@ -39,5 +39,11 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions
         /// </summary>
         /// <returns></returns>
         public IMiniGameController<MiniGameData> GetController();
+
+        /// <summary>
+        /// Счет последней игры (должен обнуляться только при старте новой игры) 
+        /// </summary>
+        /// <returns></returns>
+        public int GetGameScore();
     }
 }

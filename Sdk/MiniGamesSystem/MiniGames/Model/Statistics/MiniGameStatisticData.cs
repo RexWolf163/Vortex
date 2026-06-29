@@ -32,5 +32,10 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Model.Statistics
         /// Кол-во недоигранных игровых сессий
         /// </summary>
         public int UnfinishedGames => StartedGames - WinGames - FailGames;
+
+        /// <summary>
+        /// Значение рекордов (флоат привести к целому, чтобы избежать дрифта)
+        /// </summary>
+        public int Record { get; internal set; }
     }
 }

@@ -122,6 +122,8 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Controllers
             SetState(MiniGameStates.Fail);
         }
 
+        public abstract int GetScore();
+
         #endregion
 
         #region Save/Load

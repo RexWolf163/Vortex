@@ -47,5 +47,11 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions
         /// Для дебага или читов
         /// </summary>
         public void CheatFail();
+
+        /// <summary>
+        /// Счет текущей игры
+        /// </summary>
+        /// <returns></returns>
+        public int GetScore();
     }
 }
