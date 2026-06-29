@@ -17,7 +17,7 @@ Capabilities:
 - Async data collection on `Save`, async distribution on `Load` (UniTask)
 - `SaveProcessData` — two-level progress (global + module)
 - Events: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
-- `SaveSummary` — save metadata (name, date, XML-serializable)
+- `SaveSummary` — save metadata (name, date, app version, XML-serializable)
 - Auto-generation of GUID for new saves
 
 Out of scope:
@@ -124,7 +124,7 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 |------|---------|
 | `SaveData` | struct: `Id`, `Data` — data unit |
 | `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — module folder |
-| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp` — save metadata (XML-serializable) |
+| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version` — save metadata (XML-serializable). `Version` is the app's `Application.version` captured at save time — useful for migrations and for filtering old saves in UI. |
 | `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
 
 ---

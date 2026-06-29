@@ -96,7 +96,7 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
   │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → PlayerPrefs "Save-{guid}"
-  │    ├── SaveSummary → XML → PlayerPrefs "SaveSummary-{guid}"
+  │    ├── SaveSummary { Name, Version = Application.version } → XML → PlayerPrefs "SaveSummary-{guid}"
   │    └── Update "SavesData", increment "SavesCount"
   │
   ├── Load(guid)
@@ -119,7 +119,7 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
 | `SavesData` | `"guid1;guid2;guid3"` — all GUIDs joined by `;` |
 | `SavesCount` | `int` — increment counter of the last save |
 | `Save-{guid}` | Compressed XML string (`SavePreset`), compression key = GUID |
-| `SaveSummary-{guid}` | XML string (`SaveSummary`) — name and date |
+| `SaveSummary-{guid}` | XML string (`SaveSummary`) — name, date and `Application.version` captured at save time |
 
 ### Driver: FileSystem
 
@@ -135,7 +135,7 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
   │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → {guid}.save
-  │    ├── SaveSummary → XML → {guid}.summary
+  │    ├── SaveSummary { Name, Version = Application.version } → XML → {guid}.summary
   │    └── On new GUID — _increment = GetNumberLastSave() + 1 → write to .in file
   │
   ├── Load(guid)
@@ -155,7 +155,7 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
 | File | Content |
 |------|---------|
 | `Saves/{guid}.save` | Compressed XML string (`SavePreset`), compression key = GUID |
-| `Saves/{guid}.summary` | XML string (`SaveSummary`) — name and date |
+| `Saves/{guid}.summary` | XML string (`SaveSummary`) — name, date and `Application.version` captured at save time |
 | `Saves/.in` | `int` — increment counter of the last save |
 
 ### SavePreset (shared)

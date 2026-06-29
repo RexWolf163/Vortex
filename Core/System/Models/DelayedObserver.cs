@@ -9,6 +9,12 @@ namespace Vortex.Core.System.Models
     /// Когда каждая из них отпишется о завершении - будет вызван переданный при создании колбэк _callbackGood.
     /// Если было событие ошибки - будет сразу же вызван _callbackOnError.
     /// В зависимости от выбранного в конструкторе флага, после ошибки колбэк _callbackGood может быть вызван или нет.
+    ///
+    /// Замечания:
+    /// - Если все наблюдаемые уже завершены на момент создания, _callbackGood вызывается
+    ///   синхронно прямо из конструктора (до возврата из new). Колбэк не должен полагаться
+    ///   на то, что ссылка на этот DelayedObserver уже присвоена вызывающей стороне.
+    /// - Не потокобезопасен: рассчитан на вызовы из одного потока (Unity main-thread).
     /// </summary>
     public class DelayedObserver : IDisposable
     {
@@ -31,7 +37,11 @@ namespace Vortex.Core.System.Models
                 if (observable.IsCompleted)
                 {
                     if (observable.IsFailed)
+                    {
+                        _hasError = true;
                         callbackOnError?.Invoke(observable);
+                    }
+
                     continue;
                 }
 
@@ -41,7 +51,7 @@ namespace Vortex.Core.System.Models
                 observable.OnError += OnError;
             }
 
-            if (_observables.Count == 0)
+            if (_observables.Count == 0 && (_callOnError || !_hasError))
                 _callbackGood?.Invoke();
         }
 

@@ -36,6 +36,7 @@ Notes:
 - `OnPointerEnter` keeps the Pressed visual when the button is still held (scenario: pressed → cursor leaves → cursor returns).
 - `AddOnClick(UnityAction)` is idempotent: a repeated subscription with the same `UnityAction` is ignored (via `_wrappedActions` dictionary); `RemoveOnClick` still detaches the wrapper.
 - External `Press()`/`Release()` works in `OnClick` mode: with `eventData == null` the shift is treated as zero, and the time check still applies.
+- `OnEnable` resets internal flags (`_pressed = false`), calls `uiStateSwitcher.ResetStates()` and forces the visual to `Free`. This prevents "the button was disabled while held → on re-enable it still appears Pressed". `OnDisable` only clears `_inBorders`; visual reset happens in `OnEnable`.
 
 ### DataStorage
 
@@ -167,6 +168,30 @@ Delayed child object activation.
 ### ScrollRectResetHandler
 
 Resets `ScrollRect` to initial position (`normalizedPosition = Vector2.one`) on `Start`.
+
+### LoaderWaitingHandler
+
+"Don't show the UI until resources are loaded" handler. Accepts a `MonoBehaviour[]` array (filtered in the inspector by `[ClassFilter(typeof(INeedDelay))]`) and a `UIStateSwitcher` bound to the `DelayedState` enum (`Waiting`, `Ready`).
+
+Internally uses `DelayedObserver` (`Vortex.Core.System.Models`) — waits for all `INeedDelay` to become ready, then switches the state to `Ready`. For every error it logs `Debug.LogError` with the failed source's type name.
+
+```
+OnEnable
+  ├── stateSwitcher.Set(Waiting)
+  └── new DelayedObserver(delayed, OnReady, OnError, callOnError)
+       ├── OnReady → stateSwitcher.Set(Ready)
+       └── OnError → Debug.LogError("[LoaderWaitingHandler] loading failed for {Type}")
+
+OnDisable
+  └── observer.Dispose()
+```
+
+Parameters:
+- `delayed` (`MonoBehaviour[]` + `ClassFilter`) — delay sources. The inspector accepts only objects implementing `INeedDelay`.
+- `callOnError` (`bool`, default `true`) — with `true` `Ready` is raised even after errors; with `false` the state stays `Waiting` forever after the first error.
+- `stateSwitcher` (`UIStateSwitcher`) — must be configured against the `DelayedState` enum.
+
+Typical use: placed next to a UI block that depends on Spine/Audio/Addressable loads. While waiting, the UI is hidden/replaced by a loader; once ready, it unfolds.
 
 ### DropDown
 

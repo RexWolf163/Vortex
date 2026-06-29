@@ -11,7 +11,7 @@
 - Единый жизненный цикл: инициализация → запуск → игровой процесс → завершение (победа/поражение)
 - Управление состояниями (`Off`, `Play`, `Win`, `Fail`, `Paused`, `Loading`) с реактивным оповещением
 - Автоматическая пауза при потере фокуса приложением
-- Сбор статистики по запускам, победам и поражениям
+- Сбор статистики по запускам, победам, поражениям и рекордам (лучший счёт)
 - Подключение View через конфигурацию (префаб задаётся в ScriptableObject)
 - Подмена контроллера через dropdown в инспекторе (direct DI через конфигурацию)
 - Генерация бойлерплейта новой миниигры из `.vtp`-шаблона
@@ -124,12 +124,12 @@
 | `MiniGameData` | abstract | Базовая модель данных |
 | `MiniGameObserver` | internal | Подписки на Hub → статистика |
 | `MiniGameStates` | enum | Off, Play, Win, Fail, Paused, Loading |
-| `MiniGameStatisticData` | POCO | Статистика одной миниигры |
+| `MiniGameStatisticData` | POCO | Статистика одной миниигры: запуски, победы, поражения, рекорд |
 | `MiniGamesStatisticsData` | `IGameData` | Индекс статистики всех миниигр |
 | `FieldSize` | struct | Размер поля: columns x rows |
 | `IMiniGameConfig` | interface | Контракт конфигурации: GetView(), GetController() |
-| `IMiniGameController<T>` | interface | Контракт контроллера: Init, Play, Exit, Pause, Cheats |
-| `IMiniGameHub` | interface | Контракт хаба: события OnWin/OnFail/OnStart |
+| `IMiniGameController<T>` | interface | Контракт контроллера: Init, Play, Exit, Pause, Cheats, GetScore |
+| `IMiniGameHub` | interface | Контракт хаба: события OnWin/OnFail/OnStart, GetGameScore |
 | `IGameModelWithTimer` | interface | Доступ к таймеру из модели |
 | `IHaveGodMode` | interface | Режим бога (пропуск потери HP и т.п.) |
 
@@ -144,6 +144,12 @@
 | `MiniGameCheatFailHandler` | Кнопка чит-поражения |
 | `MiniGameViewContainer` | Инстанциирование View из конфигурации |
 
+### Очки и рекорды
+
+Счёт миниигры возвращает `IMiniGameController.GetScore()` — единственный источник истины по очкам. Вся логика начисления и момент сброса целиком на реализации контроллера: счёт может обнуляться на старте новой игры, на поражении или по иным правилам конкретной игры. Фреймворк счёт не интерпретирует и не сбрасывает.
+
+`IMiniGameHub.GetGameScore()` форвардит счёт контроллера наружу. При завершении игры `MiniGameObserver` передаёт его в `MiniGamesController.WinGame/FailGame`, где `MiniGameStatisticData.Record` обновляется как максимум по всем сессиям. Рекорд учитывает **и победы, и поражения** — счёт засчитывается независимо от исхода (если игра не обнулила его сама).
+
 ## Контракт
 
 ### Вход
@@ -154,7 +160,8 @@
 ### Выход
 - `async UniTask Play()` — завершается при переходе в `Off`
 - События `OnWin`, `OnFail`, `OnStart` на Hub'е
-- Статистика в `MiniGamesStatisticsData` через `GameController.Get<>()`
+- Счёт текущей/последней игры через `GetGameScore()`
+- Статистика в `MiniGamesStatisticsData` (запуски, победы, поражения, рекорд) через `GameController.Get<>()`
 
 ### Гарантии
 - При `GameStates.Paused` — автоматическая пауза миниигры

@@ -17,7 +17,7 @@
 - Асинхронный сбор данных при `Save`, асинхронная раздача при `Load` (UniTask)
 - `SaveProcessData` — двухуровневый прогресс (глобальный + модульный)
 - События: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
-- `SaveSummary` — метаданные сохранения (имя, дата, XML-сериализуемый)
+- `SaveSummary` — метаданные сохранения (имя, дата, версия приложения, XML-сериализуемый)
 - Автогенерация GUID для новых сохранений
 
 Вне ответственности:
@@ -124,7 +124,7 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 |-----|-----------|
 | `SaveData` | struct: `Id`, `Data` — единица данных |
 | `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — папка модуля |
-| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp` — метаданные сохранения (XML-сериализуемый) |
+| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version` — метаданные сохранения (XML-сериализуемый). `Version` — строковая версия приложения (`Application.version`), которая была активна на момент создания записи. Полезна для миграций и фильтрации старых сейвов в UI. |
 | `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
 
 ---

@@ -1,6 +1,6 @@
 # System (Core)
 
-**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`
+**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`, `Vortex.Core.System.Models`
 **Assembly:** `ru.vortex.system`
 **Platform:** .NET Standard 2.1+
 
@@ -22,6 +22,8 @@ Capabilities:
 - `IDataSource` — contract for a data source exposing references to data objects, with a link-replacement event (`OnUpdateLink`)
 - `IDataStorage : IDataSource` — typed getter `GetData<T>()` on top of the source
 - `AppStates` — application state enumeration
+- `INeedDelay` — "object is not yet ready" contract (resource loading, async initialization, etc.)
+- `DelayedObserver` — observer over a set of `INeedDelay`: waits for all to become ready, aggregates errors
 
 Out of scope:
 
@@ -154,6 +156,32 @@ DateTimeTimer
 
 Timer based on `DateTime.UtcNow`. Works offline — independent of Update loop. Three constructors: `(DateTime end)`, `(TimeSpan duration)`, `(DateTime start, DateTime end)`.
 
+### INeedDelay / DelayedObserver
+
+```
+INeedDelay
+  ├── OnReady: Action<INeedDelay> (event)    ← successful completion
+  ├── OnError: Action<INeedDelay> (event)    ← error completion
+  ├── IsCompleted: bool                       ← completed (success or error)
+  └── IsFailed: bool                          ← completed with error
+
+DelayedObserver : IDisposable
+  new (INeedDelay[] observables, Action callbackGood,
+       Action<INeedDelay> callbackOnError = null, bool callOnError = false)
+  ├── _observables: HashSet<INeedDelay>      ← not yet finished
+  ├── on each OnReady → removed from the set
+  │    └── set empty + no errors (or callOnError=true) → callbackGood
+  ├── on each OnError → unsubscribe, callbackOnError(observable), mark _hasError
+  └── Dispose() → mass unsubscribe
+```
+
+Observer over a collection of asynchronous "not-ready / ready" objects. Useful for "do not show UI until assets are loaded", "wait for all Addressable handles before scene start" and similar scenarios.
+
+Constructor specifics:
+- Already-`IsCompleted` objects in the array are not subscribed to. Failed ones synchronously trigger `callbackOnError`.
+- If after filtering completed objects nothing is left to observe — `callbackGood` is invoked synchronously.
+- `callOnError` flag: with `false` (default) if any object completes with an error — `callbackGood` is NOT invoked even after the rest finish. With `true` — `callbackGood` is always invoked when the set becomes empty.
+
 ### Auxiliary Types
 
 | Type | Purpose |
@@ -195,6 +223,8 @@ Timer based on `DateTime.UtcNow`. Works offline — independent of Update loop. 
 | `DateTimeTimer` has no Pause/Resume | Fixed Start/End only |
 | `IProcess.WaitingFor()` returns types | Not instances, but `Type[]` for topological sorting |
 | `IDataSource.OnUpdateLink` is link-level | Only signals replacement/recreation of references exposed through `IDataStorage.GetData<T>()`. Does NOT signal internal state changes of previously exposed objects, nor addition of new ones without replacing existing |
+| `INeedDelay` does not re-fire | Any object completes exactly once — either `OnReady` or `OnError`. After that `IsCompleted=true` permanently |
+| `DelayedObserver` stores subscriptions in a `HashSet` | Repeated occurrences of the same `INeedDelay` in the array are ignored (protection from double-subscription) |
 
 ---
 
@@ -259,6 +289,22 @@ public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
 }
 ```
 
+### Waiting for a group of loaders (DelayedObserver)
+
+```csharp
+INeedDelay[] loaders = { spineLoader, audioLoader, sceneLoader };
+
+var observer = new DelayedObserver(
+    loaders,
+    callbackGood:   () => stateSwitcher.Set(DelayedState.Ready),
+    callbackOnError: failed => Debug.LogError($"Failed: {failed.GetType().Name}"),
+    callOnError: true   // proceed and invoke callbackGood even after errors
+);
+
+// On handler destruction — detach from any still-pending objects:
+observer.Dispose();
+```
+
 ---
 
 ## Edge Cases
@@ -274,3 +320,7 @@ public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
 | `Dispose()` singleton + re-access `Instance` | New instance via `new T()` |
 | `ProcessData.Progress > Size` | No validation, programmer's responsibility |
 | `WaitingFor()` → `null` | Process has no dependencies |
+| `DelayedObserver` with empty array | `callbackGood` invoked synchronously in the constructor |
+| `DelayedObserver` with already-`IsCompleted` objects | Such objects are not subscribed to. Failed ones synchronously trigger `callbackOnError`. If nothing remains to observe — `callbackGood` invoked immediately |
+| `DelayedObserver` + error + `callOnError=false` | `callbackGood` will NOT be invoked even if remaining objects complete successfully |
+| Duplicate `INeedDelay` in `DelayedObserver` array | Ignored (`HashSet`), subscription happens once |

@@ -187,4 +187,6 @@ Open(key) → загрузка CutsceneData → SpineBackground → LoadPhase �
 | `TextBubbleResizer` | Динамический размер баббла под длину текста реплики (после `OnPrintStarted`). |
 | `ZPositionSwitch` | Переключение Z-позиции по доменному стейту (Active/Inactive говорящий). |
 | `ResetAllGalleryCardsHandler` | Editor-инструмент: сбрасывает прогресс открытых карт галереи в `UnlockableManager` (для тестирования сцен галереи в чистом состоянии). |
+| `AutoPlaySwitcher` | Тоггл «авто-режима» Naninovel. Привязывается к `UIComponent` (Switcher On/Off). На клике переключает `IScriptPlayer.SetAutoPlayEnabled(!cached)`, по событию `OnAutoPlay` синхронизирует визуал с реальным состоянием плеера. |
+| `SkipDialogueSwitcher` | Тоггл «скип-режима» диалогов. Кроме собственного состояния учитывает `PlayerSkipMode`: при `Everything` скип всегда доступен, иначе — только если текущая позиция уже была воспроизведена (`Player.HasPlayed(path, index+1)`). Дополнительный `UIStateSwitcher` (`enableSwitcher`) показывает «доступно/недоступно» — для затемнения кнопки на ещё непрочитанных репликах. По `OnStop` (смене скрипта) скип принудительно сбрасывается. |
 

@@ -187,4 +187,6 @@ A grab-bag of small handlers that glue a Naninovel scene to project UI and logic
 | `TextBubbleResizer` | Dynamic bubble size based on the text length of the line (after `OnPrintStarted`). |
 | `ZPositionSwitch` | Z-position switching by domain state (active / inactive speaker). |
 | `ResetAllGalleryCardsHandler` | Editor tool: resets the unlocked-card progress in `UnlockableManager` (for testing gallery scenes from a clean state). |
+| `AutoPlaySwitcher` | Toggle for Naninovel "auto-play mode". Wires up to a `UIComponent` (Switcher On/Off). On click invokes `IScriptPlayer.SetAutoPlayEnabled(!cached)`; on the `OnAutoPlay` event syncs the visual with the player's real state. |
+| `SkipDialogueSwitcher` | Toggle for dialogue "skip mode". On top of its own state, respects `PlayerSkipMode`: with `Everything` skip is always allowed, otherwise only if the current position has already been played (`Player.HasPlayed(path, index+1)`). An additional `UIStateSwitcher` (`enableSwitcher`) reflects "available / unavailable" — useful for dimming the button on yet-unread lines. On `OnStop` (script switch) the skip flag is force-reset. |
 

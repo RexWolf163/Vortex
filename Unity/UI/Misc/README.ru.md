@@ -36,6 +36,7 @@ UnityEvents (массивы): `onClick[]`, `onHover[]`, `onExit[]`.
 - `OnPointerEnter` сохраняет визуал Pressed, если кнопка ещё прижата (сценарий «нажали → увели за пределы → вернули обратно»).
 - `AddOnClick(UnityAction)` идемпотентен: повторная подписка одного и того же `UnityAction` игнорируется (`_wrappedActions`-словарь), `RemoveOnClick` корректно снимет wrapper.
 - Внешний `Press()`/`Release()` работает в режиме `OnClick`: при `eventData == null` смещение считается нулевым, проверка времени остаётся.
+- `OnEnable` сбрасывает внутренние флаги (`_pressed = false`), вызывает `uiStateSwitcher.ResetStates()` и переводит визуал в `Free`. Это исключает ситуацию «кнопку выключили во время удержания → при следующем включении она снова показывает Pressed». `OnDisable` лишь сбрасывает `_inBorders`, реальная инициализация состояния происходит в `OnEnable`.
 
 ### DataStorage
 
@@ -167,6 +168,30 @@ sliderView.Set(0.75f, 1f);   // value, max
 ### ScrollRectResetHandler
 
 Сброс `ScrollRect` в начальную позицию (`normalizedPosition = Vector2.one`) при `Start`.
+
+### LoaderWaitingHandler
+
+Хэндлер «не показывать UI, пока не догрузятся ресурсы». Принимает массив `MonoBehaviour[]`-объектов (в инспекторе фильтруется атрибутом `[ClassFilter(typeof(INeedDelay))]`) и `UIStateSwitcher`, привязанный к enum `DelayedState` (`Waiting`, `Ready`).
+
+Внутри использует `DelayedObserver` (`Vortex.Core.System.Models`) — ждёт готовности всех `INeedDelay`. По завершении переключает состояние в `Ready`. На каждую ошибку пишет `Debug.LogError` с типом упавшего источника.
+
+```
+OnEnable
+  ├── stateSwitcher.Set(Waiting)
+  └── new DelayedObserver(delayed, OnReady, OnError, callOnError)
+       ├── OnReady → stateSwitcher.Set(Ready)
+       └── OnError → Debug.LogError("[LoaderWaitingHandler] loading failed for {Type}")
+
+OnDisable
+  └── observer.Dispose()
+```
+
+Параметры:
+- `delayed` (`MonoBehaviour[]` + `ClassFilter`) — компоненты-источники задержки. В инспектор можно положить только объекты, реализующие `INeedDelay`.
+- `callOnError` (`bool`, по умолчанию `true`) — при `true` `Ready` поднимется даже после ошибок; при `false` состояние останется `Waiting` навсегда при первой же ошибке.
+- `stateSwitcher` (`UIStateSwitcher`) — должен быть сконфигурирован под enum `DelayedState`.
+
+Типичное использование: укладывается рядом с UI-блоком, который зависит от Spine/Audio/Addressable-загрузок. На время ожидания UI скрыт/заменён лоадером, после готовности — раскрывается.
 
 ### DropDown
 

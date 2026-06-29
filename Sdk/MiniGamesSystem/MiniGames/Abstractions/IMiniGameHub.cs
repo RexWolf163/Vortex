@@ -41,7 +41,8 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions
         public IMiniGameController<MiniGameData> GetController();
 
         /// <summary>
-        /// Счет последней игры (должен обнуляться только при старте новой игры) 
+        /// Текущий счёт контроллера последней/идущей игры.
+        /// Момент сброса и вся логика начисления — целиком на реализации GetScore().
         /// </summary>
         /// <returns></returns>
         public int GetGameScore();

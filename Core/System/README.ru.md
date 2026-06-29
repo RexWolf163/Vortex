@@ -1,6 +1,6 @@
 # System (Core)
 
-**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`
+**Namespace:** `Vortex.Core.System.Abstractions`, `Vortex.Core.System.Abstractions.Timers`, `Vortex.Core.System.Abstractions.SystemControllers`, `Vortex.Core.System.ProcessInfo`, `Vortex.Core.System.Enums`, `Vortex.Core.System`, `Vortex.Core.System.Models`
 **Сборка:** `ru.vortex.system`
 **Платформа:** .NET Standard 2.1+
 
@@ -22,6 +22,8 @@
 - `IDataSource` — контракт источника данных, отдающего ссылки на объекты-данные с событием замены ссылок (`OnUpdateLink`)
 - `IDataStorage : IDataSource` — типизированный getter `GetData<T>()` поверх источника
 - `AppStates` — перечисление состояний приложения
+- `INeedDelay` — контракт «объект ещё не готов» (загрузка ресурсов, асинхронная инициализация и т.п.)
+- `DelayedObserver` — наблюдатель за набором `INeedDelay`: ждёт готовности всех, агрегирует ошибки
 
 Вне ответственности:
 
@@ -154,6 +156,32 @@ DateTimeTimer
 
 Таймер на основе `DateTime.UtcNow`. Работает offline — не зависит от Update-цикла. Три конструктора: `(DateTime end)`, `(TimeSpan duration)`, `(DateTime start, DateTime end)`.
 
+### INeedDelay / DelayedObserver
+
+```
+INeedDelay
+  ├── OnReady: Action<INeedDelay> (event)    ← успешное завершение ожидания
+  ├── OnError: Action<INeedDelay> (event)    ← ошибочное завершение
+  ├── IsCompleted: bool                       ← завершилось (успех или ошибка)
+  └── IsFailed: bool                          ← завершилось с ошибкой
+
+DelayedObserver : IDisposable
+  new (INeedDelay[] observables, Action callbackGood,
+       Action<INeedDelay> callbackOnError = null, bool callOnError = false)
+  ├── _observables: HashSet<INeedDelay>      ← ещё не завершившиеся
+  ├── на каждое OnReady → удаление из набора
+  │    └── если набор пуст и нет ошибок (или callOnError=true) → callbackGood
+  ├── на каждое OnError → отписка, callbackOnError(observable), пометка _hasError
+  └── Dispose() → массовая отписка
+```
+
+Класс-наблюдатель за коллекцией асинхронных «не готов / готов» объектов. Подходит для сценариев «не показывать UI пока не загрузятся ресурсы», «дождаться всех Addressable-handle перед стартом сцены» и аналогичных.
+
+Особенности конструктора:
+- Если в массиве встретился уже завершившийся `IsCompleted` объект — на него не подписываются. Если он завершился с ошибкой — синхронно дёргается `callbackOnError`.
+- Если после фильтрации `IsCompleted`-объектов в наблюдении не осталось ни одного — `callbackGood` вызывается сразу же.
+- Флаг `callOnError`: при `false` (по умолчанию) если хоть один объект завершился с ошибкой — `callbackGood` НЕ будет вызван даже после готовности остальных. При `true` — `callbackGood` вызывается всегда, как только набор опустеет.
+
 ### Вспомогательные типы
 
 | Тип | Назначение |
@@ -195,6 +223,8 @@ DateTimeTimer
 | `DateTimeTimer` — без Pause/Resume | Только фиксированные Start/End |
 | `IProcess.WaitingFor()` — типы контроллеров | Не экземпляры, а `Type[]` для топологической сортировки |
 | `IDataSource.OnUpdateLink` — link-level | Сигнализирует только замену/пересоздание ссылок, выдаваемых через `IDataStorage.GetData<T>()`. НЕ сигнализирует об изменении внутреннего состояния уже выданных объектов и о добавлении новых без замены существующих |
+| `INeedDelay` не предполагает re-fire | Любой объект завершается ровно один раз — либо `OnReady`, либо `OnError`. После этого `IsCompleted=true` навсегда |
+| `DelayedObserver` хранит подписки в `HashSet` | Повторное появление одного и того же `INeedDelay` в массиве — игнорируется (защита от двойной подписки) |
 
 ---
 
@@ -259,6 +289,22 @@ public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
 }
 ```
 
+### Ожидание группы загрузчиков (DelayedObserver)
+
+```csharp
+INeedDelay[] loaders = { spineLoader, audioLoader, sceneLoader };
+
+var observer = new DelayedObserver(
+    loaders,
+    callbackGood:   () => stateSwitcher.Set(DelayedState.Ready),
+    callbackOnError: failed => Debug.LogError($"Failed: {failed.GetType().Name}"),
+    callOnError: true   // продолжить и вызвать callbackGood даже после ошибок
+);
+
+// При уничтожении хэндлера — отписаться от ещё незавершившихся:
+observer.Dispose();
+```
+
 ---
 
 ## Граничные случаи
@@ -274,3 +320,7 @@ public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
 | `Dispose()` синглтона + повторный `Instance` | Новый экземпляр через `new T()` |
 | `ProcessData.Progress > Size` | Нет валидации, ответственность на программисте |
 | `WaitingFor()` → `null` | Процесс не имеет зависимостей |
+| `DelayedObserver` с пустым массивом | `callbackGood` вызывается синхронно прямо в конструкторе |
+| `DelayedObserver` с уже `IsCompleted` объектами | Объекты не добавляются в наблюдение. Ошибочные синхронно вызывают `callbackOnError`. Если в результате наблюдать нечего — `callbackGood` сразу же |
+| `DelayedObserver` + ошибка + `callOnError=false` | `callbackGood` НЕ будет вызван, даже если оставшиеся объекты успешно завершатся |
+| Дубликат `INeedDelay` в массиве `DelayedObserver` | Игнорируется (`HashSet`), подписка делается один раз |

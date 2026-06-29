@@ -96,7 +96,7 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
   │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → PlayerPrefs "Save-{guid}"
-  │    ├── SaveSummary → XML → PlayerPrefs "SaveSummary-{guid}"
+  │    ├── SaveSummary { Name, Version = Application.version } → XML → PlayerPrefs "SaveSummary-{guid}"
   │    └── Обновление "SavesData", инкремент "SavesCount"
   │
   ├── Load(guid)
@@ -135,7 +135,7 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
   │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → {guid}.save
-  │    ├── SaveSummary → XML → {guid}.summary
+  │    ├── SaveSummary { Name, Version = Application.version } → XML → {guid}.summary
   │    └── При новом GUID — _increment = GetNumberLastSave() + 1 → запись в файл .in
   │
   ├── Load(guid)
@@ -155,7 +155,7 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
 | Файл | Содержимое |
 |------|-----------|
 | `Saves/{guid}.save` | Сжатая XML-строка (`SavePreset`), ключ сжатия = GUID |
-| `Saves/{guid}.summary` | XML-строка (`SaveSummary`) — имя и дата |
+| `Saves/{guid}.summary` | XML-строка (`SaveSummary`) — имя, дата и `Application.version` на момент сохранения |
 | `Saves/.in` | `int` — инкремент-счётчик последнего сейва |
 
 ### SavePreset (общий)
