@@ -111,6 +111,13 @@ namespace Vortex.Unity.UI.Misc.DropDown
         /// <param name="value"></param>
         public void SetValue(int value)
         {
+            if (_sorted == null)
+            {
+                _sorted = dataList.ToArray();
+                if (sorting)
+                    _sorted.Sort();
+            }
+
             if (_sorted.Length == 0)
                 return;
             //_currentValue = _map[value];
