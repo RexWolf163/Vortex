@@ -39,12 +39,5 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions
         /// </summary>
         /// <returns></returns>
         public IMiniGameController<MiniGameData> GetController();
-
-        /// <summary>
-        /// Текущий счёт контроллера последней/идущей игры.
-        /// Момент сброса и вся логика начисления — целиком на реализации GetScore().
-        /// </summary>
-        /// <returns></returns>
-        public int GetGameScore();
     }
 }

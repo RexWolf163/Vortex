@@ -128,8 +128,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
                 StatisticsData.index.Add(miniGameKey, new MiniGameStatisticData
                 {
                     MiniGameKey = miniGameKey,
-                    StartedGames = 1,
-                    Record = 0
+                    StartedGames = 1
                 });
                 OnStartMiniGame?.Invoke();
                 return;
@@ -140,7 +139,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             OnStartMiniGame?.Invoke();
         }
 
-        internal static void WinGame(string miniGameKey, int gameScore)
+        internal static void WinGame(string miniGameKey)
         {
             if (!StatisticsData.Index.TryGetValue(miniGameKey, out var data))
             {
@@ -149,11 +148,10 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             }
 
             data.WinGames++;
-            data.Record = Math.Max(data.Record, gameScore);
             OnWinMiniGame?.Invoke();
         }
 
-        internal static void FailGame(string miniGameKey, int gameScore)
+        internal static void FailGame(string miniGameKey)
         {
             if (!StatisticsData.Index.TryGetValue(miniGameKey, out var data))
             {
@@ -162,7 +160,6 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             }
 
             data.FailGames++;
-            data.Record = Math.Max(data.Record, gameScore);
             OnFailMiniGame?.Invoke();
         }
 

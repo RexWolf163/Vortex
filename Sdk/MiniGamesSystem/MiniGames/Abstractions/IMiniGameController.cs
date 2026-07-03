@@ -47,12 +47,5 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions
         /// Для дебага или читов
         /// </summary>
         public void CheatFail();
-
-        /// <summary>
-        /// Текущий счёт игры — единственный источник истины по очкам.
-        /// Момент сброса и вся логика начисления — целиком на реализации.
-        /// </summary>
-        /// <returns></returns>
-        public int GetScore();
     }
 }

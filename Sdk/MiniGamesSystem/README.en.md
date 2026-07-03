@@ -11,7 +11,7 @@ Capabilities:
 - Unified lifecycle: initialization → launch → gameplay → completion (win/fail)
 - State management (`Off`, `Play`, `Win`, `Fail`, `Paused`, `Loading`) with reactive events
 - Automatic pause on application focus loss
-- Statistics collection: starts, wins, losses, records (best score)
+- Statistics collection: starts, wins, losses
 - View connection via configuration (prefab specified in ScriptableObject)
 - Controller substitution via inspector dropdown (direct DI through configuration)
 - New mini-game boilerplate generation from `.vtp` template
@@ -124,12 +124,12 @@ Feedback: View → ExtLogic (extension method) → Controller.
 | `MiniGameData` | abstract | Base data model |
 | `MiniGameObserver` | internal | Hub subscriptions → statistics |
 | `MiniGameStates` | enum | Off, Play, Win, Fail, Paused, Loading |
-| `MiniGameStatisticData` | POCO | Single mini-game statistics: starts, wins, losses, record |
+| `MiniGameStatisticData` | POCO | Single mini-game statistics |
 | `MiniGamesStatisticsData` | `IGameData` | Statistics index for all mini-games |
 | `FieldSize` | struct | Field size: columns x rows |
 | `IMiniGameConfig` | interface | Configuration contract: GetView(), GetController() |
-| `IMiniGameController<T>` | interface | Controller contract: Init, Play, Exit, Pause, Cheats, GetScore |
-| `IMiniGameHub` | interface | Hub contract: OnWin/OnFail/OnStart events, GetGameScore |
+| `IMiniGameController<T>` | interface | Controller contract: Init, Play, Exit, Pause, Cheats |
+| `IMiniGameHub` | interface | Hub contract: OnWin/OnFail/OnStart events |
 | `IGameModelWithTimer` | interface | Timer access from model |
 | `IHaveGodMode` | interface | God mode (skip HP loss, etc.) |
 
@@ -144,12 +144,6 @@ Feedback: View → ExtLogic (extension method) → Controller.
 | `MiniGameCheatFailHandler` | Cheat fail button |
 | `MiniGameViewContainer` | View instantiation from configuration |
 
-### Score and Records
-
-The mini-game score is returned by `IMiniGameController.GetScore()` — the single source of truth for points. All scoring logic and the reset moment are entirely up to the controller implementation: the score may reset on a new game start, on a loss, or by any other rule specific to the game. The framework neither interprets nor resets the score.
-
-`IMiniGameHub.GetGameScore()` forwards the controller's score outward. On game completion `MiniGameObserver` passes it to `MiniGamesController.WinGame/FailGame`, where `MiniGameStatisticData.Record` is updated as the maximum across all sessions. The record counts **both wins and losses** — the score is recorded regardless of outcome (unless the game zeroed it itself).
-
 ## Contract
 
 ### Input
@@ -160,8 +154,7 @@ The mini-game score is returned by `IMiniGameController.GetScore()` — the sing
 ### Output
 - `async UniTask Play()` — completes when state transitions to `Off`
 - `OnWin`, `OnFail`, `OnStart` events on Hub
-- Current/last game score via `GetGameScore()`
-- Statistics in `MiniGamesStatisticsData` (starts, wins, losses, record) via `GameController.Get<>()`
+- Statistics in `MiniGamesStatisticsData` via `GameController.Get<>()`
 
 ### Guarantees
 - On `GameStates.Paused` — automatic mini-game pause

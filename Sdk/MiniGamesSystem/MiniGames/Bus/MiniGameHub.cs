@@ -95,8 +95,6 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
         /// <returns></returns>
         public IMiniGameController<MiniGameData> GetController() => Controller;
 
-        public int GetGameScore() => GetController().GetScore();
-
         /// <summary>
         /// Запуск игры асинхронно, для отслеживания завершения процесса снаружи
         /// </summary>
