@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using Sirenix.OdinInspector;
-using Spine;
 using Spine.Unity;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
@@ -10,7 +9,7 @@ using Vortex.Unity.UI.StateSwitcher;
 namespace Vortex.SpineExtensions.UIs
 {
     /// <summary>
-    /// Переключение скина для спайн анимации
+    /// Переключение анимации для спайна
     /// </summary>
     [Serializable]
     public class SpineAnimationSwitch : StateItem
@@ -43,12 +42,6 @@ namespace Vortex.SpineExtensions.UIs
                 spineAnimation.AnimationState.SetAnimation(channel, animationName, loop);
         }
 
-        private static void ApplySkin(Skeleton skeleton, string skinName)
-        {
-            skeleton.SetSkin(skinName);
-            skeleton.SetSlotsToSetupPose();
-        }
-
 #if UNITY_EDITOR
 
         public override string DropDownItemName => "Switch Spine Skin";
@@ -61,6 +54,8 @@ namespace Vortex.SpineExtensions.UIs
                 animationName = animationName,
                 spine = spine,
                 spineAnimation = spineAnimation,
+                channel = channel,
+                loop = loop
             };
         }
 
