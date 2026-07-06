@@ -14,6 +14,8 @@ namespace Vortex.SpineExtensions.UIs
     [Serializable]
     public class SpineAnimationSwitch : StateItem
     {
+        private const string None = "[NONE]";
+
         [SerializeField, ValueSelector("GetListAnimations")]
         private string animationName;
 
@@ -36,10 +38,19 @@ namespace Vortex.SpineExtensions.UIs
         private void SetAnimation()
         {
             if (spine != null)
-                spine.AnimationState.SetAnimation(channel, animationName, loop);
+            {
+                if (animationName != None)
+                    spine.AnimationState.SetAnimation(channel, animationName, loop);
+                else
+                    spine.AnimationState.SetEmptyAnimation(channel, 0);
+            }
 
-            if (spineAnimation != null)
+            if (spineAnimation == null) return;
+
+            if (animationName != None)
                 spineAnimation.AnimationState.SetAnimation(channel, animationName, loop);
+            else
+                spineAnimation.AnimationState.SetEmptyAnimation(channel, 0);
         }
 
 #if UNITY_EDITOR
@@ -67,7 +78,11 @@ namespace Vortex.SpineExtensions.UIs
                     ? spineAnimation.SkeletonDataAsset?.GetSkeletonData(true)
                     : null;
 
-            return data?.Animations.Select(s => s.Name).ToArray() ?? Array.Empty<string>();
+            if (data == null)
+                return Array.Empty<string>();
+            var res = data.Animations.Select(s => s.Name).ToList();
+            res.Insert(0, None);
+            return res.ToArray();
         }
 
 #endif
