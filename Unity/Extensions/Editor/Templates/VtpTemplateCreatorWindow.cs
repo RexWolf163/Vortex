@@ -57,7 +57,7 @@ namespace Vortex.Unity.Extensions.Editor.Templates
         /// <summary>
         /// Пункт контекстного меню: ПКМ по папке → Vortex → Template Generator.
         /// </summary>
-        [MenuItem("Assets/Vortex/Template Generator", false, 90)]
+        [MenuItem("Assets/Vortex/Template Generator", false, 1002)]
         private static void CreateTemplateFromFolder()
         {
             string folderPath = GetSelectedFolderPath();

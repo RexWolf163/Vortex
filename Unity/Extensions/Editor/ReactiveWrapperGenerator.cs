@@ -15,8 +15,8 @@ namespace Vortex.Unity.Extensions.Editor
     /// </summary>
     internal static class ReactiveWrapperGenerator
     {
-        private const string MenuPath = "Assets/Vortex/Create Reactive Wrapper";
-        private const int MenuPriority = 19;
+        private const string MenuPath = "Assets/Create/Vortex Templates/Create ReactiveData";
+        private const int MenuPriority = 80;
 
         private const string WrapperSuffix = "Data";
         private const string FileExtension = ".cs";
