@@ -44,7 +44,7 @@ namespace Vortex.SpineExtensions.UIs
 
 #if UNITY_EDITOR
 
-        public override string DropDownItemName => "Switch Spine Skin";
+        public override string DropDownItemName => "Switch Spine Animation";
         public override string DropDownGroupName => "Animator Control";
 
         public override StateItem Clone()

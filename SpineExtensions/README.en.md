@@ -198,6 +198,20 @@ A `StateItem` for `UIStateSwitcher`: when the owning state activates, it applies
 
 `Set()` invokes `Skeleton.SetSkin` + `SetSlotsToSetupPose` + `UpdateMesh`. In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch Spine Skin**.
 
+### SpineAnimationSwitch
+
+A `StateItem` for `UIStateSwitcher`: when the owning state activates, it plays the configured animation on the skeleton. Supports both `SkeletonGraphic` and `SkeletonAnimation` (mutually exclusive fields).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `animationName` | `string` (selector) | Animation name from `SkeletonData.Animations` |
+| `spine` | `SkeletonGraphic` | UGUI skeleton (mutually exclusive with `spineAnimation`) |
+| `spineAnimation` | `SkeletonAnimation` | Mesh skeleton (mutually exclusive with `spine`) |
+| `channel` | `int` (0..10) | AnimationState track |
+| `loop` | `bool` | Looping (default `true`) |
+
+`Set()` invokes `AnimationState.SetAnimation(channel, animationName, loop)` on the assigned skeleton. `DefaultState()` is empty — the animation is not reset in the default state. In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch Spine Animation**.
+
 ### AnimatorPauseHandler
 
 A `MonoBehaviour` handler that freezes a Unity `Animator` (not Spine) based on game state. The target is wired via `[AutoLink]`.

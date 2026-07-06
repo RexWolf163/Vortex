@@ -198,6 +198,20 @@ Spine применяет позу в `LateUpdate`.
 
 В `Set()` вызывается `Skeleton.SetSkin` + `SetSlotsToSetupPose` + `UpdateMesh`. В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Animator Control → Switch Spine Skin**.
 
+### SpineAnimationSwitch
+
+`StateItem` для `UIStateSwitcher`: при срабатывании состояния запускает указанную анимацию на скелете. Поддерживает `SkeletonGraphic` и `SkeletonAnimation` (взаимоисключающие поля).
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `animationName` | `string` (selector) | Имя анимации из `SkeletonData.Animations` |
+| `spine` | `SkeletonGraphic` | UGUI-скелет (взаимоисключающе с `spineAnimation`) |
+| `spineAnimation` | `SkeletonAnimation` | Mesh-скелет (взаимоисключающе с `spine`) |
+| `channel` | `int` (0..10) | Канал AnimationState |
+| `loop` | `bool` | Зацикливание (по умолчанию `true`) |
+
+В `Set()` вызывается `AnimationState.SetAnimation(channel, animationName, loop)` на назначенном скелете. `DefaultState()` пуст — на default-состоянии анимация не сбрасывается. В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Animator Control → Switch Spine Animation**.
+
 ### AnimatorPauseHandler
 
 `MonoBehaviour`-хэндлер «заморозки» Unity-`Animator` (не Spine) по состоянию игры. Цель привязывается через `[AutoLink]`.
