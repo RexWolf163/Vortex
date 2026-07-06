@@ -16,6 +16,7 @@
 - Implicit-оператор для чтения без `.Value`
 - Владелец контейнера — только владелец может изменять значение через `Set()`
 - Интерфейс `IReactiveData` помечен `[POCO]` — все реализации автоматически сериализуемы через `SerializeController`
+- Editor-генератор реактивной обёртки для произвольного класса (правый клик по `.cs` → Create → Vortex Templates → Create ReactiveData)
 
 Вне ответственности:
 - Потокобезопасность
@@ -107,6 +108,25 @@ public class PlayerModel
     public BoolData IsAlive { get; set; } = new BoolData(true);
 }
 ```
+
+### Обёртка для своего типа
+
+Встроенные `IntData`/`BoolData`/… покрывают примитивы. Для доменного типа реактивная обёртка пишется по тому же паттерну — наследник `ReactiveValue<T>` с двумя конструкторами:
+
+```csharp
+public class ItemData : ReactiveValue<Item>
+{
+    public ItemData(Item value) => Value = value;
+
+    public ItemData(Item value, object owner)
+    {
+        Value = value;
+        _owner = owner;
+    }
+}
+```
+
+Чтобы не писать это вручную — генератор: правый клик по `.cs`-скрипту в Project → **Create → Vortex Templates → Create ReactiveData**. Рядом с исходником создаётся `{ClassName}Data.cs` с такой обёрткой; `namespace` берётся из исходного класса. Если файл уже существует — спросит про перезапись.
 
 ### Подписка на изменения
 
@@ -242,6 +262,7 @@ QuestController.SetListener(model.Level, this);
 | `implicit operator` на null | NRE — `ReactiveValue` не nullable |
 | Десериализация без конструктора | Fallback на `FormatterServices.GetUninitializedObject()` |
 | `[POCO]` на `IReactiveData` | Все `ReactiveValue<T>` наследники сериализуемы автоматически |
+| `ReactiveValue<T>` над ссылочным типом (обёртка своего класса) | `Set()` дедуплицирует через `EqualityComparer<T>.Default`: для класса без переопределённого `Equals` это ссылочное равенство — мутация полей того же экземпляра не вызовет `OnUpdate`, нужна установка нового экземпляра или `ForceUpdate()` |
 | `Set()` без владельца при назначенном `_owner` | Ошибка — `owner = null` не равен `_owner` |
 | `SetOwner(null)` | Игнорируется (ранний return) |
 | Повторный `SetOwner()` | Ошибка, владелец не переназначается |

@@ -16,6 +16,7 @@ Capabilities:
 - Implicit operator for reading without `.Value`
 - Container ownership — only the owner can modify the value via `Set()`
 - `IReactiveData` interface is marked `[POCO]` — all implementations are automatically serializable via `SerializeController`
+- Editor generator of a reactive wrapper for an arbitrary class (right-click a `.cs` → Create → Vortex Templates → Create ReactiveData)
 
 Out of scope:
 - Thread safety
@@ -107,6 +108,25 @@ public class PlayerModel
     public BoolData IsAlive { get; set; } = new BoolData(true);
 }
 ```
+
+### Wrapper for a custom type
+
+Built-in `IntData`/`BoolData`/… cover primitives. For a domain type, the reactive wrapper follows the same pattern — a `ReactiveValue<T>` subclass with two constructors:
+
+```csharp
+public class ItemData : ReactiveValue<Item>
+{
+    public ItemData(Item value) => Value = value;
+
+    public ItemData(Item value, object owner)
+    {
+        Value = value;
+        _owner = owner;
+    }
+}
+```
+
+To avoid writing this by hand, use the generator: right-click a `.cs` script in Project → **Create → Vortex Templates → Create ReactiveData**. A `{ClassName}Data.cs` file with this wrapper is created next to the source; the `namespace` is taken from the source class. If the file already exists, it asks before overwriting.
 
 ### Subscribing to changes
 
@@ -242,6 +262,7 @@ QuestController.SetListener(model.Level, this);
 | `implicit operator` on null | NRE — `ReactiveValue` is not nullable |
 | Deserialization without constructor | Fallback to `FormatterServices.GetUninitializedObject()` |
 | `[POCO]` on `IReactiveData` | All `ReactiveValue<T>` subclasses are serializable automatically |
+| `ReactiveValue<T>` over a reference type (custom class wrapper) | `Set()` deduplicates via `EqualityComparer<T>.Default`: for a class without an overridden `Equals` this is reference equality — mutating fields of the same instance won't fire `OnUpdate`; set a new instance or call `ForceUpdate()` |
 | `Set()` without owner when `_owner` is set | Error — `owner = null` does not equal `_owner` |
 | `SetOwner(null)` | Ignored (early return) |
 | Repeated `SetOwner()` | Error, owner is not reassigned |
