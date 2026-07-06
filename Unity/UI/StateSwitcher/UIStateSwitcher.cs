@@ -4,7 +4,6 @@ using System.Linq;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.ExtensibleEnumSystem.Abstractions;
-using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.StateSwitcher
