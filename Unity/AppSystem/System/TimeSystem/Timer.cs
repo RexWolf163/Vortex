@@ -9,7 +9,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
     /// Для ситуаций когда нужно осуществлять управление длительностью используя,
     /// в том числе, режим паузы
     /// </summary>
-    public class Timer
+    public class Timer : IDisposable
     {
         public DateTime End { get; protected set; }
         public TimeSpan Duration { get; protected set; }
@@ -48,6 +48,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         public bool IsPaused { get; protected set; }
 
         private Action _onRunOut;
+        private bool _disposed;
 
         public Timer(DateTime end, Action onRunOut)
         {
@@ -57,6 +58,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
             _remains = TimeSpan.Zero;
             _onRunOut = onRunOut;
             TimeController.Call(CallAction, (float)Duration.TotalSeconds, this);
+            HookEditorPause();
         }
 
         public Timer(TimeSpan duration, Action onRunOut)
@@ -67,6 +69,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
             _remains = TimeSpan.Zero;
             _onRunOut = onRunOut;
             TimeController.Call(CallAction, (float)Duration.TotalSeconds, this);
+            HookEditorPause();
         }
 
         public Timer(float duration, Action onRunOut)
@@ -77,6 +80,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
             _remains = TimeSpan.Zero;
             _onRunOut = onRunOut;
             TimeController.Call(CallAction, (float)Duration.TotalSeconds, this);
+            HookEditorPause();
         }
 
         /// <summary>
@@ -117,7 +121,42 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         private void CallAction()
         {
             IsComplete = true;
+            UnhookEditorPause();
             _onRunOut?.Invoke();
         }
+
+        /// <summary>
+        /// Полная остановка и очистка: снимает отложенный вызов и отписку от паузы редактора.
+        /// В отличие от <see cref="SetPause"/> (пауза — таймер жив и может воскреснуть на снятии
+        /// паузы редактора), после Dispose таймер мёртв и собирается GC. Идемпотентно.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            IsComplete = true;               // не активен: SetPause/Resume/CallAction — no-op
+            TimeController.RemoveCall(this);  // снять отложенный вызов
+            UnhookEditorPause();             // рвём подписку на pauseStateChanged (иначе висит в GC / воскреснет)
+            _onRunOut = null;
+        }
+
+#if UNITY_EDITOR
+        // Пауза редактора (кнопка ⏸) реальное время не тормозит, а Timer считает по
+        // DateTime.UtcNow — иначе при снятии паузы он «съест» весь простой. Гоним его в
+        // паузу так же, как на Application Pause.
+        private void HookEditorPause() => UnityEditor.EditorApplication.pauseStateChanged += OnEditorPause;
+        private void UnhookEditorPause() => UnityEditor.EditorApplication.pauseStateChanged -= OnEditorPause;
+
+        private void OnEditorPause(UnityEditor.PauseState state)
+        {
+            if (state == UnityEditor.PauseState.Paused)
+                SetPause();
+            else
+                Resume();
+        }
+#else
+        private void HookEditorPause() { }
+        private void UnhookEditorPause() { }
+#endif
     }
 }
