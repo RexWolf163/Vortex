@@ -49,6 +49,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
 
         private Action _onRunOut;
         private bool _disposed;
+        private bool _editorPaused;
 
         public Timer(DateTime end, Action onRunOut)
         {
@@ -150,9 +151,17 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         private void OnEditorPause(UnityEditor.PauseState state)
         {
             if (state == UnityEditor.PauseState.Paused)
+            {
+                if (IsPaused || IsComplete) return;   // уже на паузе (геймплей) / завершён — не трогаем
+                _editorPaused = true;
                 SetPause();
+            }
             else
+            {
+                if (!_editorPaused) return;           // не мы ставили паузу — не воскрешаем
+                _editorPaused = false;
                 Resume();
+            }
         }
 #else
         private void HookEditorPause() { }

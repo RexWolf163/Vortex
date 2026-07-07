@@ -139,7 +139,7 @@ Callbacks are invoked in `FixedUpdate` in registration order; an exception in on
 
 ## Timer
 
-Managed timer with pause support. Automatically registers with `TimeController.Call` using `owner = this` on creation.
+Managed timer (`IDisposable`) with pause support. Automatically registers with `TimeController.Call` using `owner = this` on creation.
 
 ### Architecture
 
@@ -150,6 +150,7 @@ Timer (class)
 ├── Remains    — TimeSpan   (remaining, from DateTime.UtcNow; frozen when paused)
 ├── IsComplete — bool       (true after trigger)
 ├── IsPaused   — bool       (true between SetPause and Resume)
+├── Dispose()  — void       (full cancel: RemoveCall + IsComplete=true + editor-pause unsubscribe)
 └── → TimeController.Call(CallAction, seconds, this)
 ```
 
@@ -166,9 +167,11 @@ Timer (class)
 - `SetPause`/`Resume` — no-op when `IsComplete`, already paused, or not paused
 - `Remains` is computed from `DateTime.UtcNow` (real time, not frame cache)
 - Callback is invoked through `TimeController` — exception isolation
+- `Dispose()` — full cancel: removes the pending call, sets `IsComplete=true`, unsubscribes from editor pause. Idempotent; all methods are no-op afterwards
+- In the editor the timer auto-pauses and resumes with the ⏸ button (Editor pause) — real idle time is not "eaten". It only manages the pause it created itself: a gameplay pause is left untouched
 
 **Limitations:**
-- No cancellation method. To cancel: `SetPause()` without `Resume()`
+- Cancellation is via `Dispose()` (full stop + cleanup). `SetPause()` without `Resume()` also stops it, but the timer stays alive and may revive (including on editor unpause)
 - Callback precision is determined by `TimeController.StepTime` (~100ms)
 
 ### Usage
@@ -186,6 +189,9 @@ TimeSpan passed = timer.GetTimePassed();
 // Pause / resume
 timer.SetPause();   // RemoveCall(this), freeze Remains, IsPaused = true
 timer.Resume();     // End = UtcNow + Remains, re-register with Call
+
+// Full cancel and cleanup
+timer.Dispose();    // RemoveCall + IsComplete = true + unsubscribe; idempotent
 ```
 
 Lifecycle:
@@ -214,6 +220,8 @@ Resume()
 
 - **Background:** `DateTime.UtcNow` keeps ticking, `LateUpdate` stops. `Remains` is correct after return; callback fires on the first `CheckQueue`.
 - **SetPause — operation order:** freezes `Remains` via property read before setting `IsPaused = true`. After `IsPaused = true`, the getter returns the cached value.
+- **Editor pause (⏸):** the timer auto-pauses and resumes together with the editor — real idle time is not counted. It tracks pause ownership: if the timer was already paused by game logic, editor unpause does NOT revive it.
+- **Editor leak:** the `EditorApplication.pauseStateChanged` subscription holds a reference to the timer, so an unfinished, non-`Dispose`d timer (indefinitely paused / abandoned) is not GC'd until `Dispose()` or trigger. There is no hook in a runtime build — this is an editor-only limitation.
 
 ---
 

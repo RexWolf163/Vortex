@@ -204,13 +204,13 @@ A `StateItem` for `UIStateSwitcher`: when the owning state activates, it plays t
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `animationName` | `string` (selector) | Animation name from `SkeletonData.Animations` |
+| `animationName` | `string` (selector) | Animation name from `SkeletonData.Animations`; the list starts with `[NONE]` — clears the track instead of playing |
 | `spine` | `SkeletonGraphic` | UGUI skeleton (mutually exclusive with `spineAnimation`) |
 | `spineAnimation` | `SkeletonAnimation` | Mesh skeleton (mutually exclusive with `spine`) |
 | `channel` | `int` (0..10) | AnimationState track |
 | `loop` | `bool` | Looping (default `true`) |
 
-`Set()` invokes `AnimationState.SetAnimation(channel, animationName, loop)` on the assigned skeleton. `DefaultState()` is empty — the animation is not reset in the default state. In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch Spine Animation**.
+`Set()` invokes `AnimationState.SetAnimation(channel, animationName, loop)` on the assigned skeleton, or — if `[NONE]` is selected — `SetEmptyAnimation(channel, 0)` (instantly clears the track). `DefaultState()` is empty — the animation is not reset in the default state on its own (use a dedicated state with `[NONE]` to clear). In the `UIStateSwitcher` inspector dropdown the entry is registered as **Animator Control → Switch Spine Animation**.
 
 ### AnimatorPauseHandler
 

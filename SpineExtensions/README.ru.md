@@ -204,13 +204,13 @@ Spine применяет позу в `LateUpdate`.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `animationName` | `string` (selector) | Имя анимации из `SkeletonData.Animations` |
+| `animationName` | `string` (selector) | Имя анимации из `SkeletonData.Animations`; первым в списке идёт `[NONE]` — очистка канала вместо запуска |
 | `spine` | `SkeletonGraphic` | UGUI-скелет (взаимоисключающе с `spineAnimation`) |
 | `spineAnimation` | `SkeletonAnimation` | Mesh-скелет (взаимоисключающе с `spine`) |
 | `channel` | `int` (0..10) | Канал AnimationState |
 | `loop` | `bool` | Зацикливание (по умолчанию `true`) |
 
-В `Set()` вызывается `AnimationState.SetAnimation(channel, animationName, loop)` на назначенном скелете. `DefaultState()` пуст — на default-состоянии анимация не сбрасывается. В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Animator Control → Switch Spine Animation**.
+В `Set()` на назначенном скелете вызывается `AnimationState.SetAnimation(channel, animationName, loop)`, либо — если выбран `[NONE]` — `SetEmptyAnimation(channel, 0)` (мгновенная очистка канала). `DefaultState()` пуст — на default-состоянии анимация сама не сбрасывается (для сброса задайте отдельное состояние с `[NONE]`). В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Animator Control → Switch Spine Animation**.
 
 ### AnimatorPauseHandler
 
