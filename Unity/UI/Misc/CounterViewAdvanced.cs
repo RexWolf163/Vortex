@@ -1,6 +1,7 @@
 using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.System.Abstractions;
 using Vortex.Unity.EditorTools.Attributes;
@@ -79,7 +80,8 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Анимировать при понижении
         /// </summary>
-        [SerializeField] private bool onDawn = false;
+        [FormerlySerializedAs("onDawn")] [SerializeField]
+        private bool onDown = false;
 
         /// <summary>
         /// Значение
@@ -165,7 +167,7 @@ namespace Vortex.Unity.UI.Misc
         private void OnValueUpdated(int newValue)
         {
             if (tweenPulsation != null
-                && ((newValue > _cachedValue && onUp) || (newValue < _cachedValue && onDawn)))
+                && ((newValue > _cachedValue && onUp) || (newValue < _cachedValue && onDown)))
                 tweenPulsation.Pulse();
             _cachedValue = newValue;
             if (_min != null && _min.Value > _cachedValue)
