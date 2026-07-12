@@ -50,9 +50,12 @@ private MonoBehaviour interactable;
 
 ### `[ClassFilter(params Type[] requiredTypes)]`
 
-Валидация значения `UnityEngine.Object`-поля по списку типов (классы или интерфейсы). Если назначенный объект не наследуется ни от одного из `RequiredTypes` — drawer пытается найти подходящий `Component` на том же `GameObject` (для `MonoBehaviour`/`GameObject`-полей) и автоматически переключиться на него. Если ничего не нашлось — поле очищается с предупреждением в консоль. `ScriptableObject`-поля проверяются напрямую, без обхода компонентов.
+Валидация значения по списку типов (классы или интерфейсы). Работает в двух ветках в зависимости от типа поля:
 
-Поддерживается как одиночное поле, так и **коллекция** ObjectReference'ов — `Type[]` или `List<Type>` ссылок на `UnityEngine.Object`. В случае коллекции фильтр применяется к каждому элементу независимо.
+- **`UnityEngine.Object`-ссылка.** Если назначенный объект не наследуется ни от одного из `RequiredTypes` — drawer пытается найти подходящий `Component` на том же `GameObject` (для `MonoBehaviour`/`GameObject`-полей) и автоматически переключиться на него. Если ничего не нашлось — поле очищается с предупреждением в консоль. `ScriptableObject`-поля проверяются напрямую, без обхода компонентов.
+- **Обычный managed-тип** (класс или интерфейс, типично под `[SerializeReference]`). Упрощённая ветка без поиска по компонентам: проверяется лишь, что фактический тип значения удовлетворяет всем `RequiredTypes` (наследование / реализация интерфейса), и при несовпадении значение обнуляется.
+
+Поддерживается как одиночное поле, так и **коллекция** — `Type[]` или `List<Type>` (как `UnityEngine.Object`-ссылок, так и managed-типов). В случае коллекции фильтр применяется к каждому элементу независимо.
 
 ```csharp
 // Одиночная ссылка
@@ -66,6 +69,10 @@ private MonoBehaviour[] delayedSources;
 // List
 [SerializeField, ClassFilter(typeof(IInteractable))]
 private List<MonoBehaviour> interactables;
+
+// Managed-тип через [SerializeReference] — проверка типа, обнуление при несовпадении
+[SerializeReference, ClassFilter(typeof(IPointCommand))]
+private CharacterCommand moveCommand;
 ```
 
 ### `[ClassLabel(string groupName = "$ToString")]`
@@ -238,8 +245,8 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 
 ## Граничные случаи
 
-- `[ClassFilter]` на поле, тип которого не наследуется от `UnityEngine.Object`, — drawer выводит ErrorMessageBox и пропускает значение без изменений.
-- `[ClassFilter]` на коллекции (`Type[]` / `List<Type>`) `ObjectReference`-элементов — drawer применяет проверку к каждому элементу. Несовместимые элементы либо переключаются на подходящий компонент того же `GameObject`, либо очищаются в `null`.
+- `[ClassFilter]` на поле обычного managed-типа (класс/интерфейс, `[SerializeReference]`) — drawer проверяет фактический тип значения по `RequiredTypes` и обнуляет при несовпадении, без обхода компонентов. ErrorMessageBox выводится только для неподдерживаемых полей (value-типы).
+- `[ClassFilter]` на коллекции (`Type[]` / `List<Type>`) — drawer применяет проверку к каждому элементу. Для `ObjectReference`-элементов несовместимые либо переключаются на подходящий компонент того же `GameObject`, либо очищаются в `null`; для managed-элементов — просто обнуляются при несовпадении типа.
 - `[AutoLink]` без `SerializationRoot`-MonoBehaviour (например, на ScriptableObject) — линковка не выполняется, drawer тихо пропускает.
 - `[ToggleButton]` на `int`/`byte` без `labelsMethod` — ErrorMessageBox.
 - `[ValueSelector]` с возвратом `null`/пустой коллекции — ErrorMessageBox под полем, само поле остаётся редактируемым стандартным drawer'ом.

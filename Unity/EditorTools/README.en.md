@@ -50,9 +50,12 @@ private MonoBehaviour interactable;
 
 ### `[ClassFilter(params Type[] requiredTypes)]`
 
-Validates the value of a `UnityEngine.Object` field against a list of types (classes or interfaces). If the assigned object is not assignable to any of the `RequiredTypes`, the drawer first tries to find a matching `Component` on the same `GameObject` (for `MonoBehaviour`/`GameObject` fields) and switches to it automatically. If nothing is found, the field is cleared with a console warning. `ScriptableObject` fields are checked directly, without GameObject traversal.
+Validates the value against a list of types (classes or interfaces). It runs in one of two branches depending on the field type:
 
-The attribute works on a single field as well as on a **collection** of object references — `Type[]` array or `List<Type>` of `UnityEngine.Object` references. For collections the filter is applied to every element independently.
+- **`UnityEngine.Object` reference.** If the assigned object is not assignable to any of the `RequiredTypes`, the drawer first tries to find a matching `Component` on the same `GameObject` (for `MonoBehaviour`/`GameObject` fields) and switches to it automatically. If nothing is found, the field is cleared with a console warning. `ScriptableObject` fields are checked directly, without GameObject traversal.
+- **Plain managed type** (class or interface, typically under `[SerializeReference]`). A simplified branch with no component search: it only checks that the value's actual type satisfies all `RequiredTypes` (inheritance / interface implementation), and clears the value on mismatch.
+
+The attribute works on a single field as well as on a **collection** — `Type[]` array or `List<Type>` (of `UnityEngine.Object` references or managed types). For collections the filter is applied to every element independently.
 
 ```csharp
 // Single reference
@@ -66,6 +69,10 @@ private MonoBehaviour[] delayedSources;
 // List
 [SerializeField, ClassFilter(typeof(IInteractable))]
 private List<MonoBehaviour> interactables;
+
+// Managed type via [SerializeReference] — type check, cleared on mismatch
+[SerializeReference, ClassFilter(typeof(IPointCommand))]
+private CharacterCommand moveCommand;
 ```
 
 ### `[ClassLabel(string groupName = "$ToString")]`
@@ -238,8 +245,8 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 
 ## Edge cases
 
-- `[ClassFilter]` on a field whose type is not a `UnityEngine.Object` — the drawer shows an ErrorMessageBox and skips the value untouched.
-- `[ClassFilter]` on a collection (`Type[]` / `List<Type>`) of `ObjectReference` elements — the drawer applies the check to every element. Incompatible elements either switch to a matching component on the same `GameObject` or get cleared to `null`.
+- `[ClassFilter]` on a plain managed-type field (class/interface, `[SerializeReference]`) — the drawer checks the value's actual type against `RequiredTypes` and clears it on mismatch, without component traversal. An ErrorMessageBox is shown only for unsupported fields (value types).
+- `[ClassFilter]` on a collection (`Type[]` / `List<Type>`) — the drawer applies the check to every element. For `ObjectReference` elements, incompatible ones either switch to a matching component on the same `GameObject` or get cleared to `null`; for managed elements they are simply cleared on type mismatch.
 - `[AutoLink]` without a MonoBehaviour `SerializationRoot` (e.g. on a ScriptableObject) — linking does not run; the drawer silently passes through.
 - `[ToggleButton]` on `int` / `byte` without `labelsMethod` — ErrorMessageBox.
 - `[ValueSelector]` returning `null` / an empty collection — ErrorMessageBox below the field; the field remains editable through the default drawer.
