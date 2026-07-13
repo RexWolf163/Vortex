@@ -168,6 +168,7 @@ Timer (class)
 - `Remains` is computed from `DateTime.UtcNow` (real time, not frame cache)
 - Callback is invoked through `TimeController` — exception isolation
 - `Dispose()` — full cancel: removes the pending call, sets `IsComplete=true`, unsubscribes from editor pause. Idempotent; all methods are no-op afterwards
+- `Extend(bonus)` — extends an active timer: shifts `End` and `Duration` by `bonus`, preserving already-elapsed time (`Remains += bonus`, `GetTimePassed()` doesn't "jump to the max"). No-op when `IsComplete` / after `Dispose` / `bonus <= 0`. While paused it shifts the frozen remainder manually
 - In the editor the timer auto-pauses and resumes with the ⏸ button (Editor pause) — real idle time is not "eaten". It only manages the pause it created itself: a gameplay pause is left untouched
 
 **Limitations:**
@@ -192,6 +193,9 @@ timer.Resume();     // End = UtcNow + Remains, re-register with Call
 
 // Full cancel and cleanup
 timer.Dispose();    // RemoveCall + IsComplete = true + unsubscribe; idempotent
+
+// Extend an active timer
+timer.Extend(TimeSpan.FromSeconds(3));   // Remains += 3s, elapsed time preserved
 ```
 
 Lifecycle:

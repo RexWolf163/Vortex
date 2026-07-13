@@ -193,6 +193,15 @@ OnDisable
 
 Типичное использование: укладывается рядом с UI-блоком, который зависит от Spine/Audio/Addressable-загрузок. На время ожидания UI скрыт/заменён лоадером, после готовности — раскрывается.
 
+### Bool2StateSwitcherHandler / Int2StateSwitcherHandler
+
+Гонят `UIStateSwitcher` по реактивному значению из связанного `IDataStorage` (потребители, логику не содержат).
+
+- **`Bool2StateSwitcherHandler`** — по `BoolData`: `true` → `SwitcherState.On`, `false` → `Off`. Свитчер конфигурируется под enum `SwitcherState`.
+- **`Int2StateSwitcherHandler`** — по `IntData`: номер состояния = `IntData.Value` (свитчер без enum-привязки, любой номер).
+
+Оба: источник — `storage` (`MonoBehaviour` + `[ClassFilter(typeof(IDataStorage))]` + `[AutoLink]`). Переподключаются по `OnUpdateLink` и реагируют на `OnUpdateData` (данные могут прийти, например, через `DataStorageTransport`). Подписка/relink в `OnEnable`, отписка в `OnDisable`. Отсутствие `IDataStorage`/`UIStateSwitcher` — `LogError`.
+
 ### DropDown
 
 Компонент выпадающего списка. Состоит из четырёх классов:

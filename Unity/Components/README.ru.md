@@ -98,6 +98,23 @@ Components/
 
 ---
 
+## Misc/StateSwitcher — StateItem'ы для UIStateSwitcher
+
+### TextSwitch
+
+`StateItem` для `UIStateSwitcher`: при срабатывании состояния выставляет фиксированный текст на `UIComponent` (по образцу `SetTextComponent`). В `DefaultState()` ставит пустую строку.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `key` | `string` (`[LocalizationKey]`) | Текст или ключ локализации |
+| `useLocalization` | `bool` (по умолчанию `true`) | `true` → `key.Translate()`, `false` → `key` как есть |
+| `uiComponent` | `UIComponent` | Целевой компонент текста |
+| `position` | `int` (`[UIComponentLink(UIComponentText)]`) | `< 0` — во все текстовые поля, иначе — в одно по индексу |
+
+В DropDown инспектора `UIStateSwitcher` пункт регистрируется как **Text → Switch Text**.
+
+---
+
 ## MonoBehaviourEventsHandler
 
 Декларативная привязка lifecycle-событий MonoBehaviour через `UnityEvent` в Inspector.

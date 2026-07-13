@@ -3,6 +3,7 @@ using Sirenix.OdinInspector;
 using Sirenix.Utilities;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.UI.TweenerSystem;
@@ -43,7 +44,8 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Анимировать при понижении
         /// </summary>
-        [SerializeField] private bool onDawn = false;
+        [FormerlySerializedAs("onDawn")] [SerializeField]
+        private bool onDown = false;
 
         /// <summary>
         /// Кеш максимального значения
@@ -99,7 +101,7 @@ namespace Vortex.Unity.UI.Misc
             if (newVal != value)
             {
                 //Counter
-                if (value > newVal && onUp || value < newVal && onDawn)
+                if (value > newVal && onUp || value < newVal && onDown)
                     foreach (var tw in tweeners)
                         tw.Pulse();
 
@@ -121,7 +123,7 @@ namespace Vortex.Unity.UI.Misc
             if (newMaxValue != maxValue)
             {
                 //MaxValue
-                if (maxValue > newMaxValue && onUp || maxValue < newMaxValue && onDawn)
+                if (maxValue > newMaxValue && onUp || maxValue < newMaxValue && onDown)
                     foreach (var tw in tweeners)
                         tw.Pulse();
 

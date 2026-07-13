@@ -40,6 +40,7 @@ InputBusSystem/
 ├── InputSubscriber.cs          # Subscriber model with Owner-based equality
 ├── Handlers/
 │   ├── InputActionHandler.cs   # Action subscription via InputController
+│   ├── InputPointerHandler.cs  # Emits the pointer position (screen) on every action event
 │   ├── InputMapHandler.cs      # Input map activation
 │   └── KeyboardHandler.cs      # Direct key/combination binding
 └── Debug/
@@ -159,6 +160,15 @@ InputController.RemoveActionUser("Jump", this);
 - `inputAction` — action from dropdown (populated from Input Actions Asset)
 - `button` — optional reference to `AdvancedButton`
 - `onPressed` / `onReleased` — Unity Events
+
+### Pointer position (InputPointerHandler)
+
+`InputPointerHandler` subscribes to an action by the bus rules (LIFO) and, on **every** event of it, emits the current pointer position through a single `UnityEvent<Vector2>` (`onPoint`, screen coordinates via `Pointer.current`). Unlike `InputActionHandler` (two events, press/release), this is one method carrying a vector value; what to do with the point and when to start/stop catching is up to the subscriber (e.g. by enabling/disabling the object via a press action).
+
+- `inputAction` — the action whose event = the moment to emit the position (e.g. `CursorPosition`)
+- `onPoint` — `UnityEvent<Vector2>`, invoked on every action event with the current position
+
+Subscription is deferred until `AppStates.Running` (as in `InputActionHandler`); auto-unsubscribe in `OnDisable`/`OnDestroy`.
 
 ### Map activation (InputMapHandler)
 

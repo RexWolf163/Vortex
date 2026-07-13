@@ -40,6 +40,7 @@ InputBusSystem/
 ├── InputSubscriber.cs          # Модель подписчика с equality по Owner
 ├── Handlers/
 │   ├── InputActionHandler.cs   # Подписка на экшен через InputController
+│   ├── InputPointerHandler.cs  # На каждое событие экшена отдаёт позицию указателя (screen)
 │   ├── InputMapHandler.cs      # Активация карты ввода
 │   └── KeyboardHandler.cs      # Прямая привязка клавиш/комбинаций
 └── Debug/
@@ -159,6 +160,15 @@ InputController.RemoveActionUser("Jump", this);
 - `inputAction` — экшен из dropdown (заполняется из Input Actions Asset)
 - `button` — опционально, ссылка на `AdvancedButton`
 - `onPressed` / `onReleased` — Unity Events
+
+### Позиция указателя (InputPointerHandler)
+
+Компонент `InputPointerHandler` подписывается на экшен по правилам шины (LIFO) и на **каждое** его событие отдаёт наружу текущую позицию указателя одним `UnityEvent<Vector2>` (`onPoint`, screen-координаты через `Pointer.current`). В отличие от `InputActionHandler` (два события press/release) — один метод со значением вектора; что делать с точкой и когда начинать/заканчивать ловлю решает подписчик (например, включением/выключением объекта по press-экшену).
+
+- `inputAction` — экшен, событие которого = момент отдать позицию (напр. `CursorPosition`)
+- `onPoint` — `UnityEvent<Vector2>`, вызывается на каждое событие экшена с текущей позицией
+
+Подписка отложена до `AppStates.Running` (как в `InputActionHandler`), автоотписка в `OnDisable`/`OnDestroy`.
 
 ### Активация карты (InputMapHandler)
 

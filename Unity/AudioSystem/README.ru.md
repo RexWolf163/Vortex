@@ -242,7 +242,8 @@ SoundClipFixed (: SoundClip)
 
 - GUID сэмпла через `[DbRecord(typeof(Sound))]`
 - Канал через `[AudioChannelName]` — используется для расчёта громкости личного `AudioSource`
-- При `Play()`: если `audioSource != null` — `PlayOneShot`; иначе — `AudioController.PlaySound`
+- При `Play()`: если `audioSource == null` — `AudioController.PlaySound` (пул); иначе по флагу `loop` — `true`: `clip + loop + Play` (зацикленно), `false`: `PlayOneShot` (разово)
+- `loop` (bool, виден только при заданном `audioSource`) — зацикливать воспроизведение на личном `AudioSource`
 - `SetVolumeMultiplier(float)` / `GetVolumeMultiplier()` — множитель громкости
 - Итоговая громкость: `GetSoundVolume(channel) × clip.volume × volumeMultiplier`
 - Итоговый mute: `!GetSoundOn(channel)`

@@ -193,6 +193,15 @@ Parameters:
 
 Typical use: placed next to a UI block that depends on Spine/Audio/Addressable loads. While waiting, the UI is hidden/replaced by a loader; once ready, it unfolds.
 
+### Bool2StateSwitcherHandler / Int2StateSwitcherHandler
+
+Drive a `UIStateSwitcher` from a reactive value in the linked `IDataStorage` (consumers, no logic of their own).
+
+- **`Bool2StateSwitcherHandler`** — by `BoolData`: `true` → `SwitcherState.On`, `false` → `Off`. The switcher is configured against the `SwitcherState` enum.
+- **`Int2StateSwitcherHandler`** — by `IntData`: state number = `IntData.Value` (switcher without enum binding, any number).
+
+Both: the source is `storage` (`MonoBehaviour` + `[ClassFilter(typeof(IDataStorage))]` + `[AutoLink]`). They re-link on `OnUpdateLink` and react to `OnUpdateData` (data may arrive, for instance, via `DataStorageTransport`). Subscribe/relink in `OnEnable`, unsubscribe in `OnDisable`. A missing `IDataStorage`/`UIStateSwitcher` — `LogError`.
+
 ### DropDown
 
 Dropdown list component. Consists of four classes:

@@ -7,7 +7,9 @@
 
 ## Назначение
 
-Кастомный курсор для UGUI-проектов: дефолтный спрайт, отдельные спрайты на LMB/RMB и массив hover-вариантов, переключаемых по UI-зонам. Курсоры группируются в **наборы по диапазонам разрешения** — контроллер выбирает подходящий набор под текущий `Screen.height` (одни спрайты для 1080p, другие для 4K). Применение спрайта к системному курсору идёт через `Cursor.SetCursor` в режиме `ForceSoftware`, события мыши — через Unity Input System (без полинга).
+Кастомный курсор для UGUI-проектов. Каждое состояние курсора описывается **набором** `CursorHoverEntry` из трёх спрайтов: `Default` (без нажатий), `Action` (LMB), `AltAction` (RMB), плюс флаг `HideCursor` (спрятать системный курсор под собственный оверлей). Один такой набор — базовый (вне hover-зон), остальные — hover-варианты, адресуемые по строковому **ключу** (`CursorHoverEntry.Name`) из UI-зон.
+
+Наборы группируются в **пакеты по диапазонам разрешения** — контроллер выбирает подходящий пакет под текущий `Screen.height` (одни спрайты для 1080p, другие для 4K). Hover-ключ, отсутствующий в выбранном пакете, **наследуется от более раннего** (см. межпакетный фолбэк). Применение к системному курсору идёт через `Cursor.SetCursor` в режиме `ForceSoftware`, события мыши — через Unity Input System (без полинга).
 
 Вне ответственности:
 - Жесты, drag-логика, click-feedback в игровой механике — это уровень `AdvancedButton` / `InputBusSystem`.
@@ -21,13 +23,14 @@
 |-------------|-----------|
 | `Vortex.Core.AppSystem` | `App.OnExit` — корректное освобождение InputAction'ов |
 | `Vortex.Core.SettingsSystem` | `Settings.OnInit`, partial-расширение `SettingsModel` |
-| `Vortex.Core.Extensions.ReactiveValues` | `BoolData`, `IntData` с owner-защищённой записью |
+| `Vortex.Core.Extensions.ReactiveValues` | `BoolData`, `StringData` с owner-защищённой записью |
 | `Vortex.Unity.SettingsSystem` | `SettingsPreset` — базовый класс конфига |
+| `Vortex.Unity.Extensions.Editor` | `MenuConfigSearchController` — меню-команда поиска конфига (editor) |
 | `Unity.InputSystem` | `InputAction` для LMB/RMB |
 | `UnityEngine.UI.EventSystems` | `IPointerEnter/Exit` в `MouseHoverListener` |
-| Sirenix Odin Inspector | `[BoxGroup]`, `[InfoBox]`, `[ValueDropdown]` |
+| Sirenix Odin Inspector | `[BoxGroup]`, `[InfoBox]`, `[ValueDropdown]`, `[FoldoutGroup]` |
 
-`SettingsModelExt/ru.vortex.settings.asmref` подкладывает partial-расширение модели настроек в сборку `ru.vortex.settings`, чтобы поля курсора жили в общем `SettingsModel`. Типы `CursorPack` и `CursorResolutionPack` тоже лежат в `SettingsModelExt/` и компилируются в сборку настроек — обратная ссылка из неё на пакет курсора невозможна (цикл), поэтому модели данных вынесены туда, где их видит и сборка настроек, и сам пакет.
+`SettingsModelExt/ru.vortex.settings.asmref` подкладывает partial-расширение модели настроек в сборку `ru.vortex.settings`, чтобы поля курсора жили в общем `SettingsModel`. Типы `CursorPack`, `CursorResolutionPack` и `CursorHoverEntry` тоже лежат в `SettingsModelExt/` и компилируются в сборку настроек — обратная ссылка из неё на пакет курсора невозможна (цикл), поэтому модели данных вынесены туда, где их видит и сборка настроек, и сам пакет.
 
 ---
 
@@ -35,46 +38,54 @@
 
 ```
 [CursorSettings] (SettingsPreset, SO)
-   └── cursorPacks: CursorResolutionPack[]
-          ├── { maxScreenHeight, CursorPack }   ← набор для разрешений ≤ maxScreenHeight
-          ├── { maxScreenHeight, CursorPack }
+   └── cursorPacks: CursorResolutionPack[]   (по возрастанию maxScreenHeight)
+          ├── { maxScreenHeight, CursorPack }   ← пакет для разрешений ≤ maxScreenHeight
           └── ...
-                  │  CursorPack = { cursorDefault, cursorLeftMouseDown,
-                  │                 cursorRightMouseDown, cursorOnHover[] }
+                  │  CursorPack = { CursorDefault: CursorHoverEntry,      ← базовый набор
+                  │                 CursorOnHover: CursorHoverEntry[] }    ← hover-варианты по ключу
                   │
+                  │  CursorHoverEntry = { Name, Default, Action(LMB),
+                  │                       AltAction(RMB), HideCursor }
                   │  (через Settings.OnInit + partial SettingsModel)
                   ▼
 [Settings.Data() in SettingsModel]
    └── CursorPacks: CursorResolutionPack[]
 
 [CursorController] (static)
-   ├── Settings.OnInit → Init() — читает наборы, SelectPack по Screen.height, поднимает InputAction
-   ├── SelectPack(packs) — выбор набора под текущее разрешение
-   ├── RefreshResolution() — публичный перевыбор набора после смены разрешения
+   ├── Settings.OnInit → Init() — читает пакеты, SelectPack по Screen.height, поднимает InputAction
+   ├── SelectPack(packs) — выбор пакета под текущее разрешение (+ запоминает индекс для фолбэка)
+   ├── RefreshResolution() — публичный перевыбор пакета после смены разрешения
    ├── InputAction "<Mouse>/leftButton"  → started/canceled → MouseKeys.LeftKeyPressed
    ├── InputAction "<Mouse>/rightButton" → started/canceled → MouseKeys.RightKeyPressed
-   ├── OnHover(index) / OnUnHover(index) ← публичный API из view-слоя
-   └── ApplyByPriority() — LMB > RMB > Hover > Default → Cursor.SetCursor(ForceSoftware)
+   ├── OnHover(key) / OnUnHover(key) ← публичный API из view-слоя
+   └── ApplyByPriority() — выбор набора (hover-ключ / база) → набор скрывает курсор или
+                           ResolveHover(набор) → Cursor.SetCursor(ForceSoftware)
 
 [MouseHoverListener] (MonoBehaviour, на UGUI-объектах)
-   └── IPointerEnter/Exit → CursorController.OnHover(index) / OnUnHover(index)
+   └── IPointerEnter/Exit → CursorController.OnHover(key) / OnUnHover(key)
 
 [MouseKeyMap] (POCO, доступен через CursorController.MouseKeys)
-   ├── BoolData LeftKeyPressed
-   ├── BoolData RightKeyPressed
-   └── IntData  HoverIndex     (-1 = нет hover)
+   ├── BoolData   LeftKeyPressed
+   ├── BoolData   RightKeyPressed
+   └── StringData HoverKey     (пусто/null = нет hover)
 ```
 
-### Выбор набора по разрешению
+### Выбор пакета по разрешению
 
-`SelectPack(CursorResolutionPack[])` (`CursorController.cs`) выбирает набор так:
+`SelectPack(CursorResolutionPack[])` (`CursorController.cs`) выбирает пакет так:
 
-1. Среди наборов с `MaxScreenHeight >= Screen.height` берётся **минимальный** подходящий порог — самый «тесный» набор, покрывающий текущее разрешение.
-2. Если текущее разрешение выше всех порогов — берётся **самый крупный** набор (наибольший `MaxScreenHeight`).
+1. Среди пакетов с `MaxScreenHeight >= Screen.height` берётся **минимальный** подходящий порог — самый «тесный» пакет, покрывающий текущее разрешение.
+2. Если текущее разрешение выше всех порогов — берётся **самый крупный** пакет (наибольший `MaxScreenHeight`).
 
-Пример: наборы с порогами `1080`, `1440`, `2160`. При `Screen.height == 1440` → набор `1440`. При `Screen.height == 3000` (выше всех) → набор `2160`.
+Пример: пакеты с порогами `1080`, `1440`, `2160`. При `Screen.height == 1440` → пакет `1440`. При `Screen.height == 3000` (выше всех) → пакет `2160`.
 
-`cursorOnHover[]` **должен быть одинаковой длины и порядка во всех наборах** — индекс `MouseHoverListener.index` общий для всех разрешений. `CursorSettings.OnValidate` пишет `LogWarning`, если длины hover-массивов разошлись между наборами.
+Помимо выбранного пакета контроллер запоминает его **индекс** — он нужен для межпакетного фолбэка hover-ключей.
+
+### Межпакетный фолбэк hover-ключей
+
+Пакеты **обязаны идти по возрастанию `MaxScreenHeight`** (первый = низкое разрешение). Hover-ключ (`CursorHoverEntry.Name`) резолвится `ResolveHoverEntry`: начиная с выбранного пакета и **вниз по массиву к первому**. Ключ, отсутствующий в выбранном (более «высоком») пакете, **наследуется от более раннего**; вверх фолбэка нет. Ключ, не найденный нигде, → базовый набор.
+
+Это заменяет прежнее требование «одинаковая длина и порядок hover-массивов во всех наборах»: теперь у каждого пакета может быть свой набор ключей, а недостающие подхватываются из низкоразрешённого пакета. `CursorSettings.OnValidate` пишет `LogWarning`, если пакеты идут не по возрастанию `MaxScreenHeight` (от чего зависит фолбэк).
 
 ### Перевыбор после смены разрешения
 
@@ -82,22 +93,22 @@
 CursorController.RefreshResolution();
 ```
 
-Публичный метод. Дёргать после применения видеонастроек (смена разрешения / режима окна) — контроллер перевыберет набор под новый `Screen.height` и применит спрайт через приоритеты. Состояние кнопок и hover сохраняется. No-op, если курсор аппаратный или контроллер не инициализирован.
+Публичный метод. Дёргать после применения видеонастроек (смена разрешения / режима окна) — контроллер перевыберет пакет под новый `Screen.height` и применит курсор по текущему состоянию. Состояние кнопок и hover сохраняется. No-op, если курсор аппаратный или контроллер не инициализирован.
 
-### Приоритеты применения спрайта
+### Применение курсора
 
-В `ApplyByPriority` (`CursorController.cs`) реализован каскад с явными `return`:
+`ApplyByPriority` (`CursorController.cs`) работает в два шага:
 
-1. **LMB нажата + `cursorLeftMouseDown` не null** → ставим LMB-спрайт.
-2. **RMB нажата + `cursorRightMouseDown` не null** → ставим RMB-спрайт.
-3. **`HoverIndex >= 0` + `cursorOnHover[HoverIndex]` не null** → ставим hover-спрайт.
-4. Иначе → дефолтный спрайт.
+1. **Выбор набора.** Если активен hover-ключ (`HoverKey` не пуст) и он резолвится по пакетам (`ResolveHoverEntry`) → его набор. Иначе (вне зоны или ключ нигде не найден) → базовый набор пакета (`CursorDefault`).
+2. **Внутри набора** (`ResolveHover`): нажата LMB → `Action`, нажата RMB → `AltAction`, иначе → `Default`. Незаполненное action-поле откатывается на `Default` набора; пустой `Default` hover-варианта → на `Default` базового набора (через `Apply(null)`).
 
-LMB переезжает RMB и hover. RMB переезжает hover. Hover активен только когда мышь не нажата.
+Если у выбранного набора выставлен `HideCursor` — системный курсор скрывается (`Cursor.visible = false`, идемпотентно через `SetCursorHidden`), спрайт не ставится: набор рассчитан на собственный кастомный курсор-оверлей.
+
+То есть нажатия LMB/RMB теперь действуют **внутри активного набора** (hover-зоны или базы), а не как отдельные глобальные курсоры.
 
 ### Аппаратный курсор
 
-Если в `CursorSettings` список наборов пуст (или `null`), `Init()` рано выходит, InputAction'ы не создаются, `Cursor.SetCursor` не зовётся — курсор остаётся системным (аппаратным). Это позволяет глобально отключить кастомный курсор, очистив список, без правки кода.
+Если в `CursorSettings` список пакетов пуст (или `null`), `Init()` рано выходит, InputAction'ы не создаются, `Cursor.SetCursor` не зовётся — курсор остаётся системным (аппаратным). Это позволяет глобально отключить кастомный курсор, очистив список, без правки кода.
 
 ### Режим ForceSoftware
 
@@ -105,15 +116,15 @@ LMB переезжает RMB и hover. RMB переезжает hover. Hover а�
 
 ### Защита от alt-tab
 
-Подписки на `InputAction.started/canceled` через Unity Input System — при потере фокуса окна InputSystem делает soft-reset устройства и шлёт `canceled` всем активным action'ам. `MouseKeys.LeftKeyPressed` / `RightKeyPressed` автоматически возвращаются в `false`, и `ApplyByPriority` откатывает курсор на default. Залипания LMB-курсора после alt-tab быть не может.
+Подписки на `InputAction.started/canceled` через Unity Input System — при потере фокуса окна InputSystem делает soft-reset устройства и шлёт `canceled` всем активным action'ам. `MouseKeys.LeftKeyPressed` / `RightKeyPressed` автоматически возвращаются в `false`, и `ApplyByPriority` откатывает курсор на `Default` набора. Залипания action-курсора после alt-tab быть не может.
 
 ### Защита от гонки hover-зон
 
-В `OnUnHover(index)` проверка `MouseKeys.HoverIndex != index`: если индекс уже не наш (другая зона перехватила hover в том же кадре), вызов игнорируется. Сценарий типичен для вложенных hover-зон в UGUI — EventSystem шлёт `OnPointerEnter` вложенной зоны до `OnPointerExit` родителя.
+В `OnUnHover(key)` проверка `MouseKeys.HoverKey.Value != key`: если ключ уже не наш (другая зона перехватила hover в том же кадре), вызов игнорируется. Сценарий типичен для вложенных hover-зон в UGUI — EventSystem шлёт `OnPointerEnter` вложенной зоны до `OnPointerExit` родителя.
 
 ### Защита от внешней записи в `MouseKeys`
 
-`Run()` (под `[RuntimeInitializeOnLoadMethod]`) вызывает `SetOwner(Key)` на каждом из трёх `BoolData`/`IntData`. После этого записать значение в `MouseKeys.LeftKeyPressed` снаружи нельзя — `Set(value, ownerKey)` бросит исключение, если `ownerKey` не совпадает. Снаружи доступно только чтение и подписка.
+`Run()` (под `[RuntimeInitializeOnLoadMethod]`) вызывает `SetOwner(Key)` на `LeftKeyPressed`, `RightKeyPressed` и `HoverKey`. После этого записать значение снаружи нельзя — `Set(value, ownerKey)` откажет, если `ownerKey` не совпадает. Снаружи доступно только чтение и подписка.
 
 ### Hotspot
 
@@ -125,47 +136,46 @@ LMB переезжает RMB и hover. RMB переезжает hover. Hover а�
 
 ### 1. Создать пресет настроек
 
-`Assets → Create → Vortex → CursorSettings` (точное меню зависит от того, как у тебя зарегистрирован `SettingsPreset`-pipeline в проекте).
+`Assets → Create → Vortex → CursorSettings` (точное меню зависит от того, как зарегистрирован `SettingsPreset`-pipeline в проекте). Быстрый доступ к существующему конфигу — меню **Tools → Vortex → Configs → Cursor Settings** (подсветит ассет в Project).
 
-Заполни `cursorPacks` — массив наборов по разрешениям. В каждом наборе:
-- `maxScreenHeight` — верхняя граница вертикального разрешения для этого набора.
-- `Pack.cursorDefault` — основной спрайт (обязателен для активации системы).
-- `Pack.cursorLeftMouseDown` / `cursorRightMouseDown` — опционально, для feedback на клик.
-- `Pack.cursorOnHover[]` — массив спрайтов для разных типов UI-зон.
+Заполни `cursorPacks` — массив пакетов по разрешениям, **по возрастанию `maxScreenHeight`**. В каждом пакете:
+- `maxScreenHeight` — верхняя граница вертикального разрешения для этого пакета.
+- `CursorDefault` — базовый набор (`CursorHoverEntry`): `Default` обязателен для активации системы; `Action`/`AltAction` опциональны (feedback на клик); `HideCursor` — спрятать системный курсор.
+- `CursorOnHover[]` — hover-варианты. У каждого `Name` (ключ), свои `Default`/`Action`/`AltAction`/`HideCursor`.
 
-> ⚠️ **Длина и порядок `cursorOnHover[]` обязаны совпадать во всех наборах** — `MouseHoverListener.index` адресует один и тот же логический hover во всех разрешениях. `OnValidate` предупредит о расхождении.
+> ⚠️ **Пакеты обязаны идти по возрастанию `maxScreenHeight`** — от этого зависит наследование hover-ключей от более раннего пакета. `OnValidate` предупредит о нарушении порядка. Длины hover-массивов совпадать больше не обязаны.
 
-Минимальная конфигурация — один набор с большим `maxScreenHeight` (например, `99999`): он будет применяться на любом разрешении.
+Минимальная конфигурация — один пакет с большим `maxScreenHeight` (например, `99999`): он применяется на любом разрешении.
 
 ### 2. Повесить `MouseHoverListener` на UGUI-элемент
 
 ```
 EnemyPortrait (UGUI Image)
 ├── Image (Raycast Target ✓)
-└── MouseHoverListener (index выбирается из dropdown в инспекторе)
+└── MouseHoverListener (key выбирается из dropdown в инспекторе)
 ```
 
-Dropdown в инспекторе подтягивает имена спрайтов из самого крупного набора активного `CursorSettings` (индексы общие для всех разрешений) — дизайнер не вспоминает числа, выбирает по имени. Пункт «[NONE]» = `-1` отключает hover-смену для этой зоны. Пустые слоты массива показываются как `[EMPTY] {i}`.
+Dropdown подтягивает **объединённый список уникальных ключей** (`CursorHoverEntry.Name`) по всем пакетам активного `CursorSettings` — у каждого пакета может быть свой набор. Дизайнер выбирает по имени. Пункт «[NONE]» = пустой ключ отключает hover-смену для зоны.
 
 ### 3. Перевыбор курсора после смены разрешения
 
 ```csharp
 // В обработчике применения видеонастроек:
 VideoController.ApplyResolution(newResolution);
-CursorController.RefreshResolution();   // подхватит набор под новый Screen.height
+CursorController.RefreshResolution();   // подхватит пакет под новый Screen.height
 ```
 
 ### 4. Программный hover
 
-Если hover-зона не UGUI (world-space коллайдер, кастомная raycast-логика, hotkey-эмуляция) — зови напрямую:
+Если hover-зона не UGUI (world-space коллайдер, кастомная raycast-логика, hotkey-эмуляция) — зови напрямую по ключу:
 
 ```csharp
 public class WorldHoverTrigger : MonoBehaviour
 {
-    [SerializeField] private int cursorIndex = 0;
+    [SerializeField] private string cursorKey = "interact";
 
-    private void OnMouseEnter() => CursorController.OnHover(cursorIndex);
-    private void OnMouseExit()  => CursorController.OnUnHover(cursorIndex);
+    private void OnMouseEnter() => CursorController.OnHover(cursorKey);
+    private void OnMouseExit()  => CursorController.OnUnHover(cursorKey);
 }
 ```
 
@@ -175,17 +185,17 @@ public class WorldHoverTrigger : MonoBehaviour
 private void OnEnable()
 {
     CursorController.MouseKeys.LeftKeyPressed.OnUpdate += OnLmbChanged;
-    CursorController.MouseKeys.HoverIndex.OnUpdate += OnHoverChanged;
+    CursorController.MouseKeys.HoverKey.OnUpdate += OnHoverChanged;
 }
 
 private void OnDisable()
 {
     CursorController.MouseKeys.LeftKeyPressed.OnUpdate -= OnLmbChanged;
-    CursorController.MouseKeys.HoverIndex.OnUpdate -= OnHoverChanged;
+    CursorController.MouseKeys.HoverKey.OnUpdate -= OnHoverChanged;
 }
 
-private void OnLmbChanged() { ... }
-private void OnHoverChanged() { ... }
+private void OnLmbChanged(bool pressed) { ... }
+private void OnHoverChanged(string key) { ... }
 ```
 
 Writeback через `MouseKeys.LeftKeyPressed.Set(true, ?)` снаружи не пройдёт — owner закреплён за контроллером.
@@ -197,21 +207,23 @@ Writeback через `MouseKeys.LeftKeyPressed.Set(true, ?)` снаружи не
 | Ситуация | Поведение |
 |----------|-----------|
 | Список `cursorPacks` пуст или `null` | Контроллер не активируется, курсор системный |
-| Выбранный набор без `cursorDefault` | `Apply` упадёт на `_cursorDefault.texture` (fail-fast: набор обязан иметь дефолт) |
-| `Screen.height` выше всех порогов | Берётся самый крупный набор (наибольший `maxScreenHeight`) |
-| `Screen.height` ниже всех порогов | Берётся набор с минимальным порогом |
-| Длины `cursorOnHover[]` разошлись между наборами | `OnValidate` → `LogWarning`; в рантайме индекс адресует «не тот» hover |
-| `cursorLeftMouseDown == null` при нажатой LMB | Пропускаем ветку, идём дальше по приоритету (RMB → Hover → Default) |
-| `cursorOnHover` пуст / индекс за пределами | На любой `OnHover(index >= 0)` → `IndexOutOfRangeException` (fail-fast) |
-| `cursorOnHover[index] == null` (валидный индекс, пустой спрайт) | Откат на default |
+| Выбранный пакет без `CursorDefault.Default` | `Apply` упадёт на `_defaultSet.Default.texture` (fail-fast: базовый набор обязан иметь `Default`) |
+| `Screen.height` выше всех порогов | Берётся самый крупный пакет (наибольший `maxScreenHeight`) |
+| `Screen.height` ниже всех порогов | Берётся пакет с минимальным порогом |
+| Пакеты идут не по возрастанию `maxScreenHeight` | `OnValidate` → `LogWarning`; межпакетный фолбэк ключей будет некорректен |
+| Hover-ключ есть в раннем пакете, но нет в выбранном | Наследуется от более раннего (вниз к первому) |
+| Hover-ключ не найден ни в одном пакете | Откат на базовый набор |
+| `Action`/`AltAction` набора == null при нажатии | Откат на `Default` набора |
+| `Default` hover-варианта == null | Откат на `Default` базового набора (`Apply(null)`) |
+| У активного набора `HideCursor == true` | Системный курсор скрывается, спрайт не ставится |
 | `RefreshResolution()` при аппаратном курсоре / до Init | No-op |
-| Alt-tab / потеря фокуса с нажатой кнопкой | InputSystem шлёт `canceled` → состояние сбрасывается → курсор откатывается на default |
-| Вложенные hover-зоны (A содержит B) | Enter(B) выставит индекс B; поздний Exit(A) игнорируется (гонка) |
+| Alt-tab / потеря фокуса с нажатой кнопкой | InputSystem шлёт `canceled` → состояние сбрасывается → курсор откатывается на `Default` |
+| Вложенные hover-зоны (A содержит B) | Enter(B) выставит ключ B; поздний Exit(A) игнорируется (гонка) |
 | Повторная инициализация (рестарт без выгрузки домена) | Старые InputAction'ы освобождаются перед поднятием новых |
 | `App.OnExit` | `DisposeActions` освобождает InputAction'ы штатно |
-| Открытие сцены без активного `EventSystem` | `MouseHoverListener` не получает Enter/Exit — курсор работает только по LMB/RMB и default |
+| Открытие сцены без активного `EventSystem` | `MouseHoverListener` не получает Enter/Exit — курсор работает только по нажатиям базового набора |
 
-Fail-fast политика на `cursorOnHover` и отсутствие `cursorDefault` намеренная: неверная конфигурация должна крашить рано и громко, чтобы дизайнер увидел проблему на этапе разработки, а не получал тихо «не тот курсор» на проде. См. `architecture _context.md` про fail-fast в ядре.
+Fail-fast политика на отсутствие `Default` базового набора намеренная: неверная конфигурация должна крашить рано и громко, чтобы дизайнер увидел проблему на этапе разработки, а не получал тихо «не тот курсор» на проде. См. `architecture_context.md` про fail-fast в ядре.
 
 ---
 
@@ -219,12 +231,15 @@ Fail-fast политика на `cursorOnHover` и отсутствие `cursorD
 
 ```
 CursorSystem/
-├── CursorController.cs                       # static-шина, выбор набора, подписки на InputSystem, приоритеты
+├── CursorController.cs                       # static-шина, выбор пакета, подписки на InputSystem, резолв набора/спрайта
 ├── CursorSettings.cs                         # SettingsPreset (SO) с массивом CursorResolutionPack + OnValidate
-├── MouseHoverListener.cs                     # MonoBehaviour для UGUI-зон
-├── MouseKeyMap.cs                            # POCO-модель: BoolData/IntData с owner-защитой
+├── MouseHoverListener.cs                     # MonoBehaviour для UGUI-зон (hover-ключ через ValueDropdown)
+├── MouseKeyMap.cs                            # POCO-модель: BoolData/StringData с owner-защитой
+├── Editor/
+│   └── MenuController.cs                     # Tools/Vortex/Configs/Cursor Settings — поиск конфига
 ├── SettingsModelExt/
-│   ├── CursorPack.cs                         # набор из 4 спрайтов (в сборке настроек)
+│   ├── CursorHoverEntry.cs                   # набор Default/Action/AltAction + Name + HideCursor
+│   ├── CursorPack.cs                         # базовый набор + массив hover-вариантов (в сборке настроек)
 │   ├── CursorResolutionPack.cs               # CursorPack + порог maxScreenHeight (в сборке настроек)
 │   ├── SettingsModelExtCursor.cs             # partial SettingsModel с полем CursorPacks
 │   └── ru.vortex.settings.asmref             # подкладка типов + partial в сборку настроек

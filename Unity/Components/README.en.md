@@ -98,6 +98,23 @@ Language switch button. On click, calls `Localization.SetCurrentLanguage()`. Dis
 
 ---
 
+## Misc/StateSwitcher — StateItems for UIStateSwitcher
+
+### TextSwitch
+
+A `StateItem` for `UIStateSwitcher`: when the owning state activates, it sets a fixed text on a `UIComponent` (modeled after `SetTextComponent`). `DefaultState()` sets an empty string.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | `string` (`[LocalizationKey]`) | Text or localization key |
+| `useLocalization` | `bool` (default `true`) | `true` → `key.Translate()`, `false` → `key` as-is |
+| `uiComponent` | `UIComponent` | Target text component |
+| `position` | `int` (`[UIComponentLink(UIComponentText)]`) | `< 0` — into all text fields, otherwise a single one by index |
+
+In the `UIStateSwitcher` inspector dropdown the entry is registered as **Text → Switch Text**.
+
+---
+
 ## MonoBehaviourEventsHandler
 
 Declarative MonoBehaviour lifecycle event binding via `UnityEvent` in Inspector.

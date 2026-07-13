@@ -242,7 +242,8 @@ Sound playback component. Works with a personal `AudioSource` or relays to `Audi
 
 - Sample GUID via `[DbRecord(typeof(Sound))]`
 - Channel via `[AudioChannelName]` — used for volume calculation with personal `AudioSource`
-- On `Play()`: if `audioSource != null` — `PlayOneShot`; otherwise — `AudioController.PlaySound`
+- On `Play()`: if `audioSource == null` — `AudioController.PlaySound` (pool); otherwise, by the `loop` flag — `true`: `clip + loop + Play` (looped), `false`: `PlayOneShot` (one-shot)
+- `loop` (bool, shown only when `audioSource` is set) — loop playback on the personal `AudioSource`
 - `SetVolumeMultiplier(float)` / `GetVolumeMultiplier()` — volume multiplier
 - Final volume: `GetSoundVolume(channel) × clip.volume × volumeMultiplier`
 - Final mute: `!GetSoundOn(channel)`
