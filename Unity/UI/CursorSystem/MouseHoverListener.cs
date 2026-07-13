@@ -1,4 +1,5 @@
-﻿using Sirenix.OdinInspector;
+using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -9,9 +10,9 @@ namespace Vortex.Unity.UI.CursorSystem
     /// показывает hover-вариант курсора. Вешается на любой UGUI-объект с <c>RectTransform</c>
     /// и <c>Raycast Target</c>; вешать дополнительные коллайдеры не требуется.
     ///
-    /// Поле <see cref="index"/> сериализованно через <c>[ValueDropdown]</c> — в инспекторе
-    /// выпадает список спрайтов из активного <see cref="CursorSettings"/>, выбор по имени
-    /// спрайта. Пункт «[NONE]» = <c>-1</c> отключает hover-смену для этой зоны.
+    /// Поле <see cref="key"/> сериализованно через <c>[ValueDropdown]</c> — в инспекторе
+    /// выпадает объединённый список ключей (<see cref="CursorHoverEntry.Name"/>) из активного
+    /// <see cref="CursorSettings"/>. Пункт «[NONE]» = пустой ключ отключает hover-смену для зоны.
     ///
     /// При выключении объекта (<see cref="OnDisable"/>) автоматически шлёт <see cref="CursorController.OnUnHover"/>,
     /// чтобы курсор не залип в hover-состоянии после скрытия зоны.
@@ -19,22 +20,22 @@ namespace Vortex.Unity.UI.CursorSystem
     public class MouseHoverListener : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         /// <summary>
-        /// Индекс варианта курсора из <see cref="CursorPack.CursorOnHover"/>. <c>-1</c> = «без смены».
-        /// Индекс общий для всех наборов разрешений — порядок ховеров должен совпадать во всех пакетах.
+        /// Ключ hover-варианта (<see cref="CursorHoverEntry.Name"/>). Пусто = «без смены».
+        /// Ключ общий для всех наборов разрешений; резолвится по пакетам с фолбэком к более раннему.
         /// </summary>
         [SerializeField, ValueDropdown("GetList")]
-        private int index = -1;
+        private string key = string.Empty;
 
-        /// <summary>Курсор зашёл в зону — сообщаем контроллеру наш индекс.</summary>
+        /// <summary>Курсор зашёл в зону — сообщаем контроллеру наш ключ.</summary>
         public void OnPointerEnter(PointerEventData eventData)
         {
-            CursorController.OnHover(index);
+            CursorController.OnHover(key);
         }
 
-        /// <summary>Курсор покинул зону — снимаем наш индекс (контроллер игнорирует, если перехватил другой listener).</summary>
+        /// <summary>Курсор покинул зону — снимаем наш ключ (контроллер игнорирует, если перехватил другой listener).</summary>
         public void OnPointerExit(PointerEventData eventData)
         {
-            CursorController.OnUnHover(index);
+            CursorController.OnUnHover(key);
         }
 
         /// <summary>
@@ -48,15 +49,15 @@ namespace Vortex.Unity.UI.CursorSystem
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Editor-only: формирует список значений для <c>[ValueDropdown]</c>. Подтягивает
-        /// первый <see cref="CursorSettings"/>-ассет из <c>Resources</c> и составляет
-        /// dropdown «имя спрайта → индекс» из самого крупного набора (индексы общие
-        /// для всех разрешений). Если наборов нет — сбрасывает <see cref="index"/> в <c>-1</c>
-        /// и оставляет только «[NONE]».
+        /// Editor-only: формирует список значений для <c>[ValueDropdown]</c>. Подтягивает первый
+        /// <see cref="CursorSettings"/>-ассет из <c>Resources</c> и составляет dropdown как
+        /// объединение уникальных ключей (<see cref="CursorHoverEntry.Name"/>) по всем наборам —
+        /// у каждого пакета может быть свой набор. Если наборов нет — сбрасывает <see cref="key"/>
+        /// в пусто и оставляет только «[NONE]».
         /// </summary>
-        private ValueDropdownList<int> GetList()
+        private ValueDropdownList<string> GetList()
         {
-            var result = new ValueDropdownList<int> { new ValueDropdownItem<int>("[NONE]", -1) };
+            var result = new ValueDropdownList<string> { new ValueDropdownItem<string>("[NONE]", string.Empty) };
             var settings = Resources.LoadAll<CursorSettings>("");
             if (settings == null || settings.Length == 0)
                 return result;
@@ -64,31 +65,23 @@ namespace Vortex.Unity.UI.CursorSystem
             var packs = settings[0].CursorPacks;
             if (packs == null || packs.Length == 0)
             {
-                index = -1;
+                key = string.Empty;
                 return result;
             }
 
-            CursorPack largest = null;
-            var largestMax = int.MinValue;
+            var seen = new HashSet<string>();
             foreach (var entry in packs)
             {
-                if (entry?.Pack == null || entry.MaxScreenHeight <= largestMax)
+                var arr = entry?.Pack?.CursorOnHover;
+                if (arr == null)
                     continue;
-                largestMax = entry.MaxScreenHeight;
-                largest = entry.Pack;
-            }
 
-            var list = largest?.CursorOnHover;
-            if (list == null || list.Length == 0)
-            {
-                index = -1;
-                return result;
-            }
-
-            for (var i = 0; i < list.Length; i++)
-            {
-                var sprite = list[i];
-                result.Add(new ValueDropdownItem<int>(sprite != null ? sprite.name : $"[EMPTY] {i}", i));
+                foreach (var hover in arr)
+                {
+                    if (hover == null || string.IsNullOrEmpty(hover.Name) || !seen.Add(hover.Name))
+                        continue;
+                    result.Add(new ValueDropdownItem<string>(hover.Name, hover.Name));
+                }
             }
 
             return result;

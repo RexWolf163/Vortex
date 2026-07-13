@@ -13,22 +13,16 @@ namespace Vortex.Unity.UI.CursorSystem
     [Serializable]
     public class CursorPack
     {
-        [Tooltip("Спрайт по умолчанию. null в выбранном пакете = ошибка конфигурации (fail-fast)")]
-        [SerializeField] private Sprite cursorDefault;
+        [Tooltip("Базовый набор курсора: Default (обычный), Action (LMB), AltAction (RMB). " +
+                 "Default обязателен — null в выбранном пакете = ошибка конфигурации (fail-fast).")]
+        [SerializeField] private CursorHoverEntry cursorDefault = new();
 
-        [Tooltip("Спрайт при удержании левой кнопки мыши. null = не менять при LMB")]
-        [SerializeField] private Sprite cursorLeftMouseDown;
+        [Tooltip("Hover-варианты; ключ = CursorHoverEntry.Name (общий для всех пакетов). " +
+                 "Недостающий ключ наследуется от более раннего пакета (к первому), не наоборот. " +
+                 "У каждого пакета может быть свой набор ключей.")]
+        [SerializeField] private CursorHoverEntry[] cursorOnHover = new CursorHoverEntry[0];
 
-        [Tooltip("Спрайт при удержании правой кнопки мыши. null = не менять при RMB")]
-        [SerializeField] private Sprite cursorRightMouseDown;
-
-        [Tooltip("Hover-варианты; индекс соответствует MouseHoverListener.index. " +
-                 "Порядок и длина должны совпадать во всех пакетах. null-элемент = использовать default")]
-        [SerializeField] private Sprite[] cursorOnHover = new Sprite[0];
-
-        public Sprite CursorDefault => cursorDefault;
-        public Sprite CursorLeftMouseDown => cursorLeftMouseDown;
-        public Sprite CursorRightMouseDown => cursorRightMouseDown;
-        public Sprite[] CursorOnHover => cursorOnHover;
+        public CursorHoverEntry CursorDefault => cursorDefault;
+        public CursorHoverEntry[] CursorOnHover => cursorOnHover;
     }
 }

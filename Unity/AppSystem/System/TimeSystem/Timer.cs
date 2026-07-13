@@ -107,6 +107,29 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         }
 
         /// <summary>
+        /// Продлить активный таймер на <paramref name="bonus"/>: сдвигает End и увеличивает Duration
+        /// на ту же величину, сохраняя уже прошедшее время (Remains += bonus, GetTimePassed без изменений).
+        /// В отличие от пересоздания, визуальная нормировка passed/Duration не «прыгает к максимуму».
+        /// </summary>
+        public void Extend(TimeSpan bonus)
+        {
+            if (IsComplete || _disposed || bonus <= TimeSpan.Zero) return;
+
+            Duration = Duration.Add(bonus);
+            End = End.Add(bonus);
+
+            if (IsPaused)
+            {
+                _remains = _remains.Add(bonus); // на паузе Remains заморожен — двигаем вручную
+                return;
+            }
+
+            // активен — переносим отложенный вызов на новый остаток (End уже сдвинут)
+            TimeController.RemoveCall(this);
+            TimeController.Call(CallAction, (float)Remains.TotalSeconds, this);
+        }
+
+        /// <summary>
         /// Сколько времени прошло
         /// </summary>
         /// <returns></returns>

@@ -22,11 +22,11 @@ namespace Vortex.Unity.UI.CursorSystem
     public static class CursorController
     {
         private static Vector2 _hotspot = Vector2.zero;
+        private static bool _hidden;
 
-        private static Sprite _cursorDefault;
-        private static Sprite _cursorLeftMouseDown;
-        private static Sprite _cursorRightMouseDown;
-        private static Sprite[] _cursorOnHover;
+        private static CursorResolutionPack[] _packs;
+        private static int _selectedIndex = -1;
+        private static CursorHoverEntry _defaultSet;
 
         private static InputAction _leftMouseAction;
         private static InputAction _rightMouseAction;
@@ -34,8 +34,8 @@ namespace Vortex.Unity.UI.CursorSystem
 
         /// <summary>
         /// Публичный наблюдаемый снимок текущего состояния мыши: нажатие LMB/RMB
-        /// и активный hover-индекс. Поля — <see cref="Vortex.Core.Extensions.ReactiveValues.BoolData"/>
-        /// и <see cref="Vortex.Core.Extensions.ReactiveValues.IntData"/>, можно подписаться
+        /// и активный hover-ключ. Поля — <see cref="Vortex.Core.Extensions.ReactiveValues.BoolData"/>
+        /// и <see cref="Vortex.Core.Extensions.ReactiveValues.StringData"/>, можно подписаться
         /// на <c>OnUpdate</c> для реакции на изменения снаружи.
         ///
         /// Запись в эти поля защищена <c>SetOwner(Key)</c> — снаружи изменить значения
@@ -55,7 +55,7 @@ namespace Vortex.Unity.UI.CursorSystem
             Settings.OnInit += Init;
             MouseKeys.LeftKeyPressed.SetOwner(Key);
             MouseKeys.RightKeyPressed.SetOwner(Key);
-            MouseKeys.HoverIndex.SetOwner(Key);
+            MouseKeys.HoverKey.SetOwner(Key);
         }
 
         /// <summary>
@@ -74,7 +74,7 @@ namespace Vortex.Unity.UI.CursorSystem
                 return; //Аппаратный курсор
 
             SelectPack(packs);
-            Apply(_cursorDefault);
+            ApplyByPriority(); // учитывает HideCursor базового набора
 
             //Пересоздание при повторной инициализации (рестарт без выгрузки домена)
             DisposeActions();
@@ -106,35 +106,36 @@ namespace Vortex.Unity.UI.CursorSystem
         private static void SelectPack(CursorResolutionPack[] packs)
         {
             var height = Screen.height;
-            CursorPack selected = null;
-            CursorPack largest = null;
+            var selectedIndex = -1;
+            var largestIndex = -1;
             var bestMax = int.MaxValue;
             var largestMax = int.MinValue;
 
-            foreach (var entry in packs)
+            for (var i = 0; i < packs.Length; i++)
             {
+                var entry = packs[i];
                 if (entry?.Pack == null)
                     continue;
 
                 if (entry.MaxScreenHeight >= height && entry.MaxScreenHeight < bestMax)
                 {
                     bestMax = entry.MaxScreenHeight;
-                    selected = entry.Pack;
+                    selectedIndex = i;
                 }
 
                 if (entry.MaxScreenHeight > largestMax)
                 {
                     largestMax = entry.MaxScreenHeight;
-                    largest = entry.Pack;
+                    largestIndex = i;
                 }
             }
 
-            selected ??= largest;
+            if (selectedIndex < 0)
+                selectedIndex = largestIndex;
 
-            _cursorDefault = selected.CursorDefault;
-            _cursorLeftMouseDown = selected.CursorLeftMouseDown;
-            _cursorRightMouseDown = selected.CursorRightMouseDown;
-            _cursorOnHover = selected.CursorOnHover;
+            _packs = packs;
+            _selectedIndex = selectedIndex;
+            _defaultSet = packs[selectedIndex].Pack.CursorDefault;
         }
 
         /// <summary>
@@ -145,7 +146,7 @@ namespace Vortex.Unity.UI.CursorSystem
         public static void RefreshResolution()
         {
             var packs = Settings.Data().CursorPacks;
-            if (packs == null || packs.Length == 0 || _cursorDefault == null)
+            if (packs == null || packs.Length == 0 || _defaultSet == null)
                 return; //Аппаратный курсор или контроллер не инициализирован
 
             SelectPack(packs);
@@ -196,93 +197,124 @@ namespace Vortex.Unity.UI.CursorSystem
         }
 
         /// <summary>
-        /// Сигнал «курсор зашёл в hover-зону с этим индексом». Индекс соответствует позиции
-        /// в массиве <see cref="CursorPack.CursorOnHover"/> (общий для всех наборов разрешений).
-        /// Применение нового спрайта
-        /// идёт сразу через <see cref="ApplyByPriority"/> с учётом приоритетов (LMB > RMB > Hover).
+        /// Сигнал «курсор зашёл в hover-зону с этим ключом». Ключ совпадает с
+        /// <see cref="CursorHoverEntry.Name"/>; вариант резолвится по всем пакетам с фолбэком
+        /// (см. <see cref="ResolveHoverEntry"/>). Применение идёт сразу через <see cref="ApplyByPriority"/>.
         ///
         /// Типичный источник вызова — <see cref="MouseHoverListener"/> на UI-элементах,
         /// но публичный API позволяет и программные сценарии (например, hover-зона
         /// в world-space без UGUI EventSystem).
         /// </summary>
-        /// <param name="index">Индекс hover-варианта; <c>-1</c> = «нет hover».</param>
-        public static void OnHover(int index = -1)
+        /// <param name="key">Ключ hover-варианта; пусто/null = «нет hover».</param>
+        public static void OnHover(string key = null)
         {
-            MouseKeys.HoverIndex.Set(index, Key);
+            MouseKeys.HoverKey.Set(key, Key);
             ApplyByPriority();
         }
 
         /// <summary>
-        /// Сигнал «курсор покинул hover-зону с этим индексом». Защищён от гонки:
-        /// если активный <see cref="MouseKeyMap.HoverIndex"/> уже не равен <paramref name="index"/>
-        /// (другая зона перехватила hover в том же кадре), вызов игнорируется и текущий
-        /// курсор сохраняется. Сценарий гонки типичен для вложенных hover-зон в UGUI,
-        /// где EventSystem шлёт <c>OnPointerEnter</c> вложенной зоны до <c>OnPointerExit</c>
-        /// родительской.
+        /// Сигнал «курсор покинул hover-зону с этим ключом». Защищён от гонки: если активный
+        /// <see cref="MouseKeyMap.HoverKey"/> уже не равен <paramref name="key"/> (другая зона
+        /// перехватила hover в том же кадре), вызов игнорируется и текущий курсор сохраняется.
+        /// Сценарий гонки типичен для вложенных hover-зон в UGUI, где EventSystem шлёт
+        /// <c>OnPointerEnter</c> вложенной зоны до <c>OnPointerExit</c> родительской.
         /// </summary>
-        /// <param name="index">Индекс зоны, из которой ушли; <c>-1</c> = «нет hover».</param>
-        public static void OnUnHover(int index = -1)
+        /// <param name="key">Ключ зоны, из которой ушли; пусто/null = «нет hover».</param>
+        public static void OnUnHover(string key = null)
         {
-            if (MouseKeys.HoverIndex != index)
+            if (MouseKeys.HoverKey.Value != key)
                 return; //Опоздал и кто-то уже перехватил ховер в этом кадре (гонка)
 
-            MouseKeys.HoverIndex.Set(-1, Key);
+            MouseKeys.HoverKey.Set(null, Key);
             ApplyByPriority();
         }
 
         /// <summary>
-        /// Выбирает спрайт курсора по приоритету состояний и применяет его через <see cref="Apply"/>:
-        /// 1) нажата LMB → <c>cursorLeftMouseDown</c>;
-        /// 2) нажата RMB → <c>cursorRightMouseDown</c>;
-        /// 3) активен hover → <c>cursorOnHover[HoverIndex]</c>;
-        /// 4) ничего из перечисленного → <c>cursorDefault</c>.
-        ///
-        /// Fail-fast: некорректный <c>HoverIndex</c> (вне диапазона массива) бросает
-        /// <see cref="IndexOutOfRangeException"/> — это сигнал об ошибке конфигурации,
-        /// должен быть исправлен на этапе разработки, а не маскироваться.
+        /// Применяет курсор по текущему состоянию через <see cref="Apply"/>: активна hover-зона →
+        /// её вариант (с межпакетным фолбэком, см. <see cref="ResolveHoverEntry"/>), иначе базовый
+        /// набор <c>CursorDefault</c>. И зона, и база разрешаются единым правилом нажатий
+        /// (<see cref="ResolveHover"/>): LMB → Action, RMB → AltAction, иначе → Default.
+        /// Индекс, не найденный ни в одном пакете (вплоть до первого) → базовый набор.
         /// </summary>
         private static void ApplyByPriority()
         {
-            if (_cursorLeftMouseDown != null && MouseKeys.LeftKeyPressed)
+            var key = MouseKeys.HoverKey.Value;
+            var entry = string.IsNullOrEmpty(key) ? null : ResolveHoverEntry(key);
+            entry ??= _defaultSet; // вне зоны или ключ нигде не найден — базовый набор
+            if (entry == null)
+                return; // контроллер не инициализирован
+
+            // Набор может прятать системный курсор (под кастомный) — тогда спрайт не ставим.
+            if (entry.HideCursor)
             {
-                Apply(_cursorLeftMouseDown);
+                SetCursorHidden(true);
                 return;
             }
 
-            if (_cursorRightMouseDown != null && MouseKeys.RightKeyPressed)
+            SetCursorHidden(false);
+            Apply(ResolveHover(entry));
+        }
+
+        /// <summary>Скрыть/показать системный курсор (для наборов с HideCursor). Идемпотентно.</summary>
+        private static void SetCursorHidden(bool hide)
+        {
+            if (_hidden == hide) return;
+            _hidden = hide;
+            Cursor.visible = !hide;
+        }
+
+        /// <summary>
+        /// Резолв hover-варианта по ключу (<see cref="CursorHoverEntry.Name"/>) с межпакетным
+        /// фолбэком: начиная с выбранного пакета и вниз по массиву к первому (пакеты авторятся по
+        /// возрастанию MaxScreenHeight — первый = низкое разрешение). Ключ, отсутствующий в выбранном
+        /// (более высоком) пакете, наследуется от более раннего; вверх фолбэка нет. <c>null</c>
+        /// (ключ нигде не найден) → базовый набор.
+        /// </summary>
+        private static CursorHoverEntry ResolveHoverEntry(string key)
+        {
+            for (var i = _selectedIndex; i >= 0; i--)
             {
-                Apply(_cursorRightMouseDown);
-                return;
+                var arr = _packs[i]?.Pack?.CursorOnHover;
+                if (arr == null)
+                    continue;
+
+                foreach (var entry in arr)
+                    if (entry != null && entry.Name == key)
+                        return entry;
             }
 
-            if (MouseKeys.HoverIndex >= 0)
-            {
-                if (_cursorOnHover.Length <= MouseKeys.HoverIndex)
-                    throw new IndexOutOfRangeException();
+            return null;
+        }
 
-                var sprite = _cursorOnHover[MouseKeys.HoverIndex];
-                if (sprite != null)
-                {
-                    Apply(sprite);
-                    return;
-                }
-            }
+        /// <summary>
+        /// Спрайт для активной hover-зоны с учётом нажатий: LMB → <see cref="CursorHoverEntry.Action"/>,
+        /// RMB → <see cref="CursorHoverEntry.AltAction"/>, иначе → <see cref="CursorHoverEntry.Default"/>.
+        /// Незаполненное action-поле откатывается на Default набора; пустой Default — на дефолт
+        /// базового набора (это делает <see cref="Apply"/> по <c>null</c>).
+        /// </summary>
+        private static Sprite ResolveHover(CursorHoverEntry entry)
+        {
+            Sprite sprite = null;
+            if (MouseKeys.LeftKeyPressed)
+                sprite = entry.Action;
+            else if (MouseKeys.RightKeyPressed)
+                sprite = entry.AltAction;
 
-            Apply(_cursorDefault);
+            return sprite != null ? sprite : entry.Default; // Default == null → Apply даст базовый дефолт
         }
 
         /// <summary>
         /// Применяет переданный спрайт к системному курсору. Hotspot курсора берётся из
         /// <see cref="Sprite.pivot"/> и конвертируется в пиксельные координаты с инверсией
         /// по Y (Unity Sprite использует bottom-left, <c>Cursor.SetCursor</c> — top-left).
-        /// При <c>sprite == null</c> откатывается на <c>_cursorDefault</c>.
+        /// При <c>sprite == null</c> откатывается на Default базового набора (<c>_defaultSet.Default</c>).
         /// </summary>
         /// <param name="sprite">Спрайт курсора. Если <c>null</c> — берётся дефолтный.</param>
         private static void Apply(Sprite sprite)
         {
-            var texture = sprite?.texture ?? _cursorDefault.texture;
+            var texture = sprite?.texture ?? _defaultSet.Default.texture;
             // Конвертируем нормализованный pivot в пиксельные координаты для hotspot
-            _hotspot = sprite?.pivot ?? _cursorDefault.pivot;
+            _hotspot = sprite?.pivot ?? _defaultSet.Default.pivot;
             _hotspot.y = texture.height - _hotspot.y;
             Cursor.SetCursor(texture, _hotspot, CursorMode.ForceSoftware);
         }

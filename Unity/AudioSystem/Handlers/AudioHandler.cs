@@ -24,6 +24,9 @@ namespace Vortex.Unity.AudioSystem.Handlers
 
         [SerializeField] private bool playOnEnable;
 
+        [SerializeField, HideIf("@audioSource==null")]
+        private bool loop;
+
         private Sound _sample;
 
         private SoundClip _sound;
@@ -103,7 +106,16 @@ namespace Vortex.Unity.AudioSystem.Handlers
             if (audioSource == null)
                 AudioController.PlaySound(_sample);
             else
-                audioSource.PlayOneShot(_sound.GetClip());
+            {
+                if (loop)
+                {
+                    audioSource.clip = _sound.GetClip();
+                    audioSource.loop = true;
+                    audioSource.Play();
+                }
+                else
+                    audioSource.PlayOneShot(_sound.GetClip());
+            }
         }
 
         [HorizontalGroup("h1"), Button, ShowIf("ShowBtns")]

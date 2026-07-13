@@ -24,8 +24,9 @@ namespace Vortex.Unity.UI.CursorSystem
         [BoxGroup("Cursor Settings")]
         [SerializeField]
         [InfoBox("Наборы курсоров по диапазонам разрешения. Пустой список = аппаратный курсор.\n" +
-                 "Порядок и длина hover-массивов должны совпадать во всех наборах — " +
-                 "индексы MouseHoverListener общие для всех разрешений.")]
+                 "Наборы — по возрастанию MaxScreenHeight (первый = низкое разрешение). Hover-ключи " +
+                 "(CursorHoverEntry.Name) общие; отсутствующий в выбранном пакете ключ наследуется " +
+                 "от более раннего (к первому), но не наоборот. У каждого пакета может быть свой набор.")]
         private CursorResolutionPack[] cursorPacks = new CursorResolutionPack[0];
 
         /// <inheritdoc cref="cursorPacks"/>
@@ -37,15 +38,17 @@ namespace Vortex.Unity.UI.CursorSystem
             if (cursorPacks == null || cursorPacks.Length < 2)
                 return;
 
-            var reference = cursorPacks[0]?.Pack?.CursorOnHover?.Length ?? 0;
+            // Hover-фолбэк идёт от выбранного пакета вниз по массиву к первому, поэтому наборы
+            // должны быть отсортированы по возрастанию MaxScreenHeight (первый = низкое разрешение).
             for (var i = 1; i < cursorPacks.Length; i++)
             {
-                var length = cursorPacks[i]?.Pack?.CursorOnHover?.Length ?? 0;
-                if (length == reference)
+                var prev = cursorPacks[i - 1]?.MaxScreenHeight ?? int.MinValue;
+                var cur = cursorPacks[i]?.MaxScreenHeight ?? int.MinValue;
+                if (cur > prev)
                     continue;
                 Debug.LogWarning(
-                    $"[CursorSettings] Длина hover-массива в наборе #{i} ({length}) не совпадает " +
-                    $"с набором #0 ({reference}). Индексы MouseHoverListener должны совпадать во всех наборах.",
+                    $"[CursorSettings] Наборы должны идти по возрастанию MaxScreenHeight " +
+                    $"(#{i} = {cur} не больше #{i - 1} = {prev}). От этого зависит hover-фолбэк.",
                     this);
                 break;
             }

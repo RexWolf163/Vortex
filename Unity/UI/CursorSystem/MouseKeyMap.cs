@@ -3,7 +3,7 @@
 namespace Vortex.Unity.UI.CursorSystem
 {
     /// <summary>
-    /// Наблюдаемая модель состояния мыши: нажатие LMB/RMB и активный hover-индекс.
+    /// Наблюдаемая модель состояния мыши: нажатие LMB/RMB и активный hover-ключ.
     /// Создаётся один раз внутри <see cref="CursorController.MouseKeys"/>, доступна
     /// только для чтения снаружи — запись закрыта через <c>SetOwner</c> (см.
     /// <see cref="Vortex.Core.Extensions.ReactiveValues.ReactiveValue{T}.SetOwner"/>).
@@ -19,9 +19,9 @@ namespace Vortex.Unity.UI.CursorSystem
         public BoolData RightKeyPressed { get; internal set; } = new(false);
 
         /// <summary>
-        /// Индекс активной hover-зоны (соответствует индексу в <see cref="CursorPack.CursorOnHover"/>).
-        /// <c>-1</c> означает «hover отсутствует».
+        /// Ключ активной hover-зоны — совпадает с <see cref="CursorHoverEntry.Name"/> из
+        /// <see cref="CursorPack.CursorOnHover"/>. Пусто/null означает «hover отсутствует».
         /// </summary>
-        public IntData HoverIndex { get; internal set; } = new(-1);
+        public StringData HoverKey { get; internal set; } = new(null);
     }
 }
