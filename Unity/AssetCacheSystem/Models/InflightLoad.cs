@@ -12,10 +12,11 @@ namespace Vortex.Unity.AssetCacheSystem.Models
     internal sealed class InflightLoad
     {
         /// <summary>
-        /// Handle от Addressables. Хранится в untyped-форме — реальный тип resolves'я
-        /// на стороне waiter'а через generic-параметр <c>Load&lt;T&gt;</c>.
+        /// Handle от Addressables. Хранится в untyped (негенерик) форме — реальный тип resolve'ится
+        /// на стороне waiter'а через generic-параметр <c>Load&lt;T&gt;</c> (типизированная загрузка
+        /// <c>LoadAssetAsync&lt;T&gt;</c> неявно приводится к негенерик-хэндлу).
         /// </summary>
-        public AsyncOperationHandle<UnityEngine.Object> Handle;
+        public AsyncOperationHandle Handle;
 
         /// <summary>
         /// Broadcast-результат для всех waiter'ов.

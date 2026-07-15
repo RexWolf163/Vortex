@@ -111,7 +111,7 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
         private async UniTask<T> StartLoad<T>(AssetReference reference, CancellationToken ct)
             where T : Object
         {
-            var handle = Addressables.LoadAssetAsync<Object>(reference);
+            var handle = Addressables.LoadAssetAsync<T>(reference);
             var slot = new InflightLoad
             {
                 Handle = handle,
