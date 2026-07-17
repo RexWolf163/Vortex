@@ -28,8 +28,7 @@ namespace Vortex.Unity.AudioSystem
         [InfoBox("Основной проигрыватель музыки")] [SerializeField]
         private MusicPlayer musicPlayer;
 
-        [InfoBox("Ситуативный проигрыватель музыки. Для перекрытия основного фона ситуативным треком")]
-        [SerializeField]
+        [InfoBox("Ситуативный проигрыватель музыки. Для перекрытия основного фона ситуативным треком")] [SerializeField]
         private MusicPlayer musicCoverPlayer;
 
         [SerializeField, Range(0f, 3f)] private float musicFadeTime = 1f;
@@ -89,8 +88,19 @@ namespace Vortex.Unity.AudioSystem
                     if (data != null)
                     {
                         var s = data.Sample;
-                        var channel = channelOverrideName.IsNullOrWhitespace() ? s.Channel.Name : channelOverrideName;
-                        clip = new SoundClipFixed(s, loop, channel);
+                        try
+                        {
+                            var channel = channelOverrideName.IsNullOrWhitespace()
+                                ? s.Channel.Name
+                                : channelOverrideName;
+                            clip = new SoundClipFixed(s, loop, channel);
+                        }
+                        catch (Exception exception)
+                        {
+                            Debug.LogError($"[{data.Name}] {exception.Message}");
+                            return;
+                        }
+
                         break;
                     }
 
