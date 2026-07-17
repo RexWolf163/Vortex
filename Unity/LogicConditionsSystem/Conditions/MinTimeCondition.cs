@@ -5,6 +5,7 @@ using Vortex.Unity.AppSystem.System.TimeSystem;
 
 namespace Vortex.Unity.LogicConditionsSystem.Conditions
 {
+    [Serializable]
     public class MinTimeCondition : UnityCondition
     {
         [SerializeField, MinValue(0f)] private float seconds;
