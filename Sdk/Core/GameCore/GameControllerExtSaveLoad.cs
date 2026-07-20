@@ -27,6 +27,8 @@ namespace Vortex.Sdk.Core.GameCore
 
         public async UniTask<Dictionary<string, string>> GetSaveData(CancellationToken cancellationToken)
         {
+            //Фиксируем тайминги с учётом незавершённого отрезка — до сериализации
+            ActualizeTimeData();
             var data = new Dictionary<string, string>() { { "data", Serialize() } };
             await UniTask.Yield();
             return data;
