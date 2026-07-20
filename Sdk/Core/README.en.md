@@ -59,6 +59,7 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 |-------|------|---------|
 | `GameController` | `Singleton<T>`, `IReactiveData`, `ISaveable`, partial, static | Game management bus |
 | `GameModel` | `ComplexModel<IGameData>` | Composite data model |
+| `GameTimeData` | `IGameData` | Timings inside the save body: playthrough time, its start date, app-time snapshot |
 | `IGameSessionService` | `interface` | Game session service contract — `IsReady` + `Name` |
 | `GameStates` | `enum` | Off, Play, Win, Fail, Paused, Loading |
 | `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` by game state |
@@ -88,6 +89,9 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 - `GameController.OnUpdate` — static data update subscription (proxies `OnUpdateData`)
 - `GameController.CallUpdateEvent()` — invoke `OnUpdateData` with batching via `TimeController.Accumulate`
 - `GameController.NewGameAsync(token)` — async variant of `NewGame()` that awaits session services
+- `GameController.PlayTime` (`TimeSpan`) — current playthrough time, including the open interval
+- `GameController.AppTime` (`TimeSpan`) — total time in the application across all launches
+- `GameController.SessionStarted` (`DateTime`) — start date of the current playthrough
 
 ### Guarantees
 - `NewGame()` is blocked until `ExitGame()` is called (lock mechanism)
@@ -185,6 +189,32 @@ Polling interval — 100ms. **There is no timeout** (fail-fast): a service that 
 
 A typical case — `ExampleGameSessionService`, which wraps an application-level engine/subsystem and registers it as a session service. `Sdk/Core` itself has no knowledge of any specific engine: the readiness wait lives in the adapter implementing `IGameSessionService`.
 
+### Time tracking
+
+Two independent counters with different lifetimes.
+
+| Counter | What it measures | Where it is stored |
+|---|---|---|
+| `PlayTime` | Time of a specific playthrough — strictly while the game state is `Play` | Save body (`GameTimeData.PlaySeconds`) |
+| `AppTime` | Total time in the application across all launches | `PlayerPrefs`, a snapshot goes into the save |
+
+```csharp
+var played = GameController.PlayTime;        // TimeSpan, Zero outside a game
+var total  = GameController.AppTime;         // TimeSpan
+var since  = GameController.SessionStarted;  // DateTime, default if no playthrough started
+
+// Stamping an event on the playthrough scale
+Analytics.Track("quest_done", GameController.PlayTime);
+```
+
+**Playthrough time** belongs to the slot: on load it takes the save's value, on a new game it starts from zero. It grows only in `Play` — pause, loading and exiting stop the count. The value is committed to the save together with the open interval, so saving straight from gameplay loses nothing.
+
+**Application time** runs continuously from `AppStates.Running` until the application terminates. Focus loss does **not** stop the count (but does trigger a write — the OS may kill a backgrounded application). The value is flushed to `PlayerPrefs` once a minute and synchronously on termination.
+
+> Tracking is event-driven — no per-frame work, accumulation happens on state transitions. There is no live tick for UI: the consumer polls the getter itself.
+
+Deliberate decisions, recorded so they are not revisited: writing to `PlayerPrefs` directly instead of a driver scheme — avoiding overengineering for a single value; the application counter lives in SDK.Game rather than the core because it is analytics data for SDK consumers, not system-time infrastructure (`AppModel` holds the reference point).
+
 ## Edge Cases
 
 | Situation | Behavior |
@@ -195,6 +225,13 @@ A typical case — `ExampleGameSessionService`, which wraps an application-level
 | `GetState()` before first initialization | NRE — fail-fast by design |
 | `Get<T>()` for unregistered type | Returns `null` from `ComplexModel` |
 | Focus loss (`Unfocused`) | Automatic `SetPause(true)` |
+| Focus loss during gameplay | The game goes to `Paused` and `PlayTime` stops. Resuming happens only via an explicit `SetPause(false)`: the player leaves pause deliberately, there is no auto-resume by design |
+| Focus loss and application time | `AppTime` keeps running; the value is flushed to `PlayerPrefs` along the way |
+| Saving straight from `Play` | The save receives the time including the open interval |
+| Loading an old-format save (no `GameTimeData`) | Zeros; `SessionStartedAt` is stamped with the date of that load |
+| System clock moved backwards | The negative delta is discarded — counters never decrease |
+| Garbage in the `PlayerPrefs` key | Treated as `0` (fail-soft: an analytics counter must not crash the application) |
+| `PlayTime` outside a game (`Off`, `Loading`, edit-mode) | `TimeSpan.Zero` |
 | `Stopping` | Controller `Dispose()` |
 | Editor mode (not Play Mode) | `GetData()` creates a temporary model, invokes `OnEditorGetData` |
 | `IGameSessionService.IsReady` is permanently `false` | Loader hangs in `Loading` until token cancellation (fail-fast) |

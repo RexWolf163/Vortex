@@ -59,6 +59,7 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 |-------|-----|-----------|
 | `GameController` | `Singleton<T>`, `IReactiveData`, `ISaveable`, partial, static | Шина управления игрой |
 | `GameModel` | `ComplexModel<IGameData>` | Составная модель данных |
+| `GameTimeData` | `IGameData` | Тайминги в теле сейва: время прохождения, дата его начала, отпечаток времени приложения |
 | `IGameSessionService` | `interface` | Контракт сервиса игровой сессии — `IsReady` + `Name` |
 | `GameStates` | `enum` | Off, Play, Win, Fail, Paused, Loading |
 | `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` по состоянию игры |
@@ -88,6 +89,9 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 - `GameController.OnUpdate` — static подписка на обновление данных (проксирует `OnUpdateData`)
 - `GameController.CallUpdateEvent()` — вызов `OnUpdateData` с батчингом через `TimeController.Accumulate`
 - `GameController.NewGameAsync(token)` — async-вариант `NewGame()` с ожиданием сервисов сессии
+- `GameController.PlayTime` (`TimeSpan`) — время текущего прохождения с учётом незавершённого отрезка
+- `GameController.AppTime` (`TimeSpan`) — суммарное время в приложении за все запуски
+- `GameController.SessionStarted` (`DateTime`) — дата начала текущего прохождения
 
 ### Гарантии
 - `NewGame()` блокируется до вызова `ExitGame()` (lock-механизм)
@@ -185,6 +189,32 @@ public sealed class MyEngineSessionService : IGameSessionService
 
 Типовой случай — `ExampleGameSessionService`, который оборачивает движок/подсистему уровня приложения и регистрирует её как сервис сессии. Сам `Sdk/Core` не знает о конкретных движках: ожидание готовности живёт в адаптере, реализующем `IGameSessionService`.
 
+### Учёт времени
+
+Два независимых счётчика с разным временем жизни.
+
+| Счётчик | Что считает | Где хранится |
+|---|---|---|
+| `PlayTime` | Время конкретного прохождения — строго пока состояние игры `Play` | В теле сейва (`GameTimeData.PlaySeconds`) |
+| `AppTime` | Суммарное время в приложении за все запуски | `PlayerPrefs`, отпечаток кладётся в сейв |
+
+```csharp
+var played = GameController.PlayTime;        // TimeSpan, вне игры — Zero
+var total  = GameController.AppTime;         // TimeSpan
+var since  = GameController.SessionStarted;  // DateTime, default если прохождение не начато
+
+// Отметка события на шкале прохождения
+Analytics.Track("quest_done", GameController.PlayTime);
+```
+
+**Время прохождения** принадлежит слоту: при загрузке принимает значение сейва, при новой игре начинается с нуля. Растёт только в `Play` — пауза, загрузка и выход из игры счёт останавливают. Значение фиксируется в сейв вместе с незавершённым отрезком, поэтому сохранение прямо из игры не теряет накопленного.
+
+**Время приложения** идёт непрерывно от `AppStates.Running` до завершения приложения. Потеря фокуса счёт **не останавливает** (но провоцирует запись — ОС может убить свёрнутое приложение). Значение сбрасывается в `PlayerPrefs` раз в минуту и синхронно при завершении.
+
+> Учёт событийный — работы в кадре нет, накопление идёт на переходах состояний. Живого тика для UI нет: потребитель опрашивает геттер сам.
+
+Осознанные решения, зафиксированные чтобы не пересматривать: прямая запись в `PlayerPrefs` вместо драйверной схемы — отказ от оверинжиниринга ради одного значения; счётчик приложения живёт в SDK.Game, а не в ядре, потому что это данные аналитики для потребителей SDK, а не инфраструктура системного времени (`AppModel` держит точку отсчёта).
+
 ## Граничные случаи
 
 | Ситуация | Поведение |
@@ -195,6 +225,13 @@ public sealed class MyEngineSessionService : IGameSessionService
 | `GetState()` до первой инициализации | NRE — fail-fast by design |
 | `Get<T>()` для незарегистрированного типа | Возврат `null` из `ComplexModel` |
 | Потеря фокуса (`Unfocused`) | Автоматический `SetPause(true)` |
+| Потеря фокуса во время игры | Игра уходит в `Paused`, счёт `PlayTime` останавливается. Возобновление — только явным `SetPause(false)`: игрок снимает паузу осознанно, автовозобновления нет by design |
+| Потеря фокуса и время приложения | `AppTime` продолжает идти; попутно значение сбрасывается в `PlayerPrefs` |
+| Сохранение прямо из `Play` | В сейв попадает время с учётом незавершённого отрезка |
+| Загрузка сейва старого формата (без `GameTimeData`) | Нули; `SessionStartedAt` проставляется датой этой загрузки |
+| Перевод системных часов назад | Отрицательная дельта отбрасывается — счётчики не уменьшаются |
+| Мусор в ключе `PlayerPrefs` | Трактуется как `0` (fail-soft: аналитический счётчик не роняет приложение) |
+| `PlayTime` вне игры (`Off`, `Loading`, edit-mode) | `TimeSpan.Zero` |
 | `Stopping` | `Dispose()` контроллера |
 | Editor-режим (не Play Mode) | `GetData()` создаёт временную модель, вызывает `OnEditorGetData` |
 | `IGameSessionService.IsReady` навсегда `false` | Loader зависает в `Loading` до отмены token (fail-fast) |
