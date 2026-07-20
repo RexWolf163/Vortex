@@ -44,7 +44,7 @@ Out of scope:
 
 ```
 [ShopItemPreset] (RecordPreset, SO, Singleton)          [ShopSettings] (SO, outside Database)
-   ├── PaymentLogic  [SerializeReference]                   └── FallbackMode: Rollback / Pending / Ready
+   ├── PaymentLogic  [SerializeReference]                   └── AfterpayMode: Rollback / Pending / Ready
    ├── BuyCaseLogic  [SerializeReference]
    └── HiddenInShowcase
           │  CopyFrom (DeepCopy clone of logics)
@@ -84,7 +84,7 @@ A state is an operation type recorded in the journal (not a runtime flag), so it
 | `Cancelled` | yes | Payment did not go through, nothing charged |
 | `Failed` | yes | Cannot deliver nor refund — the item has no logics |
 
-### Fallback policies (`ShopSettings.FallbackMode`, global)
+### Fallback policies (`ShopSettings.AfterpayMode`, global)
 
 | Policy | Behavior after `Paid` |
 |---|---|

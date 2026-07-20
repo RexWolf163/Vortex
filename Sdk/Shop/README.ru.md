@@ -44,7 +44,7 @@
 
 ```
 [ShopItemPreset] (RecordPreset, SO, Singleton)          [ShopSettings] (SO, вне Database)
-   ├── PaymentLogic  [SerializeReference]                   └── FallbackMode: Rollback / Pending / Ready
+   ├── PaymentLogic  [SerializeReference]                   └── AfterpayMode: Rollback / Pending / Ready
    ├── BuyCaseLogic  [SerializeReference]
    └── HiddenInShowcase
           │  CopyFrom (DeepCopy-клон логик)
@@ -84,7 +84,7 @@
 | `Cancelled` | да | Оплата не прошла, ничего не списано |
 | `Failed` | да | Ни выдать, ни вернуть — у товара нет логик |
 
-### Политики фолбэка (`ShopSettings.FallbackMode`, глобально)
+### Политики фолбэка (`ShopSettings.AfterpayMode`, глобально)
 
 | Политика | Поведение после `Paid` |
 |---|---|
