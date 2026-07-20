@@ -16,6 +16,10 @@ namespace Vortex.Sdk.Shop.Bus
     /// </summary>
     public static class ShopBus
     {
+        /// <summary>
+        /// Упрощенная форма получения контроллера, без выбора, но с возможностью масштабирования
+        /// под вариативные контроллеры
+        /// </summary>
         internal static IShopController Controller => ShopController.Instance;
 
         public static bool IsReady => ShopController.Instance.IsInitialized;

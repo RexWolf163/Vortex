@@ -91,7 +91,7 @@ namespace Vortex.Sdk.Shop.Controllers
             }
 
             // Paid. Политика Ready: автовыдачи нет — ждём подтверждения игроком
-            if (Mode == FallbackMode.Ready)
+            if (Mode == AfterpayMode.Ready)
             {
                 Emit(purchaseGuid, itemGuid, PurchaseState.Ready, count, payCtx.PayValue, 0);
                 return ShopResult.Completed(Fold(purchaseGuid));
@@ -232,10 +232,10 @@ namespace Vortex.Sdk.Shop.Controllers
         {
             switch (Mode)
             {
-                case FallbackMode.Rollback:
+                case AfterpayMode.Rollback:
                     await Rollback(purchaseGuid, itemGuid, item, count, payValue);
                     break;
-                case FallbackMode.Pending:
+                case AfterpayMode.Pending:
                     Emit(purchaseGuid, itemGuid, PurchaseState.Pending, count, payValue, 0);
                     break;
             }

@@ -5,7 +5,7 @@ namespace Vortex.Sdk.Shop.Model
     /// задаётся в <see cref="ShopSettings"/>. Применяется контроллером как поведение
     /// по умолчанию, когда логика выдачи не выбрала исход сама.
     /// </summary>
-    public enum FallbackMode
+    public enum AfterpayMode
     {
         /// <summary>Автовыдача. При отказе выдачи — возврат оплаты и закрытие покупки.</summary>
         Rollback,

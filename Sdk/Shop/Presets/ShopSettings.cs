@@ -1,3 +1,4 @@
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Sdk.Shop.Model;
 
@@ -11,11 +12,11 @@ namespace Vortex.Sdk.Shop.Presets
     [CreateAssetMenu(menuName = "Vortex/Shop/Shop Settings", fileName = "ShopSettings")]
     public class ShopSettings : ScriptableObject
     {
-        [Tooltip("Поведение после подтверждённой оплаты. Rollback — откат при сбое выдачи; " +
-                 "Pending — удержание для повтора; Ready — ждать подтверждения игроком.")]
+        [InfoBox("Поведение после подтверждённой оплаты:\nRollback — автовыдача, откат при сбое;\n" +
+                 "Pending — автовыдача, удержание для повтора;\nReady — ждать подтверждения игроком.")]
         [SerializeField]
-        private FallbackMode fallbackMode = FallbackMode.Rollback;
+        private AfterpayMode afterpayMode = AfterpayMode.Rollback;
 
-        public FallbackMode FallbackMode => fallbackMode;
+        public AfterpayMode AfterpayMode => afterpayMode;
     }
 }

@@ -48,6 +48,6 @@ namespace Vortex.Sdk.Shop.Controllers
         }
 
         /// <summary>Текущая политика фолбэка. Без инициализации — безопасный дефолт Rollback.</summary>
-        private FallbackMode Mode => _settings != null ? _settings.FallbackMode : FallbackMode.Rollback;
+        private AfterpayMode Mode => _settings != null ? _settings.AfterpayMode : AfterpayMode.Rollback;
     }
 }
