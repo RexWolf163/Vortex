@@ -59,6 +59,17 @@ namespace Vortex.Sdk.Shop.Controllers
             var purchaseGuid = Crypto.GetNewGuid();
             Emit(purchaseGuid, itemGuid, PurchaseState.Ordered, count, 0, 0);
 
+            return await RunPaymentAndDeliver(purchaseGuid, itemGuid, item, count);
+        }
+
+        /// <summary>
+        /// Пост-Ordered поток: оплата → ветвление → выдача по политике. Общий для начального Buy
+        /// и для возобновления зависшего Ordered после перезапуска (ResumeOrder). Покупка на входе
+        /// уже в Ordered; заказ здесь не заводится.
+        /// </summary>
+        private async UniTask<ShopResult> RunPaymentAndDeliver(string purchaseGuid, string itemGuid,
+            ShopItemRecord item, int count)
+        {
             var payCtx = new PayContext(this, purchaseGuid, itemGuid, count);
             _busy.Add(purchaseGuid);
             // Логики — внешний код L4, могут быть сетевыми и бросать. Исключение НЕ должно оставить
@@ -92,6 +103,43 @@ namespace Vortex.Sdk.Shop.Controllers
 
         public void BuyForget(string itemGuid, int count) =>
             Buy(itemGuid, count).Forget(Debug.LogException);
+
+        /// <summary>
+        /// Возобновление зависшего Ordered после перезапуска: перевызывает PaymentLogic.Pay по тому же
+        /// purchaseGuid, чтобы логика реконсилировала статус оплаты (идемпотентность по purchaseGuid —
+        /// её ответственность). Симметрично RetryDelivery/ConfirmDelivery. Без этого хука Ordered,
+        /// застрявший при обрыве сетевой оплаты, вечно блокировал бы магазин через HasOrderInFlight (Inv-7).
+        ///
+        /// Точку вызова определяет проект: после загрузки перебрать GetOpen(), для State == Ordered — сюда.
+        /// PurchaseBusy при занятости; null если покупка не в Ordered (нечего возобновлять).
+        /// </summary>
+        public ShopRefusal? ResumeOrder(string purchaseGuid)
+        {
+            if (Journal == null)
+                return ShopRefusal.EngineUnavailable;
+            if (string.IsNullOrEmpty(purchaseGuid) || _busy.Contains(purchaseGuid))
+                return ShopRefusal.PurchaseBusy; // Inv-8
+            if (StateOf(purchaseGuid) != PurchaseState.Ordered)
+                return null; // не застрявший Ordered — нечего возобновлять
+
+            ResumePayment(purchaseGuid).Forget(Debug.LogException);
+            return null;
+        }
+
+        private async UniTask ResumePayment(string purchaseGuid)
+        {
+            var p = Fold(purchaseGuid);
+            var item = GetItem(p.ItemGuid);
+            if (item.PaymentLogic == null)
+            {
+                // логика оплаты исчезла — реконсилировать нечем. Подтверждённого списания в журнале нет,
+                // поэтому безопасно закрываем как Cancelled (аварийное разрешение зависшего Ordered).
+                Emit(purchaseGuid, p.ItemGuid, PurchaseState.Cancelled, p.RequestedCount, 0, 0);
+                return;
+            }
+
+            await RunPaymentAndDeliver(purchaseGuid, p.ItemGuid, item, p.RequestedCount);
+        }
 
         /// <summary>
         /// Подтверждение получения из Ready. Синхронно возвращает отказ, если покупка занята

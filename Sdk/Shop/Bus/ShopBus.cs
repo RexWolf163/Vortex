@@ -31,6 +31,7 @@ namespace Vortex.Sdk.Shop.Bus
         public static void BuyForget(string itemGuid, int count) => Controller.BuyForget(itemGuid, count);
         public static ShopRefusal? ConfirmDelivery(string purchaseGuid) => Controller.ConfirmDelivery(purchaseGuid);
         public static ShopRefusal? RetryDelivery(string purchaseGuid) => Controller.RetryDelivery(purchaseGuid);
+        public static ShopRefusal? ResumeOrder(string purchaseGuid) => Controller.ResumeOrder(purchaseGuid);
         public static ShopRefusal? CancelWithRefund(string purchaseGuid) => Controller.CancelWithRefund(purchaseGuid);
 
         // --- события ---

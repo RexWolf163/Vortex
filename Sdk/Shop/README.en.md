@@ -146,6 +146,7 @@ public abstract class BuyCaseLogic
 | `BuyForget(itemGuid, count)` | Synchronous fire-and-forget wrapper |
 | `ShopRefusal? ConfirmDelivery(purchaseGuid)` | Confirm from `Ready`. `PurchaseBusy` when the purchase is busy |
 | `ShopRefusal? RetryDelivery(purchaseGuid)` | Retry from `Pending` |
+| `ShopRefusal? ResumeOrder(purchaseGuid)` | Resume a stuck `Ordered` — re-invoke payment for reconciliation after a restart |
 | `ShopRefusal? CancelWithRefund(purchaseGuid)` | Manual cancel of an open purchase with refund |
 | `event OnPurchaseStateChanged(guid, state)` | Purchase state changed |
 | `event OnPurchaseClosed(ShopPurchase)` | Purchase closed by a terminal event |
@@ -205,6 +206,22 @@ if (refusal == ShopRefusal.PurchaseBusy)
     ShowBusy();
 ```
 
+### Resolving open purchases after a load
+
+The engine provides operations, not policy — when and how to resolve open purchases is up to the project. A typical bootstrap after a slot load:
+
+```csharp
+foreach (var p in ShopJournal.GetOpen())
+    switch (p.State)
+    {
+        case PurchaseState.Ordered: ShopBus.ResumeOrder(p.PurchaseGuid); break;   // payment reconciliation
+        case PurchaseState.Pending: ShopBus.RetryDelivery(p.PurchaseGuid); break; // delivery retry
+        // Ready — waits for a deliberate player action, not auto-resolved
+    }
+```
+
+The payment logic must be idempotent by `purchaseGuid` — the engine guarantees its stability.
+
 ### Subscribing to the journal
 
 ```csharp
@@ -229,5 +246,6 @@ private void OnDisable() => ShopJournal.OnJournalUpdated -= RefreshShowcase;
 | Item "removed" (flag + `BuyCaseLogic` swapped to compensation, `PaymentLogic` removed) | Hidden in showcase; an open purchase resolves to the compensation and completes |
 | Item truly gone (no logics) | An open purchase closes as `Failed`, appears in `GetStuck()` |
 | Loading an earlier slot | The journal rolls back with the slot — accepted behavior (purchases are slot-local) |
-| Saving from an active purchase | The unclosed purchase is in the journal; after load it is available for completion via `GetOpen()`/`RetryDelivery` |
+| Saving from an active purchase | The unclosed purchase is in the journal; after load it is available for completion via `GetOpen()`/`RetryDelivery`/`ResumeOrder` |
+| Network payment interrupted (purchase stuck in `Ordered` after restart) | After load the project iterates `GetOpen()`; for `State == Ordered` calls `ResumeOrder` — payment is re-invoked with the same `purchaseGuid`, the logic reconciles. Without it `Ordered` would block new purchases forever (Inv-7) |
 | Uncollected `Ready` accumulate | Normal: nothing burns; served as a separate `GetReady()` list |

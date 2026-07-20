@@ -42,6 +42,13 @@ namespace Vortex.Sdk.Shop
         /// <summary>Повтор выдачи из Pending. Семантика возврата — как у <see cref="ConfirmDelivery"/>.</summary>
         ShopRefusal? RetryDelivery(string purchaseGuid);
 
+        /// <summary>
+        /// Возобновление зависшего Ordered после перезапуска: перевызывает оплату по тому же
+        /// purchaseGuid для реконсиляции статуса. Симметрично Retry/Confirm. PurchaseBusy при
+        /// занятости, null если покупка не в Ordered.
+        /// </summary>
+        ShopRefusal? ResumeOrder(string purchaseGuid);
+
         /// <summary>Ручная отмена открытой покупки с возвратом оплаты. PurchaseBusy при занятости, иначе null.</summary>
         ShopRefusal? CancelWithRefund(string purchaseGuid);
 

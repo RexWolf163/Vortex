@@ -146,6 +146,7 @@ public abstract class BuyCaseLogic
 | `BuyForget(itemGuid, count)` | Синхронный fire-and-forget враппер |
 | `ShopRefusal? ConfirmDelivery(purchaseGuid)` | Подтверждение из `Ready`. `PurchaseBusy` при занятости |
 | `ShopRefusal? RetryDelivery(purchaseGuid)` | Повтор из `Pending` |
+| `ShopRefusal? ResumeOrder(purchaseGuid)` | Возобновление зависшего `Ordered` — перевызов оплаты для реконсиляции после перезапуска |
 | `ShopRefusal? CancelWithRefund(purchaseGuid)` | Ручная отмена открытой покупки с возвратом |
 | `event OnPurchaseStateChanged(guid, state)` | Состояние покупки изменилось |
 | `event OnPurchaseClosed(ShopPurchase)` | Покупка закрыта терминальным событием |
@@ -205,6 +206,22 @@ if (refusal == ShopRefusal.PurchaseBusy)
     ShowBusy();
 ```
 
+### Разрешение открытых покупок после загрузки
+
+Движок предоставляет операции, но не политику — когда и как разрешать открытые покупки, решает проект. Типовой bootstrap после загрузки слота:
+
+```csharp
+foreach (var p in ShopJournal.GetOpen())
+    switch (p.State)
+    {
+        case PurchaseState.Ordered: ShopBus.ResumeOrder(p.PurchaseGuid); break;   // реконсиляция оплаты
+        case PurchaseState.Pending: ShopBus.RetryDelivery(p.PurchaseGuid); break; // повтор выдачи
+        // Ready — ждёт осознанного действия игрока, автоматически не разрешается
+    }
+```
+
+Логика оплаты обязана быть идемпотентной по `purchaseGuid` — движок гарантирует его стабильность.
+
 ### Подписка на журнал
 
 ```csharp
@@ -229,5 +246,6 @@ private void OnDisable() => ShopJournal.OnJournalUpdated -= RefreshShowcase;
 | Товар «удалён» (флаг + подмена `BuyCaseLogic` на компенсацию, `PaymentLogic` убрана) | Скрыт в витрине; открытая покупка резолвится в компенсацию и доигрывается |
 | Товар исчез по-настоящему (нет логик) | Открытая покупка закрывается `Failed`, попадает в `GetStuck()` |
 | Загрузка более раннего слота | Журнал откатывается вместе со слотом — принятое поведение (покупки слот-локальны) |
-| Сохранение из активной покупки | Незакрытая покупка в журнале; после загрузки доступна для завершения через `GetOpen()`/`RetryDelivery` |
+| Сохранение из активной покупки | Незакрытая покупка в журнале; после загрузки доступна для завершения через `GetOpen()`/`RetryDelivery`/`ResumeOrder` |
+| Обрыв сетевой оплаты (покупка застряла в `Ordered` после перезапуска) | Проект после загрузки перебирает `GetOpen()`; для `State == Ordered` вызывает `ResumeOrder` — оплата перевызывается по тому же `purchaseGuid`, логика реконсилирует. Без этого `Ordered` вечно блокировал бы новые покупки (Inv-7) |
 | Неполученные `Ready` копятся | Штатно: ничего не сгорает; отдаются отдельным перечнем `GetReady()` |
