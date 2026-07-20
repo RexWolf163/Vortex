@@ -29,6 +29,13 @@ namespace Vortex.Sdk.Shop.Model
         LogicUnavailable,
 
         /// <summary>Логика отказала при выполнении.</summary>
-        LogicRejected
+        LogicRejected,
+
+        /// <summary>
+        /// Движок не может журналировать: журнал (<c>ShopStatisticsData</c>) недоступен — нет активной
+        /// игровой сессии / слота, либо тип вырезан managed-stripping в билде. Покупка НЕ начинается и
+        /// НЕ списывает: журнал — единый сохраняемый контур (Inv-9), без него оплата прошла бы без следа.
+        /// </summary>
+        EngineUnavailable
     }
 }

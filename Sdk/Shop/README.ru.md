@@ -218,6 +218,7 @@ private void OnDisable() => ShopJournal.OnJournalUpdated -= RefreshShowcase;
 
 | Ситуация | Поведение |
 |---|---|
+| Журнал недоступен (нет активной сессии / тип вырезан managed-stripping) | `Buy` отказывает `EngineUnavailable` **до** списания и логирует ошибку — оплата без следа невозможна (Inv-9). Для IL2CPP-билда сохранить `ShopStatisticsData` через `link.xml` |
 | Неизвестный `itemGuid` | Пустой товар (без логик) → `LogicUnavailable` |
 | `count <= 0` | `InvalidCount`, журнал не пишется |
 | Существует заказ между `Ordered` и `Paid` | `OrderInProgress` (Inv-7) — новый заказ не начинается |

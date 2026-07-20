@@ -32,6 +32,15 @@ namespace Vortex.Sdk.Shop.Controllers
             if (count <= 0)
                 return ShopResult.Refused(ShopRefusal.InvalidCount); // Inv-3
 
+            // Журнал — единый контур записи. Без него оплата прошла бы без следа (нарушение Inv-9),
+            // причём молча (Emit — no-op). Отказываем ДО любого списания. Fail-loud: null-журнал в
+            // момент покупки = нет активной сессии либо managed-stripping вырезал ShopStatisticsData.
+            if (Journal == null)
+            {
+                Debug.LogError("[Shop] Buy отклонён: журнал недоступен (нет активной игровой сессии / слота).");
+                return ShopResult.Refused(ShopRefusal.EngineUnavailable);
+            }
+
             if (HasOrderInFlight())
                 return ShopResult.Refused(ShopRefusal.OrderInProgress); // Inv-7
 

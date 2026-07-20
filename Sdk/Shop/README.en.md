@@ -218,6 +218,7 @@ private void OnDisable() => ShopJournal.OnJournalUpdated -= RefreshShowcase;
 
 | Situation | Behavior |
 |---|---|
+| Journal unavailable (no active session / type stripped by managed stripping) | `Buy` refuses with `EngineUnavailable` **before** charging and logs an error — a payment without a record is impossible (Inv-9). For IL2CPP builds preserve `ShopStatisticsData` via `link.xml` |
 | Unknown `itemGuid` | Empty item (no logics) → `LogicUnavailable` |
 | `count <= 0` | `InvalidCount`, journal not written |
 | An order exists between `Ordered` and `Paid` | `OrderInProgress` (Inv-7) — no new order starts |
