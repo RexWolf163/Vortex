@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 namespace Vortex.Sdk.ShopSystem.Model
 {
     /// <summary>
@@ -35,3 +36,4 @@ namespace Vortex.Sdk.ShopSystem.Model
         Failed
     }
 }
+#endif

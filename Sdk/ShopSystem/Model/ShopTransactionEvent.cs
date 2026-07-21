@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 
 namespace Vortex.Sdk.ShopSystem.Model
@@ -72,3 +73,4 @@ namespace Vortex.Sdk.ShopSystem.Model
         public long AppSeconds { get; internal set; }
     }
 }
+#endif

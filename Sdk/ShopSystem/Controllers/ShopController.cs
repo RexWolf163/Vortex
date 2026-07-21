@@ -12,6 +12,9 @@ namespace Vortex.Sdk.ShopSystem.Controllers
 {
     public class ShopController : IShopController
     {
+        [RuntimeInitializeOnLoadMethod]
+        private static void Bootstrap() => ShopBus.SetDriver(new ShopController());
+
         public event Action OnInit;
 
         private Dictionary<string, ShopItemModel> _shopItems;

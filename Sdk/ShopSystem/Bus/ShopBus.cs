@@ -6,7 +6,6 @@ using Vortex.Core.System.Abstractions;
 using Vortex.Sdk.ShopSystem.Model;
 using System.Collections.Generic;
 using UnityEngine;
-using Vortex.Sdk.ShopSystem.Controllers;
 using Vortex.Sdk.ShopSystem.Presets;
 
 namespace Vortex.Sdk.ShopSystem.Bus
@@ -19,7 +18,6 @@ namespace Vortex.Sdk.ShopSystem.Bus
         private readonly Dictionary<string, ShopItemModel> _shopItems = new();
 
         public IReadOnlyDictionary<string, ShopItemModel> ShopItems => _shopItems;
-        private IShopController Controller { get; } = new ShopController();
         private ShopSettings _settings;
         internal static ShopSettings Settings => Instance._settings;
 
@@ -38,19 +36,19 @@ namespace Vortex.Sdk.ShopSystem.Bus
         }
 
         public static async UniTask<ShopOperation> Buy(string purchaseGuid, int count) =>
-            await Instance.Controller.Buy(purchaseGuid, count);
+            await Driver.Buy(purchaseGuid, count);
 
         public static ShopOperation BuyForget(string purchaseGuid, int count) =>
-            Instance.Controller.BuyForget(purchaseGuid, count);
+            Driver.BuyForget(purchaseGuid, count);
 
         public static void RestoreOperation(ShopOperation operation) =>
-            Instance.Controller.NextStep(operation).Forget(Debug.LogException);
+            Driver.NextStep(operation).Forget(Debug.LogException);
 
         public static void ConfirmDelivery(ShopOperation operation) =>
-            Instance.Controller.ConfirmDelivery(operation).Forget(Debug.LogException);
+            Driver.ConfirmDelivery(operation).Forget(Debug.LogException);
 
         public static void RetryDelivery(ShopOperation operation) =>
-            Instance.Controller.RetryDelivery(operation).Forget(Debug.LogException);
+            Driver.RetryDelivery(operation).Forget(Debug.LogException);
     }
 }
 #endif

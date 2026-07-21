@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 namespace Vortex.Sdk.ShopSystem.Model
 {
     public enum AfterpayMode
@@ -12,3 +13,4 @@ namespace Vortex.Sdk.ShopSystem.Model
         Ready
     }
 }
+#endif
