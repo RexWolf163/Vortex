@@ -28,7 +28,8 @@ namespace Vortex.Sdk.ShopSystem
         public UniTask RetryDelivery(ShopOperation operation, ShopItemModel item = null);
 
         /// <summary>
-        /// Запуск следующего этапа транзакции
+        /// Прогон открытой покупки до терминала/равновесия. Точка входа восстановления после загрузки
+        /// (на локальном токене, вне общей отмены).
         /// </summary>
         public UniTask Processing(ShopOperation operation, ShopItemModel item = null);
 

@@ -5,6 +5,11 @@ using Cysharp.Threading.Tasks;
 
 namespace Vortex.Sdk.ShopSystem.Model.Logics
 {
+    /// <summary>
+    /// Абстрактная логика оплаты товара — сторона списания/возврата в сделке. Полиморфна (задаётся
+    /// через [SerializeReference] в пресете товара). Обязательна для каждого товара; бесплатный товар —
+    /// отдельная реализация с нулевой ценой.
+    /// </summary>
     [Serializable]
     public abstract class PaymentLogic
     {

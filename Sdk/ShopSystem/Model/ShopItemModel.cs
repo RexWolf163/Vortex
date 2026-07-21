@@ -4,12 +4,20 @@ using Vortex.Sdk.ShopSystem.Model.Logics;
 
 namespace Vortex.Sdk.ShopSystem.Model
 {
+    /// <summary>
+    /// Товар магазина — неизменяемая запись каталога (<see cref="Record"/>, наполняется из пресета).
+    /// Обе логики обязательны: их отсутствие делает товар нефункциональным (покупка терминализуется
+    /// как <see cref="PurchaseState.Failed"/>). В тело сейва не входит — каталог статичен.
+    /// </summary>
     public class ShopItemModel : Record
     {
-        /// <summary>Логика оплаты. null у пустого товара / товара-компенсации без оплаты.</summary>
+        /// <summary>
+        /// Логика оплаты. Обязательна; для бесплатного товара — отдельная логика с нулевой ценой.
+        /// null → товар сломан (покупка → Failed).
+        /// </summary>
         public PaymentLogic PaymentLogic { get; protected set; }
 
-        /// <summary>Логика выдачи. null - признак ошибки.</summary>
+        /// <summary>Логика выдачи. Обязательна; null → товар сломан (покупка → Failed).</summary>
         public DeliveryLogic DeliveryLogic { get; protected set; }
 
         /// <summary>
@@ -18,12 +26,12 @@ namespace Vortex.Sdk.ShopSystem.Model
         /// </summary>
         public bool HiddenInShowcase { get; protected set; }
 
+        /// <summary>Каталог неизменяем и в тело сейва не входит — сохранять нечего.</summary>
         public override string GetDataForSave() => null;
 
+        /// <summary>Каталог неизменяем — восстанавливать нечего.</summary>
         public override void LoadFromSaveData(string data)
         {
-            //Ignore
-            //Каталог неизменяем — восстанавливать нечего
         }
     }
 }

@@ -4,8 +4,15 @@ using Vortex.Sdk.ShopSystem.Controllers;
 
 namespace Vortex.Sdk.ShopSystem.Model
 {
+    /// <summary>
+    /// Рантайм-модель одной покупки: свёртка её текущего состояния (реактивный <see cref="State"/>) и
+    /// опорные значения сделки. Живёт в индексе <c>ShopOperations.Operations</c>; источник истины —
+    /// журнал событий, из которого модель восстанавливается при загрузке. <see cref="State"/> закрыт
+    /// на владельца-контроллер (менять только через него).
+    /// </summary>
     public class ShopOperation
     {
+        /// <summary>Закрывает <see cref="State"/> на ключ контроллера — извне состояние не поменять.</summary>
         public ShopOperation()
         {
             this.LockData();
@@ -32,16 +39,14 @@ namespace Vortex.Sdk.ShopSystem.Model
         public int RequestedCount { get; internal set; }
 
         /// <summary>
-        /// Фактическое значение, ушедшее в оплату (от PaymentLogic).
-        /// Опорное, не универсальная сумма.
-        /// Определяется настройками товара в логике PaymentLogic и множителем RequestedCount
+        /// Опорное значение, ушедшее в оплату (от <see cref="Logics.PaymentLogic"/>). Не универсальная
+        /// сумма — определяется логикой оплаты товара и множителем <see cref="RequestedCount"/>.
         /// </summary>
         public int PayValue { get; internal set; }
 
         /// <summary>
-        /// Фактическое значение, ушедшее в выдачу (от BuyCaseLogic).
-        /// Опорное, не универсальное значение.
-        /// Определяется настройками товара в логике PaymentLogic и множителем RequestedCount
+        /// Опорное значение, ушедшее в выдачу (от <see cref="Logics.DeliveryLogic"/>). Не универсальное —
+        /// определяется логикой выдачи товара и множителем <see cref="RequestedCount"/>.
         /// </summary>
         public int BuyValue { get; internal set; }
     }

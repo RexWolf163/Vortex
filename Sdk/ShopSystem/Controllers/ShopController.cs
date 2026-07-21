@@ -11,11 +11,19 @@ using Vortex.Sdk.ShopSystem.Model;
 
 namespace Vortex.Sdk.ShopSystem.Controllers
 {
+    /// <summary>
+    /// Драйвер магазина (<see cref="IShopController"/> для <see cref="ShopBus"/>): стейт-машина покупки
+    /// поверх каталога и логик оплаты/выдачи. Держит один активный интерактивный процесс за раз
+    /// (см. <see cref="IsBusy"/>) с общим токеном отмены; журнал/индексы ведёт через
+    /// <see cref="ShopOperationsBus"/>.
+    /// </summary>
     public class ShopController : IShopController
     {
+        /// <summary>Саморегистрация драйвера в шину при старте приложения.</summary>
         [RuntimeInitializeOnLoadMethod]
         private static void Bootstrap() => ShopBus.SetDriver(new ShopController());
 
+        /// <summary>Драйвер инициализирован (каталог загружен). См. <see cref="Init"/>.</summary>
         public event Action OnInit;
 
         private Dictionary<string, ShopItemModel> _shopItems;
@@ -33,6 +41,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         /// </summary>
         public bool IsBusy => _activeGuid != null;
 
+        /// <summary>
+        /// Инициализация драйвера: наполнение каталога товарами из Database. Вызывается автоматически
+        /// шиной при подключении драйвера. По завершении поднимает <see cref="OnInit"/>.
+        /// </summary>
         public void Init()
         {
             var items = Database.GetRecords<ShopItemModel>();
@@ -42,10 +54,16 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             OnInit?.Invoke();
         }
 
+        /// <summary>Отключение драйвера от шины. Состояния для сброса нет.</summary>
         public void Destroy()
         {
         }
 
+        /// <summary>
+        /// Покупка товара по guid. Отбивается при занятости (<see cref="IsBusy"/>) и на неизвестном товаре
+        /// (оба → null). Товар без обязательных логик закрывается как Failed без списания. Иначе — заводит
+        /// заказ и прогоняет процесс до терминала/равновесия. Возвращает модель операции.
+        /// </summary>
         public async UniTask<ShopOperation> Buy(string itemGuid, int count)
         {
             if (IsBusy)
@@ -57,11 +75,18 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             var item = GetItem(itemGuid);
             if (item == null) return null;
 
+            if (IsMisconfigured(item))
+                return FailMisconfigured(item, count);
+
             var operation = MakeNewOperation(item, count);
             await Launch(operation, ct => RunProcess(item, operation, ct));
             return operation;
         }
 
+        /// <summary>
+        /// Синхронная fire-and-forget обёртка над <see cref="Buy"/> (процесс через Forget + лог исключений).
+        /// Возвращает модель операции сразу; правила отбоя те же, что у <see cref="Buy"/>.
+        /// </summary>
         public ShopOperation BuyForget(string itemGuid, int count)
         {
             if (IsBusy)
@@ -72,6 +97,9 @@ namespace Vortex.Sdk.ShopSystem.Controllers
 
             var item = GetItem(itemGuid);
             if (item == null) return null;
+
+            if (IsMisconfigured(item))
+                return FailMisconfigured(item, count);
 
             var operation = MakeNewOperation(item, count);
             Launch(operation, ct => RunProcess(item, operation, ct)).Forget(Debug.LogException);
@@ -85,6 +113,15 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         /// </summary>
         public async UniTask Processing(ShopOperation operation, ShopItemModel item = null)
         {
+            item ??= GetItem(operation.ItemGuid);
+            if (item == null || IsMisconfigured(item))
+            {
+                //Товар пропал/сломан к моменту восстановления — не гоняем цикл (иначе NRE в логиках).
+                //Покупку оставляем в текущем состоянии для ручного разбора.
+                Debug.LogError($"[ShopController] Restore {operation.PurchaseGuid}: товар недоступен или без логик");
+                return;
+            }
+
             using var cts = new CancellationTokenSource();
             try
             {
@@ -99,6 +136,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             }
         }
 
+        /// <summary>
+        /// Подтверждение получения игроком покупки в состоянии Ready. Инициирует реальную выдачу
+        /// (<see cref="MakeDeliveryForReady"/>, без правил AfterpayMode). При недоступной выдаче покупка
+        /// остаётся Ready. Отбивается при занятости и неверном состоянии.
+        /// </summary>
         public async UniTask ConfirmDelivery(ShopOperation operation, ShopItemModel item = null)
         {
             if (IsBusy)
@@ -116,6 +158,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             await Launch(operation, ct => MakeDeliveryForReady(operation, ct, item));
         }
 
+        /// <summary>
+        /// Повтор выдачи для покупки в состоянии Pending (после сорванной автовыдачи). При успехе —
+        /// Delivered, иначе остаётся Pending. Отбивается при занятости и неверном состоянии.
+        /// </summary>
         public async UniTask RetryDelivery(ShopOperation operation, ShopItemModel item = null)
         {
             if (IsBusy)
@@ -170,6 +216,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             }
         }
 
+        /// <summary>
+        /// Приём словаря-каталога под заполнение. Шина отдаёт свой инстанс до вызова <see cref="Init"/>,
+        /// который его наполняет из Database.
+        /// </summary>
         public void SetIndex(Dictionary<string, ShopItemModel> shopItems)
         {
             _shopItems = shopItems;
@@ -202,6 +252,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             }
         }
 
+        /// <summary>
+        /// Полный цикл новой покупки: предпроверки оплаты и выдачи (провал → NotStarted, без записи),
+        /// фиксация заказа в журнал и прогон стейт-машины. Отмена (OCE) гасится тихо — статус доводит
+        /// <see cref="CancelWithRefund"/>; прочие исключения логируются.
+        /// </summary>
         private async UniTask RunProcess(ShopItemModel item, ShopOperation operation, CancellationToken ct)
         {
             try
@@ -265,6 +320,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             }
         }
 
+        /// <summary>
+        /// Один шаг стейт-машины по текущему состоянию: Ordered → оплата, Paid/Ready/Pending → выдача,
+        /// терминальные — no-op. Вызывается циклом <see cref="ProcessLoop"/>.
+        /// </summary>
         private async UniTask NextStep(ShopOperation operation, CancellationToken ct, ShopItemModel item = null)
         {
             item ??= GetItem(operation.ItemGuid);
@@ -291,6 +350,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             }
         }
 
+        /// <summary>
+        /// Оплата заказа (Ordered): успех → Paid, отказ логики → Cancelled (списания нет). Оба исхода
+        /// фиксируются в журнал.
+        /// </summary>
         private async UniTask MakePayment(ShopItemModel item, ShopOperation operation, CancellationToken ct)
         {
             if (!await item.PaymentLogic.MakePay(operation, ct))
@@ -304,6 +367,13 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             ShopOperationsBus.MakeRecord(operation);
         }
 
+        /// <summary>
+        /// Автоматическая выдача из Paid/Pending с применением политики <see cref="AfterpayMode"/>:
+        /// под Ready-режимом свежий Paid уводится в Ready (без попытки выдачи); при недоступной выдаче —
+        /// Pending / откат через <see cref="Refund"/>; при успехе — Delivered. Отмену (OCE) пробрасывает
+        /// наверх (в цикл/Launch), прочие исключения логирует. Confirm-путь идёт отдельно
+        /// (<see cref="MakeDeliveryForReady"/>) и сюда не заходит.
+        /// </summary>
         private async UniTask MakeDelivery(ShopOperation operation, CancellationToken ct, ShopItemModel item = null)
         {
             try
@@ -319,15 +389,13 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 if (item == null) return;
 
                 var settings = ShopBus.Settings;
-                if (settings.AfterpayMode == AfterpayMode.Ready)
-                {
-                    if (state != PurchaseState.Ready)
-                    {
-                        operation.SetState(PurchaseState.Pending);
-                        ShopOperationsBus.MakeRecord(operation);
-                        return;
-                    }
 
+                //AfterpayMode.Ready: автовыдачи нет — свежий Paid уводим в Ready, не пытаясь выдать.
+                //Реальную выдачу инициирует игрок через ConfirmDelivery (там state уже Ready → сюда не попадёт).
+                if (state == PurchaseState.Paid && settings.AfterpayMode == AfterpayMode.Ready)
+                {
+                    operation.SetState(PurchaseState.Ready);
+                    ShopOperationsBus.MakeRecord(operation);
                     return;
                 }
 
@@ -345,6 +413,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                             break;
                         case AfterpayMode.Rollback:
                             await Refund(operation, item);
+                            break;
+                        case AfterpayMode.Ready:
+                            //Сюда доходит только ConfirmDelivery при недоступной выдаче
+                            //(Paid ушёл в Ready ранним выходом). Остаёмся в Ready — игрок повторит подтверждение.
                             break;
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -370,6 +442,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             }
         }
 
+        /// <summary>
+        /// Выдача по явному подтверждению игрока (из Ready) — без политики <see cref="AfterpayMode"/>:
+        /// доступна выдача → Delivered, иначе покупка остаётся Ready (игрок повторит). Отмену пробрасывает
+        /// наверх, прочие исключения логирует.
+        /// </summary>
         private async UniTask MakeDeliveryForReady(ShopOperation operation, CancellationToken ct,
             ShopItemModel item = null)
         {
@@ -422,6 +499,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             }
         }
 
+        /// <summary>
+        /// Заводит новую операцию (Ordered) с новым PurchaseGuid и опорными значениями оплаты/выдачи
+        /// из логик товара. Вызывается только для валидного товара (см. <see cref="IsMisconfigured"/>).
+        /// </summary>
         private ShopOperation MakeNewOperation(ShopItemModel item, int count)
         {
             var operation = new ShopOperation()
@@ -435,6 +516,34 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             return operation;
         }
 
+        /// <summary>
+        /// Товар не может завершить сделку: нет логики оплаты (нечем платить/возвращать) или выдачи
+        /// (DeliveryLogic == null — признак ошибки). Проверяется до списания.
+        /// </summary>
+        private static bool IsMisconfigured(ShopItemModel item) =>
+            item.PaymentLogic == null || item.DeliveryLogic == null;
+
+        /// <summary>
+        /// Терминализация покупки по товару без обязательных логик: ни выдать, ни вернуть.
+        /// Failed фиксируется в журнале (для GetStuck / техподдержки); списания не было, значения нулевые.
+        /// </summary>
+        private ShopOperation FailMisconfigured(ShopItemModel item, int count)
+        {
+            Debug.LogError(
+                $"[ShopController] Item {item.GuidPreset} misconfigured (no pay/delivery logic) → Failed");
+
+            var operation = new ShopOperation
+            {
+                PurchaseGuid = Crypto.GetNewGuid(),
+                ItemGuid = item.GuidPreset,
+                RequestedCount = count
+            };
+            operation.SetState(PurchaseState.Failed);
+            ShopOperationsBus.MakeRecord(operation);
+            return operation;
+        }
+
+        /// <summary>Товар каталога по guid; неизвестный guid → лог ошибки и null.</summary>
         private ShopItemModel GetItem(string guid)
         {
             if (_shopItems.TryGetValue(guid, out var item)) return item;

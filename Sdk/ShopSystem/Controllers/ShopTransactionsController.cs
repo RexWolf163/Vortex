@@ -8,8 +8,17 @@ using Vortex.Sdk.ShopSystem.Model;
 
 namespace Vortex.Sdk.ShopSystem.Controllers
 {
+    /// <summary>
+    /// Писатель журнала: собирает событие из текущего состояния операции (со сквозным Sequence и осями
+    /// времени) и добавляет его в журнал и индексы через owner-ключ модели (<see cref="ShopOperationsController"/>).
+    /// Stateless — вся работа над данными сессии из <see cref="ShopOperationsBus.Data"/>.
+    /// </summary>
     public class ShopTransactionsController : Singleton<ShopTransactionsController>, IShopTransactionsController
     {
+        /// <summary>
+        /// Собрать событие по текущему состоянию операции и записать в журнал/индексы. Возвращает false
+        /// при исключении (логируется). Не вызывать вне загруженной сессии — журнала ещё нет.
+        /// </summary>
         public bool MakeRecord(ShopOperation operation)
         {
             try

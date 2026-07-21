@@ -5,6 +5,10 @@ using Cysharp.Threading.Tasks;
 
 namespace Vortex.Sdk.ShopSystem.Model.Logics
 {
+    /// <summary>
+    /// Абстрактная логика выдачи товара — сторона получения в сделке. Полиморфна (задаётся через
+    /// [SerializeReference] в пресете товара). Обязательна для каждого товара.
+    /// </summary>
     [Serializable]
     public abstract class DeliveryLogic
     {

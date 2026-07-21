@@ -6,6 +6,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
 {
     public partial class SdkSettings
     {
+        /// <summary>Тумблер пакета магазина: управляет define-символом USING_VORTEX_SHOP.</summary>
         [SerializeField, ToggleButton(isSingleButton: true)] [DefineSymbol("USING_VORTEX_SHOP")]
         private bool shopSdk;
     }

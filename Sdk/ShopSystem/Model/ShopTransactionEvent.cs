@@ -10,7 +10,7 @@ namespace Vortex.Sdk.ShopSystem.Model
     /// Публичный getter + internal setter — попадает в property-based сериализацию SerializeController.
     /// Публичный конструктор без параметров обязателен для десериализации элемента списка.
     ///
-    /// ВАЖНО: Событие покупки несет смысл тоько в моменте игры, с загруженной сессией.
+    /// ВАЖНО: Событие покупки несёт смысл только в моменте игры, с загруженной сессией.
     /// Оно не должно существовать вне игровой сессии. Механика пакета это не поддерживает. 
     /// </summary>
     [POCO]
@@ -50,9 +50,9 @@ namespace Vortex.Sdk.ShopSystem.Model
         public int PayValue { get; internal set; }
 
         /// <summary>
-        /// Фактическое значение, ушедшее в выдачу (от BuyCaseLogic).
+        /// Фактическое значение, ушедшее в выдачу (от DeliveryLogic).
         /// Опорное, не универсальное значение.
-        /// Определяется настройками товара в логике PaymentLogic и множителем RequestedCount
+        /// Определяется настройками товара в логике DeliveryLogic и множителем RequestedCount
         /// </summary>
         public int BuyValue { get; internal set; }
 

@@ -9,12 +9,20 @@ using Vortex.Sdk.ShopSystem.Model;
 
 namespace Vortex.Sdk.ShopSystem.Controllers
 {
+    /// <summary>
+    /// Владелец owner-ключа данных магазина. На старте новой игры/загрузки закрывает журнал на ключ,
+    /// пересобирает рантайм-индексы (Transactions/Operations) из журнала и запускает восстановление
+    /// открытых покупок. Единственная точка мутации данных — через ключ (extension-методы ниже).
+    /// </summary>
     public static class ShopOperationsController
     {
+        /// <summary>Индексы пересобраны, <see cref="ShopOperations"/> готов к использованию.</summary>
         public static event Action OnLoadDataComplete;
 
+        /// <summary>Owner-ключ: только код с доступом к нему может мутировать журнал и состояния операций.</summary>
         private static readonly object Key = new();
 
+        /// <summary>Подписка на жизненный цикл игры: закрытие/пересборку данных на NewGame и OnLoad.</summary>
         [RuntimeInitializeOnLoadMethod]
         private static void Bootstrap()
         {
@@ -22,6 +30,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             GameController.OnLoadGame += LockData;
         }
 
+        /// <summary>
+        /// Закрывает журнал на owner-ключ и пересобирает индексы <c>Transactions</c>/<c>Operations</c>
+        /// свёрткой событий (с проверкой сквозной нумерации). По завершении поднимает
+        /// <see cref="OnLoadDataComplete"/> и доигрывает открытые покупки.
+        /// </summary>
         private static void LockData()
         {
             var data = GameController.Get<ShopOperations>();
@@ -79,16 +92,22 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 ShopBus.RestoreOperation(operation);
         }
 
+        /// <summary>Закрывает <see cref="ShopOperation.State"/> операции на owner-ключ (вызывается из её конструктора).</summary>
         internal static void LockData(this ShopOperation operation)
         {
             operation.State.SetOwner(Key);
         }
 
+        /// <summary>Смена состояния операции через owner-ключ — единственный разрешённый путь мутации.</summary>
         internal static void SetState(this ShopOperation operation, PurchaseState state)
         {
             operation.State.Set(state, Key);
         }
 
+        /// <summary>
+        /// Регистрация события: добавляет его в журнал <c>Events</c> и в per-guid индекс (создавая
+        /// залоченный список и регистрируя операцию при первом событии покупки). Всё — через owner-ключ.
+        /// </summary>
         internal static void RegistrationEvent(this ShopTransactionEvent transactionEvent, ShopOperation operation)
         {
             var data = GameController.Get<ShopOperations>();
