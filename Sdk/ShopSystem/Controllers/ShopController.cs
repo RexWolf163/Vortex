@@ -113,7 +113,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 return;
             }
 
-            await Launch(operation, ct => MakeDelivery(operation, ct, item));
+            await Launch(operation, ct => MakeDeliveryForReady(operation, ct, item));
         }
 
         public async UniTask RetryDelivery(ShopOperation operation, ShopItemModel item = null)
@@ -315,15 +315,23 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     return;
                 }
 
-                if (item == null && !_shopItems.TryGetValue(operation.ItemGuid, out item))
+                item ??= GetItem(operation.ItemGuid);
+                if (item == null) return;
+
+                var settings = ShopBus.Settings;
+                if (settings.AfterpayMode == AfterpayMode.Ready)
                 {
-                    Debug.LogError($"[ShopController] Shop Item {operation.ItemGuid} not found");
+                    if (state != PurchaseState.Ready)
+                    {
+                        operation.SetState(PurchaseState.Pending);
+                        ShopOperationsBus.MakeRecord(operation);
+                        return;
+                    }
+
                     return;
                 }
 
-                var settings = ShopBus.Settings;
-                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct)
-                    || settings.AfterpayMode == AfterpayMode.Ready)
+                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct))
                 {
                     switch (settings.AfterpayMode)
                     {
@@ -338,20 +346,47 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                         case AfterpayMode.Rollback:
                             await Refund(operation, item);
                             break;
-                        case AfterpayMode.Ready:
-                            if (operation.State.Value == PurchaseState.Paid)
-                            {
-                                operation.SetState(PurchaseState.Ready);
-                                ShopOperationsBus.MakeRecord(operation);
-                            }
-
-                            return;
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
 
                     return;
                 }
+
+                if (!await item.DeliveryLogic.MakeDelivery(operation, ct))
+                    return;
+
+                operation.SetState(PurchaseState.Delivered);
+                ShopOperationsBus.MakeRecord(operation);
+            }
+            catch (OperationCanceledException)
+            {
+                //Отмена должна размотаться наверх (в цикл / Launch), а не гаситься здесь
+                throw;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+
+        private async UniTask MakeDeliveryForReady(ShopOperation operation, CancellationToken ct,
+            ShopItemModel item = null)
+        {
+            try
+            {
+                var state = operation.State.Value;
+                if (state is not PurchaseState.Ready)
+                {
+                    Debug.LogError("[ShopController] Wrong state of operation for Deliver");
+                    return;
+                }
+
+                item ??= GetItem(operation.ItemGuid);
+                if (item == null) return;
+
+                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct))
+                    return;
 
                 if (!await item.DeliveryLogic.MakeDelivery(operation, ct))
                     return;
