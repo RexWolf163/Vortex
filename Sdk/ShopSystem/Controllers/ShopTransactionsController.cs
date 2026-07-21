@@ -33,9 +33,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     AppSeconds = (long)GameController.AppTime.TotalSeconds
                 };
 
-                newEvent.AddEvent(operation);
-                data.Transactions[operation.PurchaseGuid].Add(newEvent);
-
+                newEvent.RegistrationEvent(operation);
                 return true;
             }
             catch (Exception e)

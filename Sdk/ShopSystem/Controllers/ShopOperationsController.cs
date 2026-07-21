@@ -89,7 +89,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             operation.State.Set(state, Key);
         }
 
-        internal static void AddEvent(this ShopTransactionEvent transactionEvent, ShopOperation operation)
+        internal static void RegistrationEvent(this ShopTransactionEvent transactionEvent, ShopOperation operation)
         {
             var data = GameController.Get<ShopOperations>();
             data.Events.Add(transactionEvent, Key);
@@ -97,8 +97,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             if (!data.Transactions.ContainsKey(operation.PurchaseGuid))
             {
                 data.Transactions[operation.PurchaseGuid] = new ListData<ShopTransactionEvent>();
+                data.Transactions[operation.PurchaseGuid].SetOwner(Key);
                 data.Operations[operation.PurchaseGuid] = operation;
             }
+
+            data.Transactions[operation.PurchaseGuid].Add(transactionEvent, Key);
         }
     }
 }
