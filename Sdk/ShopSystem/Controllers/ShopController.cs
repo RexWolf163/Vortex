@@ -113,9 +113,6 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 return;
             }
 
-            //Игрок подтвердил получение: Ready → Paid (в памяти, без записи), дальше обычная выдача.
-            //Не пишем спекулятивный Paid — durable-состояние остаётся Ready до фактического Delivered.
-            operation.SetState(PurchaseState.Paid);
             await Launch(operation, ct => MakeDelivery(operation, ct, item));
         }
 
@@ -251,6 +248,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                        or PurchaseState.Refunded
                    })
             {
+                //Ready — состояние ожидания игрока: автопрогон (восстановление) его не двигает.
+                //Выдачу из Ready инициирует только явный ConfirmDelivery (вне цикла).
+                if (operation.State.Value == PurchaseState.Ready)
+                    break;
+
                 ct.ThrowIfCancellationRequested();
                 await NextStep(operation, ct, item);
 
@@ -307,13 +309,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             try
             {
                 var state = operation.State.Value;
-
-                //Ready — состояние ожидания игрока. Автопрогон (цикл восстановления) его не двигает:
-                //выдачу из Ready инициирует только явный ConfirmDelivery, переводя покупку в Paid.
-                if (state == PurchaseState.Ready)
-                    return;
-
-                if (state is not (PurchaseState.Pending or PurchaseState.Paid))
+                if (state is not (PurchaseState.Ready or PurchaseState.Pending or PurchaseState.Paid))
                 {
                     Debug.LogError("[ShopController] Wrong state of operation for Deliver");
                     return;
