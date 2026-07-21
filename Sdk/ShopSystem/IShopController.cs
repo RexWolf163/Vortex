@@ -8,6 +8,9 @@ namespace Vortex.Sdk.ShopSystem
 {
     public interface IShopController : ISystemDriver
     {
+        /// <summary>Идёт ли интерактивный процесс. Для пред-проверки перед Buy/Confirm/Retry.</summary>
+        public bool IsBusy { get; }
+
         /// <summary>Покупка. Возвращает Модель операции.</summary>
         public UniTask<ShopOperation> Buy(string itemGuid, int count);
 
@@ -30,9 +33,10 @@ namespace Vortex.Sdk.ShopSystem
         public UniTask Processing(ShopOperation operation, ShopItemModel item = null);
 
         /// <summary>
-        /// Ручная отмена открытой покупки с возвратом оплаты.
+        /// Внешняя отмена открытой покупки: прерывает идущий процесс и возвращает оплату,
+        /// если она была проведена.
         /// </summary>
-        public UniTask CancelWithRefund(ShopOperation operation, ShopItemModel item = null);
+        public UniTask CancelWithRefund(ShopOperation operation);
 
         /// <summary>
         /// Передача индекса под заполнение

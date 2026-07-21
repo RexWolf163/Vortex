@@ -35,6 +35,9 @@ namespace Vortex.Sdk.ShopSystem.Bus
             _shopItems.Clear();
         }
 
+        /// <summary>Идёт ли интерактивный процесс. Пред-проверка для UI, чтобы отличать «занято» от прочих отказов.</summary>
+        public static bool IsBusy => HasDriver() && Driver.IsBusy;
+
         public static async UniTask<ShopOperation> Buy(string purchaseGuid, int count) =>
             await Driver.Buy(purchaseGuid, count);
 
