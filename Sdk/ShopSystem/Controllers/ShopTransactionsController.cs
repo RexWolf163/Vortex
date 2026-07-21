@@ -1,7 +1,6 @@
 #if USING_VORTEX_SHOP
 using System;
 using UnityEngine;
-using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.System.Abstractions;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.ShopSystem.Bus;
@@ -34,14 +33,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     AppSeconds = (long)GameController.AppTime.TotalSeconds
                 };
 
-                newEvent.AddEvent();
-
-                if (!data.Transactions.ContainsKey(operation.PurchaseGuid))
-                {
-                    data.Transactions[operation.PurchaseGuid] = new ListData<ShopTransactionEvent>();
-                    data.Operations[operation.PurchaseGuid] = operation;
-                }
-
+                newEvent.AddEvent(operation);
                 data.Transactions[operation.PurchaseGuid].Add(newEvent);
 
                 return true;
