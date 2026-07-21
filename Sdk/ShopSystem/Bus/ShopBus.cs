@@ -49,6 +49,9 @@ namespace Vortex.Sdk.ShopSystem.Bus
 
         public static void RetryDelivery(ShopOperation operation) =>
             Driver.RetryDelivery(operation).Forget(Debug.LogException);
+
+        public static void CancelWithRefund(ShopOperation operation) =>
+            Driver.CancelWithRefund(operation).Forget(Debug.LogException);
     }
 }
 #endif
