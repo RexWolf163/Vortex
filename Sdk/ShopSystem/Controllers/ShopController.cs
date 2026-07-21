@@ -322,7 +322,8 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 }
 
                 var settings = ShopBus.Settings;
-                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct))
+                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct)
+                    || settings.AfterpayMode == AfterpayMode.Ready)
                 {
                     switch (settings.AfterpayMode)
                     {
