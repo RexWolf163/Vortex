@@ -344,7 +344,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                                 ShopOperationsBus.MakeRecord(operation);
                             }
 
-                            break;
+                            return;
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
