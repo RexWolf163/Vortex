@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.ShopSystem.Controllers;
 
@@ -45,3 +46,4 @@ namespace Vortex.Sdk.ShopSystem.Model
         public int BuyValue { get; internal set; }
     }
 }
+#endif

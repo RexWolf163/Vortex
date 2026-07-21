@@ -1,11 +1,12 @@
+#if USING_VORTEX_SHOP
 using System;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions.Actions;
 using Vortex.Core.System.Abstractions;
-using Vortex.Sdk.ShopSystem.Controllers;
 using Vortex.Sdk.ShopSystem.Model;
+using System.Collections.Generic;
+using UnityEngine;
+using Vortex.Sdk.ShopSystem.Controllers;
 using Vortex.Sdk.ShopSystem.Presets;
 
 namespace Vortex.Sdk.ShopSystem.Bus
@@ -15,13 +16,10 @@ namespace Vortex.Sdk.ShopSystem.Bus
         public static InitValve OnReady { get; } = InitValve.Create(out OnInitComplete);
 
         private static readonly Action OnInitComplete;
-
-        private IShopController Controller => new ShopController();
-
         private readonly Dictionary<string, ShopItemModel> _shopItems = new();
 
         public IReadOnlyDictionary<string, ShopItemModel> ShopItems => _shopItems;
-
+        private IShopController Controller { get; } = new ShopController();
         private ShopSettings _settings;
         internal static ShopSettings Settings => Instance._settings;
 
@@ -55,3 +53,4 @@ namespace Vortex.Sdk.ShopSystem.Bus
             Instance.Controller.RetryDelivery(operation).Forget(Debug.LogException);
     }
 }
+#endif

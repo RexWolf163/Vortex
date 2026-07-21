@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using System.Collections.Generic;
 using Vortex.Core.Extensions.ReactiveValues;
 
@@ -25,3 +26,4 @@ namespace Vortex.Sdk.ShopSystem.Model
         internal Dictionary<string, ShopOperation> Operations { get; set; } = new();
     }
 }
+#endif

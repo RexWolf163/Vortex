@@ -1,12 +1,13 @@
-using UnityEngine;
+#if USING_VORTEX_SHOP
 using System;
+using Vortex.Core.Extensions.LogicExtensions.Actions;
+using Vortex.Sdk.ShopSystem.Model;
+using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
-using Vortex.Core.Extensions.LogicExtensions.Actions;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.ShopSystem.Controllers;
-using Vortex.Sdk.ShopSystem.Model;
 
 namespace Vortex.Sdk.ShopSystem.Bus
 {
@@ -20,7 +21,6 @@ namespace Vortex.Sdk.ShopSystem.Bus
         private static readonly Action OnInitComplete;
 
         public static ShopOperations Data { get; private set; }
-
         private static IShopTransactionsController Controller => new ShopTransactionsController();
 
         /// <summary>Открытые (не-терминальные) покупки: Ordered / Paid / Ready / Pending.</summary>
@@ -95,3 +95,4 @@ namespace Vortex.Sdk.ShopSystem.Bus
         #endregion
     }
 }
+#endif

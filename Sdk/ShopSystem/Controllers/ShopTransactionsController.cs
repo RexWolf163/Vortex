@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using System;
 using UnityEngine;
 using Vortex.Core.System.Abstractions;
@@ -42,3 +43,4 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         }
     }
 }
+#endif

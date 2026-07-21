@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -88,3 +89,4 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         }
     }
 }
+#endif

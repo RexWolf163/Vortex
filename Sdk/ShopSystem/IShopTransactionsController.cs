@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using Vortex.Sdk.ShopSystem.Model;
 
 namespace Vortex.Sdk.ShopSystem
@@ -12,3 +13,4 @@ namespace Vortex.Sdk.ShopSystem
         public bool MakeRecord(ShopOperation operation);
     }
 }
+#endif

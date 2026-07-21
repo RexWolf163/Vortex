@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using Vortex.Core.DatabaseSystem.Model;
 using Vortex.Sdk.ShopSystem.Model.Logics;
 
@@ -26,3 +27,4 @@ namespace Vortex.Sdk.ShopSystem.Model
         }
     }
 }
+#endif

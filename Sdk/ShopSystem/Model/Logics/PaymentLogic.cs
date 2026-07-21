@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using System;
 using Cysharp.Threading.Tasks;
 
@@ -34,3 +35,4 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics
         public abstract UniTask<bool> MakeRefund(ShopOperation operation);
     }
 }
+#endif

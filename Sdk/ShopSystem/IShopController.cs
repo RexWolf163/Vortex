@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Vortex.Core.System.Abstractions;
@@ -40,3 +41,4 @@ namespace Vortex.Sdk.ShopSystem
         void SetIndex(Dictionary<string, ShopItemModel> shopItems);
     }
 }
+#endif
