@@ -42,7 +42,7 @@ namespace Vortex.Sdk.ShopSystem.Bus
             Driver.BuyForget(purchaseGuid, count);
 
         public static void RestoreOperation(ShopOperation operation) =>
-            Driver.NextStep(operation).Forget(Debug.LogException);
+            Driver.Processing(operation).Forget(Debug.LogException);
 
         public static void ConfirmDelivery(ShopOperation operation) =>
             Driver.ConfirmDelivery(operation).Forget(Debug.LogException);

@@ -15,7 +15,8 @@ namespace Vortex.Sdk.ShopSystem.Controllers
 
         private static readonly object Key = new();
 
-        private static void SubscribeLifecycle()
+        [RuntimeInitializeOnLoadMethod]
+        private static void Bootstrap()
         {
             GameController.OnNewGame += LockData;
             GameController.OnLoadGame += LockData;

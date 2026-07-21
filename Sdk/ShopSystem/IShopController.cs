@@ -27,7 +27,7 @@ namespace Vortex.Sdk.ShopSystem
         /// <summary>
         /// Запуск следующего этапа транзакции
         /// </summary>
-        public UniTask NextStep(ShopOperation operation, ShopItemModel item = null);
+        public UniTask Processing(ShopOperation operation, ShopItemModel item = null);
 
         /// <summary>
         /// Ручная отмена открытой покупки с возвратом оплаты.

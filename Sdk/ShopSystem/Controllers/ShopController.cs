@@ -55,25 +55,40 @@ namespace Vortex.Sdk.ShopSystem.Controllers
 
         private async UniTask<ShopOperation> RunProcess(ShopItemModel item, ShopOperation operation)
         {
-            //TODO вставить CancelationToken 
-
-            //Первичная проверка возможности покупки
-            var b = await item.PaymentLogic.CanPay(operation.RequestedCount);
-            if (!b)
+            try
             {
-                operation.SetState(PurchaseState.NotStarted);
+                //TODO вставить CancelationToken 
+
+                //Первичная проверка возможности покупки
+                var b = await item.PaymentLogic.CanPay(operation.RequestedCount);
+                if (!b)
+                {
+                    operation.SetState(PurchaseState.NotStarted);
+                    return operation;
+                }
+
+                b = await item.DeliveryLogic.CanDelivery(operation.RequestedCount);
+                if (!b)
+                {
+                    operation.SetState(PurchaseState.NotStarted);
+                    return operation;
+                }
+
+                //Фиксируем факт заказа, запускаем процесс
+                ShopOperationsBus.MakeRecord(operation);
+                await Processing(operation);
+
                 return operation;
             }
-
-            b = await item.DeliveryLogic.CanDelivery(operation.RequestedCount);
-            if (!b)
+            catch (Exception e)
             {
-                operation.SetState(PurchaseState.NotStarted);
+                Debug.LogException(e);
                 return operation;
             }
+        }
 
-            //Фиксируем факт заказа, запускаем процесс
-            ShopOperationsBus.MakeRecord(operation);
+        public async UniTask Processing(ShopOperation operation, ShopItemModel item = null)
+        {
             while (operation.State is not
                    {
                        Value: PurchaseState.NotStarted
@@ -92,65 +107,71 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                         or PurchaseState.Pending
                     }) break;
             }
-
-            return operation;
         }
 
         private async UniTask<ShopOperation> MakeDelivery(ShopOperation operation, ShopItemModel item = null)
         {
-            var state = operation.State.Value;
-            if (state is not (PurchaseState.Ready or PurchaseState.Pending or PurchaseState.Paid))
+            try
             {
-                Debug.LogError("[ShopController] Wrong state of operation for Deliver");
-                return operation;
-            }
-
-            if (item == null && !_shopItems.TryGetValue(operation.ItemGuid, out item))
-            {
-                Debug.LogError($"[ShopController] Shop Item {operation.ItemGuid} not found");
-                return null;
-            }
-
-            var settings = ShopBus.Settings;
-            var b = await item.DeliveryLogic.CanDelivery(operation.RequestedCount);
-            if (!b)
-            {
-                switch (settings.AfterpayMode)
+                var state = operation.State.Value;
+                if (state is not (PurchaseState.Ready or PurchaseState.Pending or PurchaseState.Paid))
                 {
-                    case AfterpayMode.Pending:
-                        if (operation.State.Value == PurchaseState.Paid)
-                        {
-                            operation.SetState(PurchaseState.Pending);
-                            ShopOperationsBus.MakeRecord(operation);
-                        }
-
-                        break;
-                    case AfterpayMode.Rollback:
-                        await CancelWithRefund(operation);
-                        break;
-                    case AfterpayMode.Ready:
-                        if (operation.State.Value == PurchaseState.Paid)
-                        {
-                            operation.SetState(PurchaseState.Ready);
-                            ShopOperationsBus.MakeRecord(operation);
-                        }
-
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
+                    Debug.LogError("[ShopController] Wrong state of operation for Deliver");
+                    return operation;
                 }
 
+                if (item == null && !_shopItems.TryGetValue(operation.ItemGuid, out item))
+                {
+                    Debug.LogError($"[ShopController] Shop Item {operation.ItemGuid} not found");
+                    return null;
+                }
+
+                var settings = ShopBus.Settings;
+                var b = await item.DeliveryLogic.CanDelivery(operation.RequestedCount);
+                if (!b)
+                {
+                    switch (settings.AfterpayMode)
+                    {
+                        case AfterpayMode.Pending:
+                            if (operation.State.Value == PurchaseState.Paid)
+                            {
+                                operation.SetState(PurchaseState.Pending);
+                                ShopOperationsBus.MakeRecord(operation);
+                            }
+
+                            break;
+                        case AfterpayMode.Rollback:
+                            await CancelWithRefund(operation);
+                            break;
+                        case AfterpayMode.Ready:
+                            if (operation.State.Value == PurchaseState.Paid)
+                            {
+                                operation.SetState(PurchaseState.Ready);
+                                ShopOperationsBus.MakeRecord(operation);
+                            }
+
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+
+                    return operation;
+                }
+
+                var result = await item.DeliveryLogic.MakeDelivery(operation);
+                if (!result)
+                    return operation;
+
+                operation.SetState(PurchaseState.Delivered);
+                ShopOperationsBus.MakeRecord(operation);
+
                 return operation;
             }
-
-            var result = await item.DeliveryLogic.MakeDelivery(operation);
-            if (!result)
+            catch (Exception e)
+            {
+                Debug.LogException(e);
                 return operation;
-
-            operation.SetState(PurchaseState.Delivered);
-            ShopOperationsBus.MakeRecord(operation);
-
-            return operation;
+            }
         }
 
         public async UniTask ConfirmDelivery(ShopOperation operation, ShopItemModel item = null)
@@ -175,7 +196,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             await MakeDelivery(operation, item);
         }
 
-        public async UniTask NextStep(ShopOperation operation, ShopItemModel item = null)
+        private async UniTask NextStep(ShopOperation operation, ShopItemModel item = null)
         {
             item ??= GetItem(operation.ItemGuid);
             if (item == null) return;
