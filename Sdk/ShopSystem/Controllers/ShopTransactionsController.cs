@@ -34,7 +34,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     AppSeconds = (long)GameController.AppTime.TotalSeconds
                 };
 
-                data.Events.Add(newEvent);
+                newEvent.AddEvent();
 
                 if (!data.Transactions.ContainsKey(operation.PurchaseGuid))
                 {

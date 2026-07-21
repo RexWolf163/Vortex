@@ -88,6 +88,12 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         {
             operation.State.Set(state, Key);
         }
+
+        internal static void AddEvent(this ShopTransactionEvent transactionEvent)
+        {
+            var data = GameController.Get<ShopOperations>();
+            data.Events.Add(transactionEvent, Key);
+        }
     }
 }
 #endif
