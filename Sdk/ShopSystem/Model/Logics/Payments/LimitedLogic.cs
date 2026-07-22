@@ -29,6 +29,9 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
             var list = ShopOperationsBus.GetHistory();
             var countGoods = 0;
             var lockCount = maxCount - count;
+            if (lockCount < 0)
+                return UniTask.FromResult(false);
+
             var time = timeForCheck == 0 ? 0 : DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timeForCheck;
             for (var i = list.Count - 1; i >= 0; i--)
             {
