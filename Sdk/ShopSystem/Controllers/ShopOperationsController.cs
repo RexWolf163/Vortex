@@ -89,6 +89,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     {
                         var list = new ListData<ShopOperation>();
                         list.SetOwner(Key);
+                        data.GoodsOperations.Add(transaction.ItemGuid, list);
                     }
 
                     data.GoodsOperations[transaction.ItemGuid].Add(operation, Key);
@@ -133,6 +134,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 {
                     var list = new ListData<ShopOperation>();
                     list.SetOwner(Key);
+                    data.GoodsOperations.Add(operation.ItemGuid, list);
                 }
 
                 if (!data.GoodsOperations[operation.ItemGuid].GetList().Contains(operation))

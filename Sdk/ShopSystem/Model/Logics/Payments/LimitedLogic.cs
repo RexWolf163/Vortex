@@ -32,6 +32,9 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
             if (lockCount < 0)
                 return UniTask.FromResult(false);
 
+            if (list.Count == 0)
+                return UniTask.FromResult(true);
+
             var time = timeForCheck == 0 ? 0 : DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timeForCheck;
             for (var i = list.Count - 1; i >= 0; i--)
             {
