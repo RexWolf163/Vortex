@@ -29,6 +29,12 @@ namespace Vortex.Sdk.ShopSystem.Model
         /// из <see cref="Events"/> при загрузке.
         /// </summary>
         internal Dictionary<string, ShopOperation> Operations { get; set; } = new();
+
+        /// <summary>
+        /// Рантайм-индекс: свёрнутая операция по ItemGuid. Не сериализуется — пересобирается
+        /// из <see cref="Events"/> при загрузке.
+        /// </summary>
+        internal Dictionary<string, ListData<ShopOperation>> GoodsOperations { get; set; } = new();
     }
 }
 #endif

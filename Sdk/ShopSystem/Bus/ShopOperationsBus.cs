@@ -27,7 +27,7 @@ namespace Vortex.Sdk.ShopSystem.Bus
         public static ShopOperations Data { get; private set; }
 
         /// <summary>Контроллер записи журнала (stateless, пишет через owner-ключ модели).</summary>
-        private static IShopTransactionsController Controller => new ShopTransactionsController();
+        private static IShopTransactionsController Controller => ShopTransactionsController.Instance;
 
         /// <summary>Открытые (не-терминальные) покупки: Ordered / Paid / Ready / Pending.</summary>
         public static IReadOnlyList<ShopOperation> GetOpen()
@@ -75,7 +75,7 @@ namespace Vortex.Sdk.ShopSystem.Bus
             Data?.Transactions.GetValueOrDefault(purchaseGuid);
 
         /// <summary>Полная история событий журнала</summary>
-        public static ListData<ShopTransactionEvent> GetHistory() => Data.Events;
+        public static ListData<ShopTransactionEvent> GetHistory() => Data?.Events;
 
         /// <summary>Зафиксировать текущее состояние операции новым событием журнала. Возвращает успех записи.</summary>
         /// <param name="operation">Операция, чьё текущее состояние фиксируется.</param>

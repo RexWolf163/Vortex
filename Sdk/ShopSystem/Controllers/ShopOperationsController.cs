@@ -1,6 +1,7 @@
 #if USING_VORTEX_SHOP
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
@@ -41,6 +42,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             data.Events.SetOwner(Key);
             data.Transactions = new Dictionary<string, ListData<ShopTransactionEvent>>();
             data.Operations = new Dictionary<string, ShopOperation>();
+            data.GoodsOperations = new Dictionary<string, ListData<ShopOperation>>();
 
             var transactions = data.Events.GetList();
             var hasError = false;
@@ -82,6 +84,14 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     };
                     operation.State.Set(transaction.Type, Key);
                     data.Operations[transaction.PurchaseGuid] = operation;
+
+                    if (!data.GoodsOperations.ContainsKey(transaction.ItemGuid))
+                    {
+                        var list = new ListData<ShopOperation>();
+                        list.SetOwner(Key);
+                    }
+
+                    data.GoodsOperations[transaction.ItemGuid].Add(operation, Key);
                 }
             }
 
@@ -118,6 +128,15 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 data.Transactions[operation.PurchaseGuid] = new ListData<ShopTransactionEvent>();
                 data.Transactions[operation.PurchaseGuid].SetOwner(Key);
                 data.Operations[operation.PurchaseGuid] = operation;
+
+                if (!data.GoodsOperations.ContainsKey(operation.ItemGuid))
+                {
+                    var list = new ListData<ShopOperation>();
+                    list.SetOwner(Key);
+                }
+
+                if (!data.GoodsOperations[operation.ItemGuid].GetList().Contains(operation))
+                    data.GoodsOperations[operation.ItemGuid].Add(operation, Key);
             }
 
             data.Transactions[operation.PurchaseGuid].Add(transactionEvent, Key);
