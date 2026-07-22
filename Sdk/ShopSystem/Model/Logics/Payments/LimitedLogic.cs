@@ -1,18 +1,20 @@
+#if USING_VORTEX_SHOP
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Sdk.ShopSystem.Bus;
-using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
 {
+    [Serializable]
     public class LimitedLogic : PaymentLogic
     {
         /// <summary>
         /// Максимальное кол-во вообще или за период (зависит от настройки поля тайминга)
         /// </summary>
-        [SerializeField, Min(0)] private int maxCount;
+        [SerializeField, Min(1)] private int maxCount = 1;
 
         /// <summary>
         /// За какой период проверять.
@@ -22,11 +24,12 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
 
         public override int GetCount() => 1;
 
-        public override async UniTask<bool> CanPay(string guid, int count, CancellationToken ct)
+        public override UniTask<bool> CanPay(string guid, int count, CancellationToken ct)
         {
             var list = ShopOperationsBus.GetHistory();
             var countGoods = 0;
-            var time = timeForCheck == 0 ? 0 : TimeController.Timestamp - timeForCheck;
+            var lockCount = maxCount - count;
+            var time = timeForCheck == 0 ? 0 : DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timeForCheck;
             for (var i = list.Count - 1; i >= 0; i--)
             {
                 var purchase = list[i];
@@ -36,15 +39,18 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
                     continue;
                 if (purchase.ItemGuid == guid)
                     countGoods++;
-                if (countGoods >= maxCount)
-                    return false;
+                if (countGoods >= lockCount)
+                    return UniTask.FromResult(false);
             }
 
-            return true;
+            return UniTask.FromResult(true);
         }
 
-        public override async UniTask<bool> MakePay(ShopOperation operation, CancellationToken ct) => true;
+        public override UniTask<bool> MakePay(ShopOperation operation, CancellationToken ct) =>
+            UniTask.FromResult(true);
 
-        public override async UniTask<bool> MakeRefund(ShopOperation operation) => true;
+        public override UniTask<bool> MakeRefund(ShopOperation operation) =>
+            UniTask.FromResult(true);
     }
 }
+#endif

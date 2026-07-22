@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Model.Enums;
@@ -29,3 +30,4 @@ namespace Vortex.Sdk.ShopSystem.Presets
 #endif
     }
 }
+#endif

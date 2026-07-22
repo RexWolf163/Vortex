@@ -1,3 +1,4 @@
+#if USING_VORTEX_SHOP
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
@@ -7,10 +8,14 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
     {
         public override int GetCount() => 1;
 
-        public override async UniTask<bool> CanPay(string guid, int count, CancellationToken ct) => true;
+        public override UniTask<bool> CanPay(string guid, int count, CancellationToken ct) =>
+            UniTask.FromResult(true);
 
-        public override async UniTask<bool> MakePay(ShopOperation operation, CancellationToken ct) => true;
+        public override UniTask<bool> MakePay(ShopOperation operation, CancellationToken ct) =>
+            UniTask.FromResult(true);
 
-        public override async UniTask<bool> MakeRefund(ShopOperation operation) => true;
+        public override UniTask<bool> MakeRefund(ShopOperation operation) =>
+            UniTask.FromResult(true);
     }
 }
+#endif
