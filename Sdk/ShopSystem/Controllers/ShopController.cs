@@ -399,7 +399,8 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     return;
                 }
 
-                if (!await item.DeliveryLogic.CanDelivery(item.GuidPreset, operation.RequestedCount, ct))
+                if (!await item.DeliveryLogic.CanDelivery(item.GuidPreset, operation.RequestedCount, ct)
+                    || !await item.DeliveryLogic.MakeDelivery(operation, ct))
                 {
                     switch (settings.AfterpayMode)
                     {
@@ -425,8 +426,6 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     return;
                 }
 
-                if (!await item.DeliveryLogic.MakeDelivery(operation, ct))
-                    return;
 
                 operation.SetState(PurchaseState.Delivered);
                 ShopOperationsBus.MakeRecord(operation);
