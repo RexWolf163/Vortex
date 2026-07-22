@@ -496,6 +496,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 operation.SetState(PurchaseState.Refunded);
                 ShopOperationsBus.MakeRecord(operation);
             }
+            else
+            {
+                operation.SetState(PurchaseState.Failed);
+                ShopOperationsBus.MakeRecord(operation);
+            }
         }
 
         /// <summary>
