@@ -1,9 +1,11 @@
 #if USING_VORTEX_SHOP
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
 namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
 {
+    [Serializable]
     public class FreeLogic : PaymentLogic
     {
         public override int GetCount() => 1;

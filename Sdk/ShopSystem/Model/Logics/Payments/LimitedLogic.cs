@@ -38,8 +38,8 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
                 if (purchase.Type != PurchaseState.Delivered)
                     continue;
                 if (purchase.ItemGuid == guid)
-                    countGoods++;
-                if (countGoods >= lockCount)
+                    countGoods += purchase.RequestedCount;
+                if (countGoods > lockCount)
                     return UniTask.FromResult(false);
             }
 
