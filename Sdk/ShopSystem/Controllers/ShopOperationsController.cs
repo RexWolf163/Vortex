@@ -1,7 +1,6 @@
 #if USING_VORTEX_SHOP
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
