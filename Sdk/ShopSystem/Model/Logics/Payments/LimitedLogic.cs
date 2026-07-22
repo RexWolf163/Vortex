@@ -26,7 +26,7 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
 
         public override UniTask<bool> CanPay(string guid, int count, CancellationToken ct)
         {
-            var list = ShopOperationsBus.GetHistory();
+            var list = ShopOperationsBus.GetGoodsHistory(guid);
             var countGoods = 0;
             var lockCount = maxCount - count;
             if (lockCount < 0)
@@ -35,13 +35,22 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
             var time = timeForCheck == 0 ? 0 : DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timeForCheck;
             for (var i = list.Count - 1; i >= 0; i--)
             {
-                var purchase = list[i];
-                if (purchase.Timestamp < time)
-                    break;
-                if (purchase.Type != PurchaseState.Delivered)
+                var operation = list[i];
+                if (operation.State != PurchaseState.Delivered)
                     continue;
-                if (purchase.ItemGuid == guid)
-                    countGoods += purchase.RequestedCount;
+                var listTransactions = ShopOperationsBus.GetPurchaseHistory(operation.PurchaseGuid);
+                if (listTransactions.Count == 0)
+                {
+                    Debug.LogError(
+                        $"[LimitedLogic] Обнаружена операция без событий транзакции! \npurchaseGuid: {operation.PurchaseGuid}");
+                    continue;
+                }
+
+                var lastTransaction = listTransactions[^1];
+                if (lastTransaction.Timestamp < time)
+                    break;
+                if (operation.ItemGuid == guid)
+                    countGoods += operation.RequestedCount;
                 if (countGoods > lockCount)
                     return UniTask.FromResult(false);
             }

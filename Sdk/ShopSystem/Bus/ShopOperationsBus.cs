@@ -77,6 +77,10 @@ namespace Vortex.Sdk.ShopSystem.Bus
         /// <summary>Полная история событий журнала</summary>
         public static ListData<ShopTransactionEvent> GetHistory() => Data?.Events;
 
+        /// <summary>Полная история событий журнала по конкретному товару</summary>
+        public static ListData<ShopOperation> GetGoodsHistory(string itemGuid) =>
+            Data?.GoodsOperations.GetValueOrDefault(itemGuid);
+
         /// <summary>Зафиксировать текущее состояние операции новым событием журнала. Возвращает успех записи.</summary>
         /// <param name="operation">Операция, чьё текущее состояние фиксируется.</param>
         internal static bool MakeRecord(ShopOperation operation) => Controller.MakeRecord(operation);
