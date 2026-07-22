@@ -32,7 +32,7 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
             if (lockCount < 0)
                 return UniTask.FromResult(false);
 
-            if (list.Count == 0)
+            if (list == null || list.Count == 0)
                 return UniTask.FromResult(true);
 
             var time = timeForCheck == 0 ? 0 : DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timeForCheck;
@@ -52,8 +52,7 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
                 var lastTransaction = listTransactions[^1];
                 if (lastTransaction.Timestamp < time)
                     break;
-                if (operation.ItemGuid == guid)
-                    countGoods += operation.RequestedCount;
+                countGoods += operation.RequestedCount;
                 if (countGoods > lockCount)
                     return UniTask.FromResult(false);
             }

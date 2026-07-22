@@ -137,8 +137,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     data.GoodsOperations.Add(operation.ItemGuid, list);
                 }
 
-                if (!data.GoodsOperations[operation.ItemGuid].GetList().Contains(operation))
-                    data.GoodsOperations[operation.ItemGuid].Add(operation, Key);
+                data.GoodsOperations[operation.ItemGuid].Add(operation, Key);
             }
 
             data.Transactions[operation.PurchaseGuid].Add(transactionEvent, Key);
