@@ -21,10 +21,11 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics
         /// <summary>
         /// Проверка возможности получения заданного кол-ва пакетов
         /// </summary>
+        /// <param name="guid">GUID товара</param>
         /// <param name="count"></param>
         /// <param name="ct">Токен отмены. Отмена прерывает проверку.</param>
         /// <returns></returns>
-        public abstract UniTask<bool> CanDelivery(int count, CancellationToken ct);
+        public abstract UniTask<bool> CanDelivery(string guid, int count, CancellationToken ct);
 
         /// <summary>
         /// Попытка получения по указанной операции.

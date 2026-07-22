@@ -262,13 +262,13 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             try
             {
                 //Первичная проверка возможности покупки
-                if (!await item.PaymentLogic.CanPay(operation.RequestedCount, ct))
+                if (!await item.PaymentLogic.CanPay(item.GuidPreset, operation.RequestedCount, ct))
                 {
                     operation.SetState(PurchaseState.NotStarted);
                     return;
                 }
 
-                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct))
+                if (!await item.DeliveryLogic.CanDelivery(item.GuidPreset, operation.RequestedCount, ct))
                 {
                     operation.SetState(PurchaseState.NotStarted);
                     return;
@@ -399,7 +399,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     return;
                 }
 
-                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct))
+                if (!await item.DeliveryLogic.CanDelivery(item.GuidPreset, operation.RequestedCount, ct))
                 {
                     switch (settings.AfterpayMode)
                     {
@@ -462,7 +462,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                 item ??= GetItem(operation.ItemGuid);
                 if (item == null) return;
 
-                if (!await item.DeliveryLogic.CanDelivery(operation.RequestedCount, ct))
+                if (!await item.DeliveryLogic.CanDelivery(item.GuidPreset, operation.RequestedCount, ct))
                     return;
 
                 if (!await item.DeliveryLogic.MakeDelivery(operation, ct))

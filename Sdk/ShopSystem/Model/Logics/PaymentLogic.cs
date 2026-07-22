@@ -22,10 +22,11 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics
         /// <summary>
         /// Проверка возможности оплаты заданного кол-ва пакетов
         /// </summary>
+        /// <param name="guid">GUID товара</param>
         /// <param name="count"></param>
         /// <param name="ct">Токен отмены. Отмена прерывает проверку.</param>
         /// <returns></returns>
-        public abstract UniTask<bool> CanPay(int count, CancellationToken ct);
+        public abstract UniTask<bool> CanPay(string guid, int count, CancellationToken ct);
 
         /// <summary>
         /// Попытка оплаты по торговой операции.
