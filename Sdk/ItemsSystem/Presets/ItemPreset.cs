@@ -103,7 +103,12 @@ namespace Vortex.Sdk.ItemsSystem.Presets
 
                 var propertyType = property.GetType();
                 if (!classes.Add(propertyType))
+                {
+                    // Назначения уже заняты первым вхождением класса — вторая жалоба на ту же
+                    // причину только зашумила бы список.
                     errors.Add($"[{i}] {propertyType.Name}: класс уже присутствует в составе");
+                    continue;
+                }
 
                 var purposes = ItemsBus.GetPurposeInterfaces(propertyType);
                 if (purposes.Length == 0)

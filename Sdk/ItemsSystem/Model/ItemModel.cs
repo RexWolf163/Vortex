@@ -52,13 +52,16 @@ namespace Vortex.Sdk.ItemsSystem.Model
         public string CategoryKey { get; protected set; }
 
         /// <summary>
-        /// Состав по конкретному классу свойства — сериализуемая форма. Непубличный с явной
-        /// пометкой включения: состав меняется только через шину, снаружи доступно чтение
-        /// через методы модели.
+        /// Состав по конкретному классу свойства — сериализуемая форма. Геттер непубличный, поэтому
+        /// в сохранение попадает только по явной пометке включения.
         ///
-        /// Уровень доступа protected, а не private: отбор в сериализацию идёт по конкретному типу,
-        /// а приватные члены базового класса рефлексией на наследнике не видны — при наследовании
-        /// модели private отвалился бы молча.
+        /// <c>internal</c> открывает словарь шине — единственному, кто меняет состав. Ни потребителю
+        /// снаружи, ни наследнику модели в чужой сборке он не виден: так менять состав мимо шины
+        /// неоткуда, и индекс не может разойтись с составом. Чтение — через методы модели.
+        ///
+        /// Не <c>private</c>: отбор в сериализацию идёт по конкретному типу, а приватные члены
+        /// базового класса рефлексией на наследнике не видны — при наследовании модели private
+        /// отвалился бы молча. <c>internal</c> этим свойством обладает, оставаясь закрытым.
         /// </summary>
         [IsPOCO]
         internal Dictionary<Type, ItemProperty> Properties { get; private set; } = new();
@@ -73,7 +76,14 @@ namespace Vortex.Sdk.ItemsSystem.Model
         private ItemCategory _category;
         private long _version;
 
-        /// <summary>Разрешённая категория. <c>null</c>, если ключ пуст или не зарегистрирован.</summary>
+        /// <summary>
+        /// Разрешённая категория. <c>null</c>, если ключ пуст или не зарегистрирован.
+        ///
+        /// Разрешается лениво, при первом обращении, и дальше отдаётся из поля. Отрицательный
+        /// результат не кэшируется: пустой ключ выходит по проверке строки, до всякого поиска,
+        /// а неразрешимый непустой ключ будет искаться и логироваться на каждое обращение —
+        /// это ошибка настройки, и она намеренно остаётся шумной.
+        /// </summary>
         public ItemCategory Category => _category ??= ResolveCategory();
 
         /// <summary>
@@ -122,6 +132,22 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// </summary>
         public override void LoadFromSaveData(string data) => data.UploadProperties(this);
 
+        /// <summary>
+        /// Разрешить категорию по ключу. Пустой ключ — штатная ситуация (категория не задана),
+        /// непустой неразрешимый — ошибка настройки.
+        /// </summary>
+        private ItemCategory ResolveCategory()
+        {
+            if (string.IsNullOrEmpty(CategoryKey))
+                return null;
+
+            var category = ExtensibleEnum.GetByKey<ItemCategory>(CategoryKey);
+            if (category == null)
+                Log.Print(LogLevel.Error,
+                    $"[Items] Category key «{CategoryKey}» is not registered. Item: {GuidPreset}", this);
+            return category;
+        }
+
         #region Bus API
 
         /// <summary>Забрать буфер переноса из пресета, обнулив его в модели.</summary>
@@ -136,24 +162,9 @@ namespace Vortex.Sdk.ItemsSystem.Model
         internal void Stamp(long version) => _version = version;
 
         /// <summary>
-        /// Разрешить категорию по ключу. Пустой ключ — штатная ситуация (категория не задана),
-        /// непустой неразрешимый — ошибка настройки.
-        /// </summary>
-        internal ItemCategory ResolveCategory()
-        {
-            if (string.IsNullOrEmpty(CategoryKey))
-                return null;
-
-            var category = ExtensibleEnum.GetByKey<ItemCategory>(CategoryKey);
-            if (category == null)
-                Log.Print(LogLevel.Error,
-                    $"[Items] Category key «{CategoryKey}» is not registered. Item: {GuidPreset}", this);
-            return category;
-        }
-
-        /// <summary>
         /// Пометить предмет как собранный по неразрешимому идентификатору пресета: идентификатор
-        /// сохранён, состав пуст, имени, иконки и категории нет.
+        /// сохранён, настроечных данных нет — ни имени, ни иконки, ни категории. Состав при этом
+        /// пуст только в отсутствие сохранения; переданное сохранение восстановит его целиком.
         /// </summary>
         internal void MarkUnresolved(string presetGuid) => GuidPreset = presetGuid;
 
