@@ -4,10 +4,15 @@ using System.Collections.Generic;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Model.Enums;
+using Vortex.Core.LoggerSystem.Bus;
+using Vortex.Core.LoggerSystem.Model;
 using Vortex.Sdk.ItemsSystem.Bus;
 using Vortex.Sdk.ItemsSystem.Model;
 using Vortex.Unity.DatabaseSystem.Presets;
 using Vortex.Unity.ExtensibleEnumSystem.Attributes;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Vortex.Sdk.ItemsSystem.Presets
 {
@@ -15,11 +20,12 @@ namespace Vortex.Sdk.ItemsSystem.Presets
     /// Пресет предмета — единственное место авторинга. Состав свойств задаётся полиморфно через
     /// <c>[SerializeReference]</c>; классы свойств объявляются на уровне 4, пакет о них не знает.
     ///
-    /// Массив свойств переносится в модель как буфер и там же расходуется в словари: имя
-    /// <see cref="PresetProperties"/> совпадает с одноимённым свойством модели, поэтому массив
-    /// переносит CopyFrom глубокой копией — каждый предмет получает собственные независимые
-    /// свойства. Категория переносится строковым ключом, а не разрешённым значением: копирование
-    /// идёт через DeepCopy и продублировало бы singleton-инстанс расширяемого перечисления.
+    /// Авторский массив сворачивается здесь же в словарь по классу свойства и в этой форме
+    /// переносится в модель: имя <see cref="PresetProperties"/> совпадает с одноимённым свойством
+    /// модели, поэтому состав переносит CopyFrom глубокой копией — каждый предмет получает
+    /// собственные независимые свойства. Категория переносится строковым ключом, а не разрешённым
+    /// значением: копирование идёт через DeepCopy и продублировало бы singleton-инстанс
+    /// расширяемого перечисления.
     ///
     /// Имена парных свойств пресета и модели не должны различаться только регистром —
     /// сопоставление в CopyFrom регистронезависимо, и такие пары схлопнутся в одну.
@@ -30,12 +36,56 @@ namespace Vortex.Sdk.ItemsSystem.Presets
     public class ItemPreset : RecordPreset<ItemModel>
     {
         [SerializeReference]
+#if UNITY_EDITOR
         [InfoBox("$ValidationMessage", InfoMessageType.Error, nameof(HasValidationError))]
+#endif
         [LabelText("Properties")]
         private ItemProperty[] properties = Array.Empty<ItemProperty>();
 
-        /// <summary>Состав свойств под перенос в модель. Читается CopyFrom при построении записи.</summary>
-        public ItemProperty[] PresetProperties => properties;
+        private Dictionary<Type, ItemProperty> _composition;
+
+        /// <summary>
+        /// Состав свойств по конкретному классу — форма переноса в модель. Читается CopyFrom при
+        /// построении записи: имя совпадает с одноимённым свойством модели, ключи словаря копируются
+        /// как есть, значения — глубокой копией, поэтому экземпляры пресета наружу не утекают.
+        ///
+        /// Группировка выполняется здесь, а не на построении предмета: она зависит только от
+        /// настройки, поэтому считается один раз на пресет, а не на каждый из десятков тысяч
+        /// экземпляров. Диагностика ошибок настройки по той же причине пишется в лог однократно.
+        /// </summary>
+        public Dictionary<Type, ItemProperty> PresetProperties => _composition ??= BuildComposition();
+
+        /// <summary>
+        /// Сворачивает авторский массив в словарь по классу. Пустые слоты и повтор класса —
+        /// ошибки настройки: слот пропускается, первое вхождение класса выигрывает.
+        /// </summary>
+        private Dictionary<Type, ItemProperty> BuildComposition()
+        {
+            var composition = new Dictionary<Type, ItemProperty>();
+            if (properties == null)
+                return composition;
+
+            foreach (var property in properties)
+            {
+                if (property == null)
+                {
+                    Log.Print(LogLevel.Error, $"[Items] Empty property slot in preset «{Name}»", this);
+                    continue;
+                }
+
+                var propertyType = property.GetType();
+                if (composition.ContainsKey(propertyType))
+                {
+                    Log.Print(LogLevel.Error,
+                        $"[Items] Duplicated property class «{propertyType.Name}» in preset «{Name}»", this);
+                    continue;
+                }
+
+                composition[propertyType] = property;
+            }
+
+            return composition;
+        }
 
         [SerializeField, ExtEnumKey(typeof(ItemCategory))]
         private string categoryKey;
@@ -44,14 +94,19 @@ namespace Vortex.Sdk.ItemsSystem.Presets
         public string CategoryKey => categoryKey;
 
 #if UNITY_EDITOR
-        private void OnValidate() => type = RecordTypes.MultiInstance;
-#endif
+
+        /// <summary>Правка состава в инспекторе сбрасывает свёртку — иначе она осталась бы вчерашней.</summary>
+        private void OnValidate()
+        {
+            type = RecordTypes.MultiInstance;
+            _composition = null;
+        }
 
         #region Валидация состава
 
-        private const float ValidationInterval = 1f;
+        private const double ValidationInterval = 1.0;
 
-        private float _validationTime;
+        private double _validationTime;
         private string _validationMessage;
 
         private bool HasValidationError => !string.IsNullOrEmpty(ValidationMessage);
@@ -65,7 +120,7 @@ namespace Vortex.Sdk.ItemsSystem.Presets
         {
             get
             {
-                var now = Time.realtimeSinceStartup;
+                var now = EditorApplication.timeSinceStartup;
                 if (_validationMessage != null && now - _validationTime < ValidationInterval)
                     return _validationMessage;
 
@@ -98,14 +153,14 @@ namespace Vortex.Sdk.ItemsSystem.Presets
                     continue;
                 }
 
-                var type = property.GetType();
-                if (!classes.Add(type))
-                    errors.Add($"[{i}] {type.Name}: класс уже присутствует в составе");
+                var propertyType = property.GetType();
+                if (!classes.Add(propertyType))
+                    errors.Add($"[{i}] {propertyType.Name}: класс уже присутствует в составе");
 
-                var purposes = ItemsBus.GetPurposeInterfaces(type);
+                var purposes = ItemsBus.GetPurposeInterfaces(propertyType);
                 if (purposes.Length == 0)
                 {
-                    errors.Add($"[{i}] {type.Name}: нет интерфейсов назначения — свойство недостижимо");
+                    errors.Add($"[{i}] {propertyType.Name}: нет интерфейсов назначения — свойство недостижимо");
                     continue;
                 }
 
@@ -113,11 +168,11 @@ namespace Vortex.Sdk.ItemsSystem.Presets
                 {
                     if (taken.TryGetValue(purpose, out var owner))
                     {
-                        errors.Add($"[{i}] {type.Name}: назначение {purpose.Name} уже занято ({owner.Name})");
+                        errors.Add($"[{i}] {propertyType.Name}: назначение {purpose.Name} уже занято ({owner.Name})");
                         continue;
                     }
 
-                    taken[purpose] = type;
+                    taken[purpose] = propertyType;
                 }
             }
 
@@ -125,6 +180,8 @@ namespace Vortex.Sdk.ItemsSystem.Presets
         }
 
         #endregion
+
+#endif
     }
 }
 #endif

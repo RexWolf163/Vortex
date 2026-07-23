@@ -6,7 +6,6 @@ using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions.Actions;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
-using Vortex.Core.System.Abstractions;
 using Vortex.Sdk.ItemsSystem.Model;
 
 namespace Vortex.Sdk.ItemsSystem.Bus
@@ -20,8 +19,12 @@ namespace Vortex.Sdk.ItemsSystem.Bus
     /// что менялось позже. Ось не сохраняется и обнуляется только при запуске приложения: ни новая
     /// игра, ни загрузка её не сбрасывают. Порядок изменений восстанавливается по ней, а не по
     /// часам устройства — часы можно перевести, ось идёт только вперёд.
+    ///
+    /// Статический класс, а не <c>Singleton</c>: экземпляр никуда не передаётся и интерфейсов не
+    /// реализует, а единственное, что база дала бы сверх статики — сброс состояния через Dispose —
+    /// прямо противоречит неразрывности оси.
     /// </summary>
-    public class ItemsBus : Singleton<ItemsBus>
+    public static class ItemsBus
     {
         /// <summary>
         /// Предмет построен и полностью согласован: состав собран, индекс построен, отметки
@@ -38,21 +41,21 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// </summary>
         public static event Action<ItemModel> OnItemCreated;
 
-        private long _version;
+        private static long _version;
 
         /// <summary>
         /// Кеш интерфейсов назначения по конкретному классу свойства. Рефлексия на каждое свойство
         /// каждого предмета при построении десятков тысяч экземпляров недопустима.
         /// </summary>
-        private readonly Dictionary<Type, Type[]> _purposeCache = new();
+        private static readonly Dictionary<Type, Type[]> PurposeCache = new();
 
         #region Ось версии
 
         /// <summary>Текущий конец оси. Читается потребителем перед расчётом производной величины.</summary>
-        public static long Version => Instance._version;
+        public static long Version => _version;
 
         /// <summary>Сдвинуть ось и получить новое значение. Единственная точка инкремента.</summary>
-        public static long NextVersion() => ++Instance._version;
+        public static long NextVersion() => ++_version;
 
         #endregion
 
@@ -78,7 +81,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 item.MarkUnresolved(presetGuid);
             }
 
-            FillFromPreset(item);
+            item.TakeComposition();
 
             if (!string.IsNullOrEmpty(saveData))
                 item.LoadFromSaveData(saveData);
@@ -89,38 +92,6 @@ namespace Vortex.Sdk.ItemsSystem.Bus
 
             OnItemCreated.Fire(item);
             return item;
-        }
-
-        /// <summary>
-        /// Переносит состав из буфера пресета в словарь по классу. Буфер обнуляется: массивом
-        /// модель не владеет, дальше состав живёт только в словарях.
-        /// </summary>
-        private static void FillFromPreset(ItemModel item)
-        {
-            var source = item.TakePresetProperties();
-            if (source == null)
-                return;
-
-            var properties = item.PropertiesMap;
-            foreach (var property in source)
-            {
-                if (property == null)
-                {
-                    Log.Print(LogLevel.Error,
-                        $"[Items] Empty property slot in preset. Item: {item.GuidPreset}", item);
-                    continue;
-                }
-
-                var type = property.GetType();
-                if (properties.ContainsKey(type))
-                {
-                    Log.Print(LogLevel.Error,
-                        $"[Items] Duplicated property class «{type.Name}». Item: {item.GuidPreset}", item);
-                    continue;
-                }
-
-                properties[type] = property;
-            }
         }
 
         /// <summary>
@@ -265,8 +236,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// </summary>
         internal static Type[] GetPurposeInterfaces(Type type)
         {
-            var cache = Instance._purposeCache;
-            if (cache.TryGetValue(type, out var cached))
+            if (PurposeCache.TryGetValue(type, out var cached))
                 return cached;
 
             var marker = typeof(IItemProperty);
@@ -274,7 +244,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 .Where(i => i != marker && marker.IsAssignableFrom(i))
                 .ToArray();
 
-            cache[type] = purposes;
+            PurposeCache[type] = purposes;
             return purposes;
         }
 
