@@ -81,8 +81,6 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 item.MarkUnresolved(presetGuid);
             }
 
-            item.TakeComposition();
-
             if (!string.IsNullOrEmpty(saveData))
                 item.LoadFromSaveData(saveData);
 

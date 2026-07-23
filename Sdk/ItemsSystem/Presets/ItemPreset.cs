@@ -21,7 +21,7 @@ namespace Vortex.Sdk.ItemsSystem.Presets
     /// <c>[SerializeReference]</c>; классы свойств объявляются на уровне 4, пакет о них не знает.
     ///
     /// Авторский массив сворачивается здесь же в словарь по классу свойства и в этой форме
-    /// переносится в модель: имя <see cref="PresetProperties"/> совпадает с одноимённым свойством
+    /// переносится в модель: имя <see cref="Properties"/> совпадает с одноимённым свойством
     /// модели, поэтому состав переносит CopyFrom глубокой копией — каждый предмет получает
     /// собственные независимые свойства. Категория переносится строковым ключом, а не разрешённым
     /// значением: копирование идёт через DeepCopy и продублировало бы singleton-инстанс
@@ -36,9 +36,7 @@ namespace Vortex.Sdk.ItemsSystem.Presets
     public class ItemPreset : RecordPreset<ItemModel>
     {
         [SerializeReference]
-#if UNITY_EDITOR
-        [InfoBox("$ValidationMessage", InfoMessageType.Error, nameof(HasValidationError))]
-#endif
+        [InfoBox("$ValidationMessage", InfoMessageType.Error, "$HasValidationError")]
         [LabelText("Properties")]
         private ItemProperty[] properties = Array.Empty<ItemProperty>();
 
@@ -53,7 +51,7 @@ namespace Vortex.Sdk.ItemsSystem.Presets
         /// настройки, поэтому считается один раз на пресет, а не на каждый из десятков тысяч
         /// экземпляров. Диагностика ошибок настройки по той же причине пишется в лог однократно.
         /// </summary>
-        public Dictionary<Type, ItemProperty> PresetProperties => _composition ??= BuildComposition();
+        public Dictionary<Type, ItemProperty> Properties => _composition ??= BuildComposition();
 
         /// <summary>
         /// Сворачивает авторский массив в словарь по классу. Пустые слоты и повтор класса —

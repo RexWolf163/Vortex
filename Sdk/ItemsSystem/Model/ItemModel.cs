@@ -32,20 +32,6 @@ namespace Vortex.Sdk.ItemsSystem.Model
     public class ItemModel : Record
     {
         /// <summary>
-        /// Буфер переноса состава из пресета. Свёрнутый словарь приходит готовым — группировка
-        /// зависит только от настройки и выполняется на стороне пресета один раз, а не на каждом
-        /// построении. Заполняется CopyFrom (глубокая копия — каждый предмет получает собственные
-        /// независимые свойства), сразу же расходуется шиной и обнуляется: после построения здесь
-        /// всегда <c>null</c>.
-        ///
-        /// Публичность вынужденная — CopyFrom сопоставляет только публичные свойства, и это
-        /// единственный канал от пресета к модели. Поэтому переносится буфер, а не рабочий
-        /// <see cref="Properties"/>: публичный геттер отдал бы наружу мутабельный состав.
-        /// </summary>
-        [NotPOCO]
-        public Dictionary<Type, ItemProperty> PresetProperties { get; protected set; }
-
-        /// <summary>
         /// Ключ категории из пресета. Приходит настройкой при каждом построении, поэтому
         /// в сохранение не идёт. Разрешённое значение — <see cref="Category"/>.
         /// </summary>
@@ -130,19 +116,6 @@ namespace Vortex.Sdk.ItemsSystem.Model
 
         /// <summary>Индекс по интерфейсам — рабочая поверхность шины.</summary>
         internal Dictionary<Type, ItemProperty> IndexMap => Index;
-
-        /// <summary>
-        /// Принять состав из буфера переноса, обнулив буфер. Пустой буфер оставляет состав пустым:
-        /// так собирается болванка по неразрешимому идентификатору пресета.
-        /// </summary>
-        internal void TakeComposition()
-        {
-            if (PresetProperties == null)
-                return;
-
-            Properties = PresetProperties;
-            PresetProperties = null;
-        }
 
         /// <summary>Проставить отметку конкретным значением.</summary>
         internal void Stamp(long version) => _version = version;
