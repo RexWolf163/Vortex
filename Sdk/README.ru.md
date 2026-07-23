@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Sdk.*`
 **Слой:** 3 (AppSDK)
-**Пакетов:** 12 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, MapLevels, RewardsSystem, ShopSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
+**Пакетов:** 13 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, ItemsSystem, MapLevels, RewardsSystem, ShopSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
 
 ---
 
@@ -56,6 +56,7 @@ SDK — это контракт: «в наших проектах игра ус�
 | **AudioLocalizationSystem** | `ru.vortex.sdk.localization.audio` | Локализованная озвучка реплик: привязка voice к Sound по языку |
 | **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Играбельный персонаж: шина, контроллеры, view, сохранение/загрузка |
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Спавн визуальных эффектов из каталога по ключу через пул |
+| **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Предмет с набором свойств из настройки: доступ по интерфейсу назначения, ось версии для инвалидации кэшей |
 | **MapLevels** | `ru.vortex.sdk.maplevels` | Стриминговые уровни на карте: переключение, загрузка/выгрузка |
 | **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Система наград |
 | **ShopSystem** | `ru.vortex.sdk.shopsystem` | Транзакционный движок покупок: заказ → оплата → выдача, журнал в сейве, восстановление и отмена |
