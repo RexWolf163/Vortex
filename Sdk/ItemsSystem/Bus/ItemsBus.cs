@@ -104,7 +104,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
             if (source == null)
                 return;
 
-            var properties = item.PropertiesMap;
+            var properties = item.Properties;
             foreach (var property in source)
             {
                 if (property == null)
@@ -133,8 +133,8 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// </summary>
         private static void RebuildIndex(ItemModel item)
         {
-            var index = item.IndexMap;
-            var properties = item.PropertiesMap;
+            var index = item.Index;
+            var properties = item.Properties;
             index.Clear();
 
             List<Type> rejected = null;
@@ -183,7 +183,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
             var version = NextVersion();
             item.Stamp(version);
 
-            foreach (var property in item.PropertiesMap.Values)
+            foreach (var property in item.Properties.Values)
                 property.Stamp(version);
         }
 
@@ -201,7 +201,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         public static bool AddProperty(ItemModel item, ItemProperty property)
         {
             var type = property.GetType();
-            var properties = item.PropertiesMap;
+            var properties = item.Properties;
 
             if (properties.ContainsKey(type))
             {
@@ -210,7 +210,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 return false;
             }
 
-            var index = item.IndexMap;
+            var index = item.Index;
             var purposes = GetPurposeInterfaces(type);
 
             foreach (var purpose in purposes)
@@ -245,10 +245,10 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         public static bool RemoveProperty(ItemModel item, ItemProperty property)
         {
             var type = property.GetType();
-            if (!item.PropertiesMap.Remove(type))
+            if (!item.Properties.Remove(type))
                 return false;
 
-            var index = item.IndexMap;
+            var index = item.Index;
             foreach (var purpose in GetPurposeInterfaces(type))
                 if (index.TryGetValue(purpose, out var present) && ReferenceEquals(present, property))
                     index.Remove(purpose);

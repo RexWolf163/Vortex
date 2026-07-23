@@ -61,14 +61,14 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// модели private отвалился бы молча.
         /// </summary>
         [IsPOCO]
-        protected Dictionary<Type, ItemProperty> Properties { get; set; } = new();
+        protected internal Dictionary<Type, ItemProperty> Properties { get; protected set; } = new();
 
         /// <summary>
         /// Индекс по интерфейсам назначения — производная величина. Непубличный и без пометок,
         /// поэтому в сохранение не попадает сам собой: отбор берёт непубличные свойства только
         /// при явном включении. Помечать исключением не требуется.
         /// </summary>
-        protected Dictionary<Type, ItemProperty> Index { get; set; } = new();
+        protected internal Dictionary<Type, ItemProperty> Index { get; protected set; } = new();
 
         private ItemCategory _category;
         private long _version;
@@ -123,12 +123,6 @@ namespace Vortex.Sdk.ItemsSystem.Model
         public override void LoadFromSaveData(string data) => data.UploadProperties(this);
 
         #region Bus API
-
-        /// <summary>Состав по классу — рабочая поверхность шины.</summary>
-        internal Dictionary<Type, ItemProperty> PropertiesMap => Properties;
-
-        /// <summary>Индекс по интерфейсам — рабочая поверхность шины.</summary>
-        internal Dictionary<Type, ItemProperty> IndexMap => Index;
 
         /// <summary>Забрать буфер переноса из пресета, обнулив его в модели.</summary>
         internal ItemProperty[] TakePresetProperties()
