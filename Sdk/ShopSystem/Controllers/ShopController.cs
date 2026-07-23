@@ -54,10 +54,11 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             OnInit?.Invoke();
         }
 
-        /// <summary>Отключение драйвера от шины. Состояния для сброса нет.</summary>
-        public void Destroy()
-        {
-        }
+        /// <summary>
+        /// Отключение драйвера от шины. Гасит идущий процесс: иначе при горячей смене драйвера покупка
+        /// продолжила бы работать на отключённом контроллере и писать в журнал уже другой сессии.
+        /// </summary>
+        public void Destroy() => _cts?.Cancel();
 
         /// <summary>
         /// Покупка товара по guid. Отбивается при занятости (<see cref="IsBusy"/>) и на неизвестном товаре
@@ -182,8 +183,9 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         /// <summary>
         /// Внешняя отмена покупки. Если по этой покупке идёт процесс — прерывает его и ждёт размотки
         /// до чистой границы состояния, затем по финальному состоянию: оплата проведена
-        /// (Paid/Ready/Pending) — возврат через <see cref="Refund"/>; ещё не оплачено (Ordered) —
-        /// закрытие как Cancelled; терминальное — ничего.
+        /// (Paid/Ready/Pending) — возврат через <see cref="Refund"/> (при отказе возврата покупка
+        /// закрывается как Failed); ещё не оплачено (Ordered) — закрытие как Cancelled;
+        /// терминальное — ничего.
         /// </summary>
         public async UniTask CancelWithRefund(ShopOperation operation)
         {
@@ -369,10 +371,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
 
         /// <summary>
         /// Автоматическая выдача из Paid/Pending с применением политики <see cref="AfterpayMode"/>:
-        /// под Ready-режимом свежий Paid уводится в Ready (без попытки выдачи); при недоступной выдаче —
-        /// Pending / откат через <see cref="Refund"/>; при успехе — Delivered. Отмену (OCE) пробрасывает
-        /// наверх (в цикл/Launch), прочие исключения логирует. Confirm-путь идёт отдельно
-        /// (<see cref="MakeDeliveryForReady"/>) и сюда не заходит.
+        /// под Ready-режимом свежий Paid уводится в Ready (без попытки выдачи); недоступная выдача и
+        /// сорвавшаяся попытка обрабатываются одинаково — Pending / откат через <see cref="Refund"/>;
+        /// при успехе — Delivered. Отмену (OCE) пробрасывает наверх (в цикл/Launch), прочие исключения
+        /// логирует. Confirm-путь идёт отдельно (<see cref="MakeDeliveryForReady"/>) и сюда не заходит.
         /// </summary>
         private async UniTask MakeDelivery(ShopOperation operation, CancellationToken ct, ShopItemModel item = null)
         {
@@ -416,8 +418,9 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                             await Refund(operation, item);
                             break;
                         case AfterpayMode.Ready:
-                            //Сюда доходит только ConfirmDelivery при недоступной выдаче
-                            //(Paid ушёл в Ready ранним выходом). Остаёмся в Ready — игрок повторит подтверждение.
+                            //Paid под этим режимом ушёл в Ready ранним выходом, а путь из Ready идёт через
+                            //MakeDeliveryForReady. Сюда попадает только Pending при смене политики —
+                            //состояние не трогаем, цикл остановится на равновесии.
                             break;
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -483,8 +486,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
 
         /// <summary>
         /// Возврат оплаты. Компенсирующее действие — не завязано на токен отмены, обязано отработать
-        /// до конца. При успехе переводит покупку в Refunded. Вызывается из Rollback-ветки выдачи
-        /// и из <see cref="CancelWithRefund"/>.
+        /// до конца и <b>всегда</b> терминализует покупку: успех → Refunded, отказ логики → Failed
+        /// («ни выдать, ни вернуть» — покупка попадает в разбор через GetStuck). Терминализация
+        /// обязательна: без неё автопрогон зациклится на неизменном состоянии.
+        /// Вызывается из Rollback-ветки выдачи и из <see cref="CancelWithRefund"/>.
         /// </summary>
         private async UniTask Refund(ShopOperation operation, ShopItemModel item = null)
         {

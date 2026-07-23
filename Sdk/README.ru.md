@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Sdk.*`
 **Слой:** 3 (AppSDK)
-**Пакетов:** 11 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, MapLevels, RewardsSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
+**Пакетов:** 12 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, MapLevels, RewardsSystem, ShopSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
 
 ---
 
@@ -58,6 +58,7 @@ SDK — это контракт: «в наших проектах игра ус�
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Спавн визуальных эффектов из каталога по ключу через пул |
 | **MapLevels** | `ru.vortex.sdk.maplevels` | Стриминговые уровни на карте: переключение, загрузка/выгрузка |
 | **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Система наград |
+| **ShopSystem** | `ru.vortex.sdk.shopsystem` | Транзакционный движок покупок: заказ → оплата → выдача, журнал в сейве, восстановление и отмена |
 | **SdkSettingsSystem** | `sdk.settings.system` | Конфиг активации SDK-пакетов через define-символы |
 | **UIs/RoofTransparentSystem** | `ru.vortex.sdk.ui.rooftransparent` | Прозрачность крыш при заслонении персонажа |
 | **UIs/SaveLoad** | `ru.vortex.sdk.game.uis.saveload` | UI-обёртка сохранения/загрузки |

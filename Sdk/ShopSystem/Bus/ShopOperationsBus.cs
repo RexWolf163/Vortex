@@ -62,7 +62,10 @@ namespace Vortex.Sdk.ShopSystem.Bus
         public static IReadOnlyList<ShopOperation> GetReady() => Data?.Operations.Values
             .Where(operation => operation.State.Value == PurchaseState.Ready).ToList();
 
-        /// <summary>Зависшие — покупки, закрытые Failed (товар без обязательных логик). Для техподдержки.</summary>
+        /// <summary>
+        /// Зависшие — покупки, закрытые Failed: товар без обязательных логик либо неудавшийся возврат
+        /// оплаты. Для техподдержки и ручного разбора.
+        /// </summary>
         public static IReadOnlyList<ShopOperation> GetStuck() => Data?.Operations.Values
             .Where(operation => operation.State.Value == PurchaseState.Failed).ToList();
 

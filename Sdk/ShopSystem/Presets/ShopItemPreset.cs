@@ -8,6 +8,12 @@ using Vortex.Unity.DatabaseSystem.Presets;
 
 namespace Vortex.Sdk.ShopSystem.Presets
 {
+    /// <summary>
+    /// Пресет товара магазина — authoring-поверхность для <see cref="ShopItemModel"/>. Логики оплаты
+    /// и выдачи задаются полиморфно через [SerializeReference]; имена свойств совпадают со свойствами
+    /// записи, поэтому их переносит CopyFrom при построении. Тип записи закреплён как Singleton —
+    /// каталог неизменяем.
+    /// </summary>
     [CreateAssetMenu(fileName = "ShopItemModel", menuName = "Database/ShopItem")]
     public class ShopItemPreset : RecordPreset<ShopItemModel>
     {

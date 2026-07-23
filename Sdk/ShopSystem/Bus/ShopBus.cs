@@ -50,13 +50,13 @@ namespace Vortex.Sdk.ShopSystem.Bus
         /// <summary>Идёт ли интерактивный процесс. Пред-проверка для UI, чтобы отличать «занято» от прочих отказов.</summary>
         public static bool IsBusy => HasDriver() && Driver.IsBusy;
 
-        /// <summary>Покупка товара по guid (await до терминала/равновесия). См. <see cref="IShopController.Buy"/>.</summary>
-        public static async UniTask<ShopOperation> Buy(string purchaseGuid, int count) =>
-            await Driver.Buy(purchaseGuid, count);
+        /// <summary>Покупка товара по его guid (await до терминала/равновесия). См. <see cref="IShopController.Buy"/>.</summary>
+        public static async UniTask<ShopOperation> Buy(string itemGuid, int count) =>
+            await Driver.Buy(itemGuid, count);
 
         /// <summary>Синхронная fire-and-forget покупка. См. <see cref="IShopController.BuyForget"/>.</summary>
-        public static ShopOperation BuyForget(string purchaseGuid, int count) =>
-            Driver.BuyForget(purchaseGuid, count);
+        public static ShopOperation BuyForget(string itemGuid, int count) =>
+            Driver.BuyForget(itemGuid, count);
 
         /// <summary>Доигрывание открытой покупки (используется восстановлением после загрузки).</summary>
         public static void RestoreOperation(ShopOperation operation) =>

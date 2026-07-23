@@ -11,8 +11,8 @@ namespace Vortex.Sdk.ShopSystem.Controllers
 {
     /// <summary>
     /// Владелец owner-ключа данных магазина. На старте новой игры/загрузки закрывает журнал на ключ,
-    /// пересобирает рантайм-индексы (Transactions/Operations) из журнала и запускает восстановление
-    /// открытых покупок. Единственная точка мутации данных — через ключ (extension-методы ниже).
+    /// пересобирает рантайм-индексы (Transactions / Operations / GoodsOperations) из журнала и запускает
+    /// восстановление открытых покупок. Единственная точка мутации данных — через ключ (extension-методы ниже).
     /// </summary>
     public static class ShopOperationsController
     {
@@ -31,9 +31,9 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         }
 
         /// <summary>
-        /// Закрывает журнал на owner-ключ и пересобирает индексы <c>Transactions</c>/<c>Operations</c>
-        /// свёрткой событий (с проверкой сквозной нумерации). По завершении поднимает
-        /// <see cref="OnLoadDataComplete"/> и доигрывает открытые покупки.
+        /// Закрывает журнал на owner-ключ и пересобирает индексы <c>Transactions</c> / <c>Operations</c> /
+        /// <c>GoodsOperations</c> свёрткой событий (с проверкой сквозной нумерации). По завершении
+        /// поднимает <see cref="OnLoadDataComplete"/> и доигрывает открытые покупки.
         /// </summary>
         private static void LockData()
         {

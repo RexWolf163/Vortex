@@ -8,6 +8,12 @@ using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
 {
+    /// <summary>
+    /// Оплата-ограничитель: списания нет, но покупка разрешается, пока суммарное количество уже выданных
+    /// пачек товара плюс запрошенное не превысит <c>maxCount</c> — за всё время либо за окно
+    /// <c>timeForCheck</c>. Считает по per-item истории (<c>GetGoodsHistory</c>), учитывая только
+    /// доведённые до Delivered покупки.
+    /// </summary>
     [Serializable]
     public class LimitedLogic : PaymentLogic
     {

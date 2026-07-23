@@ -40,7 +40,8 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics
 
         /// <summary>
         /// Попытка рефанда. Компенсирующее действие — токена отмены нет, обязано доиграть до конца.
-        /// При неудаче операция виснет в Paid статусе.
+        /// Возврат false закрывает покупку как Failed («ни выдать, ни вернуть») — она уйдёт
+        /// в GetStuck на ручной разбор.
         /// </summary>
         /// <param name="operation"></param>
         /// <returns></returns>

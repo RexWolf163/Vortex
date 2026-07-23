@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Sdk.*`
 **Layer:** 3 (AppSDK)
-**Packages:** 11 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, MapLevels, RewardsSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
+**Packages:** 12 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, MapLevels, RewardsSystem, ShopSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
 
 ---
 
@@ -58,6 +58,7 @@ State changes only through the controller. UI observes but does not decide.
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Spawns visual effects from a catalog by key through a pool |
 | **MapLevels** | `ru.vortex.sdk.maplevels` | Streaming map levels: switching, load/unload |
 | **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Rewards system |
+| **ShopSystem** | `ru.vortex.sdk.shopsystem` | Transactional purchase engine: order → payment → delivery, journal in the save, restoration and cancellation |
 | **SdkSettingsSystem** | `sdk.settings.system` | SDK-package activation config via define symbols |
 | **UIs/RoofTransparentSystem** | `ru.vortex.sdk.ui.rooftransparent` | Roof transparency when the character is occluded |
 | **UIs/SaveLoad** | `ru.vortex.sdk.game.uis.saveload` | Save/load UI wrapper |
