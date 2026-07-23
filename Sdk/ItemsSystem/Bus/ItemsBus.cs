@@ -86,7 +86,6 @@ namespace Vortex.Sdk.ItemsSystem.Bus
             if (!string.IsNullOrEmpty(saveData))
                 item.LoadFromSaveData(saveData);
 
-            item.ResolveCategory();
             RebuildIndex(item);
             StampAll(item);
 

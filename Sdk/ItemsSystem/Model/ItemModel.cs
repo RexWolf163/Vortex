@@ -61,14 +61,14 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// модели private отвалился бы молча.
         /// </summary>
         [IsPOCO]
-        protected internal Dictionary<Type, ItemProperty> Properties { get; protected set; } = new();
+        internal Dictionary<Type, ItemProperty> Properties { get; private set; } = new();
 
         /// <summary>
         /// Индекс по интерфейсам назначения — производная величина. Непубличный и без пометок,
         /// поэтому в сохранение не попадает сам собой: отбор берёт непубличные свойства только
         /// при явном включении. Помечать исключением не требуется.
         /// </summary>
-        protected internal Dictionary<Type, ItemProperty> Index { get; protected set; } = new();
+        internal Dictionary<Type, ItemProperty> Index { get; private set; } = new();
 
         private ItemCategory _category;
         private long _version;
