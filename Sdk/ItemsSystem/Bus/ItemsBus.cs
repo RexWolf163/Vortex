@@ -81,6 +81,8 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 item.MarkUnresolved(presetGuid);
             }
 
+            FillFromPreset(item);
+
             if (!string.IsNullOrEmpty(saveData))
                 item.LoadFromSaveData(saveData);
 
@@ -90,6 +92,38 @@ namespace Vortex.Sdk.ItemsSystem.Bus
 
             OnItemCreated.Fire(item);
             return item;
+        }
+
+        /// <summary>
+        /// Переносит состав из буфера пресета в словарь по классу. Буфер обнуляется: массивом
+        /// модель не владеет, дальше состав живёт только в словарях.
+        /// </summary>
+        private static void FillFromPreset(ItemModel item)
+        {
+            var source = item.TakePresetProperties();
+            if (source == null)
+                return;
+
+            var properties = item.PropertiesMap;
+            foreach (var property in source)
+            {
+                if (property == null)
+                {
+                    Log.Print(LogLevel.Error,
+                        $"[Items] Empty property slot in preset. Item: {item.GuidPreset}", item);
+                    continue;
+                }
+
+                var type = property.GetType();
+                if (properties.ContainsKey(type))
+                {
+                    Log.Print(LogLevel.Error,
+                        $"[Items] Duplicated property class «{type.Name}». Item: {item.GuidPreset}", item);
+                    continue;
+                }
+
+                properties[type] = property;
+            }
         }
 
         /// <summary>

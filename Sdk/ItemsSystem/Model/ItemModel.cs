@@ -32,6 +32,19 @@ namespace Vortex.Sdk.ItemsSystem.Model
     public class ItemModel : Record
     {
         /// <summary>
+        /// Буфер переноса состава из пресета. Заполняется CopyFrom при построении записи
+        /// (глубокая копия — каждый предмет получает собственные независимые свойства),
+        /// сразу же расходуется шиной в словари и обнуляется. Массивом модель не владеет:
+        /// после построения здесь всегда <c>null</c>.
+        ///
+        /// Публичность вынужденная — CopyFrom сопоставляет только публичные свойства, и это
+        /// единственный канал от пресета к модели. Поэтому переносится буфер, а не рабочий
+        /// <see cref="Properties"/>: публичный геттер отдал бы наружу мутабельный состав.
+        /// </summary>
+        [NotPOCO]
+        public ItemProperty[] PresetProperties { get; protected set; }
+
+        /// <summary>
         /// Ключ категории из пресета. Приходит настройкой при каждом построении, поэтому
         /// в сохранение не идёт. Разрешённое значение — <see cref="Category"/>.
         /// </summary>
@@ -48,7 +61,7 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// модели private отвалился бы молча.
         /// </summary>
         [IsPOCO]
-        public Dictionary<Type, ItemProperty> Properties { get; protected set; } = new();
+        protected Dictionary<Type, ItemProperty> Properties { get; set; } = new();
 
         /// <summary>
         /// Индекс по интерфейсам назначения — производная величина. Непубличный и без пометок,
@@ -116,6 +129,14 @@ namespace Vortex.Sdk.ItemsSystem.Model
 
         /// <summary>Индекс по интерфейсам — рабочая поверхность шины.</summary>
         internal Dictionary<Type, ItemProperty> IndexMap => Index;
+
+        /// <summary>Забрать буфер переноса из пресета, обнулив его в модели.</summary>
+        internal ItemProperty[] TakePresetProperties()
+        {
+            var source = PresetProperties;
+            PresetProperties = null;
+            return source;
+        }
 
         /// <summary>Проставить отметку конкретным значением.</summary>
         internal void Stamp(long version) => _version = version;
