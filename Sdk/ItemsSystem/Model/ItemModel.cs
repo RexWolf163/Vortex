@@ -48,7 +48,7 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// модели private отвалился бы молча.
         /// </summary>
         [IsPOCO]
-        protected Dictionary<Type, ItemProperty> Properties { get; set; } = new();
+        public Dictionary<Type, ItemProperty> Properties { get; protected set; } = new();
 
         /// <summary>
         /// Индекс по интерфейсам назначения — производная величина. Непубличный и без пометок,
@@ -61,7 +61,7 @@ namespace Vortex.Sdk.ItemsSystem.Model
         private long _version;
 
         /// <summary>Разрешённая категория. <c>null</c>, если ключ пуст или не зарегистрирован.</summary>
-        public ItemCategory Category => _category;
+        public ItemCategory Category => _category ??= ResolveCategory();
 
         /// <summary>
         /// Отметка по оси версии — момент последнего изменения состава предмета. Изменение значения
@@ -124,18 +124,16 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// Разрешить категорию по ключу. Пустой ключ — штатная ситуация (категория не задана),
         /// непустой неразрешимый — ошибка настройки.
         /// </summary>
-        internal void ResolveCategory()
+        internal ItemCategory ResolveCategory()
         {
             if (string.IsNullOrEmpty(CategoryKey))
-            {
-                _category = null;
-                return;
-            }
+                return null;
 
-            _category = ExtensibleEnum.GetByKey<ItemCategory>(CategoryKey);
-            if (_category == null)
+            var category = ExtensibleEnum.GetByKey<ItemCategory>(CategoryKey);
+            if (category == null)
                 Log.Print(LogLevel.Error,
                     $"[Items] Category key «{CategoryKey}» is not registered. Item: {GuidPreset}", this);
+            return category;
         }
 
         /// <summary>
