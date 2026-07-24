@@ -37,7 +37,7 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
 
         public override UniTask<bool> MakePay(ShopOperation operation, CancellationToken ct)
         {
-            var inventory = TradingInventory.Resolve();
+            var inventory = TradingInventory.Resolve(operation);
             if (inventory == null)
                 return UniTask.FromResult(false);
 
@@ -47,13 +47,15 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
         }
 
         /// <summary>
-        /// Возврат валюты. Компенсация обязана доиграть; если инвентарь не принял (переполнен),
-        /// возвращаем <c>false</c> — покупка честно уйдёт в Failed на ручной разбор, а не «потеряет»
-        /// валюту молчаливым успехом.
+        /// Возврат валюты. Цена статическая, поэтому возврат пересчитывается из конфига — это ровно
+        /// то, что было списано. Динамическая цена (скидка, частичная оплата) — забота отдельной
+        /// логики со снапшотом на операцию, не этой. Компенсация обязана доиграть; если инвентарь
+        /// не принял (переполнен), возвращаем <c>false</c> — покупка честно уйдёт в Failed на ручной
+        /// разбор, а не «потеряет» валюту молчаливым успехом.
         /// </summary>
         public override UniTask<bool> MakeRefund(ShopOperation operation)
         {
-            var inventory = TradingInventory.Resolve();
+            var inventory = TradingInventory.Resolve(operation);
             if (inventory == null)
                 return UniTask.FromResult(false);
 

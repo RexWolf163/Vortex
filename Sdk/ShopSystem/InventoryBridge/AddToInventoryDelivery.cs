@@ -6,7 +6,6 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Model.Enums;
 using Vortex.Sdk.InventorySystem.Controllers;
-using Vortex.Sdk.InventorySystem.Model;
 using Vortex.Sdk.ItemsSystem.Model;
 using Vortex.Sdk.ShopSystem.Model;
 using Vortex.Sdk.ShopSystem.Model.Logics;
@@ -48,7 +47,7 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
 
         public override UniTask<bool> MakeDelivery(ShopOperation operation, CancellationToken ct)
         {
-            var inventory = TradingInventory.Resolve();
+            var inventory = TradingInventory.Resolve(operation);
             if (inventory == null)
                 return UniTask.FromResult(false);
 
