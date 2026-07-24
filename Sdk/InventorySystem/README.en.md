@@ -169,6 +169,10 @@ The event fires after the contents are removed — it is for cleanup, not for sa
 | `TakeAmount(item, n)` | Split `n` off a stack into a new instance |
 | `Drop(item)` | Take out and destroy |
 | `Move(from, to)` | Move between inventories |
+| `CountOf(presetGuid)` | Total units of a given item type, across stacks |
+| `CanAdd(presetGuid, n)` | Whether `n` units fit — via a silent probe (no item creation, event or axis shift) against the verifiers |
+| `RemoveCount(presetGuid, n)` | Remove `n` units across stacks; all-or-nothing |
+| `AddCount(presetGuid, n)` | Add `n` units, chunked into stacks no larger than `Max`; all-or-nothing (rollback on shortfall) |
 
 ### `Inventory`
 

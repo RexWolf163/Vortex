@@ -330,6 +330,19 @@ Interrupts the process if it is running for this purchase, waits for it to unwin
 | Item missing/broken at restoration time | Error logged, the purchase is not advanced and stays in its current state |
 | Journal numbering continuity broken | Error logged once, folding continues |
 | `ShopOperationsBus` queried before the session is loaded | `GetOpen` → `null`, other getters → `null` |
+| Delivered goods do not fit the inventory | `CanDelivery` rejects the purchase **before payment** (`CanAdd` — a silent probe, no item creation, via the verifiers). Standard "no room". When paying from the same inventory, the unspent currency counts as occupying space at check time — free space first, then buy. `AddCount` is additionally atomic (rollback), so there is no duplication even on the rare post-payment rejection path |
+
+## Inventory bridge
+
+Optional integration with the inventory package — the `InventoryBridge/` folder, behind `#if USING_VORTEX_ITEMS && USING_VORTEX_SHOP`. The shop references `InventorySystem`/`ItemsSystem` (those assemblies are empty when their define is off, so the reference is harmless).
+
+| Unit | Role |
+|------|------|
+| `TradingInventory` | Static event `OnRequested` — "which inventory is trading now." The shop does not know where the player inventory lives; a subscriber in L4 answers (from its own `IGameData` module, the active character, etc.). The controller's single active process makes the answer unambiguous |
+| `AddToInventoryDelivery : DeliveryLogic` | Delivers the bought item (`[DbRecord]`) into the trading inventory via `AddCount` |
+| `PayWithItemsPayment : PaymentLogic` | Payment with currency-items (`[DbRecord]`, any item — coins, keys): removal `RemoveCount` and refund `AddCount` go through stacks |
+
+L4 answers the event however it likes — no inventory identity is introduced (no guid, no markers): systemic inventories are addressed by the `IGameData` module type, embedded ones by reference through the host.
 
 ## File structure
 

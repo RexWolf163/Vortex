@@ -31,6 +31,15 @@ namespace Vortex.Sdk.InventorySystem.Controllers
             return stack == null ? 0 : stack.Max - stack.Count;
         }
 
+        /// <summary>Максимум пачки предмета. Нестекуемый предмет — один экземпляр, максимум 1.</summary>
+        internal static int MaxOf(ItemModel item) => Stack(item)?.Max ?? 1;
+
+        /// <summary>
+        /// Задать количество без сдвига отметки — для транзиентной пробы, которую проверяют на
+        /// вместимость и выбрасывают. Ось версии двигать нельзя: проба не меняет реального состояния.
+        /// </summary>
+        internal static void SetCountSilent(ItemModel item, int count) => Stack(item)?.SetCount(count, Key);
+
         /// <summary>
         /// Установить количество, закрыв пачку на контроллер при первом обращении. Отметка свойства
         /// сдвигается только при реальном изменении: количество делает недействительными производные

@@ -205,6 +205,120 @@ namespace Vortex.Sdk.InventorySystem.Controllers
 
         #endregion
 
+        #region Агрегатные операции по типу предмета
+
+        /// <summary>
+        /// Сколько единиц предмета данного типа в инвентаре суммарно — с учётом пачек: стек из 100
+        /// монет считается за 100. Нужно для оплаты предметами-валютой и подсчёта ресурсов.
+        /// </summary>
+        public static int CountOf(this Inventory inventory, string presetGuid)
+        {
+            var total = 0;
+            foreach (var item in inventory.Items)
+                if (item.GuidPreset == presetGuid)
+                    total += StackController.CountOf(item);
+            return total;
+        }
+
+        /// <summary>
+        /// Списать заданное число единиц предмета данного типа — сквозь пачки: сначала проверка, что
+        /// суммарно хватает, потом расход по стекам (полностью опустошённые изымаются). Ничего не
+        /// списывает при нехватке — либо всё, либо ничего.
+        /// </summary>
+        public static bool RemoveCount(this Inventory inventory, string presetGuid, int amount)
+        {
+            if (amount <= 0)
+                return true;
+            if (inventory.CountOf(presetGuid) < amount)
+                return false;
+
+            var matches = new List<ItemModel>();
+            foreach (var item in inventory.Composition)
+                if (item.GuidPreset == presetGuid)
+                    matches.Add(item);
+
+            var remaining = amount;
+            foreach (var item in matches)
+            {
+                if (remaining == 0)
+                    break;
+
+                var have = StackController.CountOf(item);
+                if (have <= remaining)
+                {
+                    inventory.Take(item);
+                    remaining -= have;
+                }
+                else
+                {
+                    StackController.SetCount(item, have - remaining);
+                    remaining = 0;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Влезет ли заданное число единиц предмета данного типа — без реального создания предмета и
+        /// без побочных эффектов. Строит тихую пробу (<see cref="ItemsBus.BuildProbe"/>: без события,
+        /// без сдвига оси), задаёт ей полное количество и прогоняет через набор верификаторов
+        /// (<see cref="CanPlace"/>). Для стекуемых предметов точно при любом количестве — масса и
+        /// объём линейны по количеству. Для нестекуемых с количеством больше одного проба
+        /// представляет один экземпляр, поэтому проверка приблизительна (полную гарантию там даёт
+        /// откат в <see cref="AddCount"/>).
+        /// </summary>
+        public static bool CanAdd(this Inventory inventory, string presetGuid, int amount)
+        {
+            if (amount <= 0)
+                return true;
+
+            var probe = ItemsBus.BuildProbe(presetGuid);
+            StackController.SetCountSilent(probe, amount);
+            return inventory.CanPlace(probe);
+        }
+
+        /// <summary>
+        /// Добавить заданное число единиц предмета данного типа, нарезая на пачки не крупнее
+        /// <see cref="Properties.IStackProperty.Max"/> (нестекуемый — по одному экземпляру). Каждая
+        /// пачка проходит через <see cref="Add"/>, то есть уважает верификаторы и политику склейки.
+        ///
+        /// Всё-или-ничего: если вместимость исчерпалась на середине (многочанковый случай, когда
+        /// <paramref name="amount"/> больше <see cref="Properties.IStackProperty.Max"/>), уже
+        /// добавленное снимается обратно и возвращается <c>false</c>. Иначе частичная выдача при
+        /// откате оплаты магазином давала бы дублирование. Откат корректен для взаимозаменяемых
+        /// (стекуемых) единиц; для нестекуемых предметов с индивидуальным состоянием, покупаемых
+        /// пачкой больше одного, снятие может задеть не тот экземпляр — редкий край, вне 1.0.
+        /// </summary>
+        public static bool AddCount(this Inventory inventory, string presetGuid, int amount)
+        {
+            if (amount <= 0)
+                return true;
+
+            var added = 0;
+            var remaining = amount;
+            while (remaining > 0)
+            {
+                var item = ItemsBus.Create(presetGuid);
+                var chunk = Math.Min(remaining, Math.Max(1, StackController.MaxOf(item)));
+                StackController.SetCount(item, chunk);
+
+                if (!inventory.Add(item))
+                {
+                    if (added > 0)
+                        inventory.RemoveCount(presetGuid, added);
+                    return false;
+                }
+
+                added += chunk;
+                remaining -= chunk;
+            }
+
+            return true;
+        }
+
+        #endregion
+
         #region Перемещение
 
         /// <summary>

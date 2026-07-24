@@ -76,6 +76,24 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// </summary>
         public static ItemModel Create(string presetGuid, string saveData = null)
         {
+            var item = BuildCore(presetGuid, saveData);
+            StampComposition(item);
+            OnItemCreated.Fire(item);
+            return item;
+        }
+
+        /// <summary>
+        /// Тихая сборка предмета для осмотра — форма и индекс построены, свойства доступны по
+        /// назначению, но отметок по оси нет и событие <see cref="OnItemCreated"/> не поднимается.
+        /// Предмет транзиентный: он не входит ни в один инвентарь, не двигает ось версии и не
+        /// доходит до доменных подписчиков. Нужен для проверок вместимости и прочего осмотра, где
+        /// полноценное построение дало бы фантомный предмет в чужой доменной логике.
+        /// </summary>
+        public static ItemModel BuildProbe(string presetGuid, string saveData = null) =>
+            BuildCore(presetGuid, saveData);
+
+        private static ItemModel BuildCore(string presetGuid, string saveData)
+        {
             var item = Database.GetNewRecord<ItemModel>(presetGuid);
             if (item == null)
             {
@@ -89,9 +107,6 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 item.LoadFromSaveData(saveData);
 
             RebuildIndex(item);
-            StampComposition(item);
-
-            OnItemCreated.Fire(item);
             return item;
         }
 
