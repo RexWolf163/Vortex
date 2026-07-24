@@ -1,6 +1,8 @@
 #if USING_VORTEX_ITEMS
 using System;
+using Sirenix.OdinInspector;
 using Vortex.Sdk.ItemsSystem.Bus;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Sdk.ItemsSystem.Model
 {
@@ -21,9 +23,11 @@ namespace Vortex.Sdk.ItemsSystem.Model
     /// Свойство, которое предполагается добавлять в рантайме, настроечных полей иметь не должно:
     /// у него нет пресета-источника, и при воссоздании из сохранения такие поля придут нулями.
     /// </summary>
-    [Serializable]
+    [Serializable, HideReferenceObjectPicker, ClassLabel("$Label")]
     public abstract class ItemProperty : IItemProperty
     {
+        private string Label => GetType().Name;
+
         private long _version;
 
         /// <summary>

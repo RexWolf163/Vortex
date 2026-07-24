@@ -1,7 +1,9 @@
 #if USING_VORTEX_ITEMS
 using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Sdk.InventorySystem.Model;
+using Vortex.Sdk.ItemsSystem.Model;
 
 namespace Vortex.Sdk.InventorySystem.Properties
 {
@@ -13,7 +15,8 @@ namespace Vortex.Sdk.InventorySystem.Properties
     [Serializable]
     public class ContainerProperty : ItemProperty, IContainerProperty
     {
-        [SerializeField] private Inventory inventory = new();
+        [InfoBox("Свойство-контейнер: предмет несёт собственный инвентарь")] [SerializeField]
+        private Inventory inventory = new();
 
         /// <summary>
         /// Вложенный инвентарь. Публичный геттер с приватным сеттером: геттер нужен сериализатору,

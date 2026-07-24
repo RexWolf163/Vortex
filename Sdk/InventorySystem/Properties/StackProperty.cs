@@ -1,5 +1,6 @@
 #if USING_VORTEX_ITEMS
 using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.ItemsSystem.Model;
@@ -17,7 +18,8 @@ namespace Vortex.Sdk.InventorySystem.Properties
     [Serializable]
     public class StackProperty : ItemProperty, IStackProperty
     {
-        [SerializeField, Min(1)] private int max = 1;
+        [InfoBox("Свойство пачки: максимум и текущее количество")] [SerializeField, Min(1)]
+        private int max = 1;
 
         private bool _locked;
 
@@ -49,6 +51,16 @@ namespace Vortex.Sdk.InventorySystem.Properties
             Lock(key);
             CountData.Set(value, key);
         }
+
+#if UNITY_EDITOR
+
+        [ShowInInspector, HideInEditorMode, OnValueChanged("SetCount")]
+        private int _count;
+
+        private void SetCount(int value) => CountData.EditorSet(value);
+
+        private void OnValidate() => _count = CountData.Value;
+#endif
     }
 }
 #endif

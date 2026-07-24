@@ -2,6 +2,7 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Sirenix.OdinInspector;
 
 namespace Vortex.Sdk.ShopSystem.Model.Logics
 {
@@ -13,6 +14,9 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics
     [Serializable]
     public abstract class PaymentLogic
     {
+        [DisplayAsString, ShowInInspector, HideLabel, PropertyOrder(-100)]
+        private string Label => GetType().Name;
+
         /// <summary>
         /// Возвращает опорное численное значение
         /// </summary>

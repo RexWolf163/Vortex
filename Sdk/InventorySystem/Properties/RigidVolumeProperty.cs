@@ -1,5 +1,6 @@
 #if USING_VORTEX_ITEMS
 using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Sdk.ItemsSystem.Model;
 
@@ -12,7 +13,8 @@ namespace Vortex.Sdk.InventorySystem.Properties
     [Serializable]
     public class RigidVolumeProperty : ItemProperty, IVolumeProperty
     {
-        [SerializeField, Min(0)] private int selfVolume;
+        [InfoBox("Жёсткий объём контейнера: не зависит от наполнения")] [SerializeField, Min(0)]
+        private int selfVolume;
 
         public long GetVolume(ItemModel owner)
         {

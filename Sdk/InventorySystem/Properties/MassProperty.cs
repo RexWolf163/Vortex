@@ -1,5 +1,6 @@
 #if USING_VORTEX_ITEMS
 using System;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Sdk.ItemsSystem.Model;
 
@@ -12,7 +13,9 @@ namespace Vortex.Sdk.InventorySystem.Properties
     [Serializable]
     public class MassProperty : ItemProperty, IMassProperty
     {
-        [SerializeField, Min(0)] private int unitMass;
+        [InfoBox("Масса за единицу. Суммарная масса — единица на количество из свойства пачки того же предмета")]
+        [SerializeField, Min(0)]
+        private int unitMass;
 
         public long GetMass(ItemModel owner)
         {
