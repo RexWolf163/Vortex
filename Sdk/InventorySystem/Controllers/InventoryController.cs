@@ -211,9 +211,9 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         /// Сколько единиц предмета данного типа в инвентаре суммарно — с учётом пачек: стек из 100
         /// монет считается за 100. Нужно для оплаты предметами-валютой и подсчёта ресурсов.
         /// </summary>
-        public static int CountOf(this Inventory inventory, string presetGuid)
+        public static long CountOf(this Inventory inventory, string presetGuid)
         {
-            var total = 0;
+            long total = 0;
             foreach (var item in inventory.Items)
                 if (item.GuidPreset == presetGuid)
                     total += StackController.CountOf(item);
@@ -224,8 +224,12 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         /// Списать заданное число единиц предмета данного типа — сквозь пачки: сначала проверка, что
         /// суммарно хватает, потом расход по стекам (полностью опустошённые изымаются). Ничего не
         /// списывает при нехватке — либо всё, либо ничего.
+        ///
+        /// Количество в <see cref="long"/>: единиц одного типа сквозь стеки может быть больше, чем
+        /// вмещает <see cref="int"/> (валюта — миллиарды), а множитель цены на число пачек ещё
+        /// раньше упёрся бы в переполнение, если считать в <see cref="int"/>.
         /// </summary>
-        public static bool RemoveCount(this Inventory inventory, string presetGuid, int amount)
+        public static bool RemoveCount(this Inventory inventory, string presetGuid, long amount)
         {
             if (amount <= 0)
                 return true;
@@ -251,7 +255,8 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 }
                 else
                 {
-                    StackController.SetCount(item, have - remaining);
+                    // have (int) > remaining, значит остаток вписывается в int-счётчик пачки.
+                    StackController.SetCount(item, have - (int)remaining);
                     remaining = 0;
                 }
             }
@@ -274,13 +279,15 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         /// по категории/свойству). Верификатор, считающий число пачек или слотов, эту эквивалентность
         /// нарушит — тогда проба и реальное добавление могут разойтись.
         /// </summary>
-        public static bool CanAdd(this Inventory inventory, string presetGuid, int amount)
+        public static bool CanAdd(this Inventory inventory, string presetGuid, long amount)
         {
             if (amount <= 0)
                 return true;
 
             var probe = ItemsBus.BuildProbe(presetGuid);
-            StackController.SetCountSilent(probe, amount);
+            // Счётчик пачки — int; астрономические количества (свыше int) для выдаваемых предметов
+            // нереальны (это миллиарды экземпляров), поэтому пробе достаточно int-представления.
+            StackController.SetCountSilent(probe, (int)Math.Min(amount, int.MaxValue));
             return inventory.CanPlace(probe);
         }
 
@@ -296,17 +303,17 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         /// (стекуемых) единиц; для нестекуемых предметов с индивидуальным состоянием, покупаемых
         /// пачкой больше одного, снятие может задеть не тот экземпляр — редкий край, вне 1.0.
         /// </summary>
-        public static bool AddCount(this Inventory inventory, string presetGuid, int amount)
+        public static bool AddCount(this Inventory inventory, string presetGuid, long amount)
         {
             if (amount <= 0)
                 return true;
 
-            var added = 0;
+            long added = 0;
             var remaining = amount;
             while (remaining > 0)
             {
                 var item = ItemsBus.Create(presetGuid);
-                var chunk = Math.Min(remaining, Math.Max(1, StackController.MaxOf(item)));
+                var chunk = (int)Math.Min(remaining, Math.Max(1, StackController.MaxOf(item)));
                 StackController.SetCount(item, chunk);
 
                 if (!inventory.Add(item))

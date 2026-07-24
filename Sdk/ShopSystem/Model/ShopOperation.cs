@@ -41,14 +41,16 @@ namespace Vortex.Sdk.ShopSystem.Model
         /// <summary>
         /// Опорное значение, ушедшее в оплату (от <see cref="Logics.PaymentLogic"/>). Не универсальная
         /// сумма — определяется логикой оплаты товара и множителем <see cref="RequestedCount"/>.
+        /// <see cref="long"/>: цена на число пачек переполнила бы <see cref="int"/>.
         /// </summary>
-        public int PayValue { get; internal set; }
+        public long PayValue { get; internal set; }
 
         /// <summary>
         /// Опорное значение, ушедшее в выдачу (от <see cref="Logics.DeliveryLogic"/>). Не универсальное —
         /// определяется логикой выдачи товара и множителем <see cref="RequestedCount"/>.
+        /// <see cref="long"/> по той же причине, что и <see cref="PayValue"/>.
         /// </summary>
-        public int BuyValue { get; internal set; }
+        public long BuyValue { get; internal set; }
     }
 }
 #endif

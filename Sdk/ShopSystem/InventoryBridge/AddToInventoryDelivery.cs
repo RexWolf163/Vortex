@@ -42,7 +42,7 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
         public override UniTask<bool> CanDelivery(string guid, int count, CancellationToken ct)
         {
             var inventory = TradingInventory.Resolve();
-            return UniTask.FromResult(inventory != null && inventory.CanAdd(itemGuid, amount * count));
+            return UniTask.FromResult(inventory != null && inventory.CanAdd(itemGuid, (long)amount * count));
         }
 
         public override UniTask<bool> MakeDelivery(ShopOperation operation, CancellationToken ct)
@@ -51,7 +51,7 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
             if (inventory == null)
                 return UniTask.FromResult(false);
 
-            var total = amount * operation.RequestedCount;
+            var total = (long)amount * operation.RequestedCount;
             operation.BuyValue = total;
             return UniTask.FromResult(inventory.AddCount(itemGuid, total));
         }

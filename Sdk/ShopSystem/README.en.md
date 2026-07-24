@@ -330,6 +330,7 @@ Interrupts the process if it is running for this purchase, waits for it to unwin
 | Item missing/broken at restoration time | Error logged, the purchase is not advanced and stays in its current state |
 | Journal numbering continuity broken | Error logged once, folding continues |
 | `ShopOperationsBus` queried before the session is loaded | `GetOpen` → `null`, other getters → `null` |
+| Huge price × pack count | Reference values and all bridge multiplications are computed in `long` (`PayValue`/`BuyValue`, inventory aggregate ops). `int` overflow into negative (and the free purchase it would cause) is ruled out |
 | Delivered goods do not fit the inventory | `CanDelivery` rejects the purchase **before payment** (`CanAdd` — a silent probe, no item creation, via the verifiers). Standard "no room". When paying from the same inventory, the unspent currency counts as occupying space at check time — free space first, then buy. `AddCount` is additionally atomic (rollback), so there is no duplication even on the rare post-payment rejection path |
 
 ## Inventory bridge

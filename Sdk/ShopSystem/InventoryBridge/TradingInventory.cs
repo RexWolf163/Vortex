@@ -1,6 +1,8 @@
 #if USING_VORTEX_ITEMS && USING_VORTEX_SHOP
 using System;
+using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions.Actions;
+using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.InventorySystem.Model;
 using Vortex.Sdk.ShopSystem.Model;
 
@@ -30,6 +32,26 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
 
         private static string _boundPurchase;
         private static Inventory _boundInventory;
+
+        /// <summary>
+        /// Сброс привязки на границе сессии: иначе статик держал бы ссылку на инвентарь прошлого
+        /// прохождения (меню → загрузка) до первой покупки в новом. Внутри сессии слот и так
+        /// перетирается каждой новой покупкой по её PurchaseGuid.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void Bootstrap()
+        {
+            GameController.OnNewGame -= Reset;
+            GameController.OnNewGame += Reset;
+            GameController.OnLoadGame -= Reset;
+            GameController.OnLoadGame += Reset;
+        }
+
+        private static void Reset()
+        {
+            _boundPurchase = null;
+            _boundInventory = null;
+        }
 
         /// <summary>Разрешить текущий торгующий инвентарь. <c>null</c>, если ответить некому.</summary>
         public static Inventory Resolve()

@@ -45,16 +45,18 @@ namespace Vortex.Sdk.ShopSystem.Model
         /// <summary>
         /// Фактическое значение, ушедшее в оплату (от PaymentLogic).
         /// Опорное, не универсальная сумма.
-        /// Определяется настройками товара в логике PaymentLogic и множителем RequestedCount
+        /// Определяется настройками товара в логике PaymentLogic и множителем RequestedCount.
+        /// long: цена на число пачек переполнила бы int. Сохранённый int читается в long без потерь.
         /// </summary>
-        public int PayValue { get; internal set; }
+        public long PayValue { get; internal set; }
 
         /// <summary>
         /// Фактическое значение, ушедшее в выдачу (от DeliveryLogic).
         /// Опорное, не универсальное значение.
-        /// Определяется настройками товара в логике DeliveryLogic и множителем RequestedCount
+        /// Определяется настройками товара в логике DeliveryLogic и множителем RequestedCount.
+        /// long по той же причине, что и PayValue.
         /// </summary>
-        public int BuyValue { get; internal set; }
+        public long BuyValue { get; internal set; }
 
         /// <summary>
         /// UTC-секунды (DateTimeOffset.UtcNow.ToUnixTimeSeconds). Часы устройства — недоверенная ось.
