@@ -27,7 +27,7 @@ Assembly: `ru.vortex.sdk.itemssystem`. Odin Inspector required.
 | `ItemModel` | Item instance. Two property containers, version mark, resolved category |
 | `ItemProperty` | Property base. The storage type of the set |
 | `IItemProperty` | Root marker for purpose interfaces. The query type is anything derived from it |
-| `ItemCategory` | Extensible enum of categories. Values are declared outside the package |
+| `ItemCategory` | Extensible enum of categories. Domain values are declared outside the package; only `Unknown` ships with it |
 | `ItemsBus` | Static controller: version axis, item construction, set changes |
 
 ### Two property containers
@@ -221,7 +221,7 @@ The event fires both on creation from a preset and on restoration from a save, s
 | `GetProperty<T>()` | Property by purpose interface or by class. `null` if absent |
 | `HasProperty<T>()` | Whether the property is present |
 | `AllProperties` | All properties for enumeration |
-| `Category` | Resolved category. `null` if the key is empty or unregistered |
+| `Category` | Resolved category. Never `null`: an empty or unresolvable key yields `ItemCategory.Unknown` |
 | `Version` | Mark of the last set change |
 | `Touch()` | Advance the item mark |
 | `GetDataForSave()` / `LoadFromSaveData()` | Saving and state overlay |
@@ -248,14 +248,15 @@ The result is cached for one second so validation does not degrade inspector ren
 
 | Situation | Behaviour |
 |-----------|-----------|
-| Unresolvable preset identifier, no save | An empty stub: identifier kept, set empty, no name, icon or category. Any property query returns `null`. The collection holder decides the item's fate |
-| Unresolvable preset identifier, with a save | The set is restored from the save in full, down to the concrete property classes: player data is not lost because a preset went missing. There is no authoring data — no name, icon or category — and authoring fields of properties arrive as zeros |
+| Unresolvable preset identifier, no save | An empty stub: identifier kept, set empty, no name or icon, category `Unknown`. Any property query returns `null`. The collection holder decides the item's fate |
+| Unresolvable preset identifier, with a save | The set is restored from the save in full, down to the concrete property classes: player data is not lost because a preset went missing. There is no authoring data — no name, no icon, category `Unknown` — and authoring fields of properties arrive as zeros |
 | Query for a missing property | `null`, no exception |
 | Purpose conflict during construction | The offending property is rejected entirely — from both the index and the set. Error logged |
 | Conflict on runtime addition | The operation is rejected before any mutation, so the item is never left half-changed. Error logged, `false` returned |
 | Property in preset, absent from save | Preset instance in its initial state — this is how patch-added properties reach existing items |
 | Property in save, absent from preset | Recreated from the save. Covers both runtime additions and patch removals: the two are indistinguishable |
 | Property removed by a patch | Stays on old items as a dead passenger. Cleanup is the job of the `OnItemCreated` subscriber that owns the property |
-| Unresolvable category key | `Category` returns `null` and logs an error. Resolution is lazy and does not cache a negative result, so the error repeats on every access — an authoring error is not meant to stay quiet |
+| Category not set | `Category` returns `ItemCategory.Unknown` silently |
+| Unresolvable category key | `Category` returns `ItemCategory.Unknown` and logs an error once |
 | Property with no purpose interfaces | Not indexed, reachable only by a concrete-class query. Highlighted in the editor |
 | Property class renamed or moved | "Type not found" error on load. A breaking change for saves; no migration tables exist |

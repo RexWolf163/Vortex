@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Sdk.*`
 **Layer:** 3 (AppSDK)
-**Packages:** 13 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, ItemsSystem, MapLevels, RewardsSystem, ShopSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
+**Packages:** 14 (Core, Quests, MiniGamesSystem, AudioLocalizationSystem, CharacterViewSystem, EffectSpawnSystem, ItemsSystem, InventorySystem, MapLevels, RewardsSystem, ShopSystem, SdkSettingsSystem, UIs/RoofTransparentSystem, UIs/SaveLoad)
 
 ---
 
@@ -57,6 +57,7 @@ State changes only through the controller. UI observes but does not decide.
 | **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Playable character: bus, controllers, view, save/load |
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Spawns visual effects from a catalog by key through a pool |
 | **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Item with an authored property set: access by purpose interface, version axis for cache invalidation |
+| **InventorySystem** | `ru.vortex.sdk.inventorysystem` | Embeddable inventory: constraints via a verifier set, mass/volume/stack/container properties, packed save through the items bus |
 | **MapLevels** | `ru.vortex.sdk.maplevels` | Streaming map levels: switching, load/unload |
 | **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Rewards system |
 | **ShopSystem** | `ru.vortex.sdk.shopsystem` | Transactional purchase engine: order → payment → delivery, journal in the save, restoration and cancellation |

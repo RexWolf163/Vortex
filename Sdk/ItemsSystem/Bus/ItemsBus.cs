@@ -89,7 +89,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 item.LoadFromSaveData(saveData);
 
             RebuildIndex(item);
-            StampAll(item);
+            StampComposition(item);
 
             OnItemCreated.Fire(item);
             return item;
@@ -175,19 +175,6 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 properties.Remove(type);
         }
 
-        /// <summary>
-        /// Проставляет отметки предмету и всем его свойствам одним значением оси — «рождены на
-        /// версии N». Покрывает и воссозданные из сохранения свойства: у них своей отметки не было.
-        /// </summary>
-        private static void StampAll(ItemModel item)
-        {
-            var version = NextVersion();
-            item.Stamp(version);
-
-            foreach (var property in item.Properties.Values)
-                property.Stamp(version);
-        }
-
         #endregion
 
         #region Изменение состава
@@ -197,7 +184,8 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// отклонение операции с ошибкой в лог, без исключения: индекс не отравляется.
         /// Проверка идёт до любой мутации, поэтому отказ не оставляет предмет полуизменённым.
         ///
-        /// Успех сдвигает отметку предмета: состав изменился.
+        /// Успех сдвигает отметки предмета и всех его свойств: состав изменился, производные величины
+        /// прочих свойств устарели.
         /// </summary>
         public static bool AddProperty(ItemModel item, ItemProperty property)
         {
@@ -229,9 +217,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
             foreach (var purpose in purposes)
                 index[purpose] = property;
 
-            var version = NextVersion();
-            item.Stamp(version);
-            property.Stamp(version);
+            StampComposition(item);
             return true;
         }
 
@@ -241,7 +227,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
 
         /// <summary>
         /// Удалить конкретное свойство. Из индекса вычищаются только те назначения, что указывают
-        /// именно на него. Успех сдвигает отметку предмета.
+        /// именно на него. Успех сдвигает отметки предмета и всех его свойств.
         /// </summary>
         public static bool RemoveProperty(ItemModel item, ItemProperty property)
         {
@@ -254,8 +240,25 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 if (index.TryGetValue(purpose, out var present) && ReferenceEquals(present, property))
                     index.Remove(purpose);
 
-            item.Stamp(NextVersion());
+            StampComposition(item);
             return true;
+        }
+
+        /// <summary>
+        /// Проставляет отметку предмету и всем его свойствам одним значением оси. Служит и первичной
+        /// разметкой при построении («рождены на версии N», покрывает воссозданные из сохранения
+        /// свойства), и инвалидацией при изменении состава: производные величины прочих свойств от
+        /// состава зависят — масса, посчитанная без свойства пачки, устаревает в момент добавления
+        /// пачки, хотя само свойство массы не менялось. Общий сдвиг закрывает это, не зная, какое
+        /// свойство от какого зависит.
+        /// </summary>
+        private static void StampComposition(ItemModel item)
+        {
+            var version = NextVersion();
+            item.Stamp(version);
+
+            foreach (var property in item.Properties.Values)
+                property.Stamp(version);
         }
 
         #endregion

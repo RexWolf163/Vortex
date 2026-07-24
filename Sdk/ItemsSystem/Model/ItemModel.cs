@@ -77,12 +77,11 @@ namespace Vortex.Sdk.ItemsSystem.Model
         private long _version;
 
         /// <summary>
-        /// Разрешённая категория. <c>null</c>, если ключ пуст или не зарегистрирован.
+        /// Разрешённая категория. Никогда не <c>null</c>: незаданный или неразрешимый ключ даёт
+        /// <see cref="ItemCategory.Unknown"/>, поэтому сравнивать категорию можно без проверок.
         ///
-        /// Разрешается лениво, при первом обращении, и дальше отдаётся из поля. Отрицательный
-        /// результат не кэшируется: пустой ключ выходит по проверке строки, до всякого поиска,
-        /// а неразрешимый непустой ключ будет искаться и логироваться на каждое обращение —
-        /// это ошибка настройки, и она намеренно остаётся шумной.
+        /// Разрешается лениво, при первом обращении, и дальше отдаётся из поля — ошибка настройки
+        /// попадает в лог один раз, а не на каждое чтение.
         /// </summary>
         public ItemCategory Category => _category ??= ResolveCategory();
 
@@ -134,18 +133,21 @@ namespace Vortex.Sdk.ItemsSystem.Model
 
         /// <summary>
         /// Разрешить категорию по ключу. Пустой ключ — штатная ситуация (категория не задана),
-        /// непустой неразрешимый — ошибка настройки.
+        /// непустой неразрешимый — ошибка настройки. Оба случая дают
+        /// <see cref="ItemCategory.Unknown"/>, второй — с ошибкой в лог.
         /// </summary>
         private ItemCategory ResolveCategory()
         {
             if (string.IsNullOrEmpty(CategoryKey))
-                return null;
+                return ItemCategory.Unknown;
 
             var category = ExtensibleEnum.GetByKey<ItemCategory>(CategoryKey);
-            if (category == null)
-                Log.Print(LogLevel.Error,
-                    $"[Items] Category key «{CategoryKey}» is not registered. Item: {GuidPreset}", this);
-            return category;
+            if (category != null)
+                return category;
+
+            Log.Print(LogLevel.Error,
+                $"[Items] Category key «{CategoryKey}» is not registered. Item: {GuidPreset}", this);
+            return ItemCategory.Unknown;
         }
 
         #region Bus API
