@@ -182,7 +182,12 @@ The event fires after the contents are removed — it is for cleanup, not for sa
 | `Verifiers` | The rule set |
 | `Policy` | The stack policy |
 | `Version` | Mark of the last composition change |
+| `OnItemAdded` | A new item instance entered the composition |
+| `OnItemRemoved` | An instance left the composition (taken or destroyed) |
+| `OnItemCountChanged` | A stack count changed on an item still in the composition |
 | `Dispose()` | Destroy with contents |
+
+The three events give reactivity without polling: subscribe once and update the UI by deltas. Materialization (initial load / startup fill) raises no events — it is the initial snapshot, read via `Items`, with events for subsequent changes. A merge decomposes precisely: topping up an existing stack → `OnItemCountChanged`, a leftover as a new stack → `OnItemAdded`.
 
 ### `InventoryBus`
 

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.Extensions.LogicExtensions.Actions;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
@@ -56,6 +57,20 @@ namespace Vortex.Sdk.InventorySystem.Model
         /// собственные отметки. Не сохраняется.
         /// </summary>
         public long Version => _version;
+
+        /// <summary>
+        /// В состав вошёл новый экземпляр предмета. Для реактивного UI без полинга. Материализация
+        /// (первичная загрузка/стартовое наполнение) события не поднимает — это начальный снимок,
+        /// его потребитель читает через <see cref="Items"/>, а на события подписывается для дельт.
+        /// Не сериализуется (событие — поле, не свойство).
+        /// </summary>
+        public event Action<ItemModel> OnItemAdded;
+
+        /// <summary>Экземпляр покинул состав (изъятие или уничтожение).</summary>
+        public event Action<ItemModel> OnItemRemoved;
+
+        /// <summary>У оставшегося в составе предмета изменилось количество в пачке.</summary>
+        public event Action<ItemModel> OnItemCountChanged;
 
         /// <summary>
         /// Состав для чтения и перебора. Первое обращение материализует инвентарь: строит предметы
@@ -178,6 +193,15 @@ namespace Vortex.Sdk.InventorySystem.Model
 
         /// <summary>Сдвинуть отметку состава — вызывается контроллером после изменения.</summary>
         internal void StampComposition() => _version = ItemsBus.NextVersion();
+
+        /// <summary>Событийные точки для контроллера — единственного, кто меняет состав.</summary>
+        internal void RaiseAdded(ItemModel item) => OnItemAdded.Fire(item);
+
+        /// <inheritdoc cref="RaiseAdded"/>
+        internal void RaiseRemoved(ItemModel item) => OnItemRemoved.Fire(item);
+
+        /// <inheritdoc cref="RaiseAdded"/>
+        internal void RaiseCountChanged(ItemModel item) => OnItemCountChanged.Fire(item);
 
         #endregion
 
