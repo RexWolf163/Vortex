@@ -2,6 +2,7 @@
 using System;
 using Vortex.Sdk.InventorySystem.Model;
 using Vortex.Sdk.ItemsSystem.Model;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Sdk.InventorySystem.Verifiers
 {
@@ -15,9 +16,12 @@ namespace Vortex.Sdk.InventorySystem.Verifiers
     /// ни одной операции и замкнула бы цикл в сохранении. Впрочем, верификаторы — настройка и в
     /// сохранение не идут вовсе (в модели инвентаря они хранятся полем, а не свойством).
     /// </summary>
-    [Serializable]
+    [Serializable, ClassLabel("$Label")]
     public abstract class InventoryVerifier
     {
+        /// <summary>Заголовок элемента в списке верификаторов инспектора — имя конкретного правила.</summary>
+        protected string Label => GetType().Name;
+
         /// <summary>Пустить ли предмет. Инвентарь опрашивает набор и останавливается на первом отказе.</summary>
         public abstract bool CanPlace(Inventory inventory, ItemModel item);
 

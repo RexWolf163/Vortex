@@ -1,5 +1,6 @@
 #if USING_VORTEX_ITEMS
 using System;
+using Sirenix.OdinInspector;
 using Vortex.Sdk.InventorySystem.Model;
 using Vortex.Sdk.ItemsSystem.Model;
 
@@ -12,7 +13,7 @@ namespace Vortex.Sdk.InventorySystem.Verifiers
     /// [Serializable] public class ForbidContainer : ForbidPropertyVerifier&lt;IContainerProperty&gt; { }
     /// </code>
     /// </summary>
-    [Serializable]
+    [Serializable, InfoBox("Запрещено свойство указанного назначения.")]
     public abstract class ForbidPropertyVerifier<T> : InventoryVerifier where T : class, IItemProperty
     {
         public override bool CanPlace(Inventory inventory, ItemModel item) => !item.HasProperty<T>();

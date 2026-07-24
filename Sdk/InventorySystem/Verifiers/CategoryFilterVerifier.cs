@@ -1,6 +1,7 @@
 #if USING_VORTEX_ITEMS
 using System;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Sdk.InventorySystem.Model;
 using Vortex.Sdk.ItemsSystem.Model;
@@ -17,7 +18,7 @@ namespace Vortex.Sdk.InventorySystem.Verifiers
     /// значит строгий фильтр отсекает и ненастроенные предметы. Это верно, но при отладке об этом
     /// стоит помнить.
     /// </summary>
-    [Serializable]
+    [Serializable, InfoBox("Фильтр по категории предмета: белый или чёрный список.")]
     public class CategoryFilterVerifier : InventoryVerifier
     {
         [SerializeField] private bool whitelist = true;

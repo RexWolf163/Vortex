@@ -1,5 +1,6 @@
 #if USING_VORTEX_ITEMS
 using System;
+using Sirenix.OdinInspector;
 using Vortex.Sdk.InventorySystem.Model;
 using Vortex.Sdk.ItemsSystem.Model;
 
@@ -14,7 +15,7 @@ namespace Vortex.Sdk.InventorySystem.Verifiers
     /// [Serializable] public class RequireQuestTag : RequirePropertyVerifier&lt;IQuestTag&gt; { }
     /// </code>
     /// </summary>
-    [Serializable]
+    [Serializable, InfoBox("Требуется свойство указанного назначения.")]
     public abstract class RequirePropertyVerifier<T> : InventoryVerifier where T : class, IItemProperty
     {
         public override bool CanPlace(Inventory inventory, ItemModel item) => item.HasProperty<T>();

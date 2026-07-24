@@ -54,12 +54,17 @@ namespace Vortex.Sdk.InventorySystem.Properties
 
 #if UNITY_EDITOR
 
-        [ShowInInspector, HideInEditorMode, OnValueChanged("SetCount")]
-        private int _count;
-
-        private void SetCount(int value) => CountData.EditorSet(value);
-
-        private void OnValidate() => _count = CountData.Value;
+        /// <summary>
+        /// Отладочный доступ к количеству в инспекторе. Свойство, а не поле: геттер всегда отдаёт
+        /// живое значение из <see cref="CountData"/> (у вложенного [Serializable]-класса нет
+        /// OnValidate, синхронизировать поле было бы нечем), сеттер пишет через editor-обход замка.
+        /// </summary>
+        [ShowInInspector, HideInEditorMode]
+        private int Count_Debug
+        {
+            get => CountData.Value;
+            set => CountData.EditorSet(value);
+        }
 #endif
     }
 }
