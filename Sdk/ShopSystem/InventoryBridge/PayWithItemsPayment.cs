@@ -29,6 +29,8 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
 
         public override int GetCount() => price;
 
+        public override string GetItemGuid() => currencyGuid;
+
         public override UniTask<bool> CanPay(string guid, int count, CancellationToken ct)
         {
             var inventory = TradingInventory.Resolve();

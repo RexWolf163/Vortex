@@ -29,6 +29,8 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
 
         public override int GetCount() => amount;
 
+        public override string GetItemGuid() => itemGuid;
+
         /// <summary>
         /// Выдать можно, если торгующий инвентарь разрешился И в него влезает выдаваемое количество.
         /// Вместимость проверяется тихой пробой (<c>CanAdd</c>: без создания реального предмета, без

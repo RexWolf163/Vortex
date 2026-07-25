@@ -23,6 +23,12 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics
         public abstract int GetCount();
 
         /// <summary>
+        /// GUID предмета, к которому привязана логика (выдаваемый товар). Доступен для чтения UI.
+        /// null — логика не предметная.
+        /// </summary>
+        public virtual string GetItemGuid() => null;
+
+        /// <summary>
         /// Проверка возможности получения заданного кол-ва пакетов
         /// </summary>
         /// <param name="guid">GUID товара</param>
