@@ -27,9 +27,9 @@ namespace Vortex.Sdk.ItemsSystem.Bus
     public static class ItemsBus
     {
         /// <summary>
-        /// Предмет построен и полностью согласован: состав собран, индекс построен, отметки
-        /// проставлены. Срабатывает на обоих путях построения — и при создании из пресета,
-        /// и при восстановлении из сохранения, поэтому доменная досборка пишется один раз.
+        /// Предмет построен и полностью согласован: состав собран, индекс построен. Срабатывает на
+        /// обоих путях построения — и при создании из пресета, и при восстановлении из сохранения,
+        /// поэтому доменная досборка пишется один раз.
         ///
         /// Подписчики выполняют доменную работу: сверяют состояние с изменившейся настройкой,
         /// дополняют недостающее, вычищают свойства, ставшие ненужными. Событие срабатывает на
@@ -41,23 +41,11 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// </summary>
         public static event Action<ItemModel> OnItemCreated;
 
-        private static long _version;
-
         /// <summary>
         /// Кеш интерфейсов назначения по конкретному классу свойства. Рефлексия на каждое свойство
         /// каждого предмета при построении десятков тысяч экземпляров недопустима.
         /// </summary>
         private static readonly Dictionary<Type, Type[]> PurposeCache = new();
-
-        #region Ось версии
-
-        /// <summary>Текущий конец оси. Читается потребителем перед расчётом производной величины.</summary>
-        public static long Version => _version;
-
-        /// <summary>Сдвинуть ось и получить новое значение. Единственная точка инкремента.</summary>
-        public static long NextVersion() => ++_version;
-
-        #endregion
 
         #region Построение
 
@@ -65,9 +53,8 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// Построить предмет по идентификатору пресета, опционально наложив сохранённое состояние.
         ///
         /// Порядок обязателен и потому собран здесь: форма из пресета — наложение состояния —
-        /// построение индекса — отметки — событие. Наложить состояние не на что, если форма ещё
-        /// не построена. Категория в этот порядок не входит: она разрешается лениво, при первом
-        /// обращении к ней.
+        /// построение индекса — событие. Наложить состояние не на что, если форма ещё не построена.
+        /// Категория в этот порядок не входит: она разрешается лениво, при первом обращении к ней.
         ///
         /// Неразрешимый идентификатор даёт болванку: настроечных данных нет — ни имени, ни иконки,
         /// ни категории. Состав при этом пуст только в отсутствие сохранения; переданное сохранение
@@ -77,7 +64,6 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         public static ItemModel Create(string presetGuid, string saveData = null)
         {
             var item = BuildCore(presetGuid, saveData);
-            StampComposition(item);
             OnItemCreated.Fire(item);
             return item;
         }
@@ -199,8 +185,8 @@ namespace Vortex.Sdk.ItemsSystem.Bus
         /// отклонение операции с ошибкой в лог, без исключения: индекс не отравляется.
         /// Проверка идёт до любой мутации, поэтому отказ не оставляет предмет полуизменённым.
         ///
-        /// Успех сдвигает отметки предмета и всех его свойств: состав изменился, производные величины
-        /// прочих свойств устарели.
+        /// Успех поднимает <see cref="ItemModel.NotifyChanged"/>: состав свойств изменился, а с ним
+        /// и производные величины прочих свойств (масса зависит от наличия свойства пачки).
         /// </summary>
         public static bool AddProperty(ItemModel item, ItemProperty property)
         {
@@ -232,7 +218,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
             foreach (var purpose in purposes)
                 index[purpose] = property;
 
-            StampComposition(item);
+            item.NotifyChanged();
             return true;
         }
 
@@ -242,7 +228,7 @@ namespace Vortex.Sdk.ItemsSystem.Bus
 
         /// <summary>
         /// Удалить конкретное свойство. Из индекса вычищаются только те назначения, что указывают
-        /// именно на него. Успех сдвигает отметки предмета и всех его свойств.
+        /// именно на него. Успех поднимает <see cref="ItemModel.NotifyChanged"/>.
         /// </summary>
         public static bool RemoveProperty(ItemModel item, ItemProperty property)
         {
@@ -255,25 +241,8 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 if (index.TryGetValue(purpose, out var present) && ReferenceEquals(present, property))
                     index.Remove(purpose);
 
-            StampComposition(item);
+            item.NotifyChanged();
             return true;
-        }
-
-        /// <summary>
-        /// Проставляет отметку предмету и всем его свойствам одним значением оси. Служит и первичной
-        /// разметкой при построении («рождены на версии N», покрывает воссозданные из сохранения
-        /// свойства), и инвалидацией при изменении состава: производные величины прочих свойств от
-        /// состава зависят — масса, посчитанная без свойства пачки, устаревает в момент добавления
-        /// пачки, хотя само свойство массы не менялось. Общий сдвиг закрывает это, не зная, какое
-        /// свойство от какого зависит.
-        /// </summary>
-        private static void StampComposition(ItemModel item)
-        {
-            var version = NextVersion();
-            item.Stamp(version);
-
-            foreach (var property in item.Properties.Values)
-                property.Stamp(version);
         }
 
         #endregion

@@ -74,7 +74,6 @@ namespace Vortex.Sdk.ItemsSystem.Model
         internal Dictionary<Type, ItemProperty> Index { get; private set; } = new();
 
         private ItemCategory _category;
-        private long _version;
 
         /// <summary>
         /// Разрешённая категория. Никогда не <c>null</c>: незаданный или неразрешимый ключ даёт
@@ -86,11 +85,11 @@ namespace Vortex.Sdk.ItemsSystem.Model
         public ItemCategory Category => _category ??= ResolveCategory();
 
         /// <summary>
-        /// Отметка по оси версии — момент последнего изменения состава предмета. Изменение значения
-        /// отдельного свойства её не двигает: у свойства своя отметка. Не сохраняется — свойство
-        /// только для чтения, сериализатор берёт лишь свойства с сеттером.
+        /// Предмет изменился — изменилось значение свойства или состав. Инвентарь подписывается на
+        /// это у своих предметов и переизлучает как собственное событие, давая реактивность без
+        /// полинга. Не сохраняется (событие — поле, не свойство).
         /// </summary>
-        public long Version => _version;
+        public event Action<ItemModel> OnChanged;
 
         /// <summary>Все свойства предмета для перебора. Изменение состава — только через шину.</summary>
         public IReadOnlyCollection<ItemProperty> AllProperties => Properties.Values;
@@ -112,11 +111,12 @@ namespace Vortex.Sdk.ItemsSystem.Model
             Index.ContainsKey(typeof(T)) || Properties.ContainsKey(typeof(T));
 
         /// <summary>
-        /// Отметить предмет изменённым — сдвинуть его отметку на текущий конец оси. Шина делает это
-        /// сама при изменении состава; метод нужен доменной логике, меняющей предмет способом,
-        /// о котором пакет не знает.
+        /// Сообщить, что предмет изменился — поднимает <see cref="OnChanged"/>. <c>internal</c>:
+        /// снаружи предмет дёргают не напрямую, а через <see cref="ItemProperty"/> — его наследник
+        /// зовёт защищённый <see cref="ItemProperty.NotifyChanged"/> после изменения своего значения,
+        /// передавая владельца. Внутри пакета вызывается ещё при изменении состава свойств.
         /// </summary>
-        public void Touch() => _version = ItemsBus.NextVersion();
+        internal void NotifyChanged() => OnChanged?.Invoke(this);
 
         /// <summary>Сохраняется игровое состояние: состав свойств и их изменяемые значения.</summary>
         public override string GetDataForSave() => this.SerializeProperties();
@@ -159,9 +159,6 @@ namespace Vortex.Sdk.ItemsSystem.Model
             PresetProperties = null;
             return source;
         }
-
-        /// <summary>Проставить отметку конкретным значением.</summary>
-        internal void Stamp(long version) => _version = version;
 
         /// <summary>
         /// Пометить предмет как собранный по неразрешимому идентификатору пресета: идентификатор

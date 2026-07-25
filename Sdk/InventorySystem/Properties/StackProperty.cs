@@ -45,11 +45,19 @@ namespace Vortex.Sdk.InventorySystem.Properties
             _locked = true;
         }
 
-        /// <summary>Установить количество ключом владельца, поставив замок при первом обращении.</summary>
-        internal void SetCount(int value, object key)
+        /// <summary>
+        /// Установить количество ключом владельца, поставив замок при первом обращении. При реальном
+        /// изменении и переданном владельце поднимает сигнал изменения (через защищённый метод базы):
+        /// количество меняет производные величины и содержимое инвентаря. Владелец <c>null</c> —
+        /// тихая установка (проба вместимости), без сигнала.
+        /// </summary>
+        internal void SetCount(int value, object key, ItemModel owner = null)
         {
             Lock(key);
+            var before = CountData.Value;
             CountData.Set(value, key);
+            if (owner != null && CountData.Value != before)
+                NotifyChanged(owner);
         }
 
 #if UNITY_EDITOR

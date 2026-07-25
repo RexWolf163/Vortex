@@ -43,20 +43,12 @@ namespace Vortex.Sdk.InventorySystem.Model
         private bool _materialized;
         private bool _corrupt;
         private bool _disposed;
-        private long _version;
 
         /// <summary>Набор верификаторов. Пустой означает «влезает всё».</summary>
         public IReadOnlyList<InventoryVerifier> Verifiers => verifiers;
 
         /// <summary>Политика складывания в пачки.</summary>
         public StackPolicy Policy => policy;
-
-        /// <summary>
-        /// Отметка по оси версии — момент последнего изменения состава. Двигается при изменении
-        /// состава инвентаря, но не при изменении значений внутри предметов: за это отвечают их
-        /// собственные отметки. Не сохраняется.
-        /// </summary>
-        public long Version => _version;
 
         /// <summary>
         /// В состав вошёл новый экземпляр предмета. Для реактивного UI без полинга. Материализация
@@ -69,8 +61,13 @@ namespace Vortex.Sdk.InventorySystem.Model
         /// <summary>Экземпляр покинул состав (изъятие или уничтожение).</summary>
         public event Action<ItemModel> OnItemRemoved;
 
-        /// <summary>У оставшегося в составе предмета изменилось количество в пачке.</summary>
-        public event Action<ItemModel> OnItemCountChanged;
+        /// <summary>
+        /// У предмета в составе изменилось содержимое — количество в пачке, прочность, тающий вес,
+        /// добавленное/убранное свойство. Инвентарь подписан на <see cref="ItemModel.OnChanged"/>
+        /// своих предметов и переизлучает его сюда, поэтому изменение значения доходит без полинга,
+        /// даже когда его сделал внешний контроллер, не знающий про инвентарь.
+        /// </summary>
+        public event Action<ItemModel> OnItemChanged;
 
         /// <summary>
         /// Состав для чтения и перебора. Первое обращение материализует инвентарь: строит предметы
@@ -166,6 +163,7 @@ namespace Vortex.Sdk.InventorySystem.Model
             {
                 var item = ItemsBus.Create(entry.Preset, entry.State);
                 _items.Add(item);
+                Attach(item);
             }
         }
 
@@ -176,6 +174,7 @@ namespace Vortex.Sdk.InventorySystem.Model
                 var item = ItemsBus.Create(entry.PresetGuid);
                 StackController.ApplyStartupCount(item, entry.Count);
                 _items.Add(item);
+                Attach(item);
             }
         }
 
@@ -191,17 +190,31 @@ namespace Vortex.Sdk.InventorySystem.Model
             }
         }
 
-        /// <summary>Сдвинуть отметку состава — вызывается контроллером после изменения.</summary>
-        internal void StampComposition() => _version = ItemsBus.NextVersion();
+        /// <summary>
+        /// Подписка на сигнал изменения предмета — вешается при входе предмета в состав (и при
+        /// материализации). Так изменение значения свойства (количество, распад веса) переизлучается
+        /// как <see cref="OnItemChanged"/>. Отписка — <see cref="Detach"/> при выходе из состава.
+        /// </summary>
+        internal void Attach(ItemModel item) => item.OnChanged += HandleItemChanged;
 
-        /// <summary>Событийные точки для контроллера — единственного, кто меняет состав.</summary>
-        internal void RaiseAdded(ItemModel item) => OnItemAdded.Fire(item);
+        /// <inheritdoc cref="Attach"/>
+        internal void Detach(ItemModel item) => item.OnChanged -= HandleItemChanged;
 
-        /// <inheritdoc cref="RaiseAdded"/>
-        internal void RaiseRemoved(ItemModel item) => OnItemRemoved.Fire(item);
+        private void HandleItemChanged(ItemModel item) => OnItemChanged.Fire(item);
 
-        /// <inheritdoc cref="RaiseAdded"/>
-        internal void RaiseCountChanged(ItemModel item) => OnItemCountChanged.Fire(item);
+        /// <summary>Предмет вошёл в состав: подписаться и объявить. Зовёт контроллер.</summary>
+        internal void RaiseAdded(ItemModel item)
+        {
+            Attach(item);
+            OnItemAdded.Fire(item);
+        }
+
+        /// <summary>Предмет покинул состав: отписаться и объявить. Зовёт контроллер.</summary>
+        internal void RaiseRemoved(ItemModel item)
+        {
+            Detach(item);
+            OnItemRemoved.Fire(item);
+        }
 
         #endregion
 

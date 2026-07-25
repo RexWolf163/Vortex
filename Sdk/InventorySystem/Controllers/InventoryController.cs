@@ -93,7 +93,6 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 MergeIn(inventory, composition, item);
             }
 
-            inventory.StampComposition();
             return true;
         }
 
@@ -112,7 +111,6 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                         WarnDivergence(existing, incoming);
                     StackController.SetCount(existing, StackController.CountOf(existing) + remaining);
                     Absorb(incoming);
-                    inventory.RaiseCountChanged(existing);
                     return;
                 }
 
@@ -137,7 +135,6 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 if (debug)
                     WarnDivergence(existing, incoming);
                 StackController.SetCount(existing, StackController.CountOf(existing) + move);
-                inventory.RaiseCountChanged(existing);
                 remaining -= move;
             }
 
@@ -174,7 +171,6 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 return null;
 
             inventory.RaiseRemoved(item);
-            inventory.StampComposition();
             return item;
         }
 
@@ -194,12 +190,10 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 return inventory.Take(item);
 
             StackController.SetCount(item, count - amount);
-            inventory.RaiseCountChanged(item);
 
             var split = ItemsBus.Create(item.GuidPreset);
             StackController.SetCount(split, amount);
 
-            inventory.StampComposition();
             return split;
         }
 
@@ -211,7 +205,6 @@ namespace Vortex.Sdk.InventorySystem.Controllers
 
             DestroyItem(item);
             inventory.RaiseRemoved(item);
-            inventory.StampComposition();
             return true;
         }
 
@@ -269,7 +262,6 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 {
                     // have (int) > remaining, значит остаток вписывается в int-счётчик пачки.
                     StackController.SetCount(item, have - (int)remaining);
-                    inventory.RaiseCountChanged(item);
                     remaining = 0;
                 }
             }
@@ -384,10 +376,12 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 LogPurge(composition);
 
             foreach (var item in composition)
+            {
+                inventory.Detach(item);
                 DestroyItem(item);
+            }
 
             composition.Clear();
-            inventory.StampComposition();
         }
 
         private static void DestroyItem(ItemModel item)

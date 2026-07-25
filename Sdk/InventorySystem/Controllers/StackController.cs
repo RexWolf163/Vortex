@@ -41,21 +41,11 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         internal static void SetCountSilent(ItemModel item, int count) => Stack(item)?.SetCount(count, Key);
 
         /// <summary>
-        /// Установить количество, закрыв пачку на контроллер при первом обращении. Отметка свойства
-        /// сдвигается только при реальном изменении: количество делает недействительными производные
-        /// величины (масса, объём), а запись того же значения ничего не меняет и ось двигать не должна.
+        /// Установить количество, закрыв пачку на контроллер при первом обращении. Сигнал об изменении
+        /// поднимает само свойство — при реальном изменении и переданном владельце (предмете), — так
+        /// количество доходит до инвентаря без публичного метода на предмете.
         /// </summary>
-        internal static void SetCount(ItemModel item, int count)
-        {
-            var stack = Stack(item);
-            if (stack == null)
-                return;
-
-            var before = stack.Count;
-            stack.SetCount(count, Key);
-            if (stack.Count != before)
-                stack.Touch();
-        }
+        internal static void SetCount(ItemModel item, int count) => Stack(item)?.SetCount(count, Key, item);
 
         /// <summary>
         /// Положить количество из стартового наполнения. Больше <see cref="IStackProperty.Max"/> не
