@@ -38,7 +38,8 @@ namespace Vortex.Sdk.ShopSystem.Bus
 
             _settings = Resources.LoadAll<ShopSettings>("")[0];
 
-            OnInitComplete?.Invoke();
+            Debug.Log($"[ShopBus] Init");
+            OnInit += OnInitComplete;
         }
 
         /// <summary>Отключение драйвера: очистка каталога.</summary>

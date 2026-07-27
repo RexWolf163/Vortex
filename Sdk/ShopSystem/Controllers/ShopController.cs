@@ -6,6 +6,9 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.LoaderSystem.Bus;
+using Vortex.Core.System.Abstractions;
+using Vortex.Core.System.ProcessInfo;
 using Vortex.Sdk.ShopSystem.Bus;
 using Vortex.Sdk.ShopSystem.Model;
 
@@ -17,11 +20,35 @@ namespace Vortex.Sdk.ShopSystem.Controllers
     /// (см. <see cref="IsBusy"/>) с общим токеном отмены; журнал/индексы ведёт через
     /// <see cref="ShopOperationsBus"/>.
     /// </summary>
-    public class ShopController : IShopController
+    public class ShopController : Singleton<ShopController>, IShopController, IProcess
     {
+        private ProcessData _processData = new()
+        {
+            Name = "Shop",
+            Progress = 0,
+            Size = 0
+        };
+
         /// <summary>Саморегистрация драйвера в шину при старте приложения.</summary>
         [RuntimeInitializeOnLoadMethod]
-        private static void Bootstrap() => ShopBus.SetDriver(new ShopController());
+        private static void Bootstrap()
+        {
+            if (!ShopBus.SetDriver(Instance))
+            {
+                return;
+            }
+
+            Loader.Register(Instance);
+        }
+
+        public async UniTask RunAsync(CancellationToken cancellationToken)
+        {
+            var items = Database.GetRecords<ShopItemModel>();
+            foreach (var item in items)
+                _shopItems.Add(item.GuidPreset, item);
+            await UniTask.Yield();
+            OnInit?.Invoke();
+        }
 
         /// <summary>Драйвер инициализирован (каталог загружен). См. <see cref="Init"/>.</summary>
         public event Action OnInit;
@@ -47,11 +74,7 @@ namespace Vortex.Sdk.ShopSystem.Controllers
         /// </summary>
         public void Init()
         {
-            var items = Database.GetRecords<ShopItemModel>();
-            foreach (var item in items)
-                _shopItems.Add(item.GuidPreset, item);
-
-            OnInit?.Invoke();
+            //OnInit вызывается после завершения асинхронной загрузки данных
         }
 
         /// <summary>
@@ -559,6 +582,10 @@ namespace Vortex.Sdk.ShopSystem.Controllers
             Debug.LogError($"[ShopController] Shop Item {guid} not found");
             return null;
         }
+
+        public ProcessData GetProcessInfo() => _processData;
+
+        public Type[] WaitingFor() => new[] { typeof(Database) };
     }
 }
 #endif
