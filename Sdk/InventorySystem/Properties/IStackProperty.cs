@@ -1,4 +1,5 @@
 #if USING_VORTEX_ITEMS
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.ItemsSystem.Model;
 
 namespace Vortex.Sdk.InventorySystem.Properties
@@ -15,6 +16,8 @@ namespace Vortex.Sdk.InventorySystem.Properties
 
         /// <summary>Текущее количество в пачке.</summary>
         int Count { get; }
+
+        IntData CountData { get; }
     }
 }
 #endif
