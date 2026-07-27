@@ -58,7 +58,12 @@ namespace Vortex.Core.Extensions.LogicExtensions
                         continue;
 
                     var value = sourceProp.GetValue(source);
-                    if (value is ICloneable cloneable)
+                    // Массив исключён из ветки ICloneable намеренно: Array.Clone() — поверхностная
+                    // копия (новый массив, но элементы те же по ссылке), из-за чего все записи,
+                    // построенные из одного пресета, делили бы один экземпляр каждого элемента.
+                    // DeepCopy копирует массив поэлементно рекурсивно, давая независимые элементы;
+                    // не-массивные ICloneable по-прежнему копируются своим Clone().
+                    if (value is ICloneable cloneable && value is not Array)
                         prop.SetValue(target, cloneable.Clone());
                     else
                         prop.SetValue(target, value.DeepCopy());
