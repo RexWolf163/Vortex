@@ -56,7 +56,7 @@ State changes only through the controller. UI observes but does not decide.
 | **AudioLocalizationSystem** | `ru.vortex.sdk.localization.audio` | Localized line voice-over: binds voice to Sound by language |
 | **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Playable character: bus, controllers, view, save/load |
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Spawns visual effects from a catalog by key through a pool |
-| **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Item with an authored property set: access by purpose interface, version axis for cache invalidation |
+| **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Item with an authored property set: access by purpose interface, `OnChanged` event for reactivity |
 | **InventorySystem** | `ru.vortex.sdk.inventorysystem` | Embeddable inventory: constraints via a verifier set, mass/volume/stack/container properties, packed save through the items bus |
 | **MapLevels** | `ru.vortex.sdk.maplevels` | Streaming map levels: switching, load/unload |
 | **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Rewards system |

@@ -8,7 +8,7 @@ An item model whose set of properties is defined at authoring time rather than f
 - Property classes are declared outside the package; the package knows nothing about concrete properties.
 - Property access goes through a purpose interface in O(1).
 - Authoring data and gameplay state are separated, so balance patches reach items the player already owns.
-- A global version axis lets consumers skip recomputing derived values while nothing has changed.
+- A single `OnChanged` event gives consumers reactivity without polling.
 - The set of properties can change at runtime and survives saving.
 
 Out of scope: inventory, showcase, stacks, mass, volume, quantity. The package describes an item and its properties — not their placement and not their aggregation.
@@ -24,11 +24,11 @@ Assembly: `ru.vortex.sdk.itemssystem`. Odin Inspector required.
 | Unit | Role |
 |------|------|
 | `ItemPreset` | Authoring asset: property set, category key. The single authoring surface |
-| `ItemModel` | Item instance. Two property containers, version mark, resolved category |
+| `ItemModel` | Item instance. Two property containers, `OnChanged` event, resolved category |
 | `ItemProperty` | Property base. The storage type of the set |
 | `IItemProperty` | Root marker for purpose interfaces. The query type is anything derived from it |
 | `ItemCategory` | Extensible enum of categories. Domain values are declared outside the package; only `Unknown` ships with it |
-| `ItemsBus` | Static controller: version axis, item construction, set changes |
+| `ItemsBus` | Static controller: item construction, property-set changes |
 
 ### Two property containers
 
@@ -43,15 +43,11 @@ This storage makes the central invariant structural: **at most one property per 
 
 The cost is memory. At 10,000 items the subsystem takes roughly 16–20 MB. The trade is deliberate: against a build where textures alone are measured in gigabytes, this is a fraction of a percent of the memory budget.
 
-### Version axis
+### Reactivity
 
-A global monotonic counter owned by the bus. It resets only when the application starts: neither a new game nor loading a save rolls it back. Ordering of changes is reconstructed from it rather than from the device clock.
+An item has one event — `OnChanged` — raised when a property value or the property set changes. Whoever changes a value (a controller of count, durability, decaying weight) calls, through the property, the protected `ItemProperty.NotifyChanged(owner)`, which raises `ItemModel.NotifyChanged()` (internal). So a change reaches the consumer without polling and without a global counter: an inventory subscribes to its items' `OnChanged` and re-emits it as its own event.
 
-- The item mark moves when the **set** changes.
-- The property mark moves when the **value** changes — done by the controller that owns the property.
-- A durability change does not invalidate a mass cache: every property carries its own mark.
-
-Membership in someone else's collection is not tracked by the package. A dropped or moved item changes no marks — the collection holder knows about its own composition itself.
+Derived values are recomputed on demand — a consumer reading total mass always sees the current value, including decay. A cache is added only where a profile shows a problem.
 
 ## Contract
 
@@ -61,16 +57,13 @@ Membership in someone else's collection is not tracked by the package. A dropped
 
 | # | Invariant |
 |---|-----------|
-| Inv-1 | The axis is strictly monotonic within the process and is not reset by loading or by starting a new game |
-| Inv-2 | Any construction of an item or a property yields a non-zero mark, including runtime addition and recreation from a save |
-| Inv-3 | At most one property per purpose interface within an item |
-| Inv-4 | The set changes only through the bus |
-| Inv-5 | Authoring data is not saved and is taken anew on every construction |
-| Inv-6 | The version mark is not saved |
+| Inv-1 | At most one property per purpose interface within an item |
+| Inv-2 | The set changes only through the bus |
+| Inv-3 | Authoring data is not saved and is taken anew on every construction |
 
 **Limitations.**
 
-- Updating a property mark on value change is the responsibility of the owning controller. The package neither guarantees nor can verify it.
+- Raising `OnChanged` on a property value change is the responsibility of the owning controller (it calls `NotifyChanged(owner)` after the mutation). The package neither guarantees nor can verify it.
 - `OnItemCreated` fires on every construction. Loading a large collection means thousands of consecutive invocations — handlers must be cheap.
 - An exception in a handler is not isolated and aborts loading. That is preferable to a silently half-built item.
 - Property class identity in a save is the assembly-qualified type name. Renaming or moving a property class is a breaking change for saves.
@@ -79,13 +72,12 @@ Membership in someone else's collection is not tracked by the package. A dropped
 
 The serialization default is "saved". A missing exclusion mark on an authoring field means the value goes into the save, overrides the authoring value on load, and the balance patch **silently** stops reaching existing items. The failure is invisible and surfaces late.
 
-Property fields fall into three categories:
+Property fields fall into two categories:
 
 | Category | Example | Mark |
 |----------|---------|------|
 | Authoring | base mass, maximum durability | `[NotPOCO]` |
 | Gameplay state | current durability | none |
-| Service | version mark | handled by the base |
 
 A private setter does **not** exclude a field from the save: selection looks at getter visibility and at the presence of a setter of any access level. These are two independent mechanisms.
 
@@ -148,7 +140,7 @@ var item = ItemsBus.Create(presetGuid);                 // new
 var restored = ItemsBus.Create(presetGuid, saveData);   // from a save
 ```
 
-The order is mandatory and encapsulated in the bus: shape from preset → state overlay → index → marks → event. The owner takes an instance by preset identifier and only then passes saved state.
+The order is mandatory and encapsulated in the bus: shape from preset → state overlay → index → event. The owner takes an instance by preset identifier and only then passes saved state.
 
 ### 6. Read a property
 
@@ -158,28 +150,26 @@ if (mass != null)
     total += mass.Mass;
 ```
 
-### 7. Cache a derived value
+### 7. React to an item change
 
 ```csharp
-private long _axis;
-private float _total;
+item.OnChanged += it => Refresh(it);   // a property value or the set changed
+```
 
+Compute a derived value on demand — it is always current:
+
+```csharp
 public float Total(IReadOnlyList<ItemModel> items)
 {
-    var axis = ItemsBus.Version;
-    if (axis == _axis) return _total;
-
-    _total = 0f;
+    var total = 0f;
     foreach (var item in items)
         if (item.GetProperty<IMassProperty>() is { } mass)
-            _total += mass.Mass;
-
-    _axis = axis;
-    return _total;
+            total += mass.Mass;
+    return total;
 }
 ```
 
-A precise check compares the mark of the needed property: `property.Version > _axis` means the recomputation is caused by that property alone.
+A controller that changes a property value raises the signal through the protected `ItemProperty.NotifyChanged(owner)`, so the change reaches `OnChanged` subscribers without polling.
 
 ### 8. Change the set
 
@@ -206,9 +196,8 @@ The event fires both on creation from a preset and on restoration from a save, s
 
 | Member | Description |
 |--------|-------------|
-| `Version` | Current end of the axis |
-| `NextVersion()` | Advance the axis and return the new value |
-| `Create(presetGuid, saveData = null)` | Build an item |
+| `Create(presetGuid, saveData = null)` | Build an item (with the event) |
+| `BuildProbe(presetGuid, saveData = null)` | Silent build for inspection: no event |
 | `AddProperty(item, property)` | Add a property. `false` on conflict |
 | `RemoveProperty<T>(item)` | Remove a property by purpose or by class |
 | `RemoveProperty(item, property)` | Remove a specific property |
@@ -222,16 +211,14 @@ The event fires both on creation from a preset and on restoration from a save, s
 | `HasProperty<T>()` | Whether the property is present |
 | `AllProperties` | All properties for enumeration |
 | `Category` | Resolved category. Never `null`: an empty or unresolvable key yields `ItemCategory.Unknown` |
-| `Version` | Mark of the last set change |
-| `Touch()` | Advance the item mark |
+| `OnChanged` | A property value or the set changed |
 | `GetDataForSave()` / `LoadFromSaveData()` | Saving and state overlay |
 
 ### `ItemProperty`
 
 | Member | Description |
 |--------|-------------|
-| `Version` | Mark of the last property change |
-| `Touch()` | Advance the property mark |
+| `NotifyChanged(owner)` | `protected` — a subclass calls it after changing its value; raises `owner.OnChanged` |
 
 ## Editor tools
 

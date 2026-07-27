@@ -56,7 +56,7 @@ SDK — это контракт: «в наших проектах игра ус�
 | **AudioLocalizationSystem** | `ru.vortex.sdk.localization.audio` | Локализованная озвучка реплик: привязка voice к Sound по языку |
 | **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Играбельный персонаж: шина, контроллеры, view, сохранение/загрузка |
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Спавн визуальных эффектов из каталога по ключу через пул |
-| **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Предмет с набором свойств из настройки: доступ по интерфейсу назначения, ось версии для инвалидации кэшей |
+| **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Предмет с набором свойств из настройки: доступ по интерфейсу назначения, событие `OnChanged` для реактивности |
 | **InventorySystem** | `ru.vortex.sdk.inventorysystem` | Встраиваемый инвентарь: ограничения набором верификаторов, свойства массы/объёма/пачки/контейнера, упакованное сохранение через шину предметов |
 | **MapLevels** | `ru.vortex.sdk.maplevels` | Стриминговые уровни на карте: переключение, загрузка/выгрузка |
 | **RewardsSystem** | `ru.vortex.sdk.game.rewards` | Система наград |

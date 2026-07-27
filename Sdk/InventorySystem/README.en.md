@@ -39,7 +39,7 @@ Constraints are a set of rules in the inventory's authoring. The base rule decla
 | `GetMax` | limit of the measured quantity (filters return 0) |
 | `GetCurrent` | current value over the composition (filters return 0) |
 
-The generic `QuantityVerifier` implements "sum of a measured quantity against a limit" with a cache keyed on the version axis; the mass and volume rules add only how to measure a single item. Filters (`CategoryFilter`, `Require/ForbidProperty<T>`) derive from the base directly and return zero on both read methods — they measure nothing.
+The generic `QuantityVerifier` implements "sum of a measured quantity against a limit" — computed on demand, without a cache, so it is always current (including decay). The mass and volume rules add only how to measure a single item. Filters (`CategoryFilter`, `Require/ForbidProperty<T>`) derive from the base directly and return zero on both read methods — they measure nothing.
 
 Limit and sum are a wide integer (`long`): ten thousand items with large unit values exceed 32 bits, and overflow would mean negative occupancy with unlimited capacity.
 
@@ -75,9 +75,9 @@ They live in this package; for `ItemsSystem` these are "properties from outside.
 
 Container mass is a separate class on the same `IMassProperty` purpose as ordinary mass: two properties on one purpose within an item are impossible, so a bag carries either plain mass or container mass. Rigid vs. soft volume is a designer's choice of class.
 
-### Version axis and cache
+### Reactivity
 
-The inventory and verifiers share the version axis from the items package. The occupancy cache in `QuantityVerifier` is keyed on it. The axis is advanced by: a change to the inventory's composition (`Inventory.Version`), a change to a stack count (`StackController` → `ItemProperty.Touch`), a change to any item's composition (`ItemsBus`), and recursively by changes inside nested containers. Keying on the global axis is necessary: the inventory's own mark does not change when a nested container's contents change, yet the total mass does.
+Three events on the inventory give reactivity without polling: `OnItemAdded`/`OnItemRemoved` (composition) and `OnItemChanged` (an item's content). The last arrives by re-emission: the inventory subscribes to its items' `ItemModel.OnChanged` and re-emits it. So a property value change (count, decaying weight, enchantment) reaches the UI even when made by an external controller that knows nothing of the inventory. Verifiers compute occupancy on demand, without a cache.
 
 ## Contract
 
@@ -88,8 +88,8 @@ The inventory and verifiers share the version axis from the items package. The o
 | # | Invariant |
 |---|-----------|
 | Inv-1 | Items in an inventory are built only by the items bus |
-| Inv-2 | Occupancy is consistent with composition — on-demand recompute cached by the axis |
-| Inv-3 | Stack count is changed only by `StackController`, which also advances the mark |
+| Inv-2 | Occupancy is consistent with composition — on-demand recompute, no cache |
+| Inv-3 | Stack count is changed only by `StackController`, which also raises the change signal |
 | Inv-4 | Composition changes only through the controller |
 | Inv-5 | A move loses no item — "check the receiver, then take from the source" |
 | Inv-6 | A container cannot end up inside itself or its descendant |
@@ -170,7 +170,7 @@ The event fires after the contents are removed — it is for cleanup, not for sa
 | `Drop(item)` | Take out and destroy |
 | `Move(from, to)` | Move between inventories |
 | `CountOf(presetGuid)` | Total units of a given item type, across stacks |
-| `CanAdd(presetGuid, n)` | Whether `n` units fit — via a silent probe (no item creation, event or axis shift) against the verifiers |
+| `CanAdd(presetGuid, n)` | Whether `n` units fit — via a silent probe (no item creation or event) against the verifiers |
 | `RemoveCount(presetGuid, n)` | Remove `n` units across stacks; all-or-nothing |
 | `AddCount(presetGuid, n)` | Add `n` units, chunked into stacks no larger than `Max`; all-or-nothing (rollback on shortfall) |
 
@@ -181,13 +181,12 @@ The event fires after the contents are removed — it is for cleanup, not for sa
 | `Items` | Composition for reading; the first access materializes the inventory |
 | `Verifiers` | The rule set |
 | `Policy` | The stack policy |
-| `Version` | Mark of the last composition change |
 | `OnItemAdded` | A new item instance entered the composition |
 | `OnItemRemoved` | An instance left the composition (taken or destroyed) |
-| `OnItemCountChanged` | A stack count changed on an item still in the composition |
+| `OnItemChanged` | An item's content changed — count, decay, an added/removed property |
 | `Dispose()` | Destroy with contents |
 
-The three events give reactivity without polling: subscribe once and update the UI by deltas. Materialization (initial load / startup fill) raises no events — it is the initial snapshot, read via `Items`, with events for subsequent changes. A merge decomposes precisely: topping up an existing stack → `OnItemCountChanged`, a leftover as a new stack → `OnItemAdded`.
+The three events give reactivity without polling: subscribe once and update the UI by deltas. `OnItemAdded`/`OnItemRemoved` are raised by the controller on composition changes; `OnItemChanged` arrives by re-emission of `ItemModel.OnChanged` from subscribed items. Materialization (initial load / startup fill) raises no events — it is the initial snapshot, read via `Items`, with events for subsequent deltas.
 
 ### `InventoryBus`
 
