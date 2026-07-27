@@ -1,6 +1,7 @@
 #if USING_VORTEX_ITEMS
 using System;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.Extensions.LogicExtensions.Actions;
@@ -38,7 +39,7 @@ namespace Vortex.Sdk.InventorySystem.Model
         [SerializeField] private StackPolicy policy = StackPolicy.Merge;
         [SerializeField] private List<StartupEntry> startupFill = new();
 
-        private List<ItemModel> _items;
+        [ShowInInspector, HideInEditorMode] private List<ItemModel> _items;
         private string _rawState;
         private bool _materialized;
         private bool _corrupt;
@@ -172,7 +173,7 @@ namespace Vortex.Sdk.InventorySystem.Model
             foreach (var entry in startupFill)
             {
                 var item = ItemsBus.Create(entry.PresetGuid);
-                StackController.ApplyStartupCount(item, entry.Count);
+                item.ApplyStartupCount(entry.Count);
                 _items.Add(item);
                 Attach(item);
             }

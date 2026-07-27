@@ -16,37 +16,37 @@ namespace Vortex.Sdk.InventorySystem.Controllers
     {
         private static readonly object Key = new();
 
-        private static StackProperty Stack(ItemModel item) => item.GetProperty<IStackProperty>() as StackProperty;
+        private static StackProperty Stack(this ItemModel item) => item.GetProperty<IStackProperty>() as StackProperty;
 
         /// <summary>Количество в пачке предмета. Нет свойства пачки — единица.</summary>
-        internal static int CountOf(ItemModel item) => Stack(item)?.Count ?? 1;
+        public static int CountOf(this ItemModel item) => Stack(item)?.Count ?? 1;
 
         /// <summary>Стекуем ли предмет — есть ли у него свойство пачки.</summary>
-        internal static bool IsStackable(ItemModel item) => Stack(item) != null;
+        internal static bool IsStackable(this ItemModel item) => Stack(item) != null;
 
         /// <summary>Свободное место в пачке предмета. Нет пачки — ноль.</summary>
-        internal static int RoomIn(ItemModel item)
+        internal static int RoomIn(this ItemModel item)
         {
             var stack = Stack(item);
             return stack == null ? 0 : stack.Max - stack.Count;
         }
 
         /// <summary>Максимум пачки предмета. Нестекуемый предмет — один экземпляр, максимум 1.</summary>
-        internal static int MaxOf(ItemModel item) => Stack(item)?.Max ?? 1;
+        internal static int MaxOf(this ItemModel item) => Stack(item)?.Max ?? 1;
 
         /// <summary>
         /// Задать количество без сигнала — для транзиентной пробы, которую проверяют на вместимость
         /// и выбрасывают. Владелец не передаётся (owner null), поэтому свойство не поднимает событие:
         /// проба не меняет реального состояния.
         /// </summary>
-        internal static void SetCountSilent(ItemModel item, int count) => Stack(item)?.SetCount(count, Key);
+        public static void SetCountSilent(this ItemModel item, int count) => Stack(item)?.SetCount(count, Key);
 
         /// <summary>
         /// Установить количество, закрыв пачку на контроллер при первом обращении. Сигнал об изменении
         /// поднимает само свойство — при реальном изменении и переданном владельце (предмете), — так
         /// количество доходит до инвентаря без публичного метода на предмете.
         /// </summary>
-        internal static void SetCount(ItemModel item, int count) => Stack(item)?.SetCount(count, Key, item);
+        public static void SetCount(this ItemModel item, int count) => Stack(item)?.SetCount(count, Key, item);
 
         /// <summary>
         /// Положить количество из стартового наполнения. Больше <see cref="IStackProperty.Max"/> не
@@ -55,7 +55,7 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         /// набор задаётся несколькими записями. Нестекуемому предмету количество больше единицы
         /// бессмысленно — он остаётся одним экземпляром, тоже с ошибкой в лог.
         /// </summary>
-        internal static void ApplyStartupCount(ItemModel item, int requested)
+        internal static void ApplyStartupCount(this ItemModel item, int requested)
         {
             var stack = Stack(item);
             if (stack == null)

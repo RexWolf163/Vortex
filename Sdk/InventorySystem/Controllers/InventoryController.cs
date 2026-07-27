@@ -83,7 +83,7 @@ namespace Vortex.Sdk.InventorySystem.Controllers
 
             var composition = inventory.Composition;
 
-            if (inventory.Policy == StackPolicy.None || !StackController.IsStackable(item))
+            if (inventory.Policy == StackPolicy.None || !item.IsStackable())
             {
                 composition.Add(item);
                 inventory.RaiseAdded(item);
@@ -99,17 +99,17 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         private static void MergeIn(Inventory inventory, List<ItemModel> composition, ItemModel incoming)
         {
             var debug = Settings.Data().InventoryDebugMode;
-            var remaining = StackController.CountOf(incoming);
+            var remaining = incoming.CountOf();
 
             if (inventory.Policy == StackPolicy.Whole)
             {
                 foreach (var existing in composition)
                 {
-                    if (!SameStack(existing, incoming) || StackController.RoomIn(existing) < remaining)
+                    if (!SameStack(existing, incoming) || existing.RoomIn() < remaining)
                         continue;
                     if (debug)
                         WarnDivergence(existing, incoming);
-                    StackController.SetCount(existing, StackController.CountOf(existing) + remaining);
+                    existing.SetCount(existing.CountOf() + remaining);
                     Absorb(incoming);
                     return;
                 }
@@ -127,14 +127,14 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 if (!SameStack(existing, incoming))
                     continue;
 
-                var room = StackController.RoomIn(existing);
+                var room = existing.RoomIn();
                 if (room <= 0)
                     continue;
 
                 var move = Math.Min(room, remaining);
                 if (debug)
                     WarnDivergence(existing, incoming);
-                StackController.SetCount(existing, StackController.CountOf(existing) + move);
+                existing.SetCount(existing.CountOf() + move);
                 remaining -= move;
             }
 
@@ -150,7 +150,7 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         }
 
         private static bool SameStack(ItemModel existing, ItemModel incoming) =>
-            existing.GuidPreset == incoming.GuidPreset && StackController.IsStackable(existing);
+            existing.GuidPreset == incoming.GuidPreset && existing.IsStackable();
 
         /// <summary>
         /// Входящий предмет поглощён существующими пачками целиком и ни одному инвентарю не
@@ -158,7 +158,7 @@ namespace Vortex.Sdk.InventorySystem.Controllers
         /// владение, и если вызывающий по ошибке переиспользует ссылку, поглощённый экземпляр не
         /// внесёт лишних единиц. Экземпляр после этого — пустой призрак, держать его не нужно.
         /// </summary>
-        private static void Absorb(ItemModel incoming) => StackController.SetCount(incoming, 0);
+        private static void Absorb(ItemModel incoming) => incoming.SetCount(0);
 
         #endregion
 
@@ -185,14 +185,14 @@ namespace Vortex.Sdk.InventorySystem.Controllers
             if (amount <= 0 || !inventory.Composition.Contains(item))
                 return null;
 
-            var count = StackController.CountOf(item);
+            var count = item.CountOf();
             if (amount >= count)
                 return inventory.Take(item);
 
-            StackController.SetCount(item, count - amount);
+            item.SetCount(count - amount);
 
             var split = ItemsBus.Create(item.GuidPreset);
-            StackController.SetCount(split, amount);
+            split.SetCount(amount);
 
             return split;
         }
@@ -221,7 +221,7 @@ namespace Vortex.Sdk.InventorySystem.Controllers
             long total = 0;
             foreach (var item in inventory.Items)
                 if (item.GuidPreset == presetGuid)
-                    total += StackController.CountOf(item);
+                    total += item.CountOf();
             return total;
         }
 
@@ -261,7 +261,7 @@ namespace Vortex.Sdk.InventorySystem.Controllers
                 else
                 {
                     // have (int) > remaining, значит остаток вписывается в int-счётчик пачки.
-                    StackController.SetCount(item, have - (int)remaining);
+                    item.SetCount(have - (int)remaining);
                     remaining = 0;
                 }
             }
@@ -292,7 +292,7 @@ namespace Vortex.Sdk.InventorySystem.Controllers
             var probe = ItemsBus.BuildProbe(presetGuid);
             // Счётчик пачки — int; астрономические количества (свыше int) для выдаваемых предметов
             // нереальны (это миллиарды экземпляров), поэтому пробе достаточно int-представления.
-            StackController.SetCountSilent(probe, (int)Math.Min(amount, int.MaxValue));
+            probe.SetCountSilent((int)Math.Min(amount, int.MaxValue));
             return inventory.CanPlace(probe);
         }
 
@@ -318,8 +318,8 @@ namespace Vortex.Sdk.InventorySystem.Controllers
             while (remaining > 0)
             {
                 var item = ItemsBus.Create(presetGuid);
-                var chunk = (int)Math.Min(remaining, Math.Max(1, StackController.MaxOf(item)));
-                StackController.SetCount(item, chunk);
+                var chunk = (int)Math.Min(remaining, Math.Max(1, item.MaxOf()));
+                item.SetCount(chunk);
 
                 if (!inventory.Add(item))
                 {

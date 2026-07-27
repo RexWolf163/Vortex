@@ -23,6 +23,8 @@ namespace Vortex.Sdk.InventorySystem.Properties
             long count = stack?.Count ?? 1;
             return (long)unitMass * count;
         }
+
+        protected override string Label => $"Mass: {unitMass}pts.";
     }
 }
 #endif

@@ -1,6 +1,8 @@
 #if USING_VORTEX_ITEMS
 using System;
 using UnityEngine;
+using Vortex.Sdk.ItemsSystem.Model;
+using Vortex.Unity.DatabaseSystem.Attributes;
 
 namespace Vortex.Sdk.InventorySystem.Model
 {
@@ -12,7 +14,7 @@ namespace Vortex.Sdk.InventorySystem.Model
     [Serializable]
     public class StartupEntry
     {
-        [SerializeField] private string presetGuid;
+        [SerializeField, DbRecord(typeof(ItemModel))] private string presetGuid;
         [SerializeField, Min(1)] private int count = 1;
 
         /// <summary>Идентификатор пресета предмета.</summary>

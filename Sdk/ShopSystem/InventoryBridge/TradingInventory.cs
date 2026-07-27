@@ -16,10 +16,10 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
     /// процесс, поэтому «текущий торгующий инвентарь» однозначен.
     ///
     /// Мутирующие шаги сделки (оплата, выдача, возврат) резолвят инвентарь через
-    /// <see cref="Resolve(ShopOperation)"/> — он фиксирует ответ на всю покупку по её PurchaseGuid,
+    /// <see cref="GetInventory(Vortex.Sdk.ShopSystem.Model.ShopOperation)"/> — он фиксирует ответ на всю покупку по её PurchaseGuid,
     /// поэтому даже недетерминированный подписчик не разведёт валюту и товар по разным инвентарям.
     /// Кэш — один слот: у контроллера магазина один активный процесс, покупки не перекрываются.
-    /// Предпроверки (<c>CanPay</c>/<c>CanDelivery</c>) резолвят напрямую <see cref="Resolve()"/>:
+    /// Предпроверки (<c>CanPay</c>/<c>CanDelivery</c>) резолвят напрямую <see cref="GetInventory"/>:
     /// они не мутируют, привязывать их не нужно.
     ///
     /// Дисциплина подписчика: один подписчик (не «последний выигрывает»), обработчик — чистый
@@ -53,8 +53,8 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
             _boundInventory = null;
         }
 
-        /// <summary>Разрешить текущий торгующий инвентарь. <c>null</c>, если ответить некому.</summary>
-        public static Inventory Resolve()
+        /// <summary>Запросить текущий торгующий инвентарь. <c>null</c>, если ответить некому.</summary>
+        public static Inventory GetInventory()
         {
             var request = new InventoryRequest();
             OnRequested.Fire(request);
@@ -67,13 +67,13 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
         /// выдача и возврат одной сделки гарантированно работают с одним инвентарём, даже если ответ
         /// подписчика между шагами изменился бы.
         /// </summary>
-        public static Inventory Resolve(ShopOperation operation)
+        public static Inventory GetInventory(ShopOperation operation)
         {
             if (operation.PurchaseGuid == _boundPurchase)
                 return _boundInventory;
 
             _boundPurchase = operation.PurchaseGuid;
-            _boundInventory = Resolve();
+            _boundInventory = GetInventory();
             return _boundInventory;
         }
     }

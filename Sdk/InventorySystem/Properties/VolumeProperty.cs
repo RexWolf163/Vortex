@@ -21,6 +21,8 @@ namespace Vortex.Sdk.InventorySystem.Properties
             long count = stack?.Count ?? 1;
             return (long)unitVolume * count;
         }
+
+        protected override string Label => $"Volume: {unitVolume}pts.";
     }
 }
 #endif

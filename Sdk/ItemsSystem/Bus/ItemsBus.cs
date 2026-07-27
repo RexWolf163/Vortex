@@ -115,14 +115,11 @@ namespace Vortex.Sdk.ItemsSystem.Bus
                 }
 
                 var type = property.GetType();
-                if (properties.ContainsKey(type))
+                if (!properties.TryAdd(type, property))
                 {
                     Log.Print(LogLevel.Error,
                         $"[Items] Duplicated property class «{type.Name}». Item: {item.GuidPreset}", item);
-                    continue;
                 }
-
-                properties[type] = property;
             }
         }
 

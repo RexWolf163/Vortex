@@ -33,13 +33,13 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
 
         public override UniTask<bool> CanPay(string guid, int count, CancellationToken ct)
         {
-            var inventory = TradingInventory.Resolve();
+            var inventory = TradingInventory.GetInventory();
             return UniTask.FromResult(inventory != null && inventory.CountOf(currencyGuid) >= (long)price * count);
         }
 
         public override UniTask<bool> MakePay(ShopOperation operation, CancellationToken ct)
         {
-            var inventory = TradingInventory.Resolve(operation);
+            var inventory = TradingInventory.GetInventory(operation);
             if (inventory == null)
                 return UniTask.FromResult(false);
 
@@ -57,7 +57,7 @@ namespace Vortex.Sdk.ShopSystem.InventoryBridge
         /// </summary>
         public override UniTask<bool> MakeRefund(ShopOperation operation)
         {
-            var inventory = TradingInventory.Resolve(operation);
+            var inventory = TradingInventory.GetInventory(operation);
             if (inventory == null)
                 return UniTask.FromResult(false);
 

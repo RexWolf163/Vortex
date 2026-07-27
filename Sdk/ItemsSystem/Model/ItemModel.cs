@@ -1,12 +1,14 @@
 #if USING_VORTEX_ITEMS
 using System;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using Vortex.Core.DatabaseSystem.Model;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 using Vortex.Core.ExtensibleEnumSystem.Abstractions;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
 using Vortex.Sdk.ItemsSystem.Bus;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Sdk.ItemsSystem.Model
 {
@@ -28,7 +30,7 @@ namespace Vortex.Sdk.ItemsSystem.Model
     /// у варианта с одним словарём и перебором. Размен сознательный: на фоне типичной сборки,
     /// где текстуры измеряются гигабайтами, это доли процента бюджета.
     /// </summary>
-    [Serializable, POCO]
+    [Serializable, POCO, ClassLabel("$Name"), HideReferenceObjectPicker]
     public class ItemModel : Record
     {
         /// <summary>
@@ -48,7 +50,7 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// Ключ категории из пресета. Приходит настройкой при каждом построении, поэтому
         /// в сохранение не идёт. Разрешённое значение — <see cref="Category"/>.
         /// </summary>
-        [NotPOCO]
+        [NotPOCO, ShowInInspector]
         public string CategoryKey { get; protected set; }
 
         /// <summary>
@@ -63,7 +65,7 @@ namespace Vortex.Sdk.ItemsSystem.Model
         /// базового класса рефлексией на наследнике не видны — при наследовании модели private
         /// отвалился бы молча. <c>internal</c> этим свойством обладает, оставаясь закрытым.
         /// </summary>
-        [IsPOCO]
+        [IsPOCO, ShowInInspector]
         internal Dictionary<Type, ItemProperty> Properties { get; private set; } = new();
 
         /// <summary>

@@ -27,7 +27,7 @@ namespace Vortex.Sdk.ItemsSystem.Model
     [Serializable, HideReferenceObjectPicker, ClassLabel("$Label")]
     public abstract class ItemProperty : IItemProperty
     {
-        private string Label => GetType().Name;
+        protected virtual string Label => GetType().Name;
 
         /// <summary>
         /// Сообщить, что значение свойства изменилось. Наследник зовёт это после мутации, передавая

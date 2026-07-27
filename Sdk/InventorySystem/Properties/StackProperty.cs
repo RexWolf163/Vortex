@@ -60,6 +60,8 @@ namespace Vortex.Sdk.InventorySystem.Properties
                 NotifyChanged(owner);
         }
 
+        protected override string Label => $"is {Count} from {Max}";
+
 #if UNITY_EDITOR
 
         /// <summary>
