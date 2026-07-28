@@ -126,7 +126,13 @@ namespace Vortex.Unity.UI.UIComponents
         {
             text = useLocalization ? text.Translate() : text;
             foreach (var uiComponentText in uiComponentTexts)
+            {
+#if UNITY_EDITOR
+                if (uiComponentText == null)
+                    Debug.LogError($"[UIComponent] brokenLinks in {name} GameObject");
+#endif
                 uiComponentText.PutData(text);
+            }
         }
 
         /// <summary>

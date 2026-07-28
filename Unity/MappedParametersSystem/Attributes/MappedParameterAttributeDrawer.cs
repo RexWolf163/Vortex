@@ -29,7 +29,6 @@ namespace Vortex.Unity.MappedParametersSystem.Attributes
             var controlRect =
                 EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, EditorStyles.numberField);
 
-            EditorGUI.BeginChangeCheck();
             var color = GUI.color;
             if (error)
                 GUI.color = Color.red;
@@ -49,8 +48,10 @@ namespace Vortex.Unity.MappedParametersSystem.Attributes
 
             var list = model?.Select(p => p.Name) ?? Array.Empty<string>();
             ValueEntry.SmartValue = OdinDropdownTool.DropdownSelector(dropdownRect, label, ValueEntry.SmartValue, list);
-            if (EditorGUI.EndChangeCheck())
-                GUI.color = color;
+
+            // Восстанавливаем цвет всегда, а не только в кадр смены значения — иначе красная подсветка
+            // ошибки протекает через GUI.color на последующие поля инспектора.
+            GUI.color = color;
 
             if (!ValueEntry.SmartValue.IsNullOrWhitespace() && GUI.Button(buttonRect, "Find"))
                 FindRecordAsset(ValueEntry.SmartValue);
