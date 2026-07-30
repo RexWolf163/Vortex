@@ -102,6 +102,7 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 | `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed |
 | `QuestLogic` | `abstract` | Атомарная логика: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Маркер точки сохранения: сохраняет `Key` в `QuestModel.Step` |
+| `AlwaysFail` | `QuestLogic` | Жёсткий `false`: у `UnFailable`-квеста зацикливает его (Locked → рестарт) |
 | `QuestConditionLogic` | `abstract` | Условие: `Check()`, `InitListeners()`, `DisposeListeners()` |
 | `QuestConditions` | `Serializable` | AND-группа условий с управлением подписками |
 | `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён |
@@ -170,6 +171,17 @@ public class LevelReached : QuestConditionLogic
 3. Создать `QuestPreset` через **Assets → Create → Database → Quest Preset**
 4. В инспекторе настроить: условия старта, логики, autorun, unFailable
 
+### Зацикленный квест (`AlwaysFail`)
+
+`AlwaysFail` — логика с жёстким `false`. У квеста с **`unFailable = true`** она превращает завершение в перезапуск: `false` → квест уходит в `Locked` (а не `Failed`), не попадает в `CompletedQuests`, и перепроверка условий старта запускает его заново.
+
+Собрать циклический квест:
+1. Включить у квеста **`unFailable`**.
+2. Добавить **`AlwaysFail`** **последней** логикой (после полезной работы и наград).
+3. Частоту цикла задают условия старта: пока они истинны — квест крутится (один прогон за кадр, `AlwaysFail` уступает кадр через `UniTask.Yield`, поэтому кадр не виснет); транзиентное условие (событие) — квест ждёт следующего срабатывания.
+
+Форма списка логик: `[…полезные логики…] → [награда] → AlwaysFail`. Без `unFailable` `AlwaysFail` просто завершит квест как `Failed`.
+
 ### Реактивная перепроверка условий
 
 Каждый `QuestConditionLogic` управляет своими подписками через `InitListeners()`/`DisposeListeners()`:
@@ -193,6 +205,15 @@ public class ExampleStarted : QuestConditionLogic
 ```
 
 `QuestConditions.Check()` автоматически вызывает `DisposeListeners` перед проверкой и `InitListeners` только для условий, вернувших `false` — подписки живут только пока условие не выполнено.
+
+#### Почему оба уровня — AND (атомарное детерминированное отслеживание)
+
+И условия внутри группы (`QuestConditions.Check` → все по AND), и группы между собой (`CheckQuestStart` → `StartConditions.All`) объединяются по **AND с ленивым short-circuit**. Это осознанный design, а не избыточность: в каждый момент квест подписан ровно на **одно** невыполненное условие — «блокер» (первое `false` в первой невыполненной группе), а остальные проверяются только когда оно откроется (перепроверка каскадом продвигает подписку к следующему блокеру). Отсюда:
+
+- **атомарность** — одна активная подписка за раз;
+- **детерминированность** — блокер всегда однозначен (слева направо).
+
+> ⚠️ **Не менять внутренний уровень на OR.** OR-группа истинна при выполнении *любого* из условий, значит становится истинной при открытии *любого* из них — пришлось бы подписываться на **все** условия невыполненной группы (однозначного блокера нет). Это ломает атомарное отслеживание. Организационная группировка (имя группы) — **не** логический OR: дерево условий вычисляется как **плоское AND**.
 
 Альтернативный путь — `SetListener`/`RemoveListener` для `IReactiveData`:
 

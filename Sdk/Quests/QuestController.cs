@@ -366,6 +366,8 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         /// <param name="quest"></param>
         /// <returns></returns>
+        // AND между группами (All) с ленивым short-circuit: активна одна группа-блокер за раз — тот же
+        // принцип атомарного детерминированного отслеживания, что и внутри группы (см. QuestConditions.Check).
         private static bool CheckQuestStart(this QuestModel quest) =>
             quest.StartConditions.Length == 0 || quest.StartConditions.All(c => c.Check());
 

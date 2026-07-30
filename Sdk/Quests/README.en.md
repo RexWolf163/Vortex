@@ -102,6 +102,7 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 | `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed |
 | `QuestLogic` | `abstract` | Atomic logic: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Save point marker: stores `Key` in `QuestModel.Step` |
+| `AlwaysFail` | `QuestLogic` | Hard `false`: loops an `UnFailable` quest (Locked → restart) |
 | `QuestConditionLogic` | `abstract` | Condition: `Check()`, `InitListeners()`, `DisposeListeners()` |
 | `QuestConditions` | `Serializable` | AND-group of conditions with subscription management |
 | `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID is complete |
@@ -170,6 +171,17 @@ public class LevelReached : QuestConditionLogic
 3. Create a `QuestPreset` via **Assets → Create → Database → Quest Preset**
 4. Configure in inspector: start conditions, logics, autorun, unFailable
 
+### Looped quest (`AlwaysFail`)
+
+`AlwaysFail` is a logic returning a hard `false`. On a quest with **`unFailable = true`** it turns completion into a restart: `false` → the quest goes to `Locked` (not `Failed`), is not added to `CompletedQuests`, and a start-condition re-check launches it again.
+
+Building a looping quest:
+1. Enable **`unFailable`** on the quest.
+2. Add **`AlwaysFail`** as the **last** logic (after the useful work and rewards).
+3. Start conditions set the loop cadence: while they hold — the quest loops (one pass per frame; `AlwaysFail` yields a frame via `UniTask.Yield`, so the frame never hangs); a transient condition (event) makes the quest wait for the next trigger.
+
+Logic list shape: `[…useful logics…] → [reward] → AlwaysFail`. Without `unFailable`, `AlwaysFail` simply ends the quest as `Failed`.
+
 ### Reactive Condition Re-checks
 
 Each `QuestConditionLogic` manages its own subscriptions via `InitListeners()`/`DisposeListeners()`:
@@ -193,6 +205,15 @@ public class ExampleStarted : QuestConditionLogic
 ```
 
 `QuestConditions.Check()` automatically calls `DisposeListeners` before checking and `InitListeners` only for conditions that returned `false` — subscriptions only live while the condition is unmet.
+
+#### Why both levels are AND (atomic deterministic tracking)
+
+Both conditions within a group (`QuestConditions.Check` → all AND) and groups between each other (`CheckQuestStart` → `StartConditions.All`) are combined by **AND with lazy short-circuit**. This is intentional, not redundancy: at any moment the quest is subscribed to exactly **one** unmet condition — the "blocker" (first `false` in the first unmet group), and the rest are re-checked only when it opens (a re-check cascades the subscription to the next blocker). Hence:
+
+- **atomicity** — a single active subscription at a time;
+- **determinism** — the blocker is always well-defined (left to right).
+
+> ⚠️ **Do not switch the inner level to OR.** An OR-group is true when *any* of its conditions holds, so it becomes true when *any* of them opens — you would have to subscribe to **all** conditions of an unmet group (no single blocker). That breaks atomic tracking. The organizational grouping (group name) is **not** a logical OR: the condition tree evaluates as a **flat AND**.
 
 Alternative path — `SetListener`/`RemoveListener` for `IReactiveData`:
 
