@@ -249,6 +249,10 @@ namespace Vortex.Unity.AudioSystem
                             Instance.musicPlayer.SetVolumeMultiplier,
                             0f, Instance.musicFadeTime)
                         .SetEase(EaseType.Linear)
+                        .Run();
+                    var temp = 1f;
+                    FadeCoverTween.Set(() => temp, (a) => temp = a, 0f, Instance.musicFadeTime)
+                        .SetEase(EaseType.Linear)
                         .OnComplete(callback)
                         .Run();
                     return false;
