@@ -14,10 +14,12 @@ namespace Vortex.Unity.UI.Misc
     {
         #region IDataStorage
 
+        private string InfoHint() => $"ищет тип: {typeof(T).Name}";
+
         /// <summary>
         /// Ссылка на класс-хранилище нужной модели данных
         /// </summary>
-        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink]
+        [SerializeField, ClassFilter(typeof(IDataStorage)), AutoLink] [InfoBox("$InfoHint")]
         private MonoBehaviour source;
 
         private IDataStorage _storage;

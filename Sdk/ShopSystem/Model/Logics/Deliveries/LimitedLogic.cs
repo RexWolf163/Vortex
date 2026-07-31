@@ -6,16 +6,21 @@ using UnityEngine;
 using Vortex.Sdk.ShopSystem.Bus;
 using Vortex.Unity.EditorTools.Attributes;
 
-namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
+namespace Vortex.Sdk.ShopSystem.Model.Logics.Deliveries
 {
     /// <summary>
-    /// Оплата-ограничитель: списания нет, но покупка разрешается, пока суммарное количество уже выданных
-    /// пачек товара плюс запрошенное не превысит <c>maxCount</c> — за всё время либо за окно
-    /// <c>timeForCheck</c>. Считает по per-item истории (<c>GetGoodsHistory</c>), учитывая только
-    /// доведённые до Delivered покупки.
+    /// Выдача-ограничитель: сама ничего не размещает, а работает как предел на получение товара —
+    /// разрешает покупку, пока суммарное количество уже полученных пачек плюс запрошенное не превысит
+    /// <c>maxCount</c> (за всё время либо за окно <c>timeForCheck</c>). Считает по per-item истории
+    /// (<c>GetGoodsHistory</c>), учитывая только доведённые до Delivered покупки. Это ограничение на
+    /// стороне размещения (сколько товара можно получить), а не оплаты — списания здесь нет.
+    ///
+    /// Примечание: считает не текущий остаток в инвентаре, а число покупок из журнала. Для «нельзя
+    /// держать больше N единиц» — это ёмкость инвентаря (верификаторы, проверяются в <c>CanAdd</c>
+    /// у предметной выдачи), другой механизм.
     /// </summary>
     [Serializable]
-    public class LimitedLogic : PaymentLogic
+    public class LimitedLogic : DeliveryLogic
     {
         /// <summary>
         /// Максимальное кол-во вообще или за период (зависит от настройки поля тайминга)
@@ -30,7 +35,7 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
 
         public override int GetCount() => 1;
 
-        public override UniTask<bool> CanPay(string guid, int count, CancellationToken ct)
+        public override UniTask<bool> CanDelivery(string guid, int count, CancellationToken ct)
         {
             var list = ShopOperationsBus.GetGoodsHistory(guid);
             var countGoods = 0;
@@ -66,10 +71,8 @@ namespace Vortex.Sdk.ShopSystem.Model.Logics.Payments
             return UniTask.FromResult(true);
         }
 
-        public override UniTask<bool> MakePay(ShopOperation operation, CancellationToken ct) =>
-            UniTask.FromResult(true);
-
-        public override UniTask<bool> MakeRefund(ShopOperation operation) =>
+        // Размещать нечего — это чистый гейт-ограничитель; фактическую выдачу делает основная логика выдачи.
+        public override UniTask<bool> MakeDelivery(ShopOperation operation, CancellationToken ct) =>
             UniTask.FromResult(true);
     }
 }

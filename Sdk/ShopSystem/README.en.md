@@ -10,14 +10,14 @@ Vortex framework Sdk package: transactional purchase engine. Order → payment �
 - Restoring unfinished purchases on save load by folding the journal
 - Cancelling an in-flight purchase: interrupting the process via token and refunding the payment
 - Runtime indexes for queries: open / ready-to-claim / stuck purchases, history per purchase and per item
-- Built-in payment logics: `FreeLogic` (zero price), `LimitedLogic` (quantity cap per period)
+- Built-in logics: payment — `FreeLogic` (zero price); delivery — `LimitedLogic` (gate limiter: quantity cap per period)
 
 Out of scope:
 
 - Concrete charge and delivery rules (wallet, inventory, entitlements) — subclasses of `PaymentLogic` / `DeliveryLogic` in the project
 - Storefront and purchase UI — consumers subscribe to the reactive operation state
 - Server-side payment verification: the package knows nothing about protocols; network logic reconciles the charge by `PurchaseGuid` on its own
-- Composing several payment rules on one item — an item has a single payment logic; "price + cap" is implemented as one combined logic
+- Composing several rules on one side of the deal — an item has a single payment logic and a single delivery logic; several rules on the same side (e.g. "deliver item + cap") are implemented as one combined logic
 
 ## Dependencies
 
@@ -368,9 +368,10 @@ ShopSystem/
 │   └── Logics/
 │       ├── PaymentLogic.cs               # abstract: charge / refund
 │       ├── DeliveryLogic.cs              # abstract: delivery
-│       └── Payments/
-│           ├── FreeLogic.cs              # zero price
-│           └── LimitedLogic.cs           # quantity cap per period
+│       ├── Payments/
+│       │   └── FreeLogic.cs              # zero price
+│       └── Deliveries/
+│           └── LimitedLogic.cs           # gate limiter: quantity cap per period
 ├── Presets/
 │   ├── ShopItemPreset.cs                 # item preset
 │   └── ShopSettings.cs                   # ICoreAsset: AfterpayMode
