@@ -10,14 +10,14 @@ Vortex framework Sdk package: transactional purchase engine. Order → payment �
 - Restoring unfinished purchases on save load by folding the journal
 - Cancelling an in-flight purchase: interrupting the process via token and refunding the payment
 - Runtime indexes for queries: open / ready-to-claim / stuck purchases, history per purchase and per item
-- Built-in logics: payment — `FreeLogic` (zero price); delivery — `LimitedLogic` (gate limiter: quantity cap per period)
+- Built-in payment logics: `FreeLogic` (zero price)
 
 Out of scope:
 
 - Concrete charge and delivery rules (wallet, inventory, entitlements) — subclasses of `PaymentLogic` / `DeliveryLogic` in the project
 - Storefront and purchase UI — consumers subscribe to the reactive operation state
 - Server-side payment verification: the package knows nothing about protocols; network logic reconciles the charge by `PurchaseGuid` on its own
-- Composing several rules on one side of the deal — an item has a single payment logic and a single delivery logic; several rules on the same side (e.g. "deliver item + cap") are implemented as one combined logic
+- Composing several rules on one side of the deal — an item has a single payment logic and a single delivery logic; several rules on the same side are implemented as one combined logic. A quantity cap is not a logic but an item property (`LimitedProperty`), honored by inventory delivery via the `CanAdd` verifiers
 
 ## Dependencies
 
@@ -28,7 +28,7 @@ Out of scope:
 | `ru.vortex.extensions` | `ListData` / `EnumData`, `InitValve`, `Crypto`, `[POCO]` |
 | `ru.vortex.unity.database` | `RecordPreset<T>` — item preset |
 | `ru.vortex.unity.extensions` | `SoData` — `RecordPreset` base |
-| `ru.vortex.unity.editortools` | `[TimeDraw]` in `LimitedLogic` |
+| `ru.vortex.unity.editortools` | `[ToggleButton]` in the `SdkSettings` toggle |
 | `ru.vortex.unity.CoreAssetsSystem` | `ICoreAsset` — settings asset auto-creation |
 | `ru.vortex.sdk.game.core` | `GameController`, `GameModel.IGameData`, `PlayTime` / `AppTime` |
 | UniTask | Asynchronous payment and delivery logics |
@@ -368,10 +368,8 @@ ShopSystem/
 │   └── Logics/
 │       ├── PaymentLogic.cs               # abstract: charge / refund
 │       ├── DeliveryLogic.cs              # abstract: delivery
-│       ├── Payments/
-│       │   └── FreeLogic.cs              # zero price
-│       └── Deliveries/
-│           └── LimitedLogic.cs           # gate limiter: quantity cap per period
+│       └── Payments/
+│           └── FreeLogic.cs              # zero price
 ├── Presets/
 │   ├── ShopItemPreset.cs                 # item preset
 │   └── ShopSettings.cs                   # ICoreAsset: AfterpayMode
