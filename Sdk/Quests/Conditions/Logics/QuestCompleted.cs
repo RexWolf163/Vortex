@@ -10,11 +10,7 @@ namespace Vortex.Sdk.Quests.Conditions.Logics
         [SerializeField, DbRecord(typeof(QuestModel))]
         private string quest;
 
-        public override bool Check()
-        {
-            var result = QuestController.IsComplete(quest);
-            return result;
-        }
+        public override bool Check() => QuestController.IsComplete(quest);
 
         public override void DisposeListeners()
         {

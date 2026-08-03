@@ -21,7 +21,10 @@ namespace Vortex.Sdk.Quests.Conditions
     public class QuestConditions
     {
         [SerializeField] private string name;
-        [SerializeReference] private QuestConditionLogic[] conditions = Array.Empty<QuestConditionLogic>();
+
+        // НЕ Array.Empty<>() — он возвращает общий синглтон, и при [SerializeReference] все группы получают
+        // алиас на один массив (Odin рисует «Reference to …$1.conditions»). Свежий массив на экземпляр.
+        [SerializeReference] private QuestConditionLogic[] conditions = new QuestConditionLogic[0];
 
         /// <summary>
         /// Проверка на отработку всех условий группы по AND логике

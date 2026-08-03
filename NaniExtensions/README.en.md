@@ -49,7 +49,23 @@ The whole Nani package family is activated via the `USING_NANINOVELL` symbol, se
 | Method | Description |
 |--------|-------------|
 | `ResetNani()` | Stop all audio, reset variables, hide backgrounds, characters, text printers, reset choices |
-| `NaniIsPlaying()` | `true` if ScriptPlayer is playing or choice handler is visible |
+| `NaniIsPlaying()` | `true` if ScriptPlayer is playing **or a choice handler is visible** (the choice check is load-bearing — see below) |
+
+### Playback events
+
+```csharp
+public static event Action OnNaniStart;   // script playback began
+public static event Action OnNaniStop;     // script playback stopped (settled)
+```
+
+Both derive from `ScriptPlayer.OnPlay`/`OnStop`, but are filtered through `NaniIsPlaying()` and a **one-frame settle debounce** so transient stops are not reported:
+
+- **`@if` / `goto` / script switch** route through `ScriptPlayer.Resume()`, which synchronously calls `Stop()` (→ `OnStop`, `Playing == false`) and then re-creates the play routine (→ `OnPlay`, `Playing == true`) within the same frame. Reporting this pair would emit a spurious `OnNaniStop`/`OnNaniStart` on every branch.
+- Therefore a **stop is confirmed one frame later**: on stop the decision is deferred and `NaniIsPlaying()` is re-checked next frame — if playback resumed (Resume re-created the routine), the stop is suppressed; a matching `OnPlay` in the same frame also cancels the pending stop. A **start is reported immediately** (and cancels any pending stop).
+- A **real stop** (`Stop()` with no following `Resume`) stays `false` through the next frame → `OnNaniStop` fires (deferred by one frame).
+- The **choice check in `NaniIsPlaying()` stays** — a visible choice handler counts as "playing". This is a separate, multi-frame case (`@stop` + shown choices): playback stays `false` for many frames while waiting for input, so the one-frame debounce cannot cover it. Without the choice check `OnNaniStop` would fire on every choice.
+
+Contract: `OnNaniStop` is delivered one frame late; a synchronous `Stop→Play` pair (including a script switch via `Play()`) is treated as continued playback and emits no start/stop. If a signal on script *switch* is needed, subscribe to `ScriptPlayer.OnPlay` directly (a different `PlayedScript`).
 
 ### NaniSessionService
 

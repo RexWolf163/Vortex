@@ -12,6 +12,9 @@ namespace Vortex.Sdk.Quests
     public class QuestPreset : RecordPreset<QuestModel>
     {
         [SerializeReference, ListDrawerSettings(CustomAddFunction = "AddConditionsGroup")]
+        [InfoBox("Условия старта: AND между группами (нужны ВСЕ — только тогда квест открывается) и внутри " +
+                 "группы. Отслеживание атомарное — подписка только на первый невыполненный блокер. Не путать " +
+                 "с OR-логикой условий прерывания. Пусто = стартует сразу.")]
         private QuestConditions[] startConditions;
 
         /// <summary>
@@ -28,12 +31,37 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         public bool UnFailable => unFailable;
 
-        [SerializeField] private bool autorun;
+        [SerializeReference, ListDrawerSettings(CustomAddFunction = "AddInterruptConditionsGroup")]
+        [InfoBox("Условия прерывания: OR между группами (сработала ЛЮБАЯ — квест уходит в Blocked), " +
+                 "AND внутри группы. НЕ атомарно — альтернативность, слежка за всеми группами сразу. Не путать " +
+                 "с AND-логикой условий старта. Пусто = квест непрерываем.")]
+        private QuestConditions[] interruptConditions = new QuestConditions[0];
+
+        /// <summary>
+        /// Условия прерывания квеста (OR между группами). Переносятся в модель тем же CopyFrom, что startConditions.
+        /// </summary>
+        public QuestConditions[] InterruptConditions => interruptConditions;
+
+        [InfoBox("Разрешён обратный выход из Blocked при снятии условий прерывания. Выкл. = блок навсегда " +
+                 "(до Reset/новой игры).")]
+        [SerializeField]
+        private bool blockRemovable;
+
+        /// <summary>
+        /// Обратимость блокировки. Переносится в модель как [NotPOCO] (из пресета, в сейв не пишется).
+        /// </summary>
+        public bool BlockRemovable => blockRemovable;
+
+        [Header("Quest Logic")]
+        [InfoBox("Квест запускает автоматически если все условия запуска выполнены")]
+        [SerializeField]
+        private bool autorun;
 
         /// <summary>
         /// Квест запускает автоматически если все условия запуска выполнены
         /// </summary>
         public bool Autorun => autorun;
+
 
         [SerializeReference] private QuestLogic[] logic = new QuestLogic[0];
 
@@ -50,25 +78,6 @@ namespace Vortex.Sdk.Quests
         [SerializeReference] private QuestRewardLogic[] rewards = new QuestRewardLogic[0];
 
         public QuestRewardLogic[] Rewards => rewards;
-
-        [SerializeReference, ListDrawerSettings(CustomAddFunction = "AddInterruptConditionsGroup")]
-        [InfoBox("Условия прерывания: OR между группами (сработала ЛЮБАЯ — квест уходит в Blocked), " +
-                 "AND внутри группы. Не путать с AND-логикой условий старта. Пусто = квест непрерываем.")]
-        private QuestConditions[] interruptConditions = new QuestConditions[0];
-
-        /// <summary>
-        /// Условия прерывания квеста (OR между группами). Переносятся в модель тем же CopyFrom, что startConditions.
-        /// </summary>
-        public QuestConditions[] InterruptConditions => interruptConditions;
-
-        [InfoBox("Разрешён обратный выход из Blocked при снятии условий прерывания. Выкл. = блок навсегда " +
-                 "(до Reset/новой игры).")]
-        [SerializeField] private bool blockRemovable;
-
-        /// <summary>
-        /// Обратимость блокировки. Переносится в модель как [NotPOCO] (из пресета, в сейв не пишется).
-        /// </summary>
-        public bool BlockRemovable => blockRemovable;
 
 #if UNITY_EDITOR
 

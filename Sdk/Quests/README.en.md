@@ -129,6 +129,7 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 | `AlwaysFail` | `QuestLogic` | Hard `false`: loops an `UnFailable` quest (Locked → restart) |
 | `QuestConditionLogic` | `abstract` | Condition: `Check()`, `InitListeners()`, `DisposeListeners()` |
 | `QuestConditions` | `Serializable` | Condition group: `Check()` is AND. The fold between groups — AND (start) or OR (interrupt) — is at the controller level |
+| `OrNotCondition` | `QuestConditionLogic` | Combinator over nested conditions with a mode (`OR` / `NOT`=NOR / `XOR`=exactly one). Subscribes to **all** children (alternativeness). Expresses non-AND logic inside an AND-group; `NOT` over a single child replaces the removed per-condition `inverted` flag |
 | `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID is complete |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | UI binding to quest by GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Quest launch via `IDataStorage` |
@@ -255,6 +256,8 @@ Both conditions within a group (`QuestConditions.Check` → all AND) and groups 
 - **determinism** — the blocker is always well-defined (left to right).
 
 > ⚠️ **Do not switch the inner level to OR.** An OR-group is true when *any* of its conditions holds, so it becomes true when *any* of them opens — you would have to subscribe to **all** conditions of an unmet group (no single blocker). That breaks atomic tracking. The organizational grouping (group name) is **not** a logical OR: the condition tree evaluates as a **flat AND**.
+
+To express OR / NOR / XOR **inside** a group without breaking that atomicity, wrap the conditions in **`OrNotCondition`** — a single `QuestConditionLogic` that folds its children by a selectable mode (`OR` = any, `NOT` = none/NOR, `XOR` = exactly one). It deliberately subscribes to **all** its children (alternativeness — the result can change from any of them), so the group's own atomic AND-tracking stays intact; the "flat AND" invariant of the group is preserved because the OR lives *inside one* condition. Trees nest freely (an `OrNotCondition` may contain another). A `NOT`-mode `OrNotCondition` over a single child is the replacement for the removed per-condition `inverted` flag (e.g. "quest **not** complete" = `OrNotCondition{ Not, [ QuestCompleted(id) ] }`).
 
 Alternative path — `SetListener`/`RemoveListener` for `IReactiveData`:
 

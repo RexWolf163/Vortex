@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cysharp.Threading.Tasks;
 using Naninovel;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Sdk.Core.GameCore;
+using UniTask = Cysharp.Threading.Tasks.UniTask;
 #if UNITY_EDITOR
 using UnityEditor;
 using Vortex.Unity.Extensions;
@@ -69,6 +71,13 @@ namespace Vortex.NaniExtensions.Core
         public static event Action OnNaniStop;
 
         private static bool _isPlaying;
+
+        /// <summary>
+        /// Назначена отложенная проверка останова. Гасит ложный OnNaniStop на @if/goto/смене скрипта:
+        /// ScriptPlayer.Resume() синхронно делает Stop()→OnPlay в одном кадре, поэтому решение об останове
+        /// откладываем на кадр и перепроверяем <see cref="NaniIsPlaying"/> (см. ConfirmStopDeferred).
+        /// </summary>
+        private static bool _stopPending;
 
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
@@ -158,15 +167,57 @@ namespace Vortex.NaniExtensions.Core
 
         private static void OnScriptEvent(Script obj)
         {
-            if (_isPlaying == NaniIsPlaying())
-                return;
-            _isPlaying = NaniIsPlaying();
-            if (Settings.Data().DebugMode)
-                Debug.Log(_isPlaying ? "Nani Is Run" : "Nani Is Stopped");
-            if (_isPlaying)
+            var playing = NaniIsPlaying();
+            if (playing)
+            {
+                // Старт/возобновление — мгновенно. Заодно снимаем отложенный останов: если это был
+                // транзиент (Resume: Stop→OnPlay в одном кадре), OnPlay гасит назначенную проверку.
+                _stopPending = false;
+                if (_isPlaying)
+                    return;
+                _isPlaying = true;
+                if (Settings.Data().DebugMode)
+                    Debug.Log("Nani Is Run");
                 OnNaniStart?.Invoke();
-            else
-                OnNaniStop?.Invoke();
+                return;
+            }
+
+            // Останов может быть ложным (@if/goto/смена скрипта уводят в Resume, а тот синхронно зовёт
+            // Stop() перед пересозданием playRoutine). Не стреляем сразу — подтверждаем через кадр.
+            if (!_isPlaying || _stopPending)
+                return;
+            _stopPending = true;
+            ConfirmStopDeferred().Forget();
+        }
+
+        /// <summary>
+        /// Подтверждение останова на следующем кадре. К этому моменту Resume уже пересоздал playRoutine
+        /// (Playing снова true) — значит останов был транзиентным и глушится. Реальный останов
+        /// (Stop() без последующего Resume) остаётся false и порождает OnNaniStop.
+        /// </summary>
+        private static async UniTask ConfirmStopDeferred()
+        {
+            await UniTask.NextFrame();
+
+            // Движок мог быть уничтожен (выход из плей-мода) — кешированные сервисы протухли. Считаем
+            // останов состоявшимся: сбрасываем оба флага, чтобы следующий реальный старт поднял OnNaniStart.
+            if (!Engine.Initialized)
+            {
+                _stopPending = false;
+                _isPlaying = false;
+                return;
+            }
+
+            if (!_stopPending) // сняли встречным OnPlay в том же кадре — это был не останов
+                return;
+            _stopPending = false;
+            if (NaniIsPlaying()) // playRoutine пересоздан — возобновились, останова нет
+                return;
+
+            _isPlaying = false;
+            if (Settings.Data().DebugMode)
+                Debug.Log("Nani Is Stopped");
+            OnNaniStop?.Invoke();
         }
 
         public static bool NaniIsPlaying()
