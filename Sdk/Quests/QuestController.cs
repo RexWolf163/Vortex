@@ -79,6 +79,18 @@ namespace Vortex.Sdk.Quests
             ResetController();
             //RestorePresetData();
 
+            // Гард на осиротевшие записи. Квест, удалённый из Database, но оставшийся в сейве, при
+            // десериализации словаря попадает в индекс битой записью: ключа нет в целевом наборе (собранном
+            // из пресетов), поэтому UploadDictionary создаёт QuestModel с нуля — восстановить определение из
+            // пресета нечем, параметры == null Сам факт
+            // null-записи корректен, но в обработку её пускать нельзя — иначе любое обращение падает по null.
+            var orphans = _data.Index
+                .Where(p => p.Value?.Name == null)
+                .Select(p => p.Key)
+                .ToList();
+            foreach (var key in orphans)
+                _data.Index.Remove(key);
+
             foreach (var quest in _data.Index.Values)
             {
                 switch (quest.State)
