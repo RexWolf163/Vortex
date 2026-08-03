@@ -23,6 +23,7 @@
 - Режим `UnFailable` — при провале квест возвращается в `Locked` вместо `Failed`
 - Отмена всех активных квестов через `CancellationToken` при новой игре
 - Восстановление квестов при загрузке — пропуск логик до сохранённого `SavePoint`
+- Условия прерывания (`InterruptConditions`) и состояние `Blocked` — квест блокируется из любого «живого» состояния (`Locked`/`Ready`/`InProgress`); флаг `BlockRemovable` задаёт обратимость блока
 
 Вне ответственности:
 - Конкретная логика квестов (реализуется в наследниках `QuestLogic`)
@@ -51,13 +52,16 @@
 QuestController (static, partial)
 ├── QuestModels : IGameData                       ← регистрируется в GameModel
 │   └── Dictionary<string, QuestModel> Index      ← multi-instance копии из Database
-│       ├── State: QuestState (Unset→Locked→Ready→InProgress→...)
-│       ├── StartConditions[]                     ← AND-группы с InitListeners/DisposeListeners
+│       ├── State: QuestState (Unset→Locked→Ready→InProgress→…→Blocked)
+│       ├── StartConditions[]                     ← AND-группы (и между группами AND)
+│       ├── InterruptConditions[]                 ← OR-группы, приоритетнее старта → Blocked
 │       ├── Logics[]                              ← последовательная очередь
 │       ├── Step: byte                             ← ключ SavePoint для восстановления
 │       ├── Autorun                               ← автозапуск при Ready
-│       └── UnFailable                            ← возврат в Locked при провале
+│       ├── UnFailable                            ← возврат в Locked при провале
+│       └── BlockRemovable                        ← обратимость Blocked (иначе — навсегда)
 ├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
+├── ActiveCts                                     ← Dictionary<QuestModel, CTS> (пер-квестовая отмена)
 ├── CompletedQuests                               ← Dictionary<string, QuestModel>
 ├── Listeners                                     ← IReactiveData → автоперепроверка (альтернативный API)
 └── CheckState()                                  ← подписка на OnGameStateChanged (Reset при Off/Loading)
@@ -89,6 +93,26 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 
 `SavePoint` — маркерная логика, которая при выполнении сохраняет свой `Key` в `QuestModel.Step`. При восстановлении все логики до соответствующего `SavePoint` (включительно) пропускаются.
 
+### Прерывание квеста (`Blocked`)
+
+Второй набор условий — `InterruptConditions` — отвечает на вопрос «когда запретить» (условия старта — «когда открыть»). Свёртка **зеркальна старту**: **OR между группами** (сработала любая группа — квест блокируется), AND внутри группы. Пустой набор ⇒ квест непрерываем (обратная совместимость: существующие квесты не меняют поведение).
+
+Проверка прерывания идёт **первой строкой** `CheckQuestStartConditions`, до проверки старта, — поэтому запрет всегда перебивает открытие. Квест уходит в `Blocked` из любого «живого» состояния (`Locked`/`Ready`/`InProgress`). Если он был `InProgress` — его логика немедленно отменяется (пер-квестовый `CancellationToken`), прогресс сбрасывается (`Step = 0`).
+
+```
+Locked / Ready / InProgress ──[любая группа прерывания = true]──→ Blocked
+        ↑                                                            │
+        └──[BlockRemovable && все группы прерывания = false]─────────┘
+```
+
+**`BlockRemovable`:**
+- `false` (по умолчанию) — `Blocked` держится до `Reset`/новой игры («стоп-кран навсегда»).
+- `true` — когда условия прерывания перестали выполняться, квест возвращается в `Locked` и заново проходит турникет старта. Повторный вход — **строго с нуля** (`RunQuest`, `Step = 0`), сохранённый прогресс не восстанавливается.
+
+Терминальные состояния (`Reward`/`Completed`/`Failed`) прерыванию не подлежат — только «живые».
+
+> **Контракт условий прерывания (INV-7).** Любое пробуждение перепроверки обязано проходить через `CheckQuestStartConditions` (прямой `+=` или `SetListener`) — из этой единой точки перечитываются и старт, и прерывание. Условие, будящее иной символ, выпадет из interrupt-логики.
+
 ### Компоненты
 
 | Класс | Тип | Назначение |
@@ -99,12 +123,12 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 | `QuestModel` | `Record` | Модель квеста: состояние, условия, логики |
 | `QuestModels` | `IGameData` | Контейнер индекса квестов |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject-пресет для Database |
-| `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed |
+| `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed, Blocked |
 | `QuestLogic` | `abstract` | Атомарная логика: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Маркер точки сохранения: сохраняет `Key` в `QuestModel.Step` |
 | `AlwaysFail` | `QuestLogic` | Жёсткий `false`: у `UnFailable`-квеста зацикливает его (Locked → рестарт) |
 | `QuestConditionLogic` | `abstract` | Условие: `Check()`, `InitListeners()`, `DisposeListeners()` |
-| `QuestConditions` | `Serializable` | AND-группа условий с управлением подписками |
+| `QuestConditions` | `Serializable` | Группа условий: `Check()` по AND. Свёртка между группами — AND (старт) или OR (прерывание) — на уровне контроллера |
 | `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | Привязка UI к квесту по GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Запуск квеста через `IDataStorage` |
@@ -128,11 +152,13 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 - Рекурсивная перепроверка условий ограничена глубиной 10
 - `UnFailable`-квест при провале возвращается в `Locked` и не попадает в `CompletedQuests` — может быть перезапущен
 - `Run()` на квест в состоянии `Ready` — запускает `RunQuest`; в состоянии `InProgress` — запускает `RestoreQuest`; в ином состоянии — логируется ошибка, вызов игнорируется
-- При запуске квеста подписки условий снимаются (`DisposeListeners`)
+- При запуске квеста подписки условий старта снимаются (`DisposeListeners`); подписки прерывания живут через `Locked → Ready → InProgress`
+- Прерывание приоритетнее старта: interrupt-пасс — первая строка `CheckQuestStartConditions`, до старт-пасса и на каждой итерации settle-рекурсии
+- Прерванный `InProgress`-квест теряет прогресс (`Step = 0`); при обратимом блоке возврат — строго с нуля через `RunQuest`
 
 ### Ограничения
 - Квесты — строго MultiInstance записи (каждая игра получает свежие копии)
-- Один `CancellationTokenSource` на все квесты — отмена групповая
+- Пер-квестовые linked-CTS: отмена одного квеста (при блокировке) не трогает остальные; глобальный `CancellationTokenSource` — для группового teardown (новая игра/загрузка)
 - `QuestConditionLogic.Check()` — синхронный, не поддерживает async-условия
 
 ## Использование
@@ -181,6 +207,21 @@ public class LevelReached : QuestConditionLogic
 3. Частоту цикла задают условия старта: пока они истинны — квест крутится (один прогон за кадр, `AlwaysFail` уступает кадр через `UniTask.Yield`, поэтому кадр не виснет); транзиентное условие (событие) — квест ждёт следующего срабатывания.
 
 Форма списка логик: `[…полезные логики…] → [награда] → AlwaysFail`. Без `unFailable` `AlwaysFail` просто завершит квест как `Failed`.
+
+### Условия прерывания и `Blocked`
+
+`InterruptConditions` настраиваются в пресете рядом со стартовыми, но свёртка между группами — **OR** (сработала любая → блок). Тип условия тот же, что у старта (`QuestConditionLogic`).
+
+```csharp
+// Квест доступен, ПОКА не пройден ни один из боссов.
+// interruptConditions: [ группа{ BossDefeated("boss_1") },
+//                        группа{ BossDefeated("boss_2") } ]   // OR: любой босс блокирует
+// blockRemovable = false                                       // блок навсегда
+```
+
+- Пустой `interruptConditions` ⇒ квест непрерываем (как раньше).
+- Прерывание срабатывает и на уже идущем квесте: логика отменяется, прогресс сбрасывается.
+- `blockRemovable = true` — при снятии условий квест вернётся в `Locked` и стартует заново с нуля.
 
 ### Реактивная перепроверка условий
 
@@ -257,3 +298,10 @@ public class ExampleVariableCondition : QuestConditionLogic
 | Рекурсия условий > 10 уровней | Прерывается (предохранитель) |
 | `Run()` на квест в `InProgress` | Восстановление через `RestoreQuest` — пропуск логик до `SavePoint` |
 | Квест завершён → условия другого квеста зависят от него | Рекурсивная перепроверка через `CheckQuestStartConditions` |
+| Пустой `InterruptConditions` | Квест непрерываем — поведение как до фичи |
+| Условие прерывания сработало на `InProgress` | Логика отменяется (пер-квестовый CTS), `Step = 0`, состояние → `Blocked` |
+| Прерывание vs старт при одновременной истинности | Побеждает прерывание (interrupt-пасс раньше старт-пасса) |
+| `BlockRemovable = false`, условие снялось | Остаётся `Blocked` (до `Reset`/новой игры) |
+| `BlockRemovable = true`, условие снялось | → `Locked`, при выполненных условиях старта — рестарт с нуля |
+| Сейв/лоад в `Blocked` | Условия перечитываются: истинны → остаётся `Blocked`; сняты и `BlockRemovable` → `Locked` |
+| Прерывание в `Reward`/`Completed`/`Failed` | Не срабатывает — терминальные состояния непрерываемы |

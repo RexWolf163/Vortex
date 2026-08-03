@@ -51,6 +51,25 @@ namespace Vortex.Sdk.Quests
 
         public QuestRewardLogic[] Rewards => rewards;
 
+        [SerializeReference, ListDrawerSettings(CustomAddFunction = "AddInterruptConditionsGroup")]
+        [InfoBox("Условия прерывания: OR между группами (сработала ЛЮБАЯ — квест уходит в Blocked), " +
+                 "AND внутри группы. Не путать с AND-логикой условий старта. Пусто = квест непрерываем.")]
+        private QuestConditions[] interruptConditions = new QuestConditions[0];
+
+        /// <summary>
+        /// Условия прерывания квеста (OR между группами). Переносятся в модель тем же CopyFrom, что startConditions.
+        /// </summary>
+        public QuestConditions[] InterruptConditions => interruptConditions;
+
+        [InfoBox("Разрешён обратный выход из Blocked при снятии условий прерывания. Выкл. = блок навсегда " +
+                 "(до Reset/новой игры).")]
+        [SerializeField] private bool blockRemovable;
+
+        /// <summary>
+        /// Обратимость блокировки. Переносится в модель как [NotPOCO] (из пресета, в сейв не пишется).
+        /// </summary>
+        public bool BlockRemovable => blockRemovable;
+
 #if UNITY_EDITOR
 
         private void AddConditionsGroup()
@@ -59,6 +78,14 @@ namespace Vortex.Sdk.Quests
             startConditions.CopyTo(ar, 0);
             ar[startConditions.Length] = new QuestConditions();
             startConditions = ar;
+        }
+
+        private void AddInterruptConditionsGroup()
+        {
+            var ar = new QuestConditions[interruptConditions.Length + 1];
+            interruptConditions.CopyTo(ar, 0);
+            ar[interruptConditions.Length] = new QuestConditions();
+            interruptConditions = ar;
         }
 
         private void OnValidate()

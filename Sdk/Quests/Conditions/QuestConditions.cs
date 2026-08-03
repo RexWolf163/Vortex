@@ -51,10 +51,25 @@ namespace Vortex.Sdk.Quests.Conditions
         /// <summary>
         /// Обнуление подписок всех Conditions для квеста
         /// </summary>
-        public void DisposeListeners()
+        internal void DisposeListeners()
         {
             foreach (var condition in conditions)
                 condition.DisposeListeners();
+        }
+
+        /// <summary>
+        /// Безусловная подписка ВСЕХ условий группы — для exit-watch заблокированного квеста
+        /// (BlockRemovable). <see cref="Check"/> подписывает только блокер (первое false), а у истинной
+        /// группы блокера нет и подписки не будет; чтобы поймать момент, когда условие прерывания
+        /// снялось, подписываемся на все условия явно. Dispose перед Init — идемпотентность, как в Check.
+        /// </summary>
+        internal void InitAllListeners()
+        {
+            foreach (var condition in conditions)
+            {
+                condition.DisposeListeners();
+                condition.InitListeners();
+            }
         }
     }
 }

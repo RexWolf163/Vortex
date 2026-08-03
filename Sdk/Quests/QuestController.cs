@@ -36,14 +36,16 @@ namespace Vortex.Sdk.Quests
         private static CancellationTokenSource _cancelTokenSource = new();
 
         /// <summary>
+        /// Пер-квестовые связанные CTS: отмена логики одного квеста (при блокировке) без остановки
+        /// остальных. Каждый линкуется на глобальный <see cref="_cancelTokenSource"/>, поэтому массовый
+        /// teardown (ResetController) гасит их каскадом.
+        /// </summary>
+        private static readonly Dictionary<QuestModel, CancellationTokenSource> ActiveCts = new();
+
+        /// <summary>
         /// Список событий для подписки на контроль изменений 
         /// </summary>
         private static readonly Dictionary<IReactiveData, HashSet<object>> Listeners = new();
-
-        /// <summary>
-        /// Токен прерывания
-        /// </summary>
-        private static CancellationToken Token => _cancelTokenSource.Token;
 
         [RuntimeInitializeOnLoadMethod]
         private static void Run()
@@ -98,6 +100,15 @@ namespace Vortex.Sdk.Quests
                     case QuestState.Failed:
                         CompletedQuests.Add(quest.GuidPreset, quest);
                         break;
+                    case QuestState.Blocked:
+                        // Обратимый блок: если условия прерывания снялись — назад в турникет, дальше его
+                        // перегейтит CheckQuestStartConditions ниже. Иначе остаётся Blocked, а exit-watch
+                        // навесит interrupt-пасс того же вызова (проход B, ветка else). Липкий блок
+                        // (BlockRemovable=false) держится как есть, условия не перечитываются.
+                        if (quest.BlockRemovable && !quest.AnyInterruptGroupTrue())
+                            quest.State = QuestState.Locked;
+
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
@@ -141,6 +152,11 @@ namespace Vortex.Sdk.Quests
                 ActiveQuests.Clear();
             }
 
+            // Глобальный Cancel каскадом гасит связанные токены; сами объекты CTS диспоузим отдельно.
+            foreach (var cts in ActiveCts.Values)
+                cts.Dispose();
+            ActiveCts.Clear();
+
             _data = GameController.Get<QuestModels>();
         }
 
@@ -169,6 +185,8 @@ namespace Vortex.Sdk.Quests
                     return;
             }
 
+            CheckQuestInterruptConditions(); // INV-3: прерывание всегда раньше старта, первой строкой тела
+
             var list = _data.Index.Values.Where(q => q.State == QuestState.Locked);
             var updated = false;
             foreach (var quest in list)
@@ -185,7 +203,7 @@ namespace Vortex.Sdk.Quests
                         continue;
                     }
 
-                    ActiveQuests[quest] = RunQuest(quest, Token);
+                    ActiveQuests[quest] = RunQuest(quest, CreateQuestToken(quest));
                 }
 
             if (updated && ++counter < 10)
@@ -267,7 +285,7 @@ namespace Vortex.Sdk.Quests
                             throw new ArgumentOutOfRangeException();
                     }
 
-                    ActiveQuests.Remove(quest);
+                    ReleaseQuest(quest);
                     quest.CallOnUpdated();
                     OnUpdateData?.Invoke();
                     CheckQuestStartConditions();
@@ -353,7 +371,7 @@ namespace Vortex.Sdk.Quests
                             throw new ArgumentOutOfRangeException();
                     }
 
-                    ActiveQuests.Remove(quest);
+                    ReleaseQuest(quest);
                     quest.CallOnUpdated();
                     OnUpdateData?.Invoke();
                     CheckQuestStartConditions();
@@ -371,6 +389,151 @@ namespace Vortex.Sdk.Quests
         private static bool CheckQuestStart(this QuestModel quest) =>
             quest.StartConditions.Length == 0 || quest.StartConditions.All(c => c.Check());
 
+        #region Прерывание
+
+        /// <summary>
+        /// Interrupt-пасс: блокировка живых квестов, у которых сработало прерывание, и разблокировка
+        /// обратимо-заблокированных, у которых оно снялось. Вызывается первой строкой
+        /// <see cref="CheckQuestStartConditions(int)"/>, поэтому запрет всегда приоритетнее старта
+        /// (INV-3), в том числе на каждой итерации settle-рекурсии.
+        /// </summary>
+        private static void CheckQuestInterruptConditions()
+        {
+            // Проход A — детект блокировки. Снимок перед итерацией: Block меняет состояние по ходу.
+            foreach (var quest in _data.Index.Values.ToArray())
+            {
+                if (quest.State != QuestState.Locked &&
+                    quest.State != QuestState.Ready &&
+                    quest.State != QuestState.InProgress)
+                    continue;
+                if (quest.AnyInterruptGroupTrue())
+                    quest.BlockQuest();
+            }
+
+            // Проход B — детект разблокировки (только обратимые).
+            foreach (var quest in _data.Index.Values.ToArray())
+            {
+                if (quest.State != QuestState.Blocked || !quest.BlockRemovable)
+                    continue;
+                if (!quest.AnyInterruptGroupTrue())
+                    quest.UnblockQuest();
+                else
+                    // Check() истинной группы снёс exit-watch — восстанавливаем, иначе снятие условия
+                    // не разбудит проверку и квест застрянет в Blocked.
+                    quest.InitAllInterruptListeners();
+            }
+        }
+
+        /// <summary>
+        /// Свёртка условий прерывания: OR между группами. Пустой набор ⇒ непрерываем.
+        /// <see cref="QuestConditions.Check"/> на false-группе подписывает блокер — так живой квест с
+        /// ложным прерыванием остаётся под наблюдением до его срабатывания.
+        /// </summary>
+        private static bool AnyInterruptGroupTrue(this QuestModel quest)
+        {
+            if (quest.InterruptConditions.Length == 0)
+                return false;
+            foreach (var group in quest.InterruptConditions)
+                if (group.Check())
+                    return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Перевод квеста в <see cref="QuestState.Blocked"/>. Из InProgress — отмена его логики (свой
+        /// CTS), снятие из активных; сброс прогресса (<see cref="QuestModel.Step"/> = 0 ⇒ повторный вход
+        /// строго с нуля через RunQuest). Старт-подписки снимаются. Для обратимого блока — exit-watch
+        /// на все условия прерывания; для липкого — подписки не нужны.
+        /// </summary>
+        private static void BlockQuest(this QuestModel quest)
+        {
+            if (quest.State == QuestState.InProgress)
+            {
+                if (ActiveCts.TryGetValue(quest, out var cts))
+                {
+                    cts.Cancel();
+                    cts.Dispose();
+                    ActiveCts.Remove(quest);
+                }
+
+                ActiveQuests.Remove(quest);
+            }
+
+            quest.Step = 0;
+
+            foreach (var condition in quest.StartConditions)
+                condition.DisposeListeners();
+
+            quest.State = QuestState.Blocked;
+
+            if (quest.BlockRemovable)
+                quest.InitAllInterruptListeners();
+            else
+                foreach (var group in quest.InterruptConditions)
+                    group.DisposeListeners();
+
+            quest.CallOnUpdated();
+        }
+
+        /// <summary>
+        /// Выход из <see cref="QuestState.Blocked"/> в <see cref="QuestState.Locked"/>: exit-watch
+        /// снимается, а перегейтит квест старт-пасс того же цикла (interrupt раньше, старт — следом по
+        /// ленивому Where над актуальным состоянием).
+        /// </summary>
+        private static void UnblockQuest(this QuestModel quest)
+        {
+            foreach (var group in quest.InterruptConditions)
+                group.DisposeListeners();
+            quest.State = QuestState.Locked;
+            quest.CallOnUpdated();
+        }
+
+        /// <summary>Безусловная подписка всех условий всех групп прерывания — exit-watch обратимого блока.</summary>
+        private static void InitAllInterruptListeners(this QuestModel quest)
+        {
+            foreach (var group in quest.InterruptConditions)
+                group.InitAllListeners();
+        }
+
+        #endregion
+
+        #region Пер-квестовый CTS
+
+        /// <summary>
+        /// Заводит пер-квестовый CTS, связанный с глобальным, и возвращает его токен. Существующий (при
+        /// нештатном перезапуске) диспоузится, чтобы не утёк.
+        /// </summary>
+        private static CancellationToken CreateQuestToken(QuestModel quest)
+        {
+            if (ActiveCts.TryGetValue(quest, out var existing))
+                existing.Dispose();
+
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(_cancelTokenSource.Token);
+            ActiveCts[quest] = cts;
+            return cts.Token;
+        }
+
+        /// <summary>
+        /// Снятие завершённого квеста: диспоуз interrupt-подписок и пер-квестового CTS, удаление из
+        /// активных. Зовётся из штатного терминала в finally RunQuest/RestoreQuest (не при отмене —
+        /// там guard <c>!token.IsCancellationRequested</c>; при блокировке всё это делает BlockQuest).
+        /// </summary>
+        private static void ReleaseQuest(QuestModel quest)
+        {
+            foreach (var group in quest.InterruptConditions)
+                group.DisposeListeners();
+
+            if (ActiveCts.TryGetValue(quest, out var cts))
+            {
+                cts.Dispose();
+                ActiveCts.Remove(quest);
+            }
+
+            ActiveQuests.Remove(quest);
+        }
+
+        #endregion
+
         /// <summary>
         /// Запуск готового квеста
         /// </summary>
@@ -385,9 +548,9 @@ namespace Vortex.Sdk.Quests
             }
 
             if (quest.State == QuestState.InProgress)
-                ActiveQuests[quest] = RestoreQuest(quest, Token);
+                ActiveQuests[quest] = RestoreQuest(quest, CreateQuestToken(quest));
             else
-                ActiveQuests[quest] = RunQuest(quest, Token);
+                ActiveQuests[quest] = RunQuest(quest, CreateQuestToken(quest));
         }
 
         /// <summary>

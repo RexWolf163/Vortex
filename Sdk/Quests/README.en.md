@@ -23,6 +23,7 @@ Capabilities:
 - `UnFailable` mode — on failure, quest returns to `Locked` instead of `Failed`
 - Cancellation of all active quests via `CancellationToken` on new game
 - Quest restoration on load — skips logics up to the saved `SavePoint`
+- Interrupt conditions (`InterruptConditions`) and the `Blocked` state — a quest is blocked from any live state (`Locked`/`Ready`/`InProgress`); the `BlockRemovable` flag sets reversibility
 
 Out of scope:
 - Specific quest logic (implemented in `QuestLogic` subclasses)
@@ -51,13 +52,16 @@ Out of scope:
 QuestController (static, partial)
 ├── QuestModels : IGameData                       ← registered in GameModel
 │   └── Dictionary<string, QuestModel> Index      ← multi-instance copies from Database
-│       ├── State: QuestState (Unset→Locked→Ready→InProgress→...)
-│       ├── StartConditions[]                     ← AND-groups with InitListeners/DisposeListeners
+│       ├── State: QuestState (Unset→Locked→Ready→InProgress→…→Blocked)
+│       ├── StartConditions[]                     ← AND-groups (AND between groups too)
+│       ├── InterruptConditions[]                 ← OR-groups, prioritized over start → Blocked
 │       ├── Logics[]                              ← sequential queue
 │       ├── Step: byte                             ← SavePoint key for restoration
 │       ├── Autorun                               ← auto-start when Ready
-│       └── UnFailable                            ← return to Locked on failure
+│       ├── UnFailable                            ← return to Locked on failure
+│       └── BlockRemovable                        ← Blocked reversibility (else — permanent)
 ├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
+├── ActiveCts                                     ← Dictionary<QuestModel, CTS> (per-quest cancellation)
 ├── CompletedQuests                               ← Dictionary<string, QuestModel>
 ├── Listeners                                     ← IReactiveData → auto re-check (alternative API)
 └── CheckState()                                  ← subscribes to OnGameStateChanged (Reset on Off/Loading)
@@ -89,6 +93,26 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 
 `SavePoint` is a marker logic that saves its `Key` to `QuestModel.Step` during execution. On restoration, all logics up to and including the matching `SavePoint` are skipped.
 
+### Quest Interruption (`Blocked`)
+
+A second condition set — `InterruptConditions` — answers "when to forbid" (start conditions answer "when to open"). Its fold is **mirror-opposite of start**: **OR between groups** (any group firing blocks the quest), AND within a group. An empty set ⇒ the quest is non-interruptible (backward compatibility: existing quests keep their behavior).
+
+The interrupt check runs as the **first line** of `CheckQuestStartConditions`, before the start check — so a block always overrides an open. The quest moves to `Blocked` from any live state (`Locked`/`Ready`/`InProgress`). If it was `InProgress`, its logic is cancelled immediately (a per-quest `CancellationToken`) and progress is reset (`Step = 0`).
+
+```
+Locked / Ready / InProgress ──[any interrupt group = true]──→ Blocked
+        ↑                                                        │
+        └──[BlockRemovable && all interrupt groups = false]──────┘
+```
+
+**`BlockRemovable`:**
+- `false` (default) — `Blocked` holds until `Reset`/new game (a permanent stop).
+- `true` — once the interrupt conditions no longer hold, the quest returns to `Locked` and passes the start turnstile again. Re-entry is **strictly from scratch** (`RunQuest`, `Step = 0`); saved progress is not restored.
+
+Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only live ones.
+
+> **Interrupt condition contract (INV-7).** Any re-check wakeup must go through `CheckQuestStartConditions` (direct `+=` or `SetListener`) — both start and interrupt are re-evaluated from this single point. A condition that wakes a different symbol drops out of the interrupt logic.
+
 ### Components
 
 | Class | Type | Purpose |
@@ -99,12 +123,12 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 | `QuestModel` | `Record` | Quest model: state, conditions, logics |
 | `QuestModels` | `IGameData` | Quest index container |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject preset for Database |
-| `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed |
+| `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed, Blocked |
 | `QuestLogic` | `abstract` | Atomic logic: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Save point marker: stores `Key` in `QuestModel.Step` |
 | `AlwaysFail` | `QuestLogic` | Hard `false`: loops an `UnFailable` quest (Locked → restart) |
 | `QuestConditionLogic` | `abstract` | Condition: `Check()`, `InitListeners()`, `DisposeListeners()` |
-| `QuestConditions` | `Serializable` | AND-group of conditions with subscription management |
+| `QuestConditions` | `Serializable` | Condition group: `Check()` is AND. The fold between groups — AND (start) or OR (interrupt) — is at the controller level |
 | `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID is complete |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | UI binding to quest by GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Quest launch via `IDataStorage` |
@@ -128,11 +152,13 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 - Recursive condition re-check limited to depth 10
 - `UnFailable` quest on failure returns to `Locked` and does not enter `CompletedQuests` — can be restarted
 - `Run()` on a quest with state `Ready` — launches `RunQuest`; with state `InProgress` — launches `RestoreQuest`; other states — error logged, call ignored
-- On quest start, condition subscriptions are removed (`DisposeListeners`)
+- On quest start, start-condition subscriptions are removed (`DisposeListeners`); interrupt subscriptions live through `Locked → Ready → InProgress`
+- Interrupt is prioritized over start: the interrupt pass is the first line of `CheckQuestStartConditions`, before the start pass and on every settle-recursion iteration
+- An interrupted `InProgress` quest loses progress (`Step = 0`); on a reversible block, re-entry is strictly from scratch via `RunQuest`
 
 ### Constraints
 - Quests are strictly MultiInstance records (each game gets fresh copies)
-- Single `CancellationTokenSource` for all quests — cancellation is group-wide
+- Per-quest linked CTS: cancelling one quest (on block) does not touch the others; the global `CancellationTokenSource` is for group-wide teardown (new game/load)
 - `QuestConditionLogic.Check()` is synchronous, does not support async conditions
 
 ## Usage
@@ -181,6 +207,21 @@ Building a looping quest:
 3. Start conditions set the loop cadence: while they hold — the quest loops (one pass per frame; `AlwaysFail` yields a frame via `UniTask.Yield`, so the frame never hangs); a transient condition (event) makes the quest wait for the next trigger.
 
 Logic list shape: `[…useful logics…] → [reward] → AlwaysFail`. Without `unFailable`, `AlwaysFail` simply ends the quest as `Failed`.
+
+### Interrupt Conditions and `Blocked`
+
+`InterruptConditions` are authored in the preset next to the start ones, but the fold between groups is **OR** (any fires → block). The condition type is the same as for start (`QuestConditionLogic`).
+
+```csharp
+// The quest is available UNTIL any of the bosses is defeated.
+// interruptConditions: [ group{ BossDefeated("boss_1") },
+//                        group{ BossDefeated("boss_2") } ]   // OR: any boss blocks
+// blockRemovable = false                                      // permanent block
+```
+
+- Empty `interruptConditions` ⇒ the quest is non-interruptible (as before).
+- Interruption fires on a running quest too: its logic is cancelled, progress is reset.
+- `blockRemovable = true` — once the conditions clear, the quest returns to `Locked` and restarts from scratch.
 
 ### Reactive Condition Re-checks
 
@@ -257,3 +298,10 @@ Place `QuestDataStorage` on the scene, specify the quest GUID. View components a
 | Condition recursion > 10 levels | Interrupted (guard) |
 | `Run()` on quest in `InProgress` | Restoration via `RestoreQuest` — skips logics up to `SavePoint` |
 | Quest completes → another quest's conditions depend on it | Recursive re-check via `CheckQuestStartConditions` |
+| Empty `InterruptConditions` | Quest is non-interruptible — behaves as before the feature |
+| Interrupt condition fires on `InProgress` | Logic cancelled (per-quest CTS), `Step = 0`, state → `Blocked` |
+| Interrupt vs start when both true | Interrupt wins (interrupt pass runs before the start pass) |
+| `BlockRemovable = false`, condition cleared | Stays `Blocked` (until `Reset`/new game) |
+| `BlockRemovable = true`, condition cleared | → `Locked`; if start conditions hold — restart from scratch |
+| Save/load while `Blocked` | Conditions re-read: true → stays `Blocked`; cleared and `BlockRemovable` → `Locked` |
+| Interrupt in `Reward`/`Completed`/`Failed` | Does not fire — terminal states are non-interruptible |

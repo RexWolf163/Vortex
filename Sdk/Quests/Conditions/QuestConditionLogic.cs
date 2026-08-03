@@ -4,7 +4,12 @@ using Sirenix.OdinInspector;
 namespace Vortex.Sdk.Quests.Conditions
 {
     /// <summary>
-    /// Класс для проверки какого-то условия
+    /// Класс для проверки какого-то условия.
+    ///
+    /// Контракт реактивности (INV-7): любое пробуждение перепроверки обязано проходить через
+    /// <c>QuestController.CheckQuestStartConditions()</c> — прямым <c>+=</c> или через
+    /// <c>QuestController.SetListener</c>. И старт, и прерывание перечитываются из этой единой точки;
+    /// условие, будящее иной символ, выпадет из interrupt-логики (квест не заблокируется/не разблокируется).
     /// </summary>
     [Serializable, HideReferenceObjectPicker]
     public abstract class QuestConditionLogic

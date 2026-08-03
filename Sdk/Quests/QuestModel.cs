@@ -17,6 +17,13 @@ namespace Vortex.Sdk.Quests
         public QuestConditions[] StartConditions { get; private set; }
 
         /// <summary>
+        /// Условия прерывания квеста. Свёртка: OR между группами (сработала любая — квест блокируется),
+        /// AND внутри группы. Пустой массив ⇒ квест непрерываем. POCO-сериализуемо, как StartConditions.
+        /// Инициализирован пустым: старые сейвы без этого поля дают пустой набор, а не null.
+        /// </summary>
+        public QuestConditions[] InterruptConditions { get; private set; } = Array.Empty<QuestConditions>();
+
+        /// <summary>
         /// Условия для запуска квеста
         /// </summary>
         public QuestLogic[] Logics { get; private set; }
@@ -32,6 +39,14 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         [NotPOCO]
         public bool UnFailable { get; internal set; }
+
+        /// <summary>
+        /// Обратимость блокировки. false (по умолчанию) — Blocked навсегда до Reset/новой игры.
+        /// true — квест выходит из Blocked обратно в Locked, когда условия прерывания перестали
+        /// выполняться, и заново проходит турникет старта. Из пресета, в сейв не пишется — как Autorun.
+        /// </summary>
+        [NotPOCO]
+        public bool BlockRemovable { get; private set; }
 
         /// <summary>
         /// Сохраненный этап квеста
@@ -62,8 +77,10 @@ namespace Vortex.Sdk.Quests
             Step = 0;
             foreach (var condition in StartConditions)
                 condition.DisposeListeners();
+            foreach (var condition in InterruptConditions)
+                condition.DisposeListeners();
 
-            // Logics останавливаются по токену 
+            // Logics останавливаются по токену
         }
     }
 }
