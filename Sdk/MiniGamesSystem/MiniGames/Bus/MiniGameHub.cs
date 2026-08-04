@@ -105,6 +105,16 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
         }
 
         /// <summary>
+        /// Запуск игры асинхронно, для отслеживания завершения процесса снаружи
+        /// </summary>
+        /// <param name="playConfig">Стартовая конфигурация игры</param>
+        public static async UniTask Skip(object playConfig = null)
+        {
+            TimeController.Call(() => Instance.GetController().CheatWin(), 1, Instance);
+            await Instance.PlayMiniGame(playConfig);
+        }
+
+        /// <summary>
         /// Управление паузой
         /// </summary>
         /// <param name="pause"></param>

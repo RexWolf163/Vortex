@@ -299,6 +299,17 @@ namespace Vortex.Sdk.ShopSystem.Controllers
                     return;
                 }
 
+                //Подтверждение намерения — последняя предпроверка (после платёжеспособности и места), до
+                //фиксации заказа. Опционально: null-логика = без подтверждения. Отказ → NotStarted, в журнал
+                //не пишется. Живёт только здесь, в пути покупки, — Can* дёргаются витриной спекулятивно, а
+                //сюда попадает лишь реальная покупка, поэтому тяжёлая/сетевая проверка здесь безопасна.
+                if (item.ConfirmationLogic != null &&
+                    !await item.ConfirmationLogic.Confirm(item.GuidPreset, operation.RequestedCount, ct))
+                {
+                    operation.SetState(PurchaseState.NotStarted);
+                    return;
+                }
+
                 //Фиксируем факт заказа, запускаем процесс
                 ShopOperationsBus.MakeRecord(operation);
                 await ProcessLoop(operation, ct, item);

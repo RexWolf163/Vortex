@@ -27,6 +27,13 @@ namespace Vortex.Sdk.ShopSystem.Presets
 
         public DeliveryLogic DeliveryLogic => deliveryLogic;
 
+        [SerializeReference, HideReferenceObjectPicker]
+        [InfoBox("Опционально: подтверждение намерения покупки (UI-диалог, серверный ack и т.п.). " +
+                 "Пусто — покупка идёт без подтверждения. Отказ подтверждения → покупка не начинается.")]
+        private ConfirmationLogic confirmationLogic;
+
+        public ConfirmationLogic ConfirmationLogic => confirmationLogic;
+
         [SerializeField] private bool hiddenInShowcase;
 
         public bool HiddenInShowcase => hiddenInShowcase;

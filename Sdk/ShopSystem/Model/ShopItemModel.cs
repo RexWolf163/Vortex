@@ -21,6 +21,15 @@ namespace Vortex.Sdk.ShopSystem.Model
         public DeliveryLogic DeliveryLogic { get; protected set; }
 
         /// <summary>
+        /// Опциональная логика подтверждения намерения покупки (UI-диалог, серверный ack и т.п.).
+        /// null — подтверждение не требуется, покупка идёт сразу. Гейт перед оплатой: false →
+        /// покупка не начинается (Failed сюда не относится — в <see cref="Controllers.ShopController"/>
+        /// это NotStarted). Необязательна, в отличие от Payment/Delivery — в проверке «сломан ли товар»
+        /// не участвует.
+        /// </summary>
+        public ConfirmationLogic ConfirmationLogic { get; protected set; }
+
+        /// <summary>
         /// Скрыть в витрине. Статический флаг дизайнера: товары-компенсации и «удалённые» товары
         /// не должны показываться в обычной витрине.
         /// </summary>
