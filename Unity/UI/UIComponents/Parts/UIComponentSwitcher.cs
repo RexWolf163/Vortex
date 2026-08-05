@@ -16,6 +16,8 @@ namespace Vortex.Unity.UI.UIComponents.Parts
                 return;
             switcher = GetComponent<UIStateSwitcher>();
         }
+
+        public override void SetDirty() => Dirty(switcher);
 #endif
         public void PutData(int enumValue)
         {

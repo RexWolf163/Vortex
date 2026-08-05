@@ -67,6 +67,9 @@ namespace Vortex.Unity.Components.Misc.LocalizationSystem
                 uiComponent.SetText(text);
             else
                 uiComponent.SetText(text, position);
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(uiComponent.gameObject);
+#endif
         }
 
 #if UNITY_EDITOR

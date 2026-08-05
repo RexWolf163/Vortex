@@ -72,7 +72,10 @@ namespace Vortex.Unity.UI.TweenerSystem
                     return;
                 _isForward = true;
                 if (_tweenTask.Status == UniTaskStatus.Pending)
-                    _startTween = _startTween.AddSeconds(-(DateTime.UtcNow - _startTween).TotalSeconds + offset);
+                    // Реверс на лету: продолжаем от текущего _progress до конца. Старт сдвигаем так, чтобы
+                    // «прошедшая» часть равнялась _progress*duration — остаток доигрывается с той же скоростью
+                    // и без скачка (раньше зеркалилось вокруг старта → возврат шёл за duration−2·elapsed).
+                    _startTween = DateTime.UtcNow.AddSeconds(-_progress * preset.duration + offset);
                 else
                 {
                     _startTween = DateTime.UtcNow.AddSeconds(offset);
@@ -115,7 +118,10 @@ namespace Vortex.Unity.UI.TweenerSystem
                     return;
                 _isForward = false;
                 if (_tweenTask.Status == UniTaskStatus.Pending)
-                    _startTween = _startTween.AddSeconds(-(DateTime.UtcNow - _startTween).TotalSeconds + offsetBack);
+                    // Реверс на лету: продолжаем от текущего _progress до нуля. «Прошедшая» часть в обратном
+                    // направлении = (1 − _progress)*duration, поэтому остаток (_progress) доигрывается с той же
+                    // скоростью и без скачка (раньше возврат шёл за duration−2·elapsed — быстрее «остатка»).
+                    _startTween = DateTime.UtcNow.AddSeconds(-(1 - _progress) * preset.duration + offsetBack);
                 else
                 {
                     _startTween = DateTime.UtcNow.AddSeconds(offsetBack);
