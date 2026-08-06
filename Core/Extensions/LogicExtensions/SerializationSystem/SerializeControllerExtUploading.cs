@@ -264,6 +264,8 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             list.Clear();
 
             data = TrimData(data, true);
+            if (string.IsNullOrWhiteSpace(data))
+                return; // пустая коллекция ([] / только пробелы) — элементов нет
             var ar = SeparateText(data);
             foreach (var s in ar)
             {
@@ -308,6 +310,10 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
 
             data = TrimData(data);
+            // Пустой словарь ({} / только пробелы) — записей нет. Без этого SeparateText вернул бы один
+            // whitespace-элемент, и он бы разобрался в пару "" : "" → на простом value (int) падает Parse.
+            if (string.IsNullOrWhiteSpace(data))
+                return;
             var ar = SeparateText(data);
 
             var targetDict = (IDictionary)target;
@@ -342,6 +348,12 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             if (elementType == null)
             {
                 Log.Print(LogLevel.Error, $"Deserialization error for {type}", type);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(data))
+            {
+                target = (T)(object)Array.CreateInstance(elementType, 0); // пустой массив ([] / только пробелы)
                 return;
             }
 
