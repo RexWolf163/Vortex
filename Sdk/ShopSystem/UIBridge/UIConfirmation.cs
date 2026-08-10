@@ -20,6 +20,9 @@ namespace Vortex.Sdk.ShopSystem.UIBridge
     /// поэтому слот ожидания единственный и статический. Отмена процесса (<paramref name="ct"/>) закрывает
     /// UI и пробрасывает <see cref="OperationCanceledException"/>. Если UI забыли снабдить хэндлером —
     /// подтверждение висит до отмены процесса (ответственность дизайнера сцены).
+    ///
+    /// На время подтверждения публикует guid подтверждаемого товара статикой <see cref="CurrentGuid"/> —
+    /// её читает <see cref="UIConfirmationHandler"/> (он же <c>IDataStorage</c> интерфейса подтверждения).
     /// </summary>
     [Serializable]
     public class UIConfirmation : ConfirmationLogic
@@ -32,6 +35,12 @@ namespace Vortex.Sdk.ShopSystem.UIBridge
         private static UniTaskCompletionSource<bool> _pending;
 
         /// <summary>
+        /// Guid подтверждаемого сейчас товара — источник данных для <see cref="UIConfirmationHandler"/>.
+        /// Null вне подтверждения.
+        /// </summary>
+        internal static string CurrentGuid { get; private set; }
+
+        /// <summary>
         /// Вердикт по текущему подтверждению: <c>true</c> — покупка продолжается, <c>false</c> — отменяется
         /// (NotStarted). Дёргается <see cref="UIConfirmationHandler"/> с кнопок UI. Нет ожидающего
         /// подтверждения — no-op.
@@ -40,6 +49,7 @@ namespace Vortex.Sdk.ShopSystem.UIBridge
 
         public override async UniTask<bool> Confirm(string guid, int count, CancellationToken ct)
         {
+            CurrentGuid = guid;
             UIProvider.Open(ui);
             _pending = new UniTaskCompletionSource<bool>();
             try
@@ -50,6 +60,7 @@ namespace Vortex.Sdk.ShopSystem.UIBridge
             {
                 _pending = null;
                 UIProvider.Close(ui);
+                CurrentGuid = null;
             }
         }
     }

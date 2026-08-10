@@ -33,6 +33,8 @@ namespace Vortex.Unity.UI.UIComponents.Parts
 
             graphic = null;
         }
+
+        public override void SetDirty() => Dirty(graphic);
 #endif
         public void PutData(Sprite sprite)
         {

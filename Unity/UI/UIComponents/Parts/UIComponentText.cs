@@ -25,6 +25,13 @@ namespace Vortex.Unity.UI.UIComponents.Parts
             if (textMPUiField == null)
                 textMPUiField = GetComponent<TextMeshProUGUI>();
         }
+
+        public override void SetDirty()
+        {
+            Dirty(textField);
+            Dirty(textMPField);
+            Dirty(textMPUiField);
+        }
 #endif
         public void PutData(string text)
         {

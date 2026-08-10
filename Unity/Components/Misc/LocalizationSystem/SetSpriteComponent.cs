@@ -46,6 +46,9 @@ namespace Vortex.Unity.Components.Misc.LocalizationSystem
                 uiComponent.SetSprite(sprite);
             else
                 uiComponent.SetSprite(sprite, position);
+#if UNITY_EDITOR
+            uiComponent.SetDirty();
+#endif
         }
 
 #if UNITY_EDITOR

@@ -44,6 +44,29 @@ namespace Vortex.Unity.UI.UIComponents
          VerticalGroup("Link/Components")]
         private UIComponentSwitcher[] uiComponentSwitchers;
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// Editor: пометить грязными цели всех частей после SetText/SetSprite/… в edit-mode, чтобы правки
+        /// записались в сцену / как prefab-оверрайды. Дёргается снаружи (напр. из <c>SetSpriteComponent</c>).
+        /// </summary>
+        public void SetDirty()
+        {
+            DirtyParts(uiComponentTexts);
+            DirtyParts(uiComponentButtons);
+            DirtyParts(uiComponentGraphics);
+            DirtyParts(uiComponentSwitchers);
+        }
+
+        private static void DirtyParts(UIComponentPart[] parts)
+        {
+            if (parts == null)
+                return;
+            foreach (var part in parts)
+                if (part != null)
+                    part.SetDirty();
+        }
+#endif
+
         #region Private
 
         /*

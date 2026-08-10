@@ -22,6 +22,12 @@ namespace Vortex.Unity.UI.UIComponents.Parts
             btn = GetComponent<Button>();
             advBtn = GetComponent<AdvancedButton>();
         }
+
+        public override void SetDirty()
+        {
+            Dirty(btn);
+            Dirty(advBtn);
+        }
 #endif
         public void PutData(UnityAction action)
         {
