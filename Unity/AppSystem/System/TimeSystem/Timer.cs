@@ -4,10 +4,13 @@ using UnityEngine;
 namespace Vortex.Unity.AppSystem.System.TimeSystem
 {
     /// <summary>
-    /// Класс таймера, для простой интеграции и управления
-    /// отложенным запуском логики.
-    /// Для ситуаций когда нужно осуществлять управление длительностью используя,
-    /// в том числе, режим паузы
+    /// Таймер отложенного запуска логики по <b>длительности</b>: отсчитывает заданный интервал
+    /// игрового времени (через <see cref="TimeController"/>) и поднимает колбэк по истечении.
+    /// Поддерживает паузу (остаток замораживается), возобновление и продление.
+    ///
+    /// Это НЕ календарный дедлайн: пауза сдвигает конечную точку на своё время — для отсчёта
+    /// длительности верно, но для «сработать в конкретный момент» нет. Абсолютную точку (в т.ч.
+    /// оффлайн) обслуживает <c>Vortex.Core.System.Abstractions.Timers.DateTimeTimer</c>.
     /// </summary>
     public class Timer : IDisposable
     {
@@ -50,17 +53,6 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
         private Action _onRunOut;
         private bool _disposed;
         private bool _editorPaused;
-
-        public Timer(DateTime end, Action onRunOut)
-        {
-            End = end;
-            Duration = End - DateTime.UtcNow;
-            IsComplete = false;
-            _remains = TimeSpan.Zero;
-            _onRunOut = onRunOut;
-            TimeController.Call(CallAction, (float)Duration.TotalSeconds, this);
-            HookEditorPause();
-        }
 
         public Timer(TimeSpan duration, Action onRunOut)
         {

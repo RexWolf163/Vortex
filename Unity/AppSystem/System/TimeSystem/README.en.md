@@ -157,7 +157,9 @@ Timer (class)
 ### Contract
 
 **Input:**
-- Duration (`float` seconds, `TimeSpan`, or `DateTime` target moment) + callback `Action`
+- Duration (`float` seconds or `TimeSpan`) + callback `Action`
+
+> `Timer` counts a **duration**, not an absolute moment. For "fire on Tuesday at 2:00" (a calendar point, including offline) use `DateTimeTimer` from `Vortex.Core.System.Abstractions.Timers`: in `Timer` a pause shifts the endpoint by the paused span, which would make a deadline drift past its target.
 
 **Output:**
 - Callback invocation on expiry
@@ -181,7 +183,6 @@ Timer (class)
 // Creation
 var timer = new Timer(5f, onComplete);
 var timer = new Timer(TimeSpan.FromMinutes(1), onComplete);
-var timer = new Timer(targetDateTime, onComplete);
 
 // State
 TimeSpan left   = timer.Remains;
@@ -289,3 +290,86 @@ _actionTimer = null;
   A deadline bound to the track freezes with it for free: store the target
   (`targetTime`) and compare in the time-tick handler that is already guarded
   by the "game is running" state.
+
+---
+
+## Stopwatch
+
+A stopwatch (`IDisposable`): counts **up** from start until an explicit `Stop()` — the mirror of `Timer` (which counts down to a deadline with a callback). Poll-based, like `Timer`/`DateTimeTimer`: no reactive fields by design — the UI reads the specific stopwatch it needs, rather than every active one ticking constantly for viewers that may not exist. **The constructor does not start counting.**
+
+### Architecture
+
+```
+Stopwatch (class)
+├── Elapsed      — TimeSpan  (accumulated; frozen while paused and after Stop)
+├── TotalSeconds — int       (whole seconds of Elapsed, for UI polling)
+├── IsRunning    — bool      (counting)
+├── IsPaused     — bool      (frozen by pause — pausable mode only)
+├── Start() / StartRealtime() — start: pausable / pause-agnostic
+├── SetPause() / Resume()     — freeze / resume (pausable mode)
+├── Stop() / Reset()          — freeze result / zero
+└── Dispose()                 — cleanup (unsubscribe from editor pause)
+```
+
+No `TimeController`: `Elapsed` is computed from `DateTime.UtcNow` on read — there is nothing to fire.
+
+### Contract
+
+**Input:**
+- Nothing in the constructor. Start with `Start()` (pausable) or `StartRealtime()` (pause-agnostic).
+
+**Output:**
+- `Elapsed` (`TimeSpan`), `TotalSeconds` (`int`), `IsRunning`, `IsPaused` — polled at any time.
+
+**Guarantees:**
+- `Start()`/`StartRealtime()` begin counting **from zero**; a repeated start of a running/paused stopwatch is a no-op.
+- `Start()` — pausable: `SetPause`/`Resume` and editor pause freeze accumulation (measures active game time, excluding pauses).
+- `StartRealtime()` — pause-agnostic: pure wall-clock, `SetPause` and editor pause are ignored (measures total real time, including pauses).
+- `SetPause` is a no-op in pause-agnostic mode, when stopped, already paused, or after `Dispose`.
+- `Stop()` is terminal: freezes `Elapsed`, no further growth; cannot be resumed (needs `Reset` + `Start`).
+- `Reset()` zeroes and stops — ready for a new start.
+
+**Limitations:**
+- `TotalSeconds` is whole seconds (floored). The precise value is `Elapsed`.
+- The editor hook holds a reference to a pausable stopwatch: one not `Stop`/`Dispose`d is not GC'd until `Stop`/`Reset`/`Dispose`. No hook in a runtime build. The pause-agnostic mode is not hooked and has no such limitation.
+
+### Usage
+
+```csharp
+private readonly Stopwatch _watch = new();
+
+// Active game time (pause freezes it)
+_watch.Start();
+
+// In a state-change handler — same as Timer
+private void OnStateChanged(MiniGameStates state)
+{
+    switch (state)
+    {
+        case MiniGameStates.Play:   _watch.Resume();   break;
+        case MiniGameStates.Paused: _watch.SetPause(); break;
+    }
+}
+
+// Poll from UI
+label.text = $"{_watch.TotalSeconds} s";
+
+_watch.Stop();                 // freeze the result
+var total = _watch.Elapsed;    // read it
+
+// Total real time (pauses counted too)
+_watch.StartRealtime();        // SetPause and editor pause don't affect it
+```
+
+### Edge Cases
+
+| Situation | Behavior |
+|---|---|
+| Reading `Elapsed`/`TotalSeconds` before `Start` | `Zero` / `0` |
+| Repeated `Start` of a running stopwatch | no-op (does not reset) |
+| `SetPause` in `StartRealtime` mode | no-op — counts through the pause |
+| `Resume` without a preceding `SetPause` | no-op |
+| `Start` after `Stop` | a fresh measurement from zero (the previous value is lost — read `Elapsed` before `Start`) |
+| Backgrounding / editor pause (pausable) | accumulation frozen, idle not counted |
+| Backgrounding (pause-agnostic) | time keeps running — counted as real |
+| `Dispose` during editor pause | subscription removed, no revival on unpause |
