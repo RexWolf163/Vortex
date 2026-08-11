@@ -46,7 +46,17 @@ namespace Vortex.Unity.AudioSystem.Handlers
             _currentPitch = _sound.GetPitch();
             _currentVolume = _sound.GetVolume();
             CheckSettings();
-            audioSource.PlayOneShot(audioClip);
+            if (_sound.IsLoop())
+            {
+                audioSource.loop = true;
+                audioSource.clip = audioClip;
+                audioSource.Play();
+            }
+            else
+            {
+                audioSource.loop = false;
+                audioSource.PlayOneShot(audioClip);
+            }
         }
 
         [HorizontalGroup("h1"), Button, ShowIf("ShowBtns")]
