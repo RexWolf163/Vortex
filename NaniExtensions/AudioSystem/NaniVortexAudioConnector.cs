@@ -1,9 +1,10 @@
-﻿using UnityEngine;
+﻿using Naninovel;
+using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
-using Vortex.Core.AudioSystem.Bus;
 using Vortex.NaniExtensions.Core;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Unity.AudioSystem.Presets;
+using AudioController = Vortex.Core.AudioSystem.Bus.AudioController;
 
 namespace Vortex.NaniExtensions.AudioSystem
 {
@@ -38,6 +39,7 @@ namespace Vortex.NaniExtensions.AudioSystem
             App.OnStart -= Init;
             App.OnExit -= Dispose;
             AudioController.OnSettingsChanged -= OnSettingsChanged;
+            Engine.OnInitializationFinished -= SyncNaniVolumes;
         }
 
         private static void Init()
@@ -62,17 +64,26 @@ namespace Vortex.NaniExtensions.AudioSystem
             _voiceChannel = channelConfig.GetVoiceChannel();
             _voiceCutsceneChannel = channelConfig.GetVoiceCutsceneChannel();
 
-            NaniWrapper.AudioManager.BgmVolume = GetNaniBgmVolume();
-            NaniWrapper.AudioManager.SfxVolume = GetNaniSfxVolume();
-            NaniWrapper.AudioManager.VoiceVolume = GetNaniVoiceVolume();
+            SyncNaniVolumes();
 
             AudioController.OnSettingsChanged += OnSettingsChanged;
+            // Naninovel LoadGlobal (после инициализации движка) применяет СВОИ сохранённые в global state
+            // громкости и перебивает пуш выше — из-за чего сброшенные значения «слетают» на старте. Пере-пушим
+            // Vortex (источник истины) ПОСЛЕ каждой инициализации движка.
+            Engine.OnInitializationFinished -= SyncNaniVolumes;
+            Engine.OnInitializationFinished += SyncNaniVolumes;
         }
 
         private static void OnSettingsChanged()
         {
             if (GameController.GetState() != GameStates.Off)
                 return;
+            SyncNaniVolumes();
+        }
+
+        // Пуш громкостей Vortex→Naninovel (Vortex — источник истины).
+        private static void SyncNaniVolumes()
+        {
             NaniWrapper.AudioManager.BgmVolume = GetNaniBgmVolume();
             NaniWrapper.AudioManager.SfxVolume = GetNaniSfxVolume();
             NaniWrapper.AudioManager.VoiceVolume = GetNaniVoiceVolume();

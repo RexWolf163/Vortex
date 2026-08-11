@@ -24,6 +24,13 @@ namespace Vortex.Unity.AudioSystem
         private static Dictionary<string, IAudioSample> _indexMusic;
         private static AudioSettings _settings;
 
+        /// <summary>
+        /// Идёт восстановление настроек. Во время него каналы пересозданы в дефолт и ещё не восстановлены,
+        /// поэтому промежуточные <see cref="SaveSettings"/> (от сеттеров мастера/музыки/звука) подавляются —
+        /// иначе они записали бы дефолтные каналы поверх сохранённых.
+        /// </summary>
+        private static bool _isLoading;
+
         public void Init()
         {
             Database.OnInit += OnDatabaseInit;
@@ -68,6 +75,8 @@ namespace Vortex.Unity.AudioSystem
 
         private static void SaveSettings()
         {
+            if (_isLoading) return; // не персистим промежуточное состояние загрузки (каналы ещё дефолтные)
+
             var save = new List<string>
             {
                 $"{(_settings.MasterOn ? "Y" : "N")}",
@@ -97,6 +106,10 @@ namespace Vortex.Unity.AudioSystem
             if (save.IsNullOrWhitespace())
                 return;
             var ar = save.Split(';');
+
+            // Глушим промежуточные сохранения: каналы восстановятся в память ниже, а сеттеры мастера/
+            // музыки/звука по пути дёргают OnSettingsChanged → SaveSettings и затёрли бы сейв дефолтом.
+            _isLoading = true;
             try
             {
                 AudioController.SetMasterState(ar[0] == "Y");
@@ -105,16 +118,14 @@ namespace Vortex.Unity.AudioSystem
                 AudioController.SetMusicVolume(float.Parse(ar[3], CultureInfo.InvariantCulture));
                 AudioController.SetSoundState(ar[4] == "Y");
                 AudioController.SetSoundVolume(float.Parse(ar[5], CultureInfo.InvariantCulture));
-                if (ar.Length <= 6)
-                    return;
-                ar = ar[6..];
-                foreach (var s in ar)
-                {
-                    var data = s.Split(':');
-                    var channelName = data[0];
-                    if (!_settings.Channels.TryGetValue(channelName, out var channel)) continue;
-                    channel.FromSave(data);
-                }
+                if (ar.Length > 6)
+                    foreach (var s in ar[6..])
+                    {
+                        var data = s.Split(':');
+                        var channelName = data[0];
+                        if (!_settings.Channels.TryGetValue(channelName, out var channel)) continue;
+                        channel.FromSave(data);
+                    }
             }
             catch (Exception e)
             {
@@ -124,11 +135,17 @@ namespace Vortex.Unity.AudioSystem
                 AudioController.SetMusicVolume(1);
                 AudioController.SetSoundState(true);
                 AudioController.SetSoundVolume(1);
-                SaveSettings();
 
                 Debug.LogException(e);
                 Debug.LogError("[AudioDriver] Audio settings was resets.");
             }
+            finally
+            {
+                _isLoading = false;
+            }
+
+            // Один согласованный сейв: успех — нормализуем формат; сброс — перезаписываем битый сейв.
+            SaveSettings();
         }
     }
 }
