@@ -101,7 +101,14 @@ namespace Vortex.Sdk.Quests
                         quest.State = QuestState.Locked;
                         break;
                     case QuestState.Locked:
+                        break;
                     case QuestState.Ready:
+                        // Ready латчится (условия старта одноразовы, назад — только через Interrupt), поэтому
+                        // условия НЕ перечитываем. Но autorun обязан стартовать на LoadGame (док-гарантия):
+                        // Run() на Ready → RunQuest с нуля. Не-autorun остаётся Ready — армирован для ручного
+                        // запуска (RunQuestHandler). Interrupt-приоритет держит CheckQuestStartConditions ниже.
+                        if (quest.Autorun)
+                            Run(quest);
                         break;
                     case QuestState.InProgress:
                         //порядок запуска не гарантирован
