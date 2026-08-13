@@ -1,0 +1,21 @@
+{
+    "name": "ru.vortex.steam.ext.quests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:4029295060c710347a50c018285ee303",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:d250cc61a73a072449960bdf55819f6d",
+        "GUID:1947342b6a9d5264eb2b79a6d229e65e"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_VORTEX_QUESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

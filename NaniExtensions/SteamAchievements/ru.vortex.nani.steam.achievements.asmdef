@@ -1,0 +1,20 @@
+{
+    "name": "ru.vortex.nani.steam.achievements",
+    "rootNamespace": "",
+    "references": [
+        "GUID:08ab4e9b32bfd234da6fed8acbd71909",
+        "GUID:1947342b6a9d5264eb2b79a6d229e65e",
+        "GUID:d250cc61a73a072449960bdf55819f6d"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_NANINOVELL"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
