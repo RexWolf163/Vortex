@@ -185,4 +185,4 @@ foreach (var id in ids)
 | Steam не настроен (нет достижений в Steamworks) | `GetNumAchievements()` → 0, пустой индекс |
 | `USING_STEAM` не определён | Сборка не компилируется (`defineConstraints`) |
 | `AchievementsController.Run()` до `SteamBus.IsInitialized` | Подписка на `OnCallServices`, загрузка отложена |
-| Повторный `UnlockAchievement` для уже разблокированного | `SetAchievement()` — idempotent в Steamworks |
+| Повторный `UnlockAchievement` для уже разблокированного | Ранний выход по гарде `if (IsUnlocked) return` — без `SetAchievement`/`StoreStats`/лога (переход в Steam и так не повторится) |

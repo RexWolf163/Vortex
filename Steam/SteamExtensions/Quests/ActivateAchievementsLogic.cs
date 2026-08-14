@@ -27,6 +27,8 @@ namespace Vortex.Steam.SteamExtensions.Quests
             return true;
         }
 
+#if UNITY_EDITOR
         protected override string GetEditorLabel() => $"Unlock SteamAchievement: {name}";
+#endif
     }
 }

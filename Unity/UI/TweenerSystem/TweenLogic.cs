@@ -216,15 +216,21 @@ namespace Vortex.Unity.UI.TweenerSystem
                     return;
 
                 _tweenTask = default;
-                var action = _onComplete;
-                _onComplete = null;
-                action?.Invoke();
+
+                // Финализируем ТОЛЬКО ЧТО доигранное направление ДО _onComplete: продолжение (напр. Back в
+                // Pulse) внутри _onComplete меняет _isForward и запускает следующий твин. Если делать это после
+                // — на конце Forward сработал бы OnStart и SwitchOff по offOnStartPoint (гасил бы объект в точке
+                // Forward-конца), и обратный твин шёл бы на выключенном объекте (резко, offsetBack невидим).
                 if (_isForward)
                     OnEnd();
                 else
                     OnStart();
                 if (!_isForward && preset.offOnStartPoint || _isForward && preset.offOnEndPoint)
                     SwitchOff();
+
+                var action = _onComplete;
+                _onComplete = null;
+                action?.Invoke();
             }
             catch (Exception e)
             {

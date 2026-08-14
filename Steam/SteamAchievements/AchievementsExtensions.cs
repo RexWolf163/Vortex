@@ -29,6 +29,10 @@ namespace Vortex.Steam.SteamAchievements
                 return;
             }
 
+            // Уже получено (в т.ч. с прошлой сессии — IsUnlocked грузится из Steam в LoadAllAchievements):
+            // повторный переход не нужен, не шлём лишние SetAchievement/StoreStats и не дублируем лог.
+            if (achievement.IsUnlocked) return;
+
             achievement.IsUnlocked = true;
             SteamUserStats.SetAchievement(achievement.ID);
             TimeController.Accumulate(() => SteamUserStats.StoreStats(), "AchievementsExtensions");

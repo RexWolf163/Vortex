@@ -185,4 +185,4 @@ foreach (var id in ids)
 | Steam not configured (no achievements in Steamworks) | `GetNumAchievements()` → 0, empty index |
 | `USING_STEAM` not defined | Assembly does not compile (`defineConstraints`) |
 | `AchievementsController.Run()` before `SteamBus.IsInitialized` | Subscribes to `OnCallServices`, loading deferred |
-| Repeated `UnlockAchievement` on already unlocked | `SetAchievement()` — idempotent in Steamworks |
+| Repeated `UnlockAchievement` on already unlocked | Early return via `if (IsUnlocked) return` — no `SetAchievement`/`StoreStats`/log (Steam would not re-trigger the transition anyway) |
