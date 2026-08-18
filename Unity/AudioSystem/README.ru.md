@@ -191,13 +191,31 @@ SoundClip (ICloneable)
 ├── ValueRange    — Vector2
 ├── Channel       — AudioChannel (канал звука)
 ├── Loop          — bool
+├── AntiRepeat    — AntiRepeatMode (механика антиповтора при выборе клипа)
 ├── GetPitch()    → Random.Range(PitchRange.x, PitchRange.y)
 ├── GetVolume()   → Random.Range(ValueRange.x, ValueRange.y)
-├── GetClip()     → случайный из массива (или единственный)
+├── GetClip()     → случайный из массива с антиповтором (или единственный)
 └── Clone()       → deep clone (новый SoundClip с теми же параметрами)
 ```
 
 Конструкторы принимают `string channelName` или `AudioChannel channel`. При `channelName` — резолв через `AudioController.GetChannel()`.
+
+#### Антиповтор при выборе клипа (`AntiRepeatMode`)
+
+Для мульти-клип пака `GetClip()` не выдаёт недавно проигранные клипы. Механика задаётся на пресете полем `antiRepeat`:
+
+- `LastMany` (по умолчанию) — сравнение с последними: исключает `N/2` (округляя вниз) недавних индексов.
+- `LastOne` — сравнение с последним: исключает один предыдущий индекс.
+- `None` — без антиповтора: честный равномерный рандом по всему массиву.
+
+Среди «незаблокированных» индексов выбор равномерный (тянем в диапазоне разрешённых и мапим мимо истории — без смещения распределения). Размер истории всегда меньше `N`, поэтому пустого выбора не бывает.
+
+Состояние (история индексов) живёт на инстансе `SoundClip`. Запись Database (`Sound.Sample`) — стабильный инстанс, `GetClip()` зовётся на нём каждое воспроизведение → история переживает вызовы. `SoundClipFixed` антиповтор не использует (его `GetClip()` возвращает зафиксированный клип). Кешируемая по языку озвучка (`AudioLocaleData` → `SoundClipFixed`) фиксирует клип один раз на кеш — антиповтор там не применяется.
+
+**Граничные случаи по числу клипов:**
+- `N == 1` — ветка `IsSingle`, до механики не доходит при любом режиме.
+- `N == 2` — `LastOne`/`LastMany` (`N/2 == 1`) дают детерминированное чередование; нужен чистый рандом — ставь `None`.
+- `N >= 3` — `LastOne` исключает 1, `LastMany` — `N/2`.
 
 #### Lazy-загрузка addressable-клипов (`#if ENABLE_ADDRESSABLES`)
 
@@ -301,6 +319,7 @@ UI-слайдер громкости.
 - `AudioClip[]` — массив клипов
 - `pitchRange` / `valueRange` — диапазоны через `[MinMaxSlider]`
 - `channel` — канал через `[AudioChannelName]`
+- `antiRepeat` (`AntiRepeatMode`) — механика антиповтора при выборе клипа (`LastMany` по умолчанию, см. раздел «Антиповтор»)
 - `RecordTypes.Singleton` (форсируется в `OnValidate`)
 - Editor: кнопка `TestSound` — создаёт временный `AudioSource`, самоуничтожается после воспроизведения
 
@@ -321,6 +340,7 @@ UI-слайдер громкости.
 - Запись остаётся **лёгкой**: клип не приезжает в память при загрузке Database, тянется по требованию при первом `GetClip` (синхронно, через `WaitForCompletion`).
 - Применять для тяжёлых/редких звуков, чтобы не грузить их на старте.
 - Лёгкие всегда-нужные звуки (короткие UI-клики) проще держать в обычном `SoundSamplePreset` — addressable-загрузка добавит им латентность на ровном месте.
+- `antiRepeat` (`AntiRepeatMode`) — как и в `SoundSamplePreset` (см. раздел «Антиповтор»).
 
 ---
 
@@ -410,6 +430,8 @@ AudioController.StopCoverMusic(); // основная тема восстано�
 | Addressable-клип удалён/отсутствует в билде | `WaitForCompletion` вернёт `null` → NRE в `SoundClipFixed` (fail-fast; проверь, что клип в addressable-группе) |
 | Конвертация `SoundSamplePreset` → addressable | Framework-GUID сохраняется, `[DbRecord]`-ссылки живут; Unity-GUID ассета меняется |
 | pitch == 0 в `SoundClipFixed` | `GetDuration()` → `float.MaxValue` |
+| `GetClip()` на паке из 2 клипов при `LastOne`/`LastMany` | Детерминированное чередование (`N/2 == 1`); для чистого рандома — `None` |
+| Состояние антиповтора `GetClip()` | Живёт на инстансе `SoundClip` (стабильный `Sound.Sample`); не используется `SoundClipFixed` и кешируемой озвучкой |
 | `StopAllSounds(channel)` с `null` | Очищает весь пул |
 | `StopAllSounds(channel)` с именем | Удаляет из пула только звуки с совпадающим `Channel.Name` |
 | Канал удалён из `AudioChannelsConfig` | Старые данные канала в `PlayerPrefs` игнорируются при загрузке |

@@ -25,7 +25,7 @@ namespace Vortex.Core.AudioSystem
         /// дефолтный канал для воспроизведения. Если не установлен, то в первый доступный канал
         /// в списке, если не задан канала в модели звука
         /// </param>
-        public void PlaySound(object sound, bool loop = false, string defaultChannel = null);
+        public AudioSampleWrapper PlaySound(object sound, bool loop = false, string defaultChannel = null);
 
         /// <summary>
         /// Остановка всех звуков.
@@ -44,7 +44,7 @@ namespace Vortex.Core.AudioSystem
         /// дефолтный канал для воспроизведения. Если не установлен, то в первый доступный канал
         /// в списке, если не задан канала в модели звука
         /// </param>
-        public void PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
+        public AudioSampleWrapper PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
             string defaultChannel = null);
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace Vortex.Core.AudioSystem
         /// дефолтный канал для воспроизведения. Если не установлен, то в первый доступный канал
         /// в списке, если не задан канала в модели звука
         /// </param>
-        public void PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
+        public AudioSampleWrapper PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
             string defaultChannel = null);
 
         /// <summary>

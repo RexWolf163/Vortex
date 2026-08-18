@@ -103,16 +103,16 @@ namespace Vortex.Core.AudioSystem.Bus
 
         #region AudioControl
 
-        public static void PlaySound(object sound, bool loop = false) => Driver.PlaySound(sound, loop);
+        public static AudioSampleWrapper PlaySound(object sound, bool loop = false) => Driver.PlaySound(sound, loop);
 
         public static void StopAllSounds(string channel = null) => Driver.StopAllSounds(channel);
 
-        public static void PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
+        public static AudioSampleWrapper PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
             Driver.PlayMusic(audioClip, fadingStart, fadingEnd);
 
         public static void StopMusic() => Driver.StopMusic();
 
-        public static void PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
+        public static AudioSampleWrapper PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
             Driver.PlayCoverMusic(audioClip, fadingStart, fadingEnd);
 
         public static void StopCoverMusic() => Driver.StopCoverMusic();

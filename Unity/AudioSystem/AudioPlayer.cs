@@ -1,6 +1,8 @@
 ﻿using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using Vortex.Core.AudioSystem.Model;
+using Vortex.Core.AudioSystem.Model;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Unity.AppSystem.System.TimeSystem;
@@ -73,10 +75,10 @@ namespace Vortex.Unity.AudioSystem
 
         #region Sound
 
-        internal static void PlaySound(object sound, bool loop = false, string channelOverrideName = null)
+        internal static AudioSampleWrapper PlaySound(object sound, bool loop = false, string channelOverrideName = null)
         {
             if (Instance == null)
-                return;
+                return null;
             SoundClipFixed clip;
             switch (sound)
             {
@@ -98,14 +100,14 @@ namespace Vortex.Unity.AudioSystem
                         catch (Exception exception)
                         {
                             Debug.LogError($"[{data.Name}] {exception.Message}");
-                            return;
+                            return null;
                         }
 
                         break;
                     }
 
                     Debug.LogError($"[AudioPlayer] Unknown sound ID: {id}");
-                    return;
+                    return null;
                 case Sound s:
                     clip = new SoundClipFixed(s.Sample, loop, channelOverrideName);
                     break;
@@ -114,12 +116,14 @@ namespace Vortex.Unity.AudioSystem
                     break;
                 default:
                     Debug.LogError($"[AudioPlayer] Unknown sound type: {sound.GetType().Name}");
-                    return;
+                    return null;
             }
 
             Instance.pool.AddItem(clip);
+            var wrapper = new SoundWrapper(clip.GetClip(), loop);
             if (!loop)
                 TimeController.Call(() => Instance.pool.RemoveItem(clip), clip.GetDuration(), clip);
+            return wrapper;
         }
 
         internal static void StopAllSounds(string channel = null)
@@ -162,7 +166,7 @@ namespace Vortex.Unity.AudioSystem
         /// <param name="fadingStart"></param>
         /// <param name="fadingEnd"></param>
         /// <param name="overrideChannel"></param>
-        internal static void PlayMusic(object music,
+        internal static AudioSampleWrapper PlayMusic(object music,
             bool fadingStart = true,
             bool fadingEnd = true,
             string overrideChannel = null)
@@ -171,16 +175,29 @@ namespace Vortex.Unity.AudioSystem
             _isMusicPlaying = true;
 
             if (Instance == null)
-                return;
+                return null;
 
             var clip = GetMusicClip(music, overrideChannel);
             Instance._music = clip.GetClip();
 
+            // Единый владелец: один хэндл (Pending) готовим заранее и возвращаем ЕГО во всех ветках —
+            // и при мгновенном старте, и при отложенном (после фейд-аута предыдущего трека).
+            var wrapper = Instance.musicPlayer.Prepare(Instance._music);
+
             if (!FadeForMusic(() =>
                 {
-                    Instance.musicPlayer.Stop();
-                    PlayMusic(music, fadingStart, fadingEnd);
+                    Instance.musicPlayer.StopAudio(); // глушим предыдущий источник, НЕ трогая новый хэндл
+                    PlayMusicInternal(clip, fadingStart, fadingEnd);
                 }))
+                return wrapper;
+
+            PlayMusicInternal(clip, fadingStart, fadingEnd);
+            return wrapper;
+        }
+
+        private static void PlayMusicInternal(SoundClip clip, bool fadingStart, bool fadingEnd)
+        {
+            if (Instance == null)
                 return;
 
             _needFadingEnd = fadingEnd;
@@ -192,7 +209,7 @@ namespace Vortex.Unity.AudioSystem
             else
                 Instance.musicPlayer.SetVolumeMultiplier(1);
 
-            Instance.musicPlayer.Play(clip);
+            Instance.musicPlayer.Play(clip); // стартует ранее подготовленный хэндл (wrapper.Play())
         }
 
         /// <summary>
@@ -271,17 +288,29 @@ namespace Vortex.Unity.AudioSystem
         /// <param name="fadingStart"></param>
         /// <param name="fadingEnd"></param>
         /// <param name="defaultChannel"></param>
-        internal static void PlayCoverMusic(object music, bool fadingStart = true, bool fadingEnd = true,
+        internal static AudioSampleWrapper PlayCoverMusic(object music, bool fadingStart = true, bool fadingEnd = true,
             string defaultChannel = null)
         {
             if (Instance == null)
-                return;
+                return null;
 
             var clip = GetMusicClip(music, defaultChannel);
 
             Instance._coverMusic = clip.GetClip();
 
-            if (!FadeForCoverMusic(() => PlayCoverMusic(clip, fadingStart, fadingEnd)))
+            // Единый владелец хэндла ситуативного трека (см. PlayMusic).
+            var wrapper = Instance.musicCoverPlayer.Prepare(Instance._coverMusic);
+
+            if (!FadeForCoverMusic(() => PlayCoverMusicInternal(clip, fadingStart, fadingEnd)))
+                return wrapper;
+
+            PlayCoverMusicInternal(clip, fadingStart, fadingEnd);
+            return wrapper;
+        }
+
+        private static void PlayCoverMusicInternal(SoundClip clip, bool fadingStart, bool fadingEnd)
+        {
+            if (Instance == null)
                 return;
 
             _needCoverFadingEnd = fadingEnd;
@@ -293,7 +322,7 @@ namespace Vortex.Unity.AudioSystem
             else
                 Instance.musicCoverPlayer.SetVolumeMultiplier(1);
 
-            Instance.musicCoverPlayer.Play(clip);
+            Instance.musicCoverPlayer.Play(clip); // стартует ранее подготовленный хэндл (wrapper.Play())
         }
 
         /// <summary>

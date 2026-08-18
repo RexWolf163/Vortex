@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Vortex.Core.AudioSystem.Bus;
 using Vortex.Core.AudioSystem.Model;
@@ -35,14 +36,27 @@ namespace Vortex.Unity.AudioSystem.Model
         protected bool IsSingle = false;
         protected bool IsEmpty = false;
 
+        /// <summary>
+        /// Механика антиповтора (не выдавать недавно проигранные клипы). Задаётся на пресете.
+        /// </summary>
+        protected AntiRepeatMode AntiRepeat = AntiRepeatMode.LastMany;
+
+        /// <summary>
+        /// История недавно выбранных индексов для антиповтора (FIFO, размер = <c>N/2</c> округляя вниз).
+        /// Живёт на инстансе <see cref="SoundClip"/>: запись Database (<c>Sound.Sample</c>) — стабильный инстанс,
+        /// а <see cref="GetClip"/> зовётся на нём каждый плей → состояние переживает вызовы.
+        /// </summary>
+        private readonly List<int> _history = new();
+
         public SoundClip(AudioClip[] audioClips, Vector2 pitchRange, Vector2 valueRange, bool loop = false,
-            string channelName = null)
+            string channelName = null, AntiRepeatMode antiRepeat = AntiRepeatMode.LastMany)
         {
             AudioClips = audioClips;
             IsEmpty = audioClips == null;
             PitchRange = pitchRange;
             ValueRange = valueRange;
             Loop = loop;
+            AntiRepeat = antiRepeat;
             IsSingle = audioClips == null || audioClips.Length == 1;
 
             if (channelName.IsNullOrWhitespace()) return;
@@ -51,13 +65,14 @@ namespace Vortex.Unity.AudioSystem.Model
         }
 
         public SoundClip(AudioClip[] audioClips, Vector2 pitchRange, Vector2 valueRange, bool loop = false,
-            AudioChannel channel = null)
+            AudioChannel channel = null, AntiRepeatMode antiRepeat = AntiRepeatMode.LastMany)
         {
             AudioClips = audioClips;
             IsEmpty = audioClips == null;
             PitchRange = pitchRange;
             ValueRange = valueRange;
             Loop = loop;
+            AntiRepeat = antiRepeat;
             IsSingle = audioClips == null || audioClips.Length == 1;
             Channel = channel;
         }
@@ -69,7 +84,7 @@ namespace Vortex.Unity.AudioSystem.Model
 
 #if ENABLE_ADDRESSABLES
         public SoundClip(AssetReferenceAudioClip[] audioClips, Vector2 pitchRange, Vector2 valueRange, bool loop,
-            string channelName)
+            string channelName, AntiRepeatMode antiRepeat = AntiRepeatMode.LastMany)
         {
             _audioClipRefs = audioClips;
             AudioClips = null;
@@ -77,6 +92,7 @@ namespace Vortex.Unity.AudioSystem.Model
             PitchRange = pitchRange;
             ValueRange = valueRange;
             Loop = loop;
+            AntiRepeat = antiRepeat;
             IsSingle = audioClips == null || audioClips.Length == 1;
 
             if (channelName.IsNullOrWhitespace()) return;
@@ -86,13 +102,14 @@ namespace Vortex.Unity.AudioSystem.Model
 
         public SoundClip(AssetReferenceAudioClip[] audioClips, Vector2 pitchRange, Vector2 valueRange,
             bool loop = false,
-            AudioChannel channel = null)
+            AudioChannel channel = null, AntiRepeatMode antiRepeat = AntiRepeatMode.LastMany)
         {
             _audioClipRefs = audioClips;
             IsEmpty = audioClips == null;
             PitchRange = pitchRange;
             ValueRange = valueRange;
             Loop = loop;
+            AntiRepeat = antiRepeat;
             IsSingle = audioClips == null || audioClips.Length == 1;
             Channel = channel;
         }
@@ -110,7 +127,39 @@ namespace Vortex.Unity.AudioSystem.Model
             if (_audioClipRefs != null && AudioClips == null)
                 LoadAssets();
 #endif
-            return IsSingle ? AudioClips[0] : AudioClips[Random.Range(0, AudioClips.Length)];
+            if (IsSingle)
+                return AudioClips[0];
+
+            var n = AudioClips.Length;
+
+            if (AntiRepeat == AntiRepeatMode.None)
+                return AudioClips[Random.Range(0, n)];
+
+            // Размер истории по механике: с последним → 1; с последними → N/2 (округляя вниз). Оба < N (N>=2
+            // здесь, т.к. N==1 отсекает IsSingle) → allowedCount = n − history.Count всегда >= 1.
+            var historySize = AntiRepeat == AntiRepeatMode.LastOne ? 1 : n / 2;
+            var allowedCount = n - _history.Count;
+            var pick = Random.Range(0, allowedCount);
+
+            var index = 0;
+            for (var i = 0; i < n; i++)
+            {
+                if (_history.Contains(i))
+                    continue;
+                if (pick == 0)
+                {
+                    index = i;
+                    break;
+                }
+
+                pick--;
+            }
+
+            _history.Add(index);
+            while (_history.Count > historySize)
+                _history.RemoveAt(0);
+
+            return AudioClips[index];
         }
 
 #if ENABLE_ADDRESSABLES
@@ -147,9 +196,10 @@ namespace Vortex.Unity.AudioSystem.Model
         {
 #if ENABLE_ADDRESSABLES
             if (_audioClipRefs != null && AudioClips == null)
-                return new SoundClip(_audioClipRefs, PitchRange, ValueRange, Loop, channel: Channel);
+                return new SoundClip(_audioClipRefs, PitchRange, ValueRange, Loop, channel: Channel,
+                    antiRepeat: AntiRepeat);
 #endif
-            return new SoundClip(AudioClips, PitchRange, ValueRange, Loop, Channel);
+            return new SoundClip(AudioClips, PitchRange, ValueRange, Loop, Channel, AntiRepeat);
         }
     }
 }

@@ -20,7 +20,11 @@ namespace Vortex.Unity.AudioSystem.Presets
         [SerializeField, MinMaxSlider(0f, 1f)] private Vector2 valueRange = Vector2.one;
 
         [SerializeField, AudioChannelName] private string channel;
-        public object Sample => new SoundClip(audioClips, pitchRange, valueRange, false, channel);
+
+        [SerializeField, Tooltip("Механика антиповтора: с последним / с последними (N/2) / без.")]
+        private AntiRepeatMode antiRepeat = AntiRepeatMode.LastMany;
+
+        public object Sample => new SoundClip(audioClips, pitchRange, valueRange, false, channel, antiRepeat);
 
 #if UNITY_EDITOR
         private void OnValidate() => type = RecordTypes.Singleton;

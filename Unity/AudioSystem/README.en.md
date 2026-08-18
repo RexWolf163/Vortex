@@ -191,13 +191,31 @@ SoundClip (ICloneable)
 ├── ValueRange    — Vector2
 ├── Channel       — AudioChannel (sound channel)
 ├── Loop          — bool
+├── AntiRepeat    — AntiRepeatMode (anti-repeat mechanic for clip selection)
 ├── GetPitch()    → Random.Range(PitchRange.x, PitchRange.y)
 ├── GetVolume()   → Random.Range(ValueRange.x, ValueRange.y)
-├── GetClip()     → random from array (or the only one)
+├── GetClip()     → random from array with anti-repeat (or the only one)
 └── Clone()       → deep clone (new SoundClip with same parameters)
 ```
 
 Constructors accept `string channelName` or `AudioChannel channel`. With `channelName` — resolved via `AudioController.GetChannel()`.
+
+#### Anti-repeat on clip selection (`AntiRepeatMode`)
+
+For a multi-clip pack, `GetClip()` avoids recently played clips. The mechanic is set per preset via the `antiRepeat` field:
+
+- `LastMany` (default) — compare with the last several: excludes the `N/2` (rounded down) most recent indices.
+- `LastOne` — compare with the last one: excludes a single previous index.
+- `None` — no anti-repeat: fair uniform random over the whole array.
+
+Selection among the non-excluded indices is uniform (draw within the allowed range, then map past the history — no distribution bias). The history size is always less than `N`, so the allowed set is never empty.
+
+State (the index history) lives on the `SoundClip` instance. A Database record (`Sound.Sample`) is a stable instance, and `GetClip()` is called on it every playback → the history persists across calls. `SoundClipFixed` does not use anti-repeat (its `GetClip()` returns the fixed clip). Per-language cached voice (`AudioLocaleData` → `SoundClipFixed`) fixes the clip once per cache — anti-repeat does not apply there.
+
+**Edge cases by clip count:**
+- `N == 1` — the `IsSingle` branch; the mechanic is never reached, for any mode.
+- `N == 2` — `LastOne`/`LastMany` (`N/2 == 1`) both yield deterministic alternation; for pure random set `None`.
+- `N >= 3` — `LastOne` excludes 1, `LastMany` excludes `N/2`.
 
 #### Lazy loading of addressable clips (`#if ENABLE_ADDRESSABLES`)
 
@@ -301,6 +319,7 @@ UI volume slider.
 - `AudioClip[]` — clip array
 - `pitchRange` / `valueRange` — ranges via `[MinMaxSlider]`
 - `channel` — channel via `[AudioChannelName]`
+- `antiRepeat` (`AntiRepeatMode`) — anti-repeat mechanic for clip selection (`LastMany` by default, see the "Anti-repeat" section)
 - `RecordTypes.Singleton` (forced in `OnValidate`)
 - Editor: `TestSound` button — creates temporary `AudioSource`, self-destructs after playback
 
@@ -321,6 +340,7 @@ UI volume slider.
 - The record stays **light**: the clip is not brought into memory when Database loads; it is pulled on demand on the first `GetClip` (synchronously, via `WaitForCompletion`).
 - Use for heavy/rare sounds to avoid loading them at startup.
 - Light always-needed sounds (short UI clicks) are simpler kept in the plain `SoundSamplePreset` — addressable loading would add latency to them for no reason.
+- `antiRepeat` (`AntiRepeatMode`) — same as in `SoundSamplePreset` (see the "Anti-repeat" section).
 
 ---
 
@@ -410,6 +430,8 @@ Add `MusicHandler` to a GameObject, assign GUID via `[DbRecord(typeof(Music))]`.
 | Addressable clip removed/absent from the build | `WaitForCompletion` returns `null` → NRE in `SoundClipFixed` (fail-fast; verify the clip is in an addressable group) |
 | Converting `SoundSamplePreset` → addressable | The framework GUID is preserved, `[DbRecord]` references survive; the Unity asset GUID changes |
 | pitch == 0 in `SoundClipFixed` | `GetDuration()` → `float.MaxValue` |
+| `GetClip()` on a 2-clip pack with `LastOne`/`LastMany` | Deterministic alternation (`N/2 == 1`); use `None` for pure random |
+| `GetClip()` anti-repeat state | Lives on the `SoundClip` instance (stable `Sound.Sample`); not used by `SoundClipFixed` or per-language cached voice |
 | `StopAllSounds(channel)` with `null` | Clears entire pool |
 | `StopAllSounds(channel)` with name | Removes only sounds with matching `Channel.Name` from pool |
 | Channel removed from `AudioChannelsConfig` | Old channel data in `PlayerPrefs` ignored on load |
