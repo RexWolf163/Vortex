@@ -27,6 +27,13 @@ namespace Vortex.Unity.AudioSystem.Model
             _source.Play();
         }
 
+        protected override void Resume()
+        {
+            if (_source == null)
+                return;
+            _source.UnPause();
+        }
+
         protected override void Stop()
         {
             if (_source == null)

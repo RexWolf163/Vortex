@@ -103,17 +103,29 @@ namespace Vortex.Core.AudioSystem.Bus
 
         #region AudioControl
 
-        public static AudioSampleWrapper PlaySound(object sound, bool loop = false) => Driver.PlaySound(sound, loop);
+        // «Обычные» Play — fire-and-forget (void, без хэндла, горячий путь без лишних аллокаций).
+        // Варианты *WithControl — возвращают AudioSampleWrapper для управления/наблюдения конкретным звуком.
+
+        public static void PlaySound(object sound, bool loop = false) => Driver.PlaySound(sound, loop);
+
+        public static AudioSampleWrapper PlaySoundWithControl(object sound, bool loop = false) =>
+            Driver.PlaySoundWithControl(sound, loop);
 
         public static void StopAllSounds(string channel = null) => Driver.StopAllSounds(channel);
 
-        public static AudioSampleWrapper PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
+        public static void PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
             Driver.PlayMusic(audioClip, fadingStart, fadingEnd);
+
+        public static AudioSampleWrapper PlayMusicWithControl(object audioClip, bool fadingStart = true,
+            bool fadingEnd = true) => Driver.PlayMusicWithControl(audioClip, fadingStart, fadingEnd);
 
         public static void StopMusic() => Driver.StopMusic();
 
-        public static AudioSampleWrapper PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
+        public static void PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true) =>
             Driver.PlayCoverMusic(audioClip, fadingStart, fadingEnd);
+
+        public static AudioSampleWrapper PlayCoverMusicWithControl(object audioClip, bool fadingStart = true,
+            bool fadingEnd = true) => Driver.PlayCoverMusicWithControl(audioClip, fadingStart, fadingEnd);
 
         public static void StopCoverMusic() => Driver.StopCoverMusic();
 

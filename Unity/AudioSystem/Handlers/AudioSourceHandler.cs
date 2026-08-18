@@ -1,7 +1,10 @@
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.AudioSystem.Bus;
+using Vortex.Core.AudioSystem.Controllers;
+using Vortex.Core.AudioSystem.Model;
 using Vortex.Core.System.Abstractions;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.AudioSystem.Model;
 
 namespace Vortex.Unity.AudioSystem.Handlers
@@ -17,6 +20,9 @@ namespace Vortex.Unity.AudioSystem.Handlers
         private IDataStorage _dataStorage;
 
         private SoundClip _sound;
+
+        /// <summary>Хэндл управления, если звук запущен через PlaySoundWithControl (иначе null).</summary>
+        private SoundWrapper _wrapper;
 
         private float _currentVolume;
         private float _currentPitch;
@@ -46,6 +52,14 @@ namespace Vortex.Unity.AudioSystem.Handlers
             _currentPitch = _sound.GetPitch();
             _currentVolume = _sound.GetVolume();
             CheckSettings();
+            _wrapper = _dataStorage.GetData<SoundWrapper>();
+            if (_wrapper != null)
+            {
+                _wrapper.Init(audioSource, () => gameObject.SetActive(false));
+                _wrapper.Play();
+                return;
+            }
+
             if (_sound.IsLoop())
             {
                 audioSource.loop = true;
@@ -56,11 +70,24 @@ namespace Vortex.Unity.AudioSystem.Handlers
             {
                 audioSource.loop = false;
                 audioSource.PlayOneShot(audioClip);
+                TimeController.Call(() => gameObject.SetActive(false), audioClip.length / Mathf.Abs(_currentPitch), this);
             }
         }
 
         [HorizontalGroup("h1"), Button, ShowIf("ShowBtns")]
-        private void Stop() => audioSource.Stop();
+        private void Stop()
+        {
+            TimeController.RemoveCall(this);
+            if (_wrapper != null)
+            {
+                if (_wrapper.State != PlaybackState.Finished)
+                    _wrapper.Stop();
+                _wrapper = null;
+                return;
+            }
+
+            audioSource.Stop();
+        }
 
 #if UNITY_EDITOR
         private void OnValidate()

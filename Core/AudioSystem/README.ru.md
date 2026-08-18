@@ -79,17 +79,20 @@ enum SoundType { Master, Sound, Music }
 
 Контракт платформенного драйвера:
 
-| Метод | Описание |
-|-------|----------|
-| `SetLinks(indexSound, indexMusic, settings)` | Получение ссылок на реестры и настройки |
-| `PlaySound(object, bool loop, string defaultChannel)` | Воспроизведение звука |
-| `StopAllSounds(string channel)` | Остановка всех звуков (или по каналу) |
-| `PlayMusic(object, fadingStart, fadingEnd, string defaultChannel)` | Воспроизведение основной музыки |
-| `StopMusic()` | Остановка основной музыки |
-| `PlayCoverMusic(object, fadingStart, fadingEnd, string defaultChannel)` | Воспроизведение ситуативной музыки |
-| `StopCoverMusic()` | Остановка ситуативной музыки |
+| Метод | Возврат | Описание |
+|-------|---------|----------|
+| `SetLinks(indexSound, indexMusic, settings)` | `void` | Получение ссылок на реестры и настройки |
+| `PlaySound(object, bool loop, string defaultChannel)` | `void` | Воспроизведение звука (fire-and-forget) |
+| `PlaySoundWithControl(object, bool loop, string defaultChannel)` | `AudioSampleWrapper` | То же, но с хэндлом управления |
+| `StopAllSounds(string channel)` | `void` | Остановка всех звуков (или по каналу) |
+| `PlayMusic(object, fadingStart, fadingEnd, string defaultChannel)` | `void` | Воспроизведение основной музыки |
+| `PlayMusicWithControl(object, fadingStart, fadingEnd, string defaultChannel)` | `AudioSampleWrapper` | То же, с хэндлом |
+| `StopMusic()` | `void` | Остановка основной музыки |
+| `PlayCoverMusic(object, fadingStart, fadingEnd, string defaultChannel)` | `void` | Воспроизведение ситуативной музыки |
+| `PlayCoverMusicWithControl(object, fadingStart, fadingEnd, string defaultChannel)` | `AudioSampleWrapper` | То же, с хэндлом |
+| `StopCoverMusic()` | `void` | Остановка ситуативной музыки |
 
-Параметр `object` — платформенный тип аудиоданных. Типизация определяется драйвером через pattern matching. Параметр `defaultChannel` — fallback-канал, если канал не задан в модели звука.
+Параметр `object` — платформенный тип аудиоданных. Типизация определяется драйвером через pattern matching. Параметр `defaultChannel` — fallback-канал, если канал не задан в модели звука. Про `*WithControl` и `AudioSampleWrapper` — раздел [«Управление воспроизведением через обёртки»](#управление-воспроизведением-через-обёртки-audiosamplewrapper).
 
 ## Контракт
 
@@ -160,10 +163,14 @@ channel.SetVolume(0.5f);
 ### Воспроизведение
 
 ```csharp
-// Звук
+// Звук (fire-and-forget)
 AudioController.PlaySound(sample);
 AudioController.PlaySound(sample, loop: true);
 AudioController.StopAllSounds();
+
+// Звук с хэндлом управления (см. раздел про обёртки)
+var voice = AudioController.PlaySoundWithControl(sample);
+voice.OnFinished += OnDone;
 
 // Основная музыка
 AudioController.PlayMusic(music, fadingStart: true, fadingEnd: true);
@@ -179,6 +186,104 @@ AudioController.StopCoverMusic(); // основная тема восстано�
 ```csharp
 IAudioSample sample = AudioController.GetSample("explosion_01");
 ```
+
+## Управление воспроизведением через обёртки (`AudioSampleWrapper`)
+
+Хэндл конкретного проигрывания: управление (Play/Pause/Stop) и наблюдение (события Play/Paused/Finished,
+состояние, длительность) над **одним** запущенным звуком/музыкой. Абстракция и фасад — в Core; конкретные
+обёртки (`SoundWrapper` через пул, `MusicWrapper` через плеер) — в Unity-слое.
+
+Обычный `PlaySound` — fire-and-forget: запустил и потерял ссылку, единственный рычаг обратно —
+`StopAllSounds(channel)` (грубо, по каналу). Обёртка закрывает пробел: `*WithControl`-версии возвращают
+токен управления именно этим инстансом. Отдельная точка входа (а не «всегда возвращать хэндл») — намеренно:
+95% вызовов одноразовые, и обычный `PlaySound` остаётся `void` без лишних аллокаций.
+
+### API: `Play` vs `PlayWithControl`
+
+| Fire-and-forget (`void`) | С хэндлом (`AudioSampleWrapper`) |
+|---|---|
+| `PlaySound(sound, loop)` | `PlaySoundWithControl(sound, loop)` |
+| `PlayMusic(clip, fadingStart, fadingEnd)` | `PlayMusicWithControl(clip, fadingStart, fadingEnd)` |
+| `PlayCoverMusic(clip, fadingStart, fadingEnd)` | `PlayCoverMusicWithControl(clip, fadingStart, fadingEnd)` |
+
+`*WithControl` возвращает `AudioSampleWrapper` или `null`, если воспроизведение не стартовало (неизвестный id,
+драйвер не зарегистрирован и т. п.).
+
+### Хэндл
+
+```
+AudioSampleWrapper : IDisposable
+├── event OnPlay        — реально заиграл (в т.ч. resume после паузы)
+├── event OnPaused      — встал на паузу
+├── event OnFinished    — завершён (стоп / естественный конец / вытеснение)
+├── IsLoop   : bool     — зациклен ли
+├── IsPaused : bool     — на паузе (ставит только контроллер)
+├── Duration : float    — длительность (с учётом pitch)
+├── State    : PlaybackState  — состояние (ставит только контроллер)
+└── (Play/Resume/Stop/Pause — protected internal; наружу — через контроллер)
+```
+
+`OnPlay` начального старта держатель поймать не успевает (для SFX он синхронен внутри `PlaySoundWithControl`,
+до возврата хэндла) — стартовое состояние читай через `State`; практическая ценность `OnPlay` — **resume после паузы**.
+
+### Фасад управления (`AudioSampleWrapperController`)
+
+Единственная публичная точка управления (extension-методы). Только он меняет `State`/`IsPaused` — сырые
+`Play/Stop/Pause` модели скрыты.
+
+```csharp
+wrapper.Play();    // старт или resume (по состоянию: из Paused — UnPause, иначе Play)
+wrapper.Pause();   // пауза (только из Playing)
+wrapper.Stop();    // внешний стоп: гасит источник + завершает
+wrapper.Finish();  // завершить хэндл БЕЗ остановки источника (вытеснение; аудио гасят твины/плеер)
+```
+
+| Вызов | Из состояния | Действие |
+|-------|--------------|----------|
+| `Play` | `Pending` | `→ Playing`, старт (`Play`), `OnPlay` |
+| `Play` | `Paused` | `→ Playing`, **`UnPause`** (продолжение), `OnPlay` |
+| `Play` | `Finished` | игнор (терминальное) |
+| `Pause` | `Playing` | `→ Paused`, `OnPaused` |
+| `Pause` | иное | игнор |
+| `Stop` / `Finish` | не `Finished` | `→ Finished`, `OnFinished`, `Dispose` |
+| `Stop` / `Finish` | `Finished` | игнор (без повторного `OnFinished`) |
+
+`Paused` достижимо только из `Playing` → resume всегда через `UnPause`. `Finished` — терминальное, дальнейшие
+вызовы — no-op (идемпотентно; двойное владение держатель+пул безопасно).
+
+`PlaybackState`: `Pending`(0, ещё не заиграл) / `Playing` / `Paused` / `Finished`.
+
+### Конкретные обёртки (Unity)
+
+- **`SoundWrapper` (SFX через пул):** живёт в данных пул-элемента рядом с клипом; `AudioSourceHandler`
+  находит его и подключает `Init(source, stopCallback)`. Не-луп сам завершается по `Duration`
+  (таймер → завершение через контроллер); `Pause`/`Stop`/`Dispose` снимают таймер. `Stop` дёргает
+  `stopCallback` → элемент авто-выпиливается из пула.
+- **`MusicWrapper` (музыка/cover):** единый владелец — `MusicPlayer` хранит один текущий хэндл; на новый трек
+  прошлый завершается через `Finish` (без остановки источника — fade-out не срезается). `*WithControl`
+  отдаёт этот хэндл во всех ветках, включая отложенный старт после фейд-аута (тогда он живёт в `Pending`).
+
+### Владение и время жизни
+
+Fire-and-forget звук владеется пулом (авто-освобождение). `*WithControl` — со-владение: **держатель
+контролирует — держатель и завершает**. В частности: `Pause()` снимает авто-стоп-таймер, а `Resume` его
+**не восстанавливает** — поставил на паузу и возобновил, сам вызови `Stop()`, когда звук не нужен.
+
+### Переход со старой системы
+
+Старая система была fire-and-forget: `Play*` ничего не возвращали, точечно остановить можно было только
+`StopAllSounds(channel)`.
+
+- **Существующий код трогать не нужно.** Сигнатуры обычных `Play*` не изменились (`void`, те же параметры) —
+  все старые вызовы компилируются и работают как прежде.
+- **Чтобы получить управление** — замени вызов на `*WithControl` и работай с хэндлом (проверяй `null`):
+  ```csharp
+  var line = AudioController.PlaySoundWithControl("hero_line");
+  line.OnFinished += OnLineDone;
+  line.Stop(); // гасит именно этот звук, а не весь канал
+  ```
+- **Кастомные драйверы (`IDriver`)** должны реализовать `*WithControl`-методы в дополнение к `void`-версиям
+  (штатный `AudioDriver` уже реализует).
 
 ## Граничные случаи
 

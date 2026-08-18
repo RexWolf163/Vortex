@@ -11,14 +11,24 @@ namespace Vortex.Core.AudioSystem.Controllers
     {
         public static void Play(this AudioSampleWrapper wrapper)
         {
+            if (wrapper.State == PlaybackState.Finished) // терминальное состояние — воскрешать нельзя
+                return;
+            // resume валиден только из паузы; а пауза (ниже) допускается лишь из Playing, поэтому Paused
+            // всегда означает «реально играло и встало на паузу» → UnPause корректен, рестарта из Pending нет.
+            var resume = wrapper.State == PlaybackState.Paused;
             SetState(wrapper, PlaybackState.Playing);
             wrapper.IsPaused = false;
-            wrapper.Play();
+            if (resume)
+                wrapper.Resume();
+            else
+                wrapper.Play();
             wrapper.CallOnPlay();
         }
 
         public static void Pause(this AudioSampleWrapper wrapper)
         {
+            if (wrapper.State != PlaybackState.Playing) // паузим только реально играющий (не Pending/Paused/Finished)
+                return;
             SetState(wrapper, PlaybackState.Paused);
             wrapper.IsPaused = true;
             wrapper.Pause();
@@ -27,7 +37,10 @@ namespace Vortex.Core.AudioSystem.Controllers
 
         public static void Stop(this AudioSampleWrapper wrapper)
         {
+            if (wrapper.State == PlaybackState.Finished) // идемпотентно: не завершаем дважды (двойной OnFinished)
+                return;
             SetState(wrapper, PlaybackState.Finished);
+            wrapper.IsPaused = false;
             wrapper.Stop();
             wrapper.CallOnFinished();
             wrapper.Dispose();
@@ -39,7 +52,10 @@ namespace Vortex.Core.AudioSystem.Controllers
         /// </summary>
         public static void Finish(this AudioSampleWrapper wrapper)
         {
+            if (wrapper.State == PlaybackState.Finished) // идемпотентно: см. Stop
+                return;
             SetState(wrapper, PlaybackState.Finished);
+            wrapper.IsPaused = false;
             wrapper.CallOnFinished();
             wrapper.Dispose();
         }

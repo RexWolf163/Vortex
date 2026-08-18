@@ -1,15 +1,24 @@
-﻿using Vortex.Core.AudioSystem.Model;
+using Vortex.Core.AudioSystem.Model;
 
 namespace Vortex.Unity.AudioSystem
 {
     public partial class AudioDriver
     {
-        public AudioSampleWrapper PlaySound(object sound, bool loop = false, string defaultChannel = null) =>
+        public void PlaySound(object sound, bool loop = false, string defaultChannel = null) =>
             AudioPlayer.PlaySound(sound, loop, defaultChannel);
+
+        public AudioSampleWrapper PlaySoundWithControl(object sound, bool loop = false, string defaultChannel = null) =>
+            AudioPlayer.PlaySound(sound, loop, defaultChannel, withControl: true);
 
         public void StopAllSounds(string channel = null) => AudioPlayer.StopAllSounds(channel);
 
-        public AudioSampleWrapper PlayMusic(object audioClip,
+        public void PlayMusic(object audioClip,
+            bool fadingStart = true,
+            bool fadingEnd = true,
+            string defaultChannel = null) =>
+            AudioPlayer.PlayMusic(audioClip, fadingStart, fadingEnd, defaultChannel);
+
+        public AudioSampleWrapper PlayMusicWithControl(object audioClip,
             bool fadingStart = true,
             bool fadingEnd = true,
             string defaultChannel = null) =>
@@ -17,7 +26,13 @@ namespace Vortex.Unity.AudioSystem
 
         public void StopMusic() => AudioPlayer.StopMusic();
 
-        public AudioSampleWrapper PlayCoverMusic(object audioClip,
+        public void PlayCoverMusic(object audioClip,
+            bool fadingStart = true,
+            bool fadingEnd = true,
+            string defaultChannel = null) =>
+            AudioPlayer.PlayCoverMusic(audioClip, fadingStart, fadingEnd, defaultChannel);
+
+        public AudioSampleWrapper PlayCoverMusicWithControl(object audioClip,
             bool fadingStart = true,
             bool fadingEnd = true,
             string defaultChannel = null) =>

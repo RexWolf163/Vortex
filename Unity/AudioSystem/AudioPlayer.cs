@@ -2,10 +2,8 @@
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.AudioSystem.Model;
-using Vortex.Core.AudioSystem.Model;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
-using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.AudioSystem.Model;
 using Vortex.Unity.Extensions.Abstractions;
 using Vortex.Unity.UI.PoolSystem;
@@ -75,7 +73,8 @@ namespace Vortex.Unity.AudioSystem
 
         #region Sound
 
-        internal static AudioSampleWrapper PlaySound(object sound, bool loop = false, string channelOverrideName = null)
+        internal static AudioSampleWrapper PlaySound(object sound, bool loop = false, string channelOverrideName = null,
+            bool withControl = false)
         {
             if (Instance == null)
                 return null;
@@ -119,10 +118,17 @@ namespace Vortex.Unity.AudioSystem
                     return null;
             }
 
-            Instance.pool.AddItem(clip);
-            var wrapper = new SoundWrapper(clip.GetClip(), loop);
-            if (!loop)
-                TimeController.Call(() => Instance.pool.RemoveItem(clip), clip.GetDuration(), clip);
+            // Хэндл создаём только по запросу (fire-and-forget его не аллоцирует). При наличии — кладём его
+            // в данные пул-элемента ВМЕСТЕ с клипом (составной ключ), чтобы AudioSourceHandler нашёл и подключил.
+            SoundWrapper wrapper = null;
+            object poolData = clip;
+            if (withControl)
+            {
+                wrapper = new SoundWrapper(clip.GetClip(), clip.GetDuration(), loop);
+                poolData = new object[] { clip, wrapper };
+            }
+
+            Instance.pool.AddItem(poolData);
             return wrapper;
         }
 
@@ -131,8 +137,12 @@ namespace Vortex.Unity.AudioSystem
             if (channel == null)
                 Instance.pool.Clear();
             else
-                Instance.pool.RemoveByCallback((item) => item is SoundClipFixed clip && clip.Channel?.Name == channel);
+                Instance.pool.RemoveByCallback(item => ExtractClip(item)?.Channel?.Name == channel);
         }
+
+        // Ключ пул-элемента звука — либо сам SoundClipFixed, либо составной [clip, wrapper] (PlaySoundWithControl).
+        private static SoundClipFixed ExtractClip(object poolKey) =>
+            poolKey as SoundClipFixed ?? (poolKey as object[])?[0] as SoundClipFixed;
 
         #endregion
 

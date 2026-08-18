@@ -23,6 +23,7 @@ namespace Vortex.Core.AudioSystem.Model
 
         public abstract void Dispose();
         protected internal abstract void Play();
+        protected internal abstract void Resume();
         protected internal abstract void Stop();
         protected internal abstract void Pause();
 

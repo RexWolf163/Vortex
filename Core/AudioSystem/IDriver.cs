@@ -25,7 +25,12 @@ namespace Vortex.Core.AudioSystem
         /// дефолтный канал для воспроизведения. Если не установлен, то в первый доступный канал
         /// в списке, если не задан канала в модели звука
         /// </param>
-        public AudioSampleWrapper PlaySound(object sound, bool loop = false, string defaultChannel = null);
+        public void PlaySound(object sound, bool loop = false, string defaultChannel = null);
+
+        /// <summary>
+        /// Воспроизведение звука с возвратом хэндла управления/наблюдения (<see cref="AudioSampleWrapper"/>).
+        /// </summary>
+        public AudioSampleWrapper PlaySoundWithControl(object sound, bool loop = false, string defaultChannel = null);
 
         /// <summary>
         /// Остановка всех звуков.
@@ -44,7 +49,13 @@ namespace Vortex.Core.AudioSystem
         /// дефолтный канал для воспроизведения. Если не установлен, то в первый доступный канал
         /// в списке, если не задан канала в модели звука
         /// </param>
-        public AudioSampleWrapper PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
+        public void PlayMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
+            string defaultChannel = null);
+
+        /// <summary>
+        /// Воспроизведение основной музыки с возвратом хэндла управления/наблюдения.
+        /// </summary>
+        public AudioSampleWrapper PlayMusicWithControl(object audioClip, bool fadingStart = true, bool fadingEnd = true,
             string defaultChannel = null);
 
         /// <summary>
@@ -62,8 +73,14 @@ namespace Vortex.Core.AudioSystem
         /// дефолтный канал для воспроизведения. Если не установлен, то в первый доступный канал
         /// в списке, если не задан канала в модели звука
         /// </param>
-        public AudioSampleWrapper PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
+        public void PlayCoverMusic(object audioClip, bool fadingStart = true, bool fadingEnd = true,
             string defaultChannel = null);
+
+        /// <summary>
+        /// Воспроизведение ситуативной музыки с возвратом хэндла управления/наблюдения.
+        /// </summary>
+        public AudioSampleWrapper PlayCoverMusicWithControl(object audioClip, bool fadingStart = true,
+            bool fadingEnd = true, string defaultChannel = null);
 
         /// <summary>
         /// Остановка ситуативной музыки
