@@ -260,6 +260,7 @@ namespace Vortex.NaniExtensions.CutsceneSystem
             if (_data.Phases.Count <= _phaseIndex || _phaseIndex < 0)
                 return;
 
+            NaniWrapper.StateManager.SaveGlobal().Forget();
             //Загружаем фазу
             await LoadPhase();
         }
