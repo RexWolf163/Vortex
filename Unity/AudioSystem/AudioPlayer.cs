@@ -71,6 +71,35 @@ namespace Vortex.Unity.AudioSystem
             base.OnDestroy();
         }
 
+        // Завершение приложения → полный останов. Ставится ДО teardown-цепочки (AppStateHandler.OnDestroy →
+        // App.Exit → OnExit → CutsceneController.Dispose → StopCoverMusic → RestoreMainMusic), поэтому основная
+        // тема на прерывании (в т.ч. на секс-сцене поверх cover-музыки) больше не «воскресает» на выходе.
+        [RuntimeInitializeOnLoadMethod]
+        private static void HookApplicationQuit()
+        {
+            Application.quitting -= StopAll;
+            Application.quitting += StopAll;
+        }
+
+        /// <summary>
+        /// Полный немедленный останов всех звуков и музыки БЕЗ восстановления основной темы.
+        /// </summary>
+        internal static void StopAll()
+        {
+            if (Instance == null)
+                return;
+
+            FadeTween.Kill();
+            FadeCoverTween.Kill();
+            _isMusicPlaying = false; // RestoreMainMusic гейтится этим флагом → тему не поднимет
+            if (Instance.pool != null)
+                Instance.pool.Clear();
+            if (Instance.musicPlayer != null)
+                Instance.musicPlayer.Stop();
+            if (Instance.musicCoverPlayer != null)
+                Instance.musicCoverPlayer.Stop();
+        }
+
         #region Sound
 
         internal static AudioSampleWrapper PlaySound(object sound, bool loop = false, string channelOverrideName = null,
