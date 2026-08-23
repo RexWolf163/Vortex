@@ -39,5 +39,11 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Abstractions
         /// </summary>
         /// <returns></returns>
         public IMiniGameController<MiniGameData> GetController();
+
+        /// <summary>
+        /// Возвращает строковый ключ хаба
+        /// </summary>
+        /// <returns></returns>
+        public string GetKey() => GetType().FullName;
     }
 }

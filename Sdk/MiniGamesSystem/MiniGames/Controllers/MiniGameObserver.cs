@@ -29,22 +29,22 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Controllers
 
         private void OnStart()
         {
-            MiniGamesController.StartGame(_gameHub.GetType().FullName);
+            MiniGamesController.StartGame(_gameHub);
         }
 
         private void OnFail()
         {
-            MiniGamesController.FailGame(_gameHub.GetType().FullName);
+            MiniGamesController.FailGame(_gameHub);
         }
 
         private void OnWin()
         {
-            MiniGamesController.WinGame(_gameHub.GetType().FullName);
+            MiniGamesController.WinGame(_gameHub);
         }
 
         private void OnExit()
         {
-            MiniGamesController.ExitGame(_gameHub.GetType().FullName);
+            MiniGamesController.ExitGame(_gameHub);
         }
 
         /// <summary>

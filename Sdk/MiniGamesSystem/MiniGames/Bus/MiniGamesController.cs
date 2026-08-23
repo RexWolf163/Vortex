@@ -24,11 +24,10 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
     /// </summary>
     public static class MiniGamesController
     {
-        public static event Action OnStartMiniGame;
-        public static event Action OnWinMiniGame;
-        public static event Action OnFailMiniGame;
-
-        public static event Action OnStopMiniGame;
+        public static event Action<IMiniGameHub> OnStartMiniGame;
+        public static event Action<IMiniGameHub> OnWinMiniGame;
+        public static event Action<IMiniGameHub> OnFailMiniGame;
+        public static event Action<IMiniGameHub> OnStopMiniGame;
 
         /// <summary>
         /// Индекс всех миниигр проекта
@@ -102,8 +101,9 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             _controllersIndex.Remove(controllerKey);
         }
 
-        internal static void StartGame(string miniGameKey)
+        internal static void StartGame(IMiniGameHub hub)
         {
+            var miniGameKey = hub.GetKey();
             if (!_index.TryGetValue(miniGameKey, out var observer))
             {
                 Debug.LogError($"[MiniGamesController] MiniGame {miniGameKey} is not registered.");
@@ -130,17 +130,18 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
                     MiniGameKey = miniGameKey,
                     StartedGames = 1
                 });
-                OnStartMiniGame?.Invoke();
+                OnStartMiniGame?.Invoke(hub);
                 return;
             }
 
             data.StartedGames++;
 
-            OnStartMiniGame?.Invoke();
+            OnStartMiniGame?.Invoke(hub);
         }
 
-        internal static void WinGame(string miniGameKey)
+        internal static void WinGame(IMiniGameHub hub)
         {
+            var miniGameKey = hub.GetKey();
             if (!StatisticsData.Index.TryGetValue(miniGameKey, out var data))
             {
                 Debug.LogError($"[MiniGameController] MiniGame {miniGameKey} is not registered.");
@@ -148,11 +149,12 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             }
 
             data.WinGames++;
-            OnWinMiniGame?.Invoke();
+            OnWinMiniGame?.Invoke(hub);
         }
 
-        internal static void FailGame(string miniGameKey)
+        internal static void FailGame(IMiniGameHub hub)
         {
+            var miniGameKey = hub.GetKey();
             if (!StatisticsData.Index.TryGetValue(miniGameKey, out var data))
             {
                 Debug.LogError($"[MiniGameController] MiniGame {miniGameKey} is not registered.");
@@ -160,11 +162,12 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             }
 
             data.FailGames++;
-            OnFailMiniGame?.Invoke();
+            OnFailMiniGame?.Invoke(hub);
         }
 
-        internal static void ExitGame(string miniGameKey)
+        internal static void ExitGame(IMiniGameHub hub)
         {
+            var miniGameKey = hub.GetKey();
             if (!StatisticsData.Index.TryGetValue(miniGameKey, out var data))
             {
                 Debug.LogError($"[MiniGameController] MiniGame {miniGameKey} is not registered.");
@@ -172,7 +175,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
             }
 
             data.FailGames++;
-            OnStopMiniGame?.Invoke();
+            OnStopMiniGame?.Invoke(hub);
         }
 
         /// <summary>

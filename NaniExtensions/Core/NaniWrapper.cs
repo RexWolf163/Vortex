@@ -114,6 +114,12 @@ namespace Vortex.NaniExtensions.Core
         private static void OnLoadGame()
         {
             ScriptPlayer.Stop();
+            // Чистый baseline плеера ТОЛЬКО на загрузке (не в общем ResetNani — там валилось на teardown-путях).
+            // Движок здесь гарантированно готов (OnLoadGame после WaitForSessionServices/Engine.Initialized),
+            // поэтому Dynamic-выгруженный скрипт корректно перезагрузится следующим LoadAndPlay — фикс «script not loaded»
+            // на сценарии «проиграл → Нани выгрузила → загрузка сейва без рестарта движка». Паттерн Stop()+ResetService()
+            // — как в GalleryController.StopCutscene.
+            ScriptPlayer.ResetService();
             ResetNani();
         }
 

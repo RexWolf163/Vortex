@@ -15,7 +15,7 @@ namespace Vortex.Sdk.Quests
         [InfoBox("Условия старта: AND между группами (нужны ВСЕ — только тогда квест открывается) и внутри " +
                  "группы. Отслеживание атомарное — подписка только на первый невыполненный блокер. Не путать " +
                  "с OR-логикой условий прерывания. Пусто = стартует сразу.")]
-        private QuestConditions[] startConditions;
+        private QuestConditions[] startConditions = new QuestConditions[0];
 
         /// <summary>
         /// Условия для запуска квеста
