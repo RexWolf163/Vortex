@@ -21,6 +21,12 @@ namespace Vortex.Sdk.Quests
         public static event Action OnUpdateData;
 
         /// <summary>
+        /// Событие запрошенного обновления проверки на случай если QuestConditions
+        /// используются вне системы квестов 
+        /// </summary>
+        public static event Action OnCheckConditions;
+
+        /// <summary>
         /// индекс квестов с запущенной логикой
         /// </summary>
         private static readonly Dictionary<QuestModel, UniTask> ActiveQuests = new();
@@ -194,17 +200,11 @@ namespace Vortex.Sdk.Quests
             switch (state)
             {
                 case GameStates.Off:
-                /*
-                {
-                    foreach (var quest in _data.Index.Values) quest.Reset();
-                    return;
-                }
-                */
                 case GameStates.Loading:
                     return;
             }
 
-            CheckQuestInterruptConditions(); // INV-3: прерывание всегда раньше старта, первой строкой тела
+            CheckQuestInterruptConditions();
 
             var list = _data.Index.Values.Where(q => q.State == QuestState.Locked);
             var updated = false;
@@ -233,6 +233,7 @@ namespace Vortex.Sdk.Quests
             }
 
             OnUpdateData?.Invoke();
+            OnCheckConditions?.Invoke();
         }
 
         private static async UniTask RunQuest(QuestModel quest, CancellationToken token)

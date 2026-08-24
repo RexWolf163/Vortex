@@ -41,7 +41,7 @@ The whole Nani package family is activated via the `USING_NANINOVELL` symbol, se
 
 - `[RuntimeInitializeOnLoadMethod]` — subscribes to `GameController.OnNewGame`, `OnLoadGame`, `OnGameStateChanged`
 - `OnNewGame` → `ScriptPlayer.Stop()` + `ResetNani()` + `VariablesManager.ResetAllVariables()`
-- `OnLoadGame` → `ScriptPlayer.Stop()` + `ResetNani()`
+- `OnLoadGame` → `ScriptPlayer.Stop()` + `ScriptPlayer.ResetService()` + `ResetNani()` — `ResetService` gives a clean player baseline **on load only** (engine is ready here, after `WaitForSessionServices`); fixes "script not loaded" for the "played → Naninovel unloaded → save-load without engine restart" case. Not moved into the shared `ResetNani` (it threw on teardown paths)
 - `GameStates.Off/Win/Fail` → `ScriptPlayer.Stop()` + `ResetNani()`
 
 ### API

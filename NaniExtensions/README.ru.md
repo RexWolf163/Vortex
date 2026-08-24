@@ -41,7 +41,7 @@
 
 - `[RuntimeInitializeOnLoadMethod]` — подписка на `GameController.OnNewGame`, `OnLoadGame`, `OnGameStateChanged`
 - `OnNewGame` → `ScriptPlayer.Stop()` + `ResetNani()` + `VariablesManager.ResetAllVariables()`
-- `OnLoadGame` → `ScriptPlayer.Stop()` + `ResetNani()`
+- `OnLoadGame` → `ScriptPlayer.Stop()` + `ScriptPlayer.ResetService()` + `ResetNani()` — `ResetService` даёт чистый baseline плеера **только на загрузке** (движок здесь готов, после `WaitForSessionServices`); фикс «script not loaded» на сценарии «проигран → Нани выгрузила → загрузка сейва без рестарта движка». В общий `ResetNani` не выносится (там валилось на teardown-путях)
 - `GameStates.Off/Win/Fail` → `ScriptPlayer.Stop()` + `ResetNani()`
 
 ### API
