@@ -5,6 +5,7 @@ using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.AudioSystem.Model;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.System.Enums;
 using Vortex.Unity.AudioSystem.Model;
 using Vortex.Unity.Extensions.Abstractions;
 using Vortex.Unity.UI.PoolSystem;
@@ -211,6 +212,10 @@ namespace Vortex.Unity.AudioSystem
             bool fadingEnd = true,
             string overrideChannel = null)
         {
+#if UNITY_EDITOR
+            if (App.GetState() == AppStates.Stopping)
+                return null;
+#endif
             _needFadingStart = fadingStart;
             _isMusicPlaying = true;
 
@@ -331,6 +336,10 @@ namespace Vortex.Unity.AudioSystem
         internal static AudioSampleWrapper PlayCoverMusic(object music, bool fadingStart = true, bool fadingEnd = true,
             string defaultChannel = null)
         {
+#if UNITY_EDITOR
+            if (App.GetState() == AppStates.Stopping)
+                return null;
+#endif
             if (Instance == null)
                 return null;
 

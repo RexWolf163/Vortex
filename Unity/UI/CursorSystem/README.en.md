@@ -11,6 +11,8 @@ Custom cursor for UGUI projects. Each cursor state is described by a **set** (`C
 
 Sets are grouped into **packs by resolution range** — the controller picks the pack matching the current `Screen.height` (one set of sprites for 1080p, another for 4K). A hover key missing in the selected pack **is inherited from an earlier one** (see cross-pack fallback). Application to the system cursor goes through `Cursor.SetCursor` in `ForceSoftware` mode; mouse events through the Unity Input System (no polling).
 
+Optionally, `PointerModeGate` lets a **gamepad** drive this same system cursor via `VirtualMouseInput` — the stick moves the OS cursor (which the controller themes), coexisting with the mouse.
+
 Out of scope:
 - Gestures, drag logic, click feedback in game mechanics — that is the `AdvancedButton` / `InputBusSystem` level.
 - World-space cursor (a scene object) — a different pattern; here only the Unity system cursor.
@@ -26,7 +28,7 @@ Out of scope:
 | `Vortex.Core.Extensions.ReactiveValues` | `BoolData`, `StringData` with owner-protected writes |
 | `Vortex.Unity.SettingsSystem` | `SettingsPreset` — config base class |
 | `Vortex.Unity.Extensions.Editor` | `MenuConfigSearchController` — config-locator menu command (editor) |
-| `Unity.InputSystem` | `InputAction` for LMB/RMB |
+| `Unity.InputSystem` | `InputAction` for LMB/RMB; `VirtualMouseInput` in `PointerModeGate` |
 | `UnityEngine.UI.EventSystems` | `IPointerEnter/Exit` in `MouseHoverListener` |
 | Sirenix Odin Inspector | `[BoxGroup]`, `[InfoBox]`, `[ValueDropdown]`, `[FoldoutGroup]` |
 
@@ -68,6 +70,10 @@ Out of scope:
    ├── BoolData   LeftKeyPressed
    ├── BoolData   RightKeyPressed
    └── StringData HoverKey     (empty/null = no hover)
+
+[PointerModeGate] (MonoBehaviour, optional — next to VirtualMouseInput)
+   └── toggles VirtualMouseInput by the active device (mouse ↔ gamepad):
+       stick/pad → VMI warps the SYSTEM cursor → CursorController themes it (one cursor)
 ```
 
 ### Pack selection by resolution
@@ -129,6 +135,21 @@ In `OnUnHover(key)` the check `MouseKeys.HoverKey.Value != key`: if the key is n
 ### Hotspot
 
 In `Apply(Sprite)` the cursor hotspot is taken from `Sprite.pivot` and inverted along Y: a Unity Sprite uses a bottom-left coordinate system while `Cursor.SetCursor` expects top-left. The designer sets the sprite pivot the usual way in the importer; the controller does the inversion.
+
+### Gamepad cursor (PointerModeGate)
+
+`PointerModeGate` (`PointerModeGate.cs`) is an **optional** `MonoBehaviour` that lets a gamepad drive the same system cursor the controller themes — with no second on-screen cursor.
+
+It expects a `VirtualMouseInput` (Unity Input System, UGUI module) on the **same GameObject** (`[RequireComponent]`), configured in **`Hardware Cursor If Available`** mode: there VMI warps the system mouse from the stick and draws no graphic of its own, so the visual stays with `CursorController` (`Cursor.SetCursor` ForceSoftware at the OS-cursor position). Its `stickAction` / button actions are inline gamepad bindings on the component, separate from `InputBusSystem`.
+
+The problem the gate solves: in that mode VMI warps the system mouse **every frame** and "takes over" the physical mouse. The gate keeps VMI **disabled** (the mouse works natively, the controller draws by its position) and enables it **only** while the player actually uses the stick / gamepad buttons:
+
+- **The gamepad has priority only while the stick/button is active** — so the warp's own delta cannot flip the mode; releasing the stick hands control back to the mouse on the first real movement.
+- **On entering gamepad mode** the virtual mouse position is synced to the real mouse position — no jump. On leaving, the system mouse is already where VMI warped it — no jump either.
+- **Buttons in gamepad mode** come from VMI's virtual mouse (`<Mouse>/leftButton|rightButton`) — read by both `CursorController` (Action/AltAction sprite) and the UI module (click). No injection.
+- The **physical** mouse is resolved separately from VMI's virtual one (in gamepad mode `Mouse.current` is the virtual mouse, so detecting by it would be wrong).
+
+Fields: `stickDeadzone` (below it the gamepad counts as idle), `mouseMoveThreshold` (real-mouse delta, px/frame, above which the mouse takes over). The `virtualMouseInput` reference auto-resolves from the same object if left empty.
 
 ---
 
@@ -200,6 +221,12 @@ private void OnHoverChanged(string key) { ... }
 
 A writeback via `MouseKeys.LeftKeyPressed.Set(true, ?)` from outside won't pass — the owner is bound to the controller.
 
+### 6. Gamepad cursor via stick (optional)
+
+1. On the object that owns the `EventSystem` / `InputSystemUIInputModule`, add a **`VirtualMouseInput`**: `Cursor Mode = Hardware Cursor If Available` (leave `Cursor Graphic`/`Cursor Transform` empty — the visual is `CursorController`'s), `Stick Action = <Gamepad>/leftStick` (Value/Vector2), `Left Button = <Gamepad>/buttonSouth`, `Right Button = <Gamepad>/buttonEast` (→ AltAction), scroll optional.
+2. Add **`PointerModeGate`** to the same object. The `VirtualMouseInput` reference is picked up automatically (`RequireComponent`).
+3. Done: the mouse works as before (the controller themes the OS cursor); the stick moves the same cursor and clicks buttons; over a `HideCursor` zone the cursor hides as usual while the position keeps tracking.
+
 ---
 
 ## Edge Cases
@@ -222,6 +249,10 @@ A writeback via `MouseKeys.LeftKeyPressed.Set(true, ?)` from outside won't pass 
 | Re-initialization (restart without domain reload) | Old InputActions are disposed before raising new ones |
 | `App.OnExit` | `DisposeActions` disposes InputActions normally |
 | Opening a scene without an active `EventSystem` | `MouseHoverListener` gets no Enter/Exit — the cursor works only via the base set's presses |
+| No `VirtualMouseInput` on the object | `PointerModeGate` requires it (`[RequireComponent]`) — Unity adds/keeps one |
+| `VirtualMouseInput` not in `Hardware Cursor` mode | In `Software Cursor` mode VMI draws its own graphic → a second cursor over the themed one; use Hardware mode |
+| No physical mouse (pure gamepad) | The gate skips the position sync; VMI enables on stick and drives the cursor from its default position |
+| `PointerModeGate` disabled at runtime | VMI is forced off — the cursor falls back to the physical mouse |
 
 The fail-fast policy on a missing base-set `Default` is intentional: an invalid configuration should crash early and loud so the designer sees the problem during development rather than silently getting the "wrong cursor" in production. See `architecture_context.md` on fail-fast in the core.
 
@@ -235,6 +266,7 @@ CursorSystem/
 ├── CursorSettings.cs                         # SettingsPreset (SO) with a CursorResolutionPack array + OnValidate
 ├── MouseHoverListener.cs                     # MonoBehaviour for UGUI zones (hover key via ValueDropdown)
 ├── MouseKeyMap.cs                            # POCO model: BoolData/StringData with owner protection
+├── PointerModeGate.cs                        # MonoBehaviour: gamepad↔mouse gate for VirtualMouseInput (optional)
 ├── Editor/
 │   └── MenuController.cs                     # Tools/Vortex/Configs/Cursor Settings — config locator
 ├── SettingsModelExt/
