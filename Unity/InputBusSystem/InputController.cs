@@ -47,9 +47,12 @@ namespace Vortex.Unity.InputBusSystem
 
                 foreach (var inputAction in map.actions)
                 {
-                    ActionsUsers.AddNew(inputAction.name, new List<InputSubscriber>());
-                    Actions.Add(inputAction.name, inputAction);
-                    CatchPerformed.Add(inputAction.name, null);
+                    // Составной id «Карта/Экшен»: даёт уникальность при одноимённых экшенах в разных
+                    // картах и папки в дропдауне (SearchablePopup группирует по «/»).
+                    var actionId = $"{map.name}/{inputAction.name}";
+                    ActionsUsers.AddNew(actionId, new List<InputSubscriber>());
+                    Actions.Add(actionId, inputAction);
+                    CatchPerformed.Add(actionId, null);
                     inputAction.performed += OnPerformed;
                     inputAction.canceled += OnCanceled;
                 }
@@ -166,13 +169,14 @@ namespace Vortex.Unity.InputBusSystem
         /// <param name="ctx"></param>
         private static void OnPerformed(InputAction.CallbackContext ctx)
         {
+            var actionId = $"{ctx.action.actionMap.name}/{ctx.action.name}";
             if (Settings.Data().InputDebugMode)
-                Debug.Log($"[KeyboardHandler] {ctx.control.name} was pressed");
-            var subscribers = ActionsUsers[ctx.action.name];
+                Debug.Log($"[InputController] {actionId} performed by '{ctx.control.name}'");
+            var subscribers = ActionsUsers[actionId];
             if (subscribers == null || subscribers.Count == 0)
                 return;
             var subscriber = subscribers[^1];
-            CatchPerformed[ctx.action.name] = subscriber.Owner;
+            CatchPerformed[actionId] = subscriber.Owner;
             subscriber.OnPerformed?.Invoke();
         }
 
@@ -183,24 +187,25 @@ namespace Vortex.Unity.InputBusSystem
         /// <param name="ctx"></param>
         private static void OnCanceled(InputAction.CallbackContext ctx)
         {
+            var actionId = $"{ctx.action.actionMap.name}/{ctx.action.name}";
             if (Settings.Data().InputDebugMode)
-                Debug.Log($"[KeyboardHandler] {ctx.control.name} was released");
-            var subscribers = ActionsUsers[ctx.action.name];
+                Debug.Log($"[InputController] {actionId} canceled by '{ctx.control.name}'");
+            var subscribers = ActionsUsers[actionId];
             if (subscribers == null || subscribers.Count == 0)
             {
-                CatchPerformed[ctx.action.name] = null;
+                CatchPerformed[actionId] = null;
                 return;
             }
 
             var subscriber = subscribers[^1];
-            if (CatchPerformed[ctx.action.name] != subscriber.Owner)
+            if (CatchPerformed[actionId] != subscriber.Owner)
             {
-                CatchPerformed[ctx.action.name] = null;
+                CatchPerformed[actionId] = null;
                 return;
             }
 
             subscriber.OnCanceled?.Invoke();
-            CatchPerformed[ctx.action.name] = null;
+            CatchPerformed[actionId] = null;
         }
     }
 }

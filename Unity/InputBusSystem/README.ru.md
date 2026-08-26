@@ -66,6 +66,14 @@ UI / игровая логика
 
 ## Ключевые концепции
 
+### Составной id экшена (`Карта/Экшен`)
+
+Экшен индексируется по составному id `Карта/Экшен` (через `/`), а не по голому имени. Это:
+- снимает конфликт одноимённых экшенов в разных картах (id различаются, `Init` не падает на дубликате);
+- раскладывает дропдаун по папкам-картам — `ValueSelector` через `SearchablePopup` группирует значения по `/`.
+
+Философия уникальности имён сохраняется: уникальна теперь связка «карта/экшен», а не голое имя экшена.
+
 ### LIFO-маршрутизация
 
 При нескольких подписчиках на один экшен `performed` доставляется только последнему (`subscribers[^1]`). Позволяет перехватывать ввод в модальных окнах и оверлеях без отписки предыдущих слоёв.
@@ -146,10 +154,10 @@ public Action OnCanceled { get; }
 ### Подписка на экшен из кода
 
 ```csharp
-InputController.AddActionUser("Jump", this, OnJumpPerformed, OnJumpCanceled);
+InputController.AddActionUser("Player/Jump", this, OnJumpPerformed, OnJumpCanceled);
 
 // Отписка
-InputController.RemoveActionUser("Jump", this);
+InputController.RemoveActionUser("Player/Jump", this);
 ```
 
 `this` используется как ключ идентификации. Повторный `AddActionUser` с тем же объектом не создаст дубликат.
@@ -157,7 +165,7 @@ InputController.RemoveActionUser("Jump", this);
 ### Подписка через Inspector (InputActionHandler)
 
 Компонент `InputActionHandler` на GameObject:
-- `inputAction` — экшен из dropdown (заполняется из Input Actions Asset)
+- `inputAction` — экшен из dropdown (составной id `Карта/Экшен`, сгруппирован по картам в папки)
 - `button` — опционально, ссылка на `AdvancedButton`
 - `onPressed` / `onReleased` — Unity Events
 
@@ -189,7 +197,7 @@ InputController.RemoveActionUser("Jump", this);
 ## Критические требования
 
 1. **Input Actions Asset должен быть назначен** — `InputController.Init()` читает `InputSystem.actions`. При отсутствии словари пусты, хэндлеры выбросят `KeyNotFoundException`.
-2. **Имена экшенов и карт уникальны** — дубликат вызовет `ArgumentException` при инициализации.
+2. **Уникальны имя карты и связка `Карта/Экшен`.** Экшены индексируются составным id, поэтому одноимённые экшены в РАЗНЫХ картах допустимы (id различаются). Дубликат имени карты или полностью совпадающего `Карта/Экшен` вызовет `ArgumentException` при инициализации (в норме Unity такого не создаёт).
 3. **`KeyboardHandler` не проходит через `InputController`** — его экшены не участвуют в LIFO-маршрутизации.
 4. **`KeyboardHandler` требует физической клавиатуры** — при `Keyboard.current == null` логирует предупреждение.
 

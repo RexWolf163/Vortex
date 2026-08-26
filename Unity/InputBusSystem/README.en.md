@@ -66,6 +66,14 @@ UI / game logic
 
 ## Key Concepts
 
+### Composite action id (`Map/Action`)
+
+An action is indexed by a composite id `Map/Action` (via `/`), not by its bare name. This:
+- removes the clash of same-named actions in different maps (ids differ, `Init` no longer throws on a duplicate);
+- lays the dropdown out into map folders — `ValueSelector` via `SearchablePopup` groups values by `/`.
+
+The unique-names philosophy is preserved: what is unique now is the `map/action` pair, not the bare action name.
+
 ### LIFO Routing
 
 With multiple subscribers on the same action, `performed` is delivered only to the last one (`subscribers[^1]`). Allows input interception in modal windows and overlays without unsubscribing previous layers.
@@ -146,10 +154,10 @@ public Action OnCanceled { get; }
 ### Action subscription from code
 
 ```csharp
-InputController.AddActionUser("Jump", this, OnJumpPerformed, OnJumpCanceled);
+InputController.AddActionUser("Player/Jump", this, OnJumpPerformed, OnJumpCanceled);
 
 // Unsubscribe
-InputController.RemoveActionUser("Jump", this);
+InputController.RemoveActionUser("Player/Jump", this);
 ```
 
 `this` serves as the identification key. A repeated `AddActionUser` with the same object will not create a duplicate.
@@ -157,7 +165,7 @@ InputController.RemoveActionUser("Jump", this);
 ### Subscription via Inspector (InputActionHandler)
 
 `InputActionHandler` component on a GameObject:
-- `inputAction` — action from dropdown (populated from Input Actions Asset)
+- `inputAction` — action from dropdown (composite id `Map/Action`, grouped into map folders)
 - `button` — optional reference to `AdvancedButton`
 - `onPressed` / `onReleased` — Unity Events
 
@@ -189,7 +197,7 @@ The map is active as long as at least one `InputMapHandler` for it is enabled in
 ## Critical Requirements
 
 1. **Input Actions Asset must be assigned** — `InputController.Init()` reads `InputSystem.actions`. If missing, dictionaries are empty and handlers will throw `KeyNotFoundException`.
-2. **Action and map names must be unique** — duplicates cause `ArgumentException` during initialization.
+2. **The map name and the `Map/Action` pair must be unique.** Actions are indexed by a composite id, so same-named actions in DIFFERENT maps are allowed (their ids differ). A duplicate map name or a fully identical `Map/Action` causes `ArgumentException` during initialization (Unity does not normally produce such a case).
 3. **`KeyboardHandler` does not go through `InputController`** — its actions do not participate in LIFO routing.
 4. **`KeyboardHandler` requires a physical keyboard** — logs a warning when `Keyboard.current == null`.
 
