@@ -1,6 +1,7 @@
 ﻿using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.AudioSystem.Model;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
@@ -77,8 +78,8 @@ namespace Vortex.Unity.AudioSystem
         [RuntimeInitializeOnLoadMethod]
         private static void HookApplicationQuit()
         {
-            Application.quitting -= StopAll;
-            Application.quitting += StopAll;
+            App.OnExit -= StopAll;
+            App.OnExit += StopAll;
         }
 
         /// <summary>
