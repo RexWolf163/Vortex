@@ -11,7 +11,7 @@ Custom cursor for UGUI projects. Each cursor state is described by a **set** (`C
 
 Sets are grouped into **packs by resolution range** — the controller picks the pack matching the current `Screen.height` (one set of sprites for 1080p, another for 4K). A hover key missing in the selected pack **is inherited from an earlier one** (see cross-pack fallback). Application to the system cursor goes through `Cursor.SetCursor` in `ForceSoftware` mode; mouse events through the Unity Input System (no polling).
 
-Optionally, `PointerModeGate` lets a **gamepad** drive this same system cursor via `VirtualMouseInput` — the stick moves the OS cursor (which the controller themes), coexisting with the mouse.
+Optionally, `GamepadCursorDriver` lets a **gamepad** drive this same system cursor — the left stick moves the real OS mouse directly (which the controller themes), coexisting with the physical mouse.
 
 Out of scope:
 - Gestures, drag logic, click feedback in game mechanics — that is the `AdvancedButton` / `InputBusSystem` level.
@@ -28,7 +28,7 @@ Out of scope:
 | `Vortex.Core.Extensions.ReactiveValues` | `BoolData`, `StringData` with owner-protected writes |
 | `Vortex.Unity.SettingsSystem` | `SettingsPreset` — config base class |
 | `Vortex.Unity.Extensions.Editor` | `MenuConfigSearchController` — config-locator menu command (editor) |
-| `Unity.InputSystem` | `InputAction` for LMB/RMB; `VirtualMouseInput` in `PointerModeGate` |
+| `Unity.InputSystem` | `InputAction` for LMB/RMB and `GamepadCursorDriver` bindings; `Mouse`/`InputState` there |
 | `UnityEngine.UI.EventSystems` | `IPointerEnter/Exit` in `MouseHoverListener` |
 | Sirenix Odin Inspector | `[BoxGroup]`, `[InfoBox]`, `[ValueDropdown]`, `[FoldoutGroup]` |
 
@@ -71,9 +71,9 @@ Out of scope:
    ├── BoolData   RightKeyPressed
    └── StringData HoverKey     (empty/null = no hover)
 
-[PointerModeGate] (MonoBehaviour, optional — next to VirtualMouseInput)
-   └── toggles VirtualMouseInput by the active device (mouse ↔ gamepad):
-       stick/pad → VMI warps the SYSTEM cursor → CursorController themes it (one cursor)
+[GamepadCursorDriver] (MonoBehaviour, optional)
+   └── drives the REAL system Mouse directly from bound input actions (move → position, buttons → LMB/RMB):
+       one device → CursorController, the UI module and clicks all read the same mouse (no desync)
 ```
 
 ### Pack selection by resolution
@@ -136,20 +136,15 @@ In `OnUnHover(key)` the check `MouseKeys.HoverKey.Value != key`: if the key is n
 
 In `Apply(Sprite)` the cursor hotspot is taken from `Sprite.pivot` and inverted along Y: a Unity Sprite uses a bottom-left coordinate system while `Cursor.SetCursor` expects top-left. The designer sets the sprite pivot the usual way in the importer; the controller does the inversion.
 
-### Gamepad cursor (PointerModeGate)
+### Gamepad cursor (GamepadCursorDriver)
 
-`PointerModeGate` (`PointerModeGate.cs`) is an **optional** `MonoBehaviour` that lets a gamepad drive the same system cursor the controller themes — with no second on-screen cursor.
+`GamepadCursorDriver` (`GamepadCursorDriver.cs`) is an **optional** `MonoBehaviour` that lets a gamepad drive the same system cursor the controller themes — cooperatively with the mouse, with no second cursor.
 
-It expects a `VirtualMouseInput` (Unity Input System, UGUI module) on the **same GameObject** (`[RequireComponent]`), configured in **`Hardware Cursor If Available`** mode: there VMI warps the system mouse from the stick and draws no graphic of its own, so the visual stays with `CursorController` (`Cursor.SetCursor` ForceSoftware at the OS-cursor position). Its `stickAction` / button actions are inline gamepad bindings on the component, separate from `InputBusSystem`.
+It drives the **real** system mouse (`Mouse.current`) directly: the `moveAction` vector adds an offset to the current mouse position (`InputState.Change` + `Mouse.WarpCursorPosition`), and `leftButtonAction` / `rightButtonAction` are injected as the mouse's left / right button. Because it is **one device**, `CursorController` (which draws at the OS-cursor position), the UI module (`<Mouse>/position`) and clicks (`<Mouse>/leftButton`) all read the same mouse — no desync. Mouse and stick coexist: the stick adds to the current position, and when idle the driver touches nothing, so the physical mouse works natively.
 
-The problem the gate solves: in that mode VMI warps the system mouse **every frame** and "takes over" the physical mouse. The gate keeps VMI **disabled** (the mouse works natively, the controller draws by its position) and enables it **only** while the player actually uses the stick / gamepad buttons:
+**Why not `VirtualMouseInput`:** VMI creates a **separate** virtual `Mouse` device; combined with CursorSystem (which renders on the **real** OS cursor) that desyncs — the stick moves the virtual mouse (which the UI reads) while the visible cursor stays put, so clicks land off. Driving the real mouse directly avoids it.
 
-- **The gamepad has priority only while the stick/button is active** — so the warp's own delta cannot flip the mode; releasing the stick hands control back to the mouse on the first real movement.
-- **On entering gamepad mode** the virtual mouse position is synced to the real mouse position — no jump. On leaving, the system mouse is already where VMI warped it — no jump either.
-- **Buttons in gamepad mode** come from VMI's virtual mouse (`<Mouse>/leftButton|rightButton`) — read by both `CursorController` (Action/AltAction sprite) and the UI module (click). No injection.
-- The **physical** mouse is resolved separately from VMI's virtual one (in gamepad mode `Mouse.current` is the virtual mouse, so detecting by it would be wrong).
-
-Fields: `stickDeadzone` (below it the gamepad counts as idle), `mouseMoveThreshold` (real-mouse delta, px/frame, above which the mouse takes over). The `virtualMouseInput` reference auto-resolves from the same object if left empty.
+**Bindings** (`InputActionProperty`, set in the inspector — inline action or asset reference): `moveAction` (Value/Vector2 — e.g. the left stick), `leftButtonAction` / `rightButtonAction` (Button — e.g. South / East). **Fields:** `speed` (px/sec), `deadzone`. Buttons are re-asserted each frame while held (so a physical mouse event can't drop the injected press) and cleared once on release (and on disable). Runs on `unscaledDeltaTime`, so it works while the game is paused (menus). Requires a mouse device (desktop) — on a system without a mouse there is no OS cursor for CursorSystem to theme.
 
 ---
 
@@ -223,9 +218,9 @@ A writeback via `MouseKeys.LeftKeyPressed.Set(true, ?)` from outside won't pass 
 
 ### 6. Gamepad cursor via stick (optional)
 
-1. On the object that owns the `EventSystem` / `InputSystemUIInputModule`, add a **`VirtualMouseInput`**: `Cursor Mode = Hardware Cursor If Available` (leave `Cursor Graphic`/`Cursor Transform` empty — the visual is `CursorController`'s), `Stick Action = <Gamepad>/leftStick` (Value/Vector2), `Left Button = <Gamepad>/buttonSouth`, `Right Button = <Gamepad>/buttonEast` (→ AltAction), scroll optional.
-2. Add **`PointerModeGate`** to the same object. The `VirtualMouseInput` reference is picked up automatically (`RequireComponent`).
-3. Done: the mouse works as before (the controller themes the OS cursor); the stick moves the same cursor and clicks buttons; over a `HideCursor` zone the cursor hides as usual while the position keeps tracking.
+1. Add **`GamepadCursorDriver`** to any always-active object (e.g. the one that owns the `EventSystem`).
+2. Assign the bindings: `moveAction` → `<Gamepad>/leftStick` (Value/Vector2), `leftButtonAction` → `<Gamepad>/buttonSouth`, `rightButtonAction` → `<Gamepad>/buttonEast`. Tune `speed` / `deadzone` if needed.
+3. Done — no `VirtualMouseInput` required: the mouse works as before (the controller themes the OS cursor); the bound move axis moves the same cursor, the button actions click (right → AltAction); over a `HideCursor` zone the cursor hides as usual while the position keeps tracking.
 
 ---
 
@@ -249,10 +244,10 @@ A writeback via `MouseKeys.LeftKeyPressed.Set(true, ?)` from outside won't pass 
 | Re-initialization (restart without domain reload) | Old InputActions are disposed before raising new ones |
 | `App.OnExit` | `DisposeActions` disposes InputActions normally |
 | Opening a scene without an active `EventSystem` | `MouseHoverListener` gets no Enter/Exit — the cursor works only via the base set's presses |
-| No `VirtualMouseInput` on the object | `PointerModeGate` requires it (`[RequireComponent]`) — Unity adds/keeps one |
-| `VirtualMouseInput` not in `Hardware Cursor` mode | In `Software Cursor` mode VMI draws its own graphic → a second cursor over the themed one; use Hardware mode |
-| No physical mouse (pure gamepad) | The gate skips the position sync; VMI enables on stick and drives the cursor from its default position |
-| `PointerModeGate` disabled at runtime | VMI is forced off — the cursor falls back to the physical mouse |
+| No gamepad / no mouse device | `GamepadCursorDriver` no-ops that frame (needs both `Gamepad.current` and `Mouse.current`) |
+| Physical mouse moved while the stick is pushed | Both add to the same real mouse — cooperative, no mode switch |
+| Physical left-click held together with gamepad `South` | On `South` release the injected left button is cleared once — a rare simultaneous physical hold may be dropped |
+| Game paused (`timeScale == 0`) | Still works — the driver uses `unscaledDeltaTime` |
 
 The fail-fast policy on a missing base-set `Default` is intentional: an invalid configuration should crash early and loud so the designer sees the problem during development rather than silently getting the "wrong cursor" in production. See `architecture_context.md` on fail-fast in the core.
 
@@ -266,7 +261,7 @@ CursorSystem/
 ├── CursorSettings.cs                         # SettingsPreset (SO) with a CursorResolutionPack array + OnValidate
 ├── MouseHoverListener.cs                     # MonoBehaviour for UGUI zones (hover key via ValueDropdown)
 ├── MouseKeyMap.cs                            # POCO model: BoolData/StringData with owner protection
-├── PointerModeGate.cs                        # MonoBehaviour: gamepad↔mouse gate for VirtualMouseInput (optional)
+├── GamepadCursorDriver.cs                    # MonoBehaviour: drives the real mouse from a gamepad (optional)
 ├── Editor/
 │   └── MenuController.cs                     # Tools/Vortex/Configs/Cursor Settings — config locator
 ├── SettingsModelExt/

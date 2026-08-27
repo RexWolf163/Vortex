@@ -11,7 +11,7 @@
 
 Наборы группируются в **пакеты по диапазонам разрешения** — контроллер выбирает подходящий пакет под текущий `Screen.height` (одни спрайты для 1080p, другие для 4K). Hover-ключ, отсутствующий в выбранном пакете, **наследуется от более раннего** (см. межпакетный фолбэк). Применение к системному курсору идёт через `Cursor.SetCursor` в режиме `ForceSoftware`, события мыши — через Unity Input System (без полинга).
 
-Опционально `PointerModeGate` позволяет управлять этим же системным курсором с **геймпада** через `VirtualMouseInput` — стик двигает ОС-курсор (который стилизует контроллер), совместно с мышью.
+Опционально `GamepadCursorDriver` позволяет управлять этим же системным курсором с **геймпада** — левый стик двигает реальную ОС-мышь напрямую (её стилизует контроллер), совместно с физической мышью.
 
 Вне ответственности:
 - Жесты, drag-логика, click-feedback в игровой механике — это уровень `AdvancedButton` / `InputBusSystem`.
@@ -28,7 +28,7 @@
 | `Vortex.Core.Extensions.ReactiveValues` | `BoolData`, `StringData` с owner-защищённой записью |
 | `Vortex.Unity.SettingsSystem` | `SettingsPreset` — базовый класс конфига |
 | `Vortex.Unity.Extensions.Editor` | `MenuConfigSearchController` — меню-команда поиска конфига (editor) |
-| `Unity.InputSystem` | `InputAction` для LMB/RMB; `VirtualMouseInput` в `PointerModeGate` |
+| `Unity.InputSystem` | `InputAction` для LMB/RMB и привязок `GamepadCursorDriver`; `Mouse`/`InputState` там же |
 | `UnityEngine.UI.EventSystems` | `IPointerEnter/Exit` в `MouseHoverListener` |
 | Sirenix Odin Inspector | `[BoxGroup]`, `[InfoBox]`, `[ValueDropdown]`, `[FoldoutGroup]` |
 
@@ -71,9 +71,9 @@
    ├── BoolData   RightKeyPressed
    └── StringData HoverKey     (пусто/null = нет hover)
 
-[PointerModeGate] (MonoBehaviour, опционально — рядом с VirtualMouseInput)
-   └── тоглит VirtualMouseInput по активному устройству (мышь ↔ геймпад):
-       стик/пад → VMI варпит СИСТЕМНЫЙ курсор → CursorController стилизует его (один курсор)
+[GamepadCursorDriver] (MonoBehaviour, опционально)
+   └── двигает РЕАЛЬНУЮ системную Mouse напрямую от привязанных экшенов (движение → позиция, кнопки → LMB/RMB):
+       одно устройство → CursorController, UI-модуль и клики читают одну и ту же мышь (без рассинхрона)
 ```
 
 ### Выбор пакета по разрешению
@@ -136,20 +136,15 @@ CursorController.RefreshResolution();
 
 В `Apply(Sprite)` hotspot курсора берётся из `Sprite.pivot` и инвертируется по Y: Unity Sprite использует систему координат bottom-left, а `Cursor.SetCursor` ожидает top-left. Дизайнер задаёт пивот спрайта обычным способом в импортере, инверсию делает контроллер.
 
-### Геймпад-курсор (PointerModeGate)
+### Геймпад-курсор (GamepadCursorDriver)
 
-`PointerModeGate` (`PointerModeGate.cs`) — **опциональный** `MonoBehaviour`, позволяющий управлять тем же системным курсором, что стилизует контроллер, с геймпада — без второго экранного курсора.
+`GamepadCursorDriver` (`GamepadCursorDriver.cs`) — **опциональный** `MonoBehaviour`, позволяющий управлять тем же системным курсором, что стилизует контроллер, с геймпада — кооперативно с мышью, без второго курсора.
 
-Он ожидает `VirtualMouseInput` (Unity Input System, UGUI-модуль) на **том же объекте** (`[RequireComponent]`), настроенный в режиме **`Hardware Cursor If Available`**: в нём VMI варпит системную мышь от стика и своего графического курсора не рисует, поэтому визуал остаётся за `CursorController` (`Cursor.SetCursor` ForceSoftware по позиции ОС-курсора). Его `stickAction` / кнопки — инлайн-биндинги геймпада на самом компоненте, отдельно от `InputBusSystem`.
+Он двигает **реальную** системную мышь (`Mouse.current`) напрямую: вектор `moveAction` добавляет смещение к текущей позиции мыши (`InputState.Change` + `Mouse.WarpCursorPosition`), а `leftButtonAction` / `rightButtonAction` инжектятся как левая / правая кнопка мыши. Поскольку устройство **одно**, `CursorController` (рисует по позиции ОС-курсора), UI-модуль (`<Mouse>/position`) и клики (`<Mouse>/leftButton`) читают одну и ту же мышь — рассинхрона нет. Мышь и стик сосуществуют: стик прибавляет к текущей позиции, а в простое драйвер ничего не трогает, так что физическая мышь работает нативно.
 
-Проблема, которую решает гейт: в этом режиме VMI варпит системную мышь **каждый кадр** и «перехватывает» физическую мышь. Гейт держит VMI **выключенным** (мышь работает нативно, контроллер рисует по её позиции) и включает его **только** пока игрок реально двигает стик / жмёт геймпад-кнопки:
+**Почему не `VirtualMouseInput`:** VMI создаёт **отдельное** виртуальное устройство `Mouse`; в связке с CursorSystem (которая рисует по **реальному** ОС-курсору) это рассинхронит — стик двигает виртуальную мышь (её читает UI), а видимый курсор стоит → клики уходят мимо. Прямой драйв реальной мыши это исключает.
 
-- **Приоритет у геймпада лишь пока стик/кнопка активны** — поэтому собственная варп-дельта не сбивает режим; отпустил стик → управление возвращается мыши по первому реальному движению.
-- **При входе в геймпад-режим** позиция виртуальной мыши синхронизируется с реальной — без прыжка. При выходе системная мышь уже там, куда её отварпил VMI, — тоже без прыжка.
-- **Кнопки в геймпад-режиме** даёт виртуальная мышь VMI (`<Mouse>/leftButton|rightButton`) — их читают и `CursorController` (Action/AltAction-спрайт), и UI-модуль (клик). Инъекции нет.
-- **Физическая** мышь резолвится отдельно от виртуальной (в геймпад-режиме `Mouse.current` = виртуальная, детект по ней был бы неверен).
-
-Поля: `stickDeadzone` (ниже — геймпад считается неактивным), `mouseMoveThreshold` (дельта реальной мыши, px/кадр, выше которой мышь перехватывает управление). Ссылка `virtualMouseInput` подхватывается с того же объекта, если оставить пустой.
+**Привязки** (`InputActionProperty`, задаются в инспекторе — инлайн-экшен или ссылка на ассет): `moveAction` (Value/Vector2 — например, левый стик), `leftButtonAction` / `rightButtonAction` (Button — например, South / East). **Поля:** `speed` (px/сек), `deadzone`. Кнопки переприсваиваются каждый кадр пока зажаты (чтобы событие физической мыши не сбросило инъекцию) и снимаются один раз на отпускании (и при выключении). Работает на `unscaledDeltaTime`, поэтому действует и на паузе (меню). Требует устройство мыши (десктоп) — на системе без мыши нет ОС-курсора, который стилизует CursorSystem.
 
 ---
 
@@ -223,9 +218,9 @@ Writeback через `MouseKeys.LeftKeyPressed.Set(true, ?)` снаружи не
 
 ### 6. Геймпад-курсор от стика (опционально)
 
-1. На объект с `EventSystem` / `InputSystemUIInputModule` добавь **`VirtualMouseInput`**: `Cursor Mode = Hardware Cursor If Available` (`Cursor Graphic`/`Cursor Transform` оставь пустыми — визуал за `CursorController`), `Stick Action = <Gamepad>/leftStick` (Value/Vector2), `Left Button = <Gamepad>/buttonSouth`, `Right Button = <Gamepad>/buttonEast` (→ AltAction), скролл опционально.
-2. Добавь **`PointerModeGate`** на тот же объект. Ссылка на `VirtualMouseInput` подхватится сама (`RequireComponent`).
-3. Готово: мышь работает как раньше (контроллер стилизует ОС-курсор); стик двигает тот же курсор и кликает по кнопкам; над зоной с `HideCursor` курсор скрывается как обычно, позиция при этом трекается.
+1. Добавь **`GamepadCursorDriver`** на любой всегда-активный объект (например, тот, где висит `EventSystem`).
+2. Назначь привязки: `moveAction` → `<Gamepad>/leftStick` (Value/Vector2), `leftButtonAction` → `<Gamepad>/buttonSouth`, `rightButtonAction` → `<Gamepad>/buttonEast`. При нужде подстрой `speed` / `deadzone`.
+3. Готово — `VirtualMouseInput` не нужен: мышь работает как раньше (контроллер стилизует ОС-курсор); привязанная ось движения двигает тот же курсор, кнопки-экшены кликают (правая → AltAction); над зоной с `HideCursor` курсор скрывается как обычно, позиция при этом трекается.
 
 ---
 
@@ -249,10 +244,10 @@ Writeback через `MouseKeys.LeftKeyPressed.Set(true, ?)` снаружи не
 | Повторная инициализация (рестарт без выгрузки домена) | Старые InputAction'ы освобождаются перед поднятием новых |
 | `App.OnExit` | `DisposeActions` освобождает InputAction'ы штатно |
 | Открытие сцены без активного `EventSystem` | `MouseHoverListener` не получает Enter/Exit — курсор работает только по нажатиям базового набора |
-| Нет `VirtualMouseInput` на объекте | `PointerModeGate` требует его (`[RequireComponent]`) — Unity добавит/сохранит |
-| `VirtualMouseInput` не в режиме `Hardware Cursor` | В `Software Cursor` VMI рисует свой графический курсор → второй курсор поверх стилизованного; нужен Hardware-режим |
-| Нет физической мыши (только геймпад) | Гейт пропускает синк позиции; VMI включается по стику и ведёт курсор от своей стартовой позиции |
-| `PointerModeGate` выключен в рантайме | VMI принудительно гасится — курсор возвращается к физической мыши |
+| Нет геймпада / нет устройства мыши | `GamepadCursorDriver` этот кадр — no-op (нужны и `Gamepad.current`, и `Mouse.current`) |
+| Физической мышью двигают при отклонённом стике | Оба прибавляются к одной реальной мыши — кооперативно, без переключения режимов |
+| Физический ЛКМ зажат вместе с геймпад-`South` | На отпускании `South` инжектированный левый бит снимается один раз — редкое одновременное физическое удержание может слететь |
+| Пауза игры (`timeScale == 0`) | Работает — драйвер на `unscaledDeltaTime` |
 
 Fail-fast политика на отсутствие `Default` базового набора намеренная: неверная конфигурация должна крашить рано и громко, чтобы дизайнер увидел проблему на этапе разработки, а не получал тихо «не тот курсор» на проде. См. `architecture_context.md` про fail-fast в ядре.
 
@@ -266,7 +261,7 @@ CursorSystem/
 ├── CursorSettings.cs                         # SettingsPreset (SO) с массивом CursorResolutionPack + OnValidate
 ├── MouseHoverListener.cs                     # MonoBehaviour для UGUI-зон (hover-ключ через ValueDropdown)
 ├── MouseKeyMap.cs                            # POCO-модель: BoolData/StringData с owner-защитой
-├── PointerModeGate.cs                        # MonoBehaviour: гейт геймпад↔мышь для VirtualMouseInput (опционально)
+├── GamepadCursorDriver.cs                    # MonoBehaviour: двигает реальную мышь от геймпада (опционально)
 ├── Editor/
 │   └── MenuController.cs                     # Tools/Vortex/Configs/Cursor Settings — поиск конфига
 ├── SettingsModelExt/
