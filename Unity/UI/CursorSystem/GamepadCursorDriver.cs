@@ -38,8 +38,15 @@ namespace Vortex.Unity.UI.CursorSystem
         [SerializeField, Range(0f, 1f), Tooltip("Мёртвая зона вектора движения.")]
         private float deadzone = 0.2f;
 
+        [SerializeField, Min(0),
+         Tooltip("Грейс на отпускание кнопки (кадров): кратковременные провалы ввода (аналоговый триггер как Button у порога) не срывают удержание/клик.")]
+        private int releaseGraceFrames = 3;
+
         private bool _leftHeld;
         private bool _rightHeld;
+        private int _leftRelease;
+        private int _rightRelease;
+        private int _injected; // биты кнопок, которые МЫ инжектнули в прошлом кадре (для OR-мержа без залипания)
 
         private void OnEnable()
         {
@@ -55,6 +62,19 @@ namespace Vortex.Unity.UI.CursorSystem
             rightButtonAction.action?.Disable();
             _leftHeld = false;
             _rightHeld = false;
+            _leftRelease = 0;
+            _rightRelease = 0;
+
+            // Снять зависшую инъекцию геймпад-кнопок, сохранив физические.
+            var mouse = Mouse.current;
+            if (_injected != 0 && mouse != null)
+            {
+                var physical = ReadButtons(mouse) & ~_injected;
+                InputSystem.QueueStateEvent(mouse,
+                    new MouseState { position = mouse.position.ReadValue(), buttons = (ushort)physical });
+            }
+
+            _injected = 0;
         }
 
         private void Update()
@@ -63,37 +83,73 @@ namespace Vortex.Unity.UI.CursorSystem
             if (mouse == null)
                 return;
 
+            // --- Движение стиком: только ПОЗИЦИЯ, кнопки не трогаем (физические кнопки/клики мышью текут сами). ---
             var move = moveAction.action != null ? moveAction.action.ReadValue<Vector2>() : Vector2.zero;
-            var moving = move.sqrMagnitude >= deadzone * deadzone;
-
-            var left = IsPressed(leftButtonAction);
-            var right = IsPressed(rightButtonAction);
-
-            // Геймпад не активен (не двигает, не жмёт, нет незакрытого удержания) — мышь работает нативно.
-            if (!moving && !left && !right && !_leftHeld && !_rightHeld)
-                return;
-
-            var pos = mouse.position.ReadValue();
-            if (moving)
+            if (move.sqrMagnitude >= deadzone * deadzone)
             {
-                pos += move * (speed * Time.unscaledDeltaTime);
+                var pos = mouse.position.ReadValue() + move * (speed * Time.unscaledDeltaTime);
                 pos.x = Mathf.Clamp(pos.x, 0f, Screen.width - 1f);
                 pos.y = Mathf.Clamp(pos.y, 0f, Screen.height - 1f);
-                mouse.WarpCursorPosition(pos); // видимый ОС-курсор
+                InputState.Change(mouse.position, pos); // значение для UI/CursorSystem — сразу, без трогания кнопок
+                mouse.WarpCursorPosition(pos);          // видимый ОС-курсор
             }
 
-            // Полное состояние мыши событием: позиция + кнопки. Событийный пайплайн даёт корректные фронты →
-            // UGUI-клик и Action-спрайт CursorSystem срабатывают. Release-фронт тоже уйдёт: пока _xHeld висит,
-            // геймпад считается активным и в кадре отпускания шлётся состояние с уже снятой кнопкой.
-            var state = new MouseState { position = pos };
-            if (left) state = state.WithButton(MouseButton.Left);
-            if (right) state = state.WithButton(MouseButton.Right);
-            InputSystem.QueueStateEvent(mouse, state);
+            // --- Геймпад-кнопки с грейсом на отпускание (гасит «срыв» на дрожи триггера у порога). ---
+            var gpLeft = Hold(IsPressed(leftButtonAction), ref _leftHeld, ref _leftRelease);
+            var gpRight = Hold(IsPressed(rightButtonAction), ref _rightHeld, ref _rightRelease);
+            var gp = (gpLeft ? LeftBit : 0) | (gpRight ? RightBit : 0);
 
-            _leftHeld = left;
-            _rightHeld = right;
+            // Геймпад-кнопки не участвуют и наша инъекция снята → buttons НЕ трогаем: физические кнопки
+            // (и клики мышью при движении геймпадом) работают нативно.
+            if (gp == 0 && _injected == 0)
+                return;
+
+            // OR-гейт: физические кнопки = состояние девайса МИНУС наша прошлая инъекция; мержим с геймпадом.
+            // Так «мышь-кнопки + геймпад-курсор» и наоборот работают вместе, а на отпускании геймпад-кнопки
+            // не залипают (вычитание _injected снимает нашу же инъекцию, не трогая физические).
+            var physical = ReadButtons(mouse) & ~_injected;
+            var merged = physical | gp;
+
+            InputSystem.QueueStateEvent(mouse,
+                new MouseState { position = mouse.position.ReadValue(), buttons = (ushort)merged });
+            _injected = gp;
         }
 
         private static bool IsPressed(InputActionProperty prop) => prop.action != null && prop.action.IsPressed();
+
+        // Нажатие — сразу; отпускание — только после releaseGraceFrames подряд «не нажато».
+        private bool Hold(bool pressed, ref bool held, ref int releaseStreak)
+        {
+            if (pressed)
+            {
+                held = true;
+                releaseStreak = 0;
+            }
+            else if (held && ++releaseStreak > releaseGraceFrames)
+            {
+                held = false;
+                releaseStreak = 0;
+            }
+
+            return held;
+        }
+
+        private const int LeftBit = 1 << (int)MouseButton.Left;
+        private const int RightBit = 1 << (int)MouseButton.Right;
+        private const int MiddleBit = 1 << (int)MouseButton.Middle;
+        private const int BackBit = 1 << (int)MouseButton.Back;
+        private const int ForwardBit = 1 << (int)MouseButton.Forward;
+
+        // Битовая маска физически нажатых кнопок мыши (все 5) — чтобы OR-мерж сохранял любой физический ввод.
+        private static int ReadButtons(Mouse m)
+        {
+            var b = 0;
+            if (m.leftButton.isPressed) b |= LeftBit;
+            if (m.rightButton.isPressed) b |= RightBit;
+            if (m.middleButton.isPressed) b |= MiddleBit;
+            if (m.backButton.isPressed) b |= BackBit;
+            if (m.forwardButton.isPressed) b |= ForwardBit;
+            return b;
+        }
     }
 }
