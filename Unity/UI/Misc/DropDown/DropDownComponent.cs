@@ -26,8 +26,16 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         [SerializeField] private GameObject dropDownList;
 
-        [InfoBox("Точка открытия списка")] [SerializeField]
+        [InfoBox("Точка открытия списка (RightDown). Обязательная — служит фолбеком для остальных направлений")]
+        [SerializeField]
         private Transform target;
+
+        [SerializeField] private Transform targetRightTop;
+        [SerializeField] private Transform targetLeftDown;
+        [SerializeField] private Transform targetLeftTop;
+
+        [InfoBox("Направление раскрытия. Берётся соответствующая точка target; если она null — фолбек на RightDown")]
+        [SerializeField] private DropDownDirection direction;
 
         [SerializeField] [InfoBox("Может задаваться снаружи через метод SetList")]
         private string[] dataList;
@@ -123,7 +131,7 @@ namespace Vortex.Unity.UI.Misc.DropDown
             //_currentValue = _map[value];
             Select(_map[value]);
             if (_opened)
-                DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected);
+                DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected, scrollSensitivity, direction);
         }
 
         /// <summary>
@@ -178,10 +186,12 @@ namespace Vortex.Unity.UI.Misc.DropDown
             {
                 _parent ??= GetComponentInParent<Canvas>().transform;
                 _list = Instantiate(dropDownList, _parent.transform, true);
-                _list.transform.position = target.position;
                 _list.transform.localScale = Vector3.one;
             }
 
+            // Позицию перевыставляем на КАЖДЫЙ открыв (а не только при создании): иначе список
+            // остаётся на месте первого открытия, если кнопка сдвинулась (проскроллили контейнер).
+            _list.transform.position = TargetFor(direction).position;
             UpdateList();
             _list.SetActive(true);
             uiComponent?.SetSwitcher(DropDownStates.Opened);
@@ -216,7 +226,16 @@ namespace Vortex.Unity.UI.Misc.DropDown
         }
 
         private void UpdateList() =>
-            DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected, scrollSensitivity);
+            DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected, scrollSensitivity, direction);
+
+        /// <summary>Точка привязки под направление; null-точка → фолбек на обязательную RightDown (<see cref="target"/>).</summary>
+        private Transform TargetFor(DropDownDirection dir) => dir switch
+        {
+            DropDownDirection.RightTop => targetRightTop != null ? targetRightTop : target,
+            DropDownDirection.LeftDown => targetLeftDown != null ? targetLeftDown : target,
+            DropDownDirection.LeftTop => targetLeftTop != null ? targetLeftTop : target,
+            _ => target
+        };
 
         /// <summary>
         /// Включение-выключение компонента

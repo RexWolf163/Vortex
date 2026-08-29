@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Unity.UI.PoolSystem;
+using Vortex.Unity.UI.StateSwitcher;
 
 namespace Vortex.Unity.UI.Misc.DropDown
 {
@@ -12,12 +13,15 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         [SerializeField] private ScrollRect scrollRect;
 
+        [SerializeField] private UIStateSwitcher directionSwitcher;
+
         private DropDownListModel _model;
 
         private string _listHash;
 
         public void Set(string[] text, Action<int> select, Action closeList, int selectedIndex = 0,
-            bool closeOnSelected = false, int scrollSensitivity = 1)
+            bool closeOnSelected = false, int scrollSensitivity = 1,
+            DropDownDirection direction = DropDownDirection.RightDown)
         {
             if (text == null || text.Length == 0)
             {
@@ -26,10 +30,13 @@ namespace Vortex.Unity.UI.Misc.DropDown
                 return;
             }
 
+            directionSwitcher?.Set(direction); // вид вывода — на каждый вызов
+
             var newHash = string.Join(";", text);
             if (newHash.Equals(_listHash))
             {
                 _model.Current = selectedIndex;
+                ScrollToCurrent(); // фикс: сброс скролла и на совпавшем хэше, не полагаясь на SetActive→OnEnable
                 return;
             }
 
@@ -40,10 +47,12 @@ namespace Vortex.Unity.UI.Misc.DropDown
             };
             _listHash = newHash;
 
-            OnEnable();
+            Rebuild();
         }
 
-        private void OnEnable()
+        private void OnEnable() => Rebuild();
+
+        private void Rebuild()
         {
             if (_model == null)
                 return;
@@ -53,10 +62,20 @@ namespace Vortex.Unity.UI.Misc.DropDown
             for (var i = 0; i < l; i++)
                 pool.AddItem(_model, new IntData(i));
 
-            if (scrollRect == null) return;
+            if (scrollRect == null)
+                return;
 
             scrollRect.scrollSensitivity = _model.ScrollSensitivity;
-            var v = (float)_model.Current / (l - 1);
+            ScrollToCurrent();
+        }
+
+        private void ScrollToCurrent()
+        {
+            if (scrollRect == null || _model == null)
+                return;
+
+            var l = _model.Texts.Count;
+            var v = l <= 1 ? 0f : (float)_model.Current / (l - 1); // фикс: l == 1 → без деления на ноль
             scrollRect.normalizedPosition =
                 new Vector2(scrollRect.horizontal ? 1 - v : 0, scrollRect.vertical ? 1 - v : 0);
         }
