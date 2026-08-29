@@ -82,6 +82,29 @@ namespace Vortex.Sdk.Core.GameCore
             _newGameLock = false;
         }
 
+        /// <summary>
+        /// Завершить текущую игру победой (<see cref="GameStates.Win"/>). Допустимо только из активной
+        /// сессии (<see cref="GameStates.Play"/>/<see cref="GameStates.Paused"/>) — иначе игнорируется.
+        /// Поднимает <see cref="OnGameStateChanged"/> (квесты/UI/каты/сейв реагируют штатно). Сессию НЕ
+        /// закрывает: данные остаются (в т.ч. для статистики), выход — отдельным <see cref="ExitGame"/>.
+        /// </summary>
+        public static void WinGame() => FinishGame(GameStates.Win);
+
+        /// <summary>
+        /// Завершить текущую игру поражением (<see cref="GameStates.Fail"/>). Условия те же, что и у
+        /// <see cref="WinGame"/> (только из активной сессии; сессию не закрывает).
+        /// </summary>
+        public static void FailGame() => FinishGame(GameStates.Fail);
+
+        // Выигрывать/проигрывать можно только идущую сессию — из Off/Loading переход в исход бессмыслен.
+        private static void FinishGame(GameStates outcome)
+        {
+            if (_data == null) GetData();
+            if (_data.State != GameStates.Play && _data.State != GameStates.Paused)
+                return;
+            SetGameState(outcome);
+        }
+
         public static void Exit() => App.Exit();
 
         /// <summary>

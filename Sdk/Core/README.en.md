@@ -89,6 +89,7 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 - `GameController.OnUpdate` — static data update subscription (proxies `OnUpdateData`)
 - `GameController.CallUpdateEvent()` — invoke `OnUpdateData` with batching via `TimeController.Accumulate`
 - `GameController.NewGameAsync(token)` — async variant of `NewGame()` that awaits session services
+- `GameController.WinGame()` / `GameController.FailGame()` — end the current game as a win/loss (`Play`/`Paused` → `Win`/`Fail`); ignored outside an active session, does not close the session
 - `GameController.PlayTime` (`TimeSpan`) — current playthrough time, including the open interval
 - `GameController.AppTime` (`TimeSpan`) — total time in the application across all launches
 - `GameController.SessionStarted` (`DateTime`) — start date of the current playthrough
@@ -113,8 +114,12 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 GameController.NewGame();           // Off → Loading → (await IGameSessionService) → Play, triggers OnNewGame
 GameController.SetPause(true);      // Play → Paused
 GameController.SetPause(false);     // Paused → Play
+GameController.WinGame();           // Play/Paused → Win  (terminal outcome; session and data kept)
+GameController.FailGame();          // Play/Paused → Fail (terminal outcome; session and data kept)
 GameController.ExitGame();          // → Off, unlocks NewGame
 ```
+
+`WinGame()`/`FailGame()` move the game into a terminal outcome **only from an active session** (`Play`/`Paused`) — from `Off`/`Loading` the call is ignored. They do not close the session: data is kept (for statistics and the result screen); closing is a separate `ExitGame()`. The transition raises `OnGameStateChanged`, which quests/UI/cutscenes/save react to as usual.
 
 `NewGame()` is a sync wrapper over `NewGameAsync()`. Several frames may pass between the call and the actual transition to `Play` if any session services are registered. To await completion explicitly:
 

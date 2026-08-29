@@ -89,6 +89,7 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 - `GameController.OnUpdate` — static подписка на обновление данных (проксирует `OnUpdateData`)
 - `GameController.CallUpdateEvent()` — вызов `OnUpdateData` с батчингом через `TimeController.Accumulate`
 - `GameController.NewGameAsync(token)` — async-вариант `NewGame()` с ожиданием сервисов сессии
+- `GameController.WinGame()` / `GameController.FailGame()` — завершить текущую игру победой/поражением (`Play`/`Paused` → `Win`/`Fail`); вне активной сессии игнорируется, сессию не закрывает
 - `GameController.PlayTime` (`TimeSpan`) — время текущего прохождения с учётом незавершённого отрезка
 - `GameController.AppTime` (`TimeSpan`) — суммарное время в приложении за все запуски
 - `GameController.SessionStarted` (`DateTime`) — дата начала текущего прохождения
@@ -113,8 +114,12 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 GameController.NewGame();           // Off → Loading → (ждём IGameSessionService) → Play, вызов OnNewGame
 GameController.SetPause(true);      // Play → Paused
 GameController.SetPause(false);     // Paused → Play
+GameController.WinGame();           // Play/Paused → Win  (терминальный исход; сессия и данные сохраняются)
+GameController.FailGame();          // Play/Paused → Fail (терминальный исход; сессия и данные сохраняются)
 GameController.ExitGame();          // → Off, разблокировка NewGame
 ```
+
+`WinGame()`/`FailGame()` переводят игру в терминальный исход **только из активной сессии** (`Play`/`Paused`) — из `Off`/`Loading` вызов игнорируется. Сессию не закрывают: данные остаются (в т.ч. для статистики и показа результата), закрытие — отдельным `ExitGame()`. Переход поднимает `OnGameStateChanged`, на который штатно реагируют квесты/UI/каты/сейв.
 
 `NewGame()` — синхронная обёртка над `NewGameAsync()`. Между вызовом и фактическим переходом в `Play` может пройти несколько кадров, если зарегистрированы сервисы сессии. Если нужно дождаться завершения — используется async-вариант:
 
