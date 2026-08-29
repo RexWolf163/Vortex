@@ -206,10 +206,12 @@ OnDisable
 
 Компонент выпадающего списка. Состоит из четырёх классов:
 
-- `DropDownComponent` — контроллер: toggle open/close, конфигурация через `SetList(texts, callback, value)`. Поддержка сортировки (`sorting`), `UnityEvent<int> onSelected`, `closeOnSelected`, `scrollSensitivity`. При сортировке строит прямую (`_map`) и обратную (`_mapBack`) карту индексов сортированного → оригинального порядка.
-- `DropDownList` — Pool-based список, scroll-позиционирование к выбранному элементу через `ScrollRect.normalizedPosition`. Кеширует хэш текстов (`string.Join`) — при повторном вызове `Set()` с теми же данными обновляет только `Current`, не пересоздаёт пул.
+- `DropDownComponent` — контроллер: toggle open/close, конфигурация через `SetList(texts, callback, value)`. Поддержка сортировки (`sorting`), `UnityEvent<int> onSelected`, `closeOnSelected`, `scrollSensitivity`. При сортировке строит прямую (`_map`) и обратную (`_mapBack`) карту индексов сортированного → оригинального порядка. Позиция списка перевыставляется на **каждый** открыв (по точке привязки под текущее направление), а не кешируется от первого — список не отстаёт от сдвинувшейся кнопки.
+- `DropDownList` — Pool-based список, scroll-позиционирование к выбранному элементу через `ScrollRect.normalizedPosition` (сброс выполняется и на повторном открытии с тем же составом, а не только через `OnEnable` от `SetActive`). Кеширует хэш текстов (`string.Join`) — при том же составе обновляет только `Current` и скролл, не пересоздавая пул. Поле `directionSwitcher` (`UIStateSwitcher`) переключает визуальное состояние под направление раскрытия.
 - `DropDownItem` — элемент списка. Получает `DropDownListModel` и `IntData` (индекс) через `IDataStorage`. Визуально выделяет текущий элемент через `UIComponent.SetSwitcher(SwitcherState.On/Off)`. Подписывается на `OnUpdateData` для обновления.
 - `DropDownListModel` — `IReactiveData` модель: callbacks (select, close), тексты, текущий выбор, `closeOnSelected`, `ScrollSensitivity`. `Dispose()` очищает подписчиков.
+
+**Направление раскрытия (`DropDownDirection`).** Enum `{ RightDown, RightTop, LeftDown, LeftTop }` (горизонталь + вертикаль; порядок значений = порядок состояний свитчера, RightDown = 0 … LeftTop = 3). По умолчанию — `RightDown` (справа-вниз). Флаг `autoOrientation` включает автоопределение: экранная позиция базовой точки `target` (через `RectTransformUtility.WorldToScreenPoint`, камера канваса; для Overlay — `null`) сравнивается с центром экрана — кнопка левее центра раскрывает список вправо, выше центра — вниз (и наоборот), чтобы он уходил к центру, а не за край. При включённом флаге в инспекторе (Odin `[ShowIf]`) появляются три доп-точки привязки `targetRightTop` / `targetLeftDown` / `targetLeftTop`; отсутствующая точка фолбечится на обязательную `target` (RightDown). Вычисленное направление уходит в `DropDownList.Set(...)`, где `directionSwitcher` принимает соответствующее состояние.
 
 API:
 ```csharp

@@ -26,16 +26,16 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         [SerializeField] private GameObject dropDownList;
 
-        [InfoBox("Точка открытия списка (RightDown). Обязательная — служит фолбеком для остальных направлений")]
+        [InfoBox("Автоопределение направления по положению кнопки относительно центра экрана. Выкл. — всегда RightDown")]
+        [SerializeField] private bool autoOrientation;
+
+        [InfoBox("Точка открытия списка (RightDown). Обязательная — фолбек для остальных направлений")]
         [SerializeField]
         private Transform target;
 
-        [SerializeField] private Transform targetRightTop;
-        [SerializeField] private Transform targetLeftDown;
-        [SerializeField] private Transform targetLeftTop;
-
-        [InfoBox("Направление раскрытия. Берётся соответствующая точка target; если она null — фолбек на RightDown")]
-        [SerializeField] private DropDownDirection direction;
+        [ShowIf(nameof(autoOrientation)), SerializeField] private Transform targetRightTop;
+        [ShowIf(nameof(autoOrientation)), SerializeField] private Transform targetLeftDown;
+        [ShowIf(nameof(autoOrientation)), SerializeField] private Transform targetLeftTop;
 
         [SerializeField] [InfoBox("Может задаваться снаружи через метод SetList")]
         private string[] dataList;
@@ -131,7 +131,7 @@ namespace Vortex.Unity.UI.Misc.DropDown
             //_currentValue = _map[value];
             Select(_map[value]);
             if (_opened)
-                DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected, scrollSensitivity, direction);
+                UpdateList(ResolveDirection());
         }
 
         /// <summary>
@@ -191,8 +191,9 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
             // Позицию перевыставляем на КАЖДЫЙ открыв (а не только при создании): иначе список
             // остаётся на месте первого открытия, если кнопка сдвинулась (проскроллили контейнер).
-            _list.transform.position = TargetFor(direction).position;
-            UpdateList();
+            var dir = ResolveDirection();
+            _list.transform.position = TargetFor(dir).position;
+            UpdateList(dir);
             _list.SetActive(true);
             uiComponent?.SetSwitcher(DropDownStates.Opened);
         }
@@ -225,8 +226,35 @@ namespace Vortex.Unity.UI.Misc.DropDown
             SetList(dataList, null);
         }
 
-        private void UpdateList() =>
-            DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected, scrollSensitivity, direction);
+        private void UpdateList(DropDownDirection dir) =>
+            DropDownList.Set(_sorted, Select, CloseList, _currentValue, closeOnSelected, scrollSensitivity, dir);
+
+        /// <summary>
+        /// Направление раскрытия. Авто выкл. — всегда RightDown (справа-вниз). Авто вкл. — по экранной
+        /// позиции базовой точки <see cref="target"/> относительно центра экрана: кнопка левее центра →
+        /// раскрытие вправо, выше центра → вниз (и наоборот), чтобы список уходил к центру, а не за край.
+        /// </summary>
+        private DropDownDirection ResolveDirection()
+        {
+            if (!autoOrientation)
+                return DropDownDirection.RightDown;
+
+            var canvas = GetComponentInParent<Canvas>();
+            var cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? canvas.worldCamera
+                : null;
+            var screen = RectTransformUtility.WorldToScreenPoint(cam, target.position);
+
+            var right = screen.x < Screen.width * 0.5f;  // кнопка левее центра → раскрываем вправо
+            var down = screen.y > Screen.height * 0.5f;  // кнопка выше центра → раскрываем вниз
+            return (right, down) switch
+            {
+                (true, true) => DropDownDirection.RightDown,
+                (false, true) => DropDownDirection.LeftDown,
+                (true, false) => DropDownDirection.RightTop,
+                (false, false) => DropDownDirection.LeftTop
+            };
+        }
 
         /// <summary>Точка привязки под направление; null-точка → фолбек на обязательную RightDown (<see cref="target"/>).</summary>
         private Transform TargetFor(DropDownDirection dir) => dir switch
