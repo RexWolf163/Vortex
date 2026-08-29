@@ -26,6 +26,25 @@ namespace Vortex.Sdk.ShopSystem.Bus
         /// <summary>Модуль данных магазина текущей сессии. null до первой загрузки/новой игры.</summary>
         public static ShopOperations Data { get; private set; }
 
+        /// <summary>
+        /// Любой зафиксированный в журнал коммит операции: изменение её состояния ИЛИ создание новой.
+        /// Поднимается ПОСЛЕ записи — журнал и индексы (<see cref="Data"/>) уже консистентны.
+        /// Для «чистых» точек жизненного цикла — <see cref="OnNewOperationStarted"/> /
+        /// <see cref="OnOperationCompleted"/>. Не поднимается при пересборке индексов на загрузке
+        /// (историю не переигрываем). Статик — подписчик обязан отписываться сам.
+        /// </summary>
+        public static event Action<ShopOperation> OnOperationStateChanged;
+
+        /// <summary>«Чистое» событие создания операции — её первый коммит (заказ заведён). Поднимается
+        /// ровно один раз на операцию, вместе с первым <see cref="OnOperationStateChanged"/>.</summary>
+        public static event Action<ShopOperation> OnNewOperationStarted;
+
+        /// <summary>«Чистое» событие приведения операции к терминальному состоянию
+        /// (<see cref="PurchaseState.Delivered"/> / <see cref="PurchaseState.Refunded"/> /
+        /// <see cref="PurchaseState.Cancelled"/> / <see cref="PurchaseState.Failed"/>). Поднимается вместе
+        /// с соответствующим <see cref="OnOperationStateChanged"/>.</summary>
+        public static event Action<ShopOperation> OnOperationCompleted;
+
         /// <summary>Контроллер записи журнала (stateless, пишет через owner-ключ модели).</summary>
         private static IShopTransactionsController Controller => ShopTransactionsController.Instance;
 
@@ -84,9 +103,32 @@ namespace Vortex.Sdk.ShopSystem.Bus
         public static ListData<ShopOperation> GetGoodsHistory(string itemGuid) =>
             Data?.GoodsOperations.GetValueOrDefault(itemGuid);
 
-        /// <summary>Зафиксировать текущее состояние операции новым событием журнала. Возвращает успех записи.</summary>
+        /// <summary>Зафиксировать текущее состояние операции новым событием журнала. Возвращает успех записи.
+        /// По успешной записи поднимает <see cref="OnOperationStateChanged"/>, а на «чистых» точках —
+        /// <see cref="OnNewOperationStarted"/> (первый коммит) и <see cref="OnOperationCompleted"/> (терминал).</summary>
         /// <param name="operation">Операция, чьё текущее состояние фиксируется.</param>
-        internal static bool MakeRecord(ShopOperation operation) => Controller.MakeRecord(operation);
+        internal static bool MakeRecord(ShopOperation operation)
+        {
+            // «Новая» ловим ДО записи: RegistrationEvent регистрирует операцию в Operations на первом её событии,
+            // поэтому до Controller.MakeRecord этого guid в индексе ещё нет.
+            var isNew = Data != null && !Data.Operations.ContainsKey(operation.PurchaseGuid);
+
+            if (!Controller.MakeRecord(operation))
+                return false; // запись сорвалась (см. лог) — событий не поднимаем, состояние не зафиксировано
+
+            OnOperationStateChanged?.Invoke(operation);
+            if (isNew)
+                OnNewOperationStarted?.Invoke(operation);
+            if (IsTerminal(operation.State.Value))
+                OnOperationCompleted?.Invoke(operation);
+
+            return true;
+        }
+
+        // Терминальные состояния сделки: дальше по ней коммитов не будет (NotStarted в журнал не пишется).
+        private static bool IsTerminal(PurchaseState state) => state is
+            PurchaseState.Delivered or PurchaseState.Refunded or
+            PurchaseState.Cancelled or PurchaseState.Failed;
 
         #region Init
 

@@ -57,7 +57,7 @@ Transaction handling and bookkeeping are separated: one bus changes the state of
 | Bus | Domain | Members |
 |-----|--------|---------|
 | `ShopBus` | Transaction | `Buy`, `BuyForget`, `ConfirmDelivery`, `RetryDelivery`, `CancelWithRefund`, `RestoreOperation`, `IsBusy`, catalog |
-| `ShopOperationsBus` | Bookkeeping (read-only) | `GetOpen`, `GetReady`, `GetStuck`, `GetOperation`, `GetHistory`, `GetPurchaseHistory`, `GetGoodsHistory` |
+| `ShopOperationsBus` | Bookkeeping (read-only) + reactive | `GetOpen`, `GetReady`, `GetStuck`, `GetOperation`, `GetHistory`, `GetPurchaseHistory`, `GetGoodsHistory`; events `OnOperationStateChanged`, `OnNewOperationStarted`, `OnOperationCompleted` |
 
 ### Data and restoration
 
@@ -153,6 +153,7 @@ Applies only to automatic delivery from `Paid`. Explicit `ConfirmDelivery` and `
 - `ShopBus.Buy` / `BuyForget` → `ShopOperation` with a reactive `State`, or `null` (busy or unknown item)
 - The `ShopOperations.Events` journal inside the save body
 - `ShopOperationsBus` queries — slices over the indexes
+- `ShopOperationsBus` static events: `OnOperationStateChanged` (any commit), `OnNewOperationStarted` (creation), `OnOperationCompleted` (terminal)
 
 ### Guarantees
 
@@ -203,6 +204,12 @@ ListData<ShopTransactionEvent>      ShopOperationsBus.GetPurchaseHistory(string 
 ListData<ShopOperation>             ShopOperationsBus.GetGoodsHistory(string itemGuid);
 
 ShopOperationsBus.OnReady.Subscribe(OnDataReady);
+
+// ── Operation reactivity (bus static events; the subscriber unsubscribes itself) ──
+// Raised on a successful commit write; NOT replayed over history on load (index rebuild).
+ShopOperationsBus.OnOperationStateChanged += op => { }; // any commit: state change OR creation
+ShopOperationsBus.OnNewOperationStarted   += op => { }; // "clean" creation — the operation's first commit
+ShopOperationsBus.OnOperationCompleted    += op => { }; // "clean" terminal: Delivered/Refunded/Cancelled/Failed
 
 // ── Payment logic (implemented in the project) ───────────────────────────
 public class GoldPayment : PaymentLogic

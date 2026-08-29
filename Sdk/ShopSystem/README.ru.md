@@ -57,7 +57,7 @@ ShopItemPreset (ScriptableObject)             ← конфиг дизайнер�
 | Шина | Домен | Состав |
 |------|-------|--------|
 | `ShopBus` | Проводка | `Buy`, `BuyForget`, `ConfirmDelivery`, `RetryDelivery`, `CancelWithRefund`, `RestoreOperation`, `IsBusy`, каталог |
-| `ShopOperationsBus` | Учёт (read-only) | `GetOpen`, `GetReady`, `GetStuck`, `GetOperation`, `GetHistory`, `GetPurchaseHistory`, `GetGoodsHistory` |
+| `ShopOperationsBus` | Учёт (read-only) + реактив | `GetOpen`, `GetReady`, `GetStuck`, `GetOperation`, `GetHistory`, `GetPurchaseHistory`, `GetGoodsHistory`; события `OnOperationStateChanged`, `OnNewOperationStarted`, `OnOperationCompleted` |
 
 ### Данные и восстановление
 
@@ -153,6 +153,7 @@ Cancelled                     └─ выдача недоступна/сорв�
 - `ShopBus.Buy` / `BuyForget` → `ShopOperation` с реактивным `State`, либо `null` (занято или неизвестный товар)
 - Журнал `ShopOperations.Events` в теле сейва
 - Запросы `ShopOperationsBus` — срезы по индексам
+- Статик-события `ShopOperationsBus`: `OnOperationStateChanged` (любой коммит), `OnNewOperationStarted` (создание), `OnOperationCompleted` (терминал)
 
 ### Гарантии
 
@@ -203,6 +204,12 @@ ListData<ShopTransactionEvent>      ShopOperationsBus.GetPurchaseHistory(string 
 ListData<ShopOperation>             ShopOperationsBus.GetGoodsHistory(string itemGuid);
 
 ShopOperationsBus.OnReady.Subscribe(OnDataReady);
+
+// ── Реактив операций (статик-события шины; подписчик отписывается сам) ─────
+// Поднимаются по успешной записи коммита; на загрузке (пересборка индексов) НЕ переигрывают историю.
+ShopOperationsBus.OnOperationStateChanged += op => { }; // любой коммит: смена состояния ИЛИ создание
+ShopOperationsBus.OnNewOperationStarted   += op => { }; // «чистое» создание — первый коммит операции
+ShopOperationsBus.OnOperationCompleted    += op => { }; // «чистый» терминал: Delivered/Refunded/Cancelled/Failed
 
 // ── Логика оплаты (реализуется в проекте) ────────────────────────────────
 public class GoldPayment : PaymentLogic
