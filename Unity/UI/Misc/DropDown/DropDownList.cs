@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using Vortex.Core.Extensions.ReactiveValues;
+using Vortex.Unity.UI.Attributes;
 using Vortex.Unity.UI.PoolSystem;
 using Vortex.Unity.UI.StateSwitcher;
 
@@ -13,7 +14,8 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         [SerializeField] private ScrollRect scrollRect;
 
-        [SerializeField] private UIStateSwitcher directionSwitcher;
+        [SerializeField, StateSwitcher(typeof(DropDownDirection))]
+        private UIStateSwitcher directionSwitcher;
 
         private DropDownListModel _model;
 
