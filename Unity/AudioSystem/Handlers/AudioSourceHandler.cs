@@ -68,6 +68,7 @@ namespace Vortex.Unity.AudioSystem.Handlers
             }
             else
             {
+                audioSource.clip = null;
                 audioSource.loop = false;
                 audioSource.PlayOneShot(audioClip);
                 TimeController.Call(() => gameObject.SetActive(false), audioClip.length / Mathf.Abs(_currentPitch), this);
