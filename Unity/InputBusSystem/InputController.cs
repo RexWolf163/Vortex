@@ -135,6 +135,22 @@ namespace Vortex.Unity.InputBusSystem
         }
 
         /// <summary>
+        /// Прямой доступ к <see cref="InputAction"/> по ключу «Карта/Экшен» — для polling-чтения значения
+        /// (<c>ReadValue&lt;T&gt;()</c>/<c>IsPressed()</c>) там, где нужна не callback-подписка, а само значение.
+        /// <c>null</c> — ключ не найден.
+        /// </summary>
+        public static InputAction GetAction(string actionInputId)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+                Init();
+#endif
+            if (Actions == null || Actions.Count == 0)
+                Init();
+            return Actions != null && Actions.TryGetValue(actionInputId, out var action) ? action : null;
+        }
+
+        /// <summary>
         /// Добавить пользователя экшена ввода
         /// Пользователь будет добавлен в очередь на получение сигнала
         /// </summary>

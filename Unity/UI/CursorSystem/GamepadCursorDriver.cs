@@ -1,13 +1,15 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.InputBusSystem;
 
 namespace Vortex.Unity.UI.CursorSystem
 {
     /// <summary>
     /// Драйвер курсора от привязанных экшенов, кооперативный с мышью. Двигает НАПРЯМУЮ реальную системную мышь
-    /// (<see cref="Mouse.current"/>) по вектору из <see cref="moveAction"/> и жмёт <see cref="leftButtonAction"/> /
-    /// <see cref="rightButtonAction"/> как LMB/RMB. Одно устройство — нет рассинхрона: и видимый курсор
+    /// (<see cref="Mouse.current"/>) по вектору из <see cref="moveActionId"/> и жмёт <see cref="leftButtonActionId"/> /
+    /// <see cref="rightButtonActionId"/> как LMB/RMB. Одно устройство — нет рассинхрона: и видимый курсор
     /// (<see cref="CursorController"/> рисует по позиции ОС-курсора), и UI-модуль, и клики читают ту же мышь.
     ///
     /// Ввод гонится СОБЫТИЕМ (<c>QueueStateEvent(MouseState)</c>) — позиция + кнопки одним состоянием. Через
@@ -16,20 +18,23 @@ namespace Vortex.Unity.UI.CursorSystem
     /// не выставляет — из-за этого геймпад-кнопка как ЛКМ не кликала). Событие шлётся только когда геймпад
     /// активен (двигает/жмёт); в простое мышь работает нативно.
     ///
-    /// Привязки — <see cref="InputActionProperty"/> (инлайн-экшен или ссылка), выбираются в инспекторе.
-    /// Требует наличие мыши как устройства (десктоп).
+    /// Привязки — строковые id экшенов из карты (дропдаун), резолвятся через <see cref="InputController"/> и
+    /// читаются polling'ом (ReadValue/IsPressed). Требует наличие мыши как устройства (десктоп).
     /// </summary>
     public class GamepadCursorDriver : MonoBehaviour
     {
-        [Header("Привязки ввода")]
-        [SerializeField, Tooltip("Движение курсора — Value/Vector2 (например, левый стик геймпада).")]
-        private InputActionProperty moveAction;
+        [Header("Привязки ввода (id «Карта/Экшен»)")]
+        [SerializeField, ValueSelector("GetInputActions"), Tooltip("Движение курсора — Value/Vector2 (например, левый стик геймпада).")]
+        private string moveActionId;
 
-        [SerializeField, Tooltip("Левый клик — Button (например, кнопка South).")]
-        private InputActionProperty leftButtonAction;
+        [SerializeField, ValueSelector("GetInputActions"), Tooltip("Левый клик — Button (например, кнопка South).")]
+        private string leftButtonActionId;
 
-        [SerializeField, Tooltip("Правый клик — Button (например, кнопка East).")]
-        private InputActionProperty rightButtonAction;
+        [SerializeField, ValueSelector("GetInputActions"), Tooltip("Правый клик — Button (например, кнопка East).")]
+        private string rightButtonActionId;
+
+        [SerializeField, ValueSelector("GetInputActions"), Tooltip("Скролл — Value/Vector2 (например, правый стик / дпад).")]
+        private string scrollActionId;
 
         [Header("Движение")]
         [SerializeField, Tooltip("Скорость курсора, пикселей/сек.")]
@@ -42,6 +47,14 @@ namespace Vortex.Unity.UI.CursorSystem
          Tooltip("Грейс на отпускание кнопки (кадров): кратковременные провалы ввода (аналоговый триггер как Button у порога) не срывают удержание/клик.")]
         private int releaseGraceFrames = 3;
 
+        [SerializeField, Min(0f), Tooltip("Скорость скролла — масштаб вектора в кадровую дельту.")]
+        private float scrollSpeed = 20f;
+
+        private InputAction _moveAction;
+        private InputAction _leftAction;
+        private InputAction _rightAction;
+        private InputAction _scrollAction;
+
         private bool _leftHeld;
         private bool _rightHeld;
         private int _leftRelease;
@@ -50,16 +63,23 @@ namespace Vortex.Unity.UI.CursorSystem
 
         private void OnEnable()
         {
-            moveAction.action?.Enable();
-            leftButtonAction.action?.Enable();
-            rightButtonAction.action?.Enable();
+            _moveAction = InputController.GetAction(moveActionId);
+            _leftAction = InputController.GetAction(leftButtonActionId);
+            _rightAction = InputController.GetAction(rightButtonActionId);
+            _scrollAction = InputController.GetAction(scrollActionId);
+
+            _moveAction?.Enable();
+            _leftAction?.Enable();
+            _rightAction?.Enable();
+            _scrollAction?.Enable();
         }
 
         private void OnDisable()
         {
-            moveAction.action?.Disable();
-            leftButtonAction.action?.Disable();
-            rightButtonAction.action?.Disable();
+            _moveAction?.Disable();
+            _leftAction?.Disable();
+            _rightAction?.Disable();
+            _scrollAction?.Disable();
             _leftHeld = false;
             _rightHeld = false;
             _leftRelease = 0;
@@ -84,7 +104,7 @@ namespace Vortex.Unity.UI.CursorSystem
                 return;
 
             // --- Движение стиком: только ПОЗИЦИЯ, кнопки не трогаем (физические кнопки/клики мышью текут сами). ---
-            var move = moveAction.action != null ? moveAction.action.ReadValue<Vector2>() : Vector2.zero;
+            var move = _moveAction != null ? _moveAction.ReadValue<Vector2>() : Vector2.zero;
             if (move.sqrMagnitude >= deadzone * deadzone)
             {
                 var pos = mouse.position.ReadValue() + move * (speed * Time.unscaledDeltaTime);
@@ -95,27 +115,33 @@ namespace Vortex.Unity.UI.CursorSystem
             }
 
             // --- Геймпад-кнопки с грейсом на отпускание (гасит «срыв» на дрожи триггера у порога). ---
-            var gpLeft = Hold(IsPressed(leftButtonAction), ref _leftHeld, ref _leftRelease);
-            var gpRight = Hold(IsPressed(rightButtonAction), ref _rightHeld, ref _rightRelease);
+            var gpLeft = Hold(IsPressed(_leftAction), ref _leftHeld, ref _leftRelease);
+            var gpRight = Hold(IsPressed(_rightAction), ref _rightHeld, ref _rightRelease);
             var gp = (gpLeft ? LeftBit : 0) | (gpRight ? RightBit : 0);
 
-            // Геймпад-кнопки не участвуют и наша инъекция снята → buttons НЕ трогаем: физические кнопки
-            // (и клики мышью при движении геймпадом) работают нативно.
-            if (gp == 0 && _injected == 0)
+            // --- Скролл: вне мёртвой зоны — масштабируем в кадровую дельту. ---
+            var rawScroll = _scrollAction != null ? _scrollAction.ReadValue<Vector2>() : Vector2.zero;
+            var scroll = rawScroll.sqrMagnitude >= deadzone * deadzone
+                ? rawScroll * (scrollSpeed * Time.unscaledDeltaTime)
+                : Vector2.zero;
+
+            // Геймпад-кнопки не участвуют, наша инъекция снята и скролла нет → buttons НЕ трогаем: физические
+            // кнопки (и клики мышью при движении геймпадом) работают нативно.
+            if (gp == 0 && _injected == 0 && scroll == Vector2.zero)
                 return;
 
             // OR-гейт: физические кнопки = состояние девайса МИНУС наша прошлая инъекция; мержим с геймпадом.
             // Так «мышь-кнопки + геймпад-курсор» и наоборот работают вместе, а на отпускании геймпад-кнопки
-            // не залипают (вычитание _injected снимает нашу же инъекцию, не трогая физические).
+            // не залипают (вычитание _injected снимает нашу же инъекцию, не трогая физические). + скролл.
             var physical = ReadButtons(mouse) & ~_injected;
             var merged = physical | gp;
 
             InputSystem.QueueStateEvent(mouse,
-                new MouseState { position = mouse.position.ReadValue(), buttons = (ushort)merged });
+                new MouseState { position = mouse.position.ReadValue(), buttons = (ushort)merged, scroll = scroll });
             _injected = gp;
         }
 
-        private static bool IsPressed(InputActionProperty prop) => prop.action != null && prop.action.IsPressed();
+        private static bool IsPressed(InputAction action) => action != null && action.IsPressed();
 
         // Нажатие — сразу; отпускание — только после releaseGraceFrames подряд «не нажато».
         private bool Hold(bool pressed, ref bool held, ref int releaseStreak)
@@ -151,5 +177,9 @@ namespace Vortex.Unity.UI.CursorSystem
             if (m.forwardButton.isPressed) b |= ForwardBit;
             return b;
         }
+
+#if UNITY_EDITOR
+        private string[] GetInputActions() => InputController.GetActions();
+#endif
     }
 }
