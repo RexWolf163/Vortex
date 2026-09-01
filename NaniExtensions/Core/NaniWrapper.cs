@@ -7,6 +7,7 @@ using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Sdk.Core.GameCore;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 using UniTask = Cysharp.Threading.Tasks.UniTask;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -79,6 +80,9 @@ namespace Vortex.NaniExtensions.Core
         /// </summary>
         private static bool _stopPending;
 
+        /// <summary>Owner-ключ для дебаунса SaveGlobal по родному останову скрипта (см. <see cref="OnNativeStopSave"/>).</summary>
+        private static readonly object SaveGlobalOwner = new();
+
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
         {
@@ -127,6 +131,7 @@ namespace Vortex.NaniExtensions.Core
         {
             ScriptPlayer.OnPlay -= OnScriptEvent;
             ScriptPlayer.OnStop -= OnScriptEvent;
+            ScriptPlayer.OnStop -= OnNativeStopSave;
 
             AudioManager.StopAllBgm();
             AudioManager.StopAllSfx();
@@ -169,6 +174,22 @@ namespace Vortex.NaniExtensions.Core
 
             ScriptPlayer.OnPlay += OnScriptEvent;
             ScriptPlayer.OnStop += OnScriptEvent;
+            ScriptPlayer.OnStop += OnNativeStopSave;
+        }
+
+        /// <summary>
+        /// Родной останов скрипта → сохранить глобал (в т.ч. реестр прочитанных строк для промотки).
+        /// Через <see cref="TimeController.Accumulate{T}"/> — коалесит частые/транзиентные стопы (@if/goto,
+        /// смена скрипта дают Stop→Resume в кадре) в одну запись на конец кадра. Не идеал, но с дебаунсом.
+        /// </summary>
+        private static void OnNativeStopSave(Script _) =>
+            TimeController.Accumulate(SaveGlobalDeferred, SaveGlobalOwner);
+
+        private static void SaveGlobalDeferred()
+        {
+            // Флаш аккумулятора мог прийти после уничтожения движка (teardown/выход из плей-мода) — не трогаем.
+            if (Engine.Initialized)
+                StateManager.SaveGlobal().Forget();
         }
 
         private static void OnScriptEvent(Script obj)
