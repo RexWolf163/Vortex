@@ -6,6 +6,7 @@ namespace Vortex.Unity.UI.Misc
     /// <summary>
     /// Хэндлер для отложенной активации дочерних слоев
     /// </summary>
+    [ExecuteInEditMode]
     public class EnableDelayForChild : MonoBehaviour
     {
         [SerializeField, Range(0, 10f)] private float delay = 1f;
@@ -23,7 +24,17 @@ namespace Vortex.Unity.UI.Misc
             }
         }
 
-        private void OnEnable() => TimeController.Call(() => SwitchChild(true), delay, this);
+        private void OnEnable()
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                SwitchChild(true);
+                return;
+            }
+#endif
+            TimeController.Call(() => SwitchChild(true), delay, this);
+        }
 
         private void OnDisable()
         {

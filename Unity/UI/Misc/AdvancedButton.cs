@@ -200,7 +200,12 @@ namespace Vortex.Unity.UI.Misc
         /// <summary>
         /// Внешнее управление нажатием
         /// </summary>
-        public void Release() => OnPointerUp(null);
+        public void Release()
+        {
+            if (!_pressed)
+                return;
+            OnPointerUp(null);
+        }
 
         private Dictionary<UnityAction, Action> _wrappedActions;
 
