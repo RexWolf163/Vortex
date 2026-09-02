@@ -142,6 +142,7 @@ Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings` —
 - `IsOverUI` uses the no-arg `IsPointerOverGameObject()` — with several active pointers a pointerId may be needed.
 - Projection requires a registered camera; without one — a miss.
 - A mouse device is required for the mouse-based UI module (desktop); a pure console is out of scope.
+- `OsCursorRenderer` requires a **standalone texture** for the sprite: `Cursor.SetCursor` takes a whole `Texture2D` and would draw the entire atlas. For atlased cursors use `UiImageCursorRenderer` (hotspot is computed from the sprite rect, atlas supported).
 
 ---
 
@@ -209,6 +210,7 @@ Actions for the drivers: position (`<Mouse>/position`), move (`<Gamepad>/leftSti
 | Alt-tab with a button held | `canceled` clears the bit — no stuck state |
 | Projection without a registered camera | Miss (`false`/`null`) |
 | Real mouse and Direct at once | Threshold gates the capture; the active source tracks without a threshold |
+| Atlased cursor sprite | `UiImageCursorRenderer` — OK (hotspot from the sprite rect); `OsCursorRenderer` — needs a standalone texture |
 
 ---
 

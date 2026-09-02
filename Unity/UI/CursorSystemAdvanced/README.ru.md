@@ -142,6 +142,7 @@ UGUI-мост:  VirtualUiPointer (: Mouse, отдельный layout)  ← UiPoi
 - `IsOverUI` использует no-arg `IsPointerOverGameObject()` — при нескольких активных указателях может потребоваться pointerId.
 - Проекция требует зарегистрированной камеры; без неё — промах.
 - Требуется устройство мыши для UI-модуля-мыши (десктоп); чистая консоль — вне scope.
+- `OsCursorRenderer` требует **standalone-текстуру** спрайта: `Cursor.SetCursor` берёт целую `Texture2D` и нарисует атлас целиком. Для атласных курсоров — `UiImageCursorRenderer` (hotspot считается от rect спрайта, атлас поддержан).
 
 ---
 
@@ -209,6 +210,7 @@ static bool IsSelected(string setKey);
 | Alt-tab с зажатой кнопкой | `canceled` снимает бит — залипания нет |
 | Проекция без зарегистрированной камеры | Промах (`false`/`null`) |
 | Реальная мышь и Direct одновременно | Порог гейтит перехват; активный источник трекается без порога |
+| Атласный спрайт курсора | `UiImageCursorRenderer` — ок (hotspot от rect спрайта); `OsCursorRenderer` — нужна standalone-текстура |
 
 ---
 

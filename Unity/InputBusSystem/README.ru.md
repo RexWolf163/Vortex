@@ -17,7 +17,7 @@
 Вне ответственности:
 - Ребиндинг клавиш в рантайме
 - Визуальный редактор карт ввода (используется стандартный Unity Input Actions Asset)
-- Аналоговый ввод (стики, триггеры) — только дискретные действия (Button)
+- Аналоговый ввод в **маршрутизации** — шина роутит событиями только дискретные действия (Button); аналоговые значения читаются polling'ом через `GetAction` (см. Использование)
 
 ## Зависимости
 
@@ -114,7 +114,7 @@ UI / игровая логика
 - Хэндлеры отписываются в `OnDisable` / `OnDestroy`
 
 ### Ограничения
-- Только дискретный ввод (Button) — аналоговые значения не передаются
+- Маршрутизация — только дискретный ввод (Button); аналоговые значения событиями не передаются, но доступны polling'ом через `GetAction`
 - `InputSubscriber.Equals` сравнивает по `Owner` — один объект не может иметь разные колбэки на один экшен
 - `KeyboardHandler` поддерживает максимум 3 модификатора; 4+ игнорируются с предупреждением
 - Нет механизма приоритетов — только порядок добавления (LIFO)
@@ -136,6 +136,9 @@ static string[] GetActions()
 static void AddActionUser(string actionInputId, object actionInputUser,
     Action onPerformedCallback, Action onCanceledCallback)
 static void RemoveActionUser(string actionInputId, object actionInputUser)
+
+// Прямой доступ к InputAction для polling-чтения значения (ReadValue<T>()/IsPressed())
+static InputAction GetAction(string actionInputId)   // null — ключ не найден
 ```
 
 ### InputSubscriber
@@ -161,6 +164,17 @@ InputController.RemoveActionUser("Player/Jump", this);
 ```
 
 `this` используется как ключ идентификации. Повторный `AddActionUser` с тем же объектом не создаст дубликат.
+
+### Polling-чтение значения (GetAction)
+
+Для аналогового ввода (стики, триггеры, курсорная дельта), где нужна не callback-подписка, а само значение по требованию, `GetAction("Карта/Экшен")` отдаёт `InputAction` напрямую — дальше `ReadValue<T>()` / `IsPressed()` в своём `Update`:
+
+```csharp
+var move = InputController.GetAction("Player/Move");
+var delta = move?.ReadValue<Vector2>() ?? Vector2.zero;
+```
+
+`null` — ключ не найден. Это escape-hatch мимо LIFO-маршрутизации: значение читает сам вызывающий, шина в polling не участвует (в эдиторе метод при необходимости сам поднимает `Init`).
 
 ### Подписка через Inspector (InputActionHandler)
 

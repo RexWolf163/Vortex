@@ -38,8 +38,10 @@ namespace Vortex.Unity.UI.CursorSystemAdvanced
             if (sprite == null || sprite.texture == null)
                 return CursorVisual.None;
 
+            // hotspot в rect-local координатах спрайта (не texture) → корректно и для атласных спрайтов.
+            // pivot задан относительно rect спрайта; инверсия по Y: pivot(bottom-left) → hotspot(top-left).
             var hotspot = sprite.pivot;
-            hotspot.y = sprite.texture.height - hotspot.y; // pivot(bottom-left) → hotspot(top-left)
+            hotspot.y = sprite.rect.height - hotspot.y;
             return new CursorVisual(sprite, hotspot, false);
         }
     }

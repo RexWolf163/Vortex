@@ -7,6 +7,8 @@ namespace Vortex.Unity.UI.CursorSystemAdvanced
     /// сценариев, где нужен нативный ОС-курсор. Позицию игнорирует (ОС-курсор в позиции ОС-мыши), рисует лишь
     /// спрайт по <see cref="CursorVisual"/>. Для виртуального курсора от геймпада не годится — там нужен
     /// <see cref="UiImageCursorRenderer"/>.
+    /// ТРЕБУЕТ standalone-текстуру спрайта (не атлас): <c>Cursor.SetCursor</c> берёт целую <c>Texture2D</c>,
+    /// поэтому атласный спрайт нарисует всю атлас-текстуру. Для атласных курсоров — <see cref="UiImageCursorRenderer"/>.
     /// </summary>
     public class OsCursorRenderer : MonoBehaviour, ICursorRenderer
     {

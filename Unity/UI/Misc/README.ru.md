@@ -35,7 +35,7 @@ UnityEvents (массивы): `onClick[]`, `onHover[]`, `onExit[]`.
 Особенности:
 - `OnPointerEnter` сохраняет визуал Pressed, если кнопка ещё прижата (сценарий «нажали → увели за пределы → вернули обратно»).
 - `AddOnClick(UnityAction)` идемпотентен: повторная подписка одного и того же `UnityAction` игнорируется (`_wrappedActions`-словарь), `RemoveOnClick` корректно снимет wrapper.
-- Внешний `Press()`/`Release()` работает в режиме `OnClick`: при `eventData == null` смещение считается нулевым, проверка времени остаётся.
+- Внешний `Press()`/`Release()` работает в режиме `OnClick`: при `eventData == null` смещение считается нулевым, проверка времени остаётся. `Release()` идемпотентен — no-op, если кнопка не была нажата.
 - `OnEnable` сбрасывает внутренние флаги (`_pressed = false`), вызывает `uiStateSwitcher.ResetStates()` и переводит визуал в `Free`. Это исключает ситуацию «кнопку выключили во время удержания → при следующем включении она снова показывает Pressed». `OnDisable` лишь сбрасывает `_inBorders`, реальная инициализация состояния происходит в `OnEnable`.
 
 ### DataStorage
@@ -163,7 +163,7 @@ sliderView.Set(0.75f, 1f);   // value, max
 |------|-----|----------|
 | `delay` | `float` | Задержка (0..10 сек) |
 
-`Awake` — деактивирует всех детей. `OnEnable` — планирует активацию через `TimeController.Call()`. `OnDisable` — деактивирует.
+`Awake` — деактивирует всех детей. `OnEnable` — планирует активацию через `TimeController.Call()`. `OnDisable` — деактивирует. Помечен `[ExecuteInEditMode]`: в эдиторе вне Play-режима активация детей происходит мгновенно (без задержки) — для превью раскладки.
 
 ### ScrollRectResetHandler
 

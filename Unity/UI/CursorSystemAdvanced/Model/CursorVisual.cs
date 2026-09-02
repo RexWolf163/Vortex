@@ -15,7 +15,7 @@ namespace Vortex.Unity.UI.CursorSystemAdvanced
         /// <summary>Спрайт курсора (null → скрыть/ничего не рисовать).</summary>
         public readonly Sprite Sprite;
 
-        /// <summary>Hotspot в пикселях, top-left (уже инвертирован по Y относительно pivot).</summary>
+        /// <summary>Hotspot в пикселях, rect-local top-left (инвертирован по Y относительно pivot спрайта).</summary>
         public readonly Vector2 Hotspot;
 
         /// <summary>Скрыть курсор (набор с HideCursor).</summary>

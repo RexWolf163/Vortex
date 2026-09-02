@@ -19,8 +19,10 @@ namespace Vortex.Unity.UI.CursorSystemAdvanced
         private static CursorSkinSettings _settings;
 
         public static bool IsReady { get; private set; }
-        public static PointerModel Model => _model;
-        public static CursorVisualData Visual => _visual;
+
+        // internal — реактивная модель/вид доступны наружу ТОЛЬКО через read-only фасад VirtualCursorBus.
+        internal static PointerModel Model => _model;
+        internal static CursorVisualData Visual => _visual;
 
         public static event Action OnReady;
 

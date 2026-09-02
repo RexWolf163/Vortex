@@ -32,6 +32,9 @@ namespace Vortex.Unity.UI.CursorSystemAdvanced
 
         private void OnDisable()
         {
+            if (hideSystemCursor)
+                Cursor.visible = true; // восстановить ОС-курсор — симметрично OnEnable (иначе останется скрыт)
+
             VirtualCursorBus.OnReady -= TrySubscribe;
             if (!_subscribed) return;
             VirtualCursorBus.Visual.OnUpdate -= OnVisual;
@@ -65,10 +68,10 @@ namespace Vortex.Unity.UI.CursorSystemAdvanced
             if (show)
             {
                 image.sprite = visual.Sprite;
-                var tex = visual.Sprite.texture;
-                if (tex != null && tex.width > 0 && tex.height > 0)
-                    // hotspot(top-left px) → pivot(bottom-left, нормализованный): точка совпадёт с позицией
-                    cursor.pivot = new Vector2(visual.Hotspot.x / tex.width, 1f - visual.Hotspot.y / tex.height);
+                var rect = visual.Sprite.rect; // rect спрайта, не texture — корректно и для атласных спрайтов
+                if (rect.width > 0 && rect.height > 0)
+                    // hotspot(top-left px, rect-local) → pivot(bottom-left, нормализованный): точка совпадёт с позицией
+                    cursor.pivot = new Vector2(visual.Hotspot.x / rect.width, 1f - visual.Hotspot.y / rect.height);
             }
 
             cursor.position = new Vector3(screenPosition.x, screenPosition.y, 0f);

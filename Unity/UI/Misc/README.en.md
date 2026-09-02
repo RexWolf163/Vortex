@@ -35,7 +35,7 @@ External control: `Press()`, `Release()`, `AddOnClick(UnityAction)`, `RemoveOnCl
 Notes:
 - `OnPointerEnter` keeps the Pressed visual when the button is still held (scenario: pressed → cursor leaves → cursor returns).
 - `AddOnClick(UnityAction)` is idempotent: a repeated subscription with the same `UnityAction` is ignored (via `_wrappedActions` dictionary); `RemoveOnClick` still detaches the wrapper.
-- External `Press()`/`Release()` works in `OnClick` mode: with `eventData == null` the shift is treated as zero, and the time check still applies.
+- External `Press()`/`Release()` works in `OnClick` mode: with `eventData == null` the shift is treated as zero, and the time check still applies. `Release()` is idempotent — a no-op if the button was not pressed.
 - `OnEnable` resets internal flags (`_pressed = false`), calls `uiStateSwitcher.ResetStates()` and forces the visual to `Free`. This prevents "the button was disabled while held → on re-enable it still appears Pressed". `OnDisable` only clears `_inBorders`; visual reset happens in `OnEnable`.
 
 ### DataStorage
@@ -163,7 +163,7 @@ Delayed child object activation.
 |-------|------|-------------|
 | `delay` | `float` | Delay (0..10 sec) |
 
-`Awake` — deactivates all children. `OnEnable` — schedules activation via `TimeController.Call()`. `OnDisable` — deactivates.
+`Awake` — deactivates all children. `OnEnable` — schedules activation via `TimeController.Call()`. `OnDisable` — deactivates. Marked `[ExecuteInEditMode]`: in the editor outside Play mode, children are activated immediately (no delay) — for layout preview.
 
 ### ScrollRectResetHandler
 

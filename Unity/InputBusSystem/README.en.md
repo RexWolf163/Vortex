@@ -17,7 +17,7 @@ Capabilities:
 Out of scope:
 - Runtime key rebinding
 - Visual input map editor (standard Unity Input Actions Asset is used)
-- Analog input (sticks, triggers) — only discrete actions (Button)
+- Analog input in **routing** — the bus routes only discrete actions (Button) via events; analog values are read by polling through `GetAction` (see Usage)
 
 ## Dependencies
 
@@ -114,7 +114,7 @@ Handlers check `App.GetState() < AppStates.Running` and defer registration until
 - Handlers unsubscribe in `OnDisable` / `OnDestroy`
 
 ### Constraints
-- Discrete input only (Button) — analog values are not transmitted
+- Routing is discrete input only (Button); analog values are not transmitted via events, but are available by polling through `GetAction`
 - `InputSubscriber.Equals` compares by `Owner` — one object cannot have different callbacks for the same action
 - `KeyboardHandler` supports a maximum of 3 modifiers; 4+ are ignored with a warning
 - No priority mechanism — only insertion order (LIFO)
@@ -136,6 +136,9 @@ static string[] GetActions()
 static void AddActionUser(string actionInputId, object actionInputUser,
     Action onPerformedCallback, Action onCanceledCallback)
 static void RemoveActionUser(string actionInputId, object actionInputUser)
+
+// Direct InputAction access for polling reads (ReadValue<T>()/IsPressed())
+static InputAction GetAction(string actionInputId)   // null — key not found
 ```
 
 ### InputSubscriber
@@ -161,6 +164,17 @@ InputController.RemoveActionUser("Player/Jump", this);
 ```
 
 `this` serves as the identification key. A repeated `AddActionUser` with the same object will not create a duplicate.
+
+### Polling a value (GetAction)
+
+For analog input (sticks, triggers, cursor delta), where you need the value on demand rather than a callback subscription, `GetAction("Map/Action")` returns the `InputAction` directly — then `ReadValue<T>()` / `IsPressed()` in your own `Update`:
+
+```csharp
+var move = InputController.GetAction("Player/Move");
+var delta = move?.ReadValue<Vector2>() ?? Vector2.zero;
+```
+
+`null` — key not found. This is an escape hatch around the LIFO routing: the caller reads the value itself, the bus is not involved in polling (in the editor the method runs `Init` on demand if needed).
 
 ### Subscription via Inspector (InputActionHandler)
 
