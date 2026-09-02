@@ -159,7 +159,6 @@ namespace Vortex.NaniExtensions.Core
 
             ChoiceHandlerManager.ResetService();
 
-            /*
             try
             {
                 ScriptPlayer.Stop();
@@ -170,7 +169,6 @@ namespace Vortex.NaniExtensions.Core
                 if (Settings.Data().DebugMode)
                     Debug.LogException(ex);
             }
-            */
 
             ScriptPlayer.OnPlay += OnScriptEvent;
             ScriptPlayer.OnStop += OnScriptEvent;
