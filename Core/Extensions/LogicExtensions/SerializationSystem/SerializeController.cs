@@ -40,9 +40,13 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         /// </summary>
         private static readonly Dictionary<Type, bool> CachePOCO = new();
 
-        private static readonly HashSet<object> VisitedObjects = new();
-
         private const string ClassTypeField = "__";
+
+        /// <summary>
+        /// Потолок глубины рекурсии десериализации/загрузки — страховка от битого/зловредного
+        /// глубоко-вложенного сейва (иначе StackOverflow). Cериализация цикл ловит visited-сетом.
+        /// </summary>
+        private const int MaxDepth = 64;
 
         #endregion
 

@@ -31,24 +31,24 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 //словари
                 if (typeof(IDictionary).IsAssignableFrom(type))
                 {
-                    UploadDictionary(target, data);
+                    UploadDictionary(target, data, 0);
                     return;
                 }
 
                 if (type.IsArray)
                 {
-                    UploadArray(ref target, data);
+                    UploadArray(ref target, data, 0);
                     return;
                 }
 
                 //прочие коллекции
                 if (type != typeof(string) && typeof(IList).IsAssignableFrom(type))
                 {
-                    UploadCollection(target, data);
+                    UploadCollection(target, data, 0);
                     return;
                 }
 
-                UploadClass(target, data);
+                UploadClass(target, data, 0);
             }
             catch (Exception ex)
             {
@@ -99,8 +99,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
         }
 
-        private static void UploadClass<T>(this T target, string data) where T : class
+        private static void UploadClass<T>(this T target, string data, int depth = 0) where T : class
         {
+            if (depth > MaxDepth)
+            {
+                Log.Print(LogLevel.Error, $"Upload depth limit ({MaxDepth}) exceeded", "SerializeController");
+                return;
+            }
+
             data = TrimData(data);
             if (string.IsNullOrEmpty(data))
             {
@@ -187,11 +193,11 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                         {
                             if (value == null)
                             {
-                                props.SetValue(target, DeserializeClass(propsType, valueText));
+                                props.SetValue(target, DeserializeClass(propsType, valueText, depth + 1));
                             }
                             else
                             {
-                                UploadDictionary(value, valueText);
+                                UploadDictionary(value, valueText, depth + 1);
                             }
 
                             continue;
@@ -199,7 +205,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
                         if (propsType.IsArray)
                         {
-                            UploadArray(ref value, valueText);
+                            UploadArray(ref value, valueText, depth + 1);
                             props.SetValue(target, value);
                             continue;
                         }
@@ -209,11 +215,11 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                         {
                             if (value == null)
                             {
-                                props.SetValue(target, DeserializeClass(propsType, valueText));
+                                props.SetValue(target, DeserializeClass(propsType, valueText, depth + 1));
                             }
                             else
                             {
-                                UploadCollection(value, valueText);
+                                UploadCollection(value, valueText, depth + 1);
                             }
 
                             continue;
@@ -221,11 +227,11 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
                         if (value == null)
                         {
-                            props.SetValue(target, DeserializeClass(propsType, valueText));
+                            props.SetValue(target, DeserializeClass(propsType, valueText, depth + 1));
                         }
                         else
                         {
-                            UploadClass(value, valueText);
+                            UploadClass(value, valueText, depth + 1);
                             props.SetValue(target, value);
                         }
                     }
@@ -244,7 +250,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
         }
 
-        private static void UploadCollection<T>(T target, string data)
+        private static void UploadCollection<T>(T target, string data, int depth = 0)
         {
             var type = target.GetType();
             var elementType = type.GenericTypeArguments[0];
@@ -269,14 +275,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             var ar = SeparateText(data);
             foreach (var s in ar)
             {
-                var element = DeserializeClass(elementType, s);
+                var element = DeserializeClass(elementType, s, depth + 1);
                 if (element == null)
                     continue;
                 list.Add(element);
             }
         }
 
-        private static void UploadDictionary<T>(T target, string data)
+        private static void UploadDictionary<T>(T target, string data, int depth = 0)
         {
             var type = target.GetType();
             Type keyType = null;
@@ -324,7 +330,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 if (key != null)
                 {
                     if (!targetDict.Contains(key))
-                        targetDict.Add(key, DeserializeClass(valueType, valueText));
+                        targetDict.Add(key, DeserializeClass(valueType, valueText, depth + 1));
                     else
                     {
                         var value = targetDict[key];
@@ -339,7 +345,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
         }
 
-        private static void UploadArray<T>(ref T target, string data)
+        private static void UploadArray<T>(ref T target, string data, int depth = 0)
         {
             var type = target.GetType();
             data = TrimData(data, true);
@@ -362,7 +368,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             for (var i = ar.Count - 1; i >= 0; i--)
             {
                 var s = ar[i];
-                var item = DeserializeClass(elementType, s);
+                var item = DeserializeClass(elementType, s, depth + 1);
                 list.SetValue(item, i);
             }
 

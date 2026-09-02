@@ -21,18 +21,12 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
         {
             if (model == null)
                 return string.Empty;
-            try
-            {
-                VisitedObjects.Clear();
-                return model.SerializeClass();
-            }
-            finally
-            {
-                VisitedObjects.Clear();
-            }
+            // visited-сет локальный на вызов: re-entrant (вложенная сериализация из custom-конвертера
+            // не портит внешний проход) и thread-safe, в отличие от прежнего static-поля.
+            return model.SerializeClass(new HashSet<object>());
         }
 
-        private static string SerializeClass(this Object model, int deep = 0)
+        private static string SerializeClass(this object model, HashSet<object> visited, int deep = 0)
         {
             var tabs = new string(' ', 2 * deep++);
             var tabsChilds = new string(' ', 2 * deep);
@@ -40,7 +34,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             if (IsSimpleType(type))
                 return GetSimple(model);
 
-            if (!VisitedObjects.Add(model))
+            if (!visited.Add(model))
             {
                 Log.Print(LogLevel.Error, "Serialization failed from cycled model data", model);
                 return String.Empty;
@@ -51,12 +45,12 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
             //словари
             if (typeof(IDictionary).IsAssignableFrom(type))
-                ar = SerializeDictionary(model, deep);
+                ar = SerializeDictionary(model, visited, deep);
             //прочие коллекции
             else if (type != typeof(string) && typeof(IList).IsAssignableFrom(type))
             {
                 isArray = true;
-                ar = SerializeArray(model, deep);
+                ar = SerializeArray(model, visited, deep);
             }
             else
             {
@@ -74,10 +68,15 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 foreach (var prop in props)
                 {
                     var value = prop.GetValue(model);
-                    var str = $"\"{prop.Name}\" : {value.SerializeClass(deep)}";
+                    var str = $"\"{prop.Name}\" : {value.SerializeClass(visited, deep)}";
                     ar.Add(str);
                 }
             }
+
+            // Sub-сериализатор мог вернуть null на невалидном входе (напр. словарь с комплексным ключом):
+            // ошибка уже залогирована — отдаём мягкую деградацию вместо ArgumentNullException в string.Join.
+            if (ar == null)
+                return "null";
 
             var serialized = string.Join($",\n{tabsChilds}", ar);
             return isArray
@@ -85,7 +84,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 : $"{{\n{tabsChilds}{serialized}\n{tabs}}}";
         }
 
-        private static List<string> SerializeDictionary(object model, int deep = 0)
+        private static List<string> SerializeDictionary(object model, HashSet<object> visited, int deep = 0)
         {
             var ar = new List<string>();
             var dict = model as IDictionary;
@@ -109,13 +108,13 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                     ? $"\"{((Type)key).AssemblyQualifiedName}\""
                     : GetSimple(key);
 
-                ar.Add($"{serializedKey} : {item.SerializeClass(deep)}");
+                ar.Add($"{serializedKey} : {item.SerializeClass(visited, deep)}");
             }
 
             return ar;
         }
 
-        private static List<string> SerializeArray(object model, int deep = 0)
+        private static List<string> SerializeArray(object model, HashSet<object> visited, int deep = 0)
         {
             var ar = new List<string>();
             var collection = model as IList;
@@ -126,7 +125,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
 
             foreach (var item in collection)
-                ar.Add($"{item.SerializeClass(deep)}");
+                ar.Add($"{item.SerializeClass(visited, deep)}");
             return ar;
         }
     }

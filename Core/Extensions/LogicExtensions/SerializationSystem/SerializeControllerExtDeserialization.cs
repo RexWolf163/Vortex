@@ -26,7 +26,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             var type = typeof(T);
             try
             {
-                var result = (T)type.DeserializeClass(data);
+                var result = (T)type.DeserializeClass(data, 0);
                 return result;
             }
             catch (Exception ex)
@@ -36,8 +36,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             }
         }
 
-        private static object DeserializeClass(this Type type, string data)
+        private static object DeserializeClass(this Type type, string data, int depth = 0)
         {
+            if (depth > MaxDepth)
+            {
+                Log.Print(LogLevel.Error, $"Deserialization depth limit ({MaxDepth}) exceeded", "SerializeController");
+                return null;
+            }
+
             if (IsSimpleType(type))
                 return SetSimple(type, data);
 
@@ -46,14 +52,14 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
             //словари
             if (typeof(IDictionary).IsAssignableFrom(type))
-                return DeserializeDictionary(type, data);
+                return DeserializeDictionary(type, data, depth);
 
             if (type.IsArray)
-                return DeserializeArray(type, data);
+                return DeserializeArray(type, data, depth);
 
             //прочие коллекции
             if (type != typeof(string) && typeof(IList).IsAssignableFrom(type))
-                return DeserializeCollection(type, data);
+                return DeserializeCollection(type, data, depth);
 
 
             data = TrimData(data);
@@ -138,7 +144,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
 
                 if (props.SetMethod != null)
                 {
-                    props.SetValue(model, DeserializeClass(props.PropertyType, valueText));
+                    props.SetValue(model, DeserializeClass(props.PropertyType, valueText, depth + 1));
                 }
                 else
                 {
@@ -152,7 +158,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             return model;
         }
 
-        private static object DeserializeCollection(Type type, string data)
+        private static object DeserializeCollection(Type type, string data, int depth = 0)
         {
             var elementType = type.GenericTypeArguments[0];
             if (elementType == null)
@@ -174,7 +180,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             var ar = SeparateText(data);
             foreach (var s in ar)
             {
-                var element = DeserializeClass(elementType, s);
+                var element = DeserializeClass(elementType, s, depth + 1);
                 if (element == null)
                     continue;
                 list.Add(element);
@@ -183,7 +189,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             return list;
         }
 
-        private static object DeserializeDictionary(Type type, string data)
+        private static object DeserializeDictionary(Type type, string data, int depth = 0)
         {
             Type keyType = null;
             Type valueType = null;
@@ -231,7 +237,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
                 var key = keyType == typeof(Type) ? Type.GetType(name) : SetSimple(keyType, name);
                 if (key != null)
                 {
-                    dict.Add(key, DeserializeClass(valueType, valueText));
+                    dict.Add(key, DeserializeClass(valueType, valueText, depth + 1));
                     continue;
                 }
 
@@ -241,7 +247,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             return dict;
         }
 
-        private static object DeserializeArray(Type type, string data)
+        private static object DeserializeArray(Type type, string data, int depth = 0)
         {
             data = TrimData(data, true);
             var ar = SeparateText(data);
@@ -260,7 +266,7 @@ namespace Vortex.Core.Extensions.LogicExtensions.SerializationSystem
             for (var i = ar.Count - 1; i >= 0; i--)
             {
                 var s = ar[i];
-                var item = DeserializeClass(elementType, s);
+                var item = DeserializeClass(elementType, s, depth + 1);
                 list.SetValue(item, i);
             }
 

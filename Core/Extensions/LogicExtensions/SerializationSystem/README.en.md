@@ -251,7 +251,7 @@ Each complex object contains a type marker `"__"` with `AssemblyQualifiedName`:
 | `CacheFields` | `Dictionary<Type, PropertyInfo[]>` — type properties (filtered by `[NotPOCO]` and `IsSerializableType`) |
 | `CachePOCO` | `Dictionary<Type, bool>` — `[POCO]` check result for type and its interfaces |
 
-Both caches are populated on first access and never cleared. The visited-object registry `VisitedObjects` (cycle protection), by contrast, is cleared at the start of each `SerializeProperties` and in the `finally` on completion.
+Both caches are populated on first access and never cleared. Cycle protection is a **local** `HashSet<object>`: created per `SerializeProperties` call and threaded through the recursion. Serialization is therefore re-entrant (a nested call from a custom converter does not corrupt the outer pass) and thread-safe.
 
 ### Framework integration
 
@@ -323,10 +323,10 @@ An object whose type is marked `[POCO]` (or implements an interface with `[POCO]
 | Properties only, no fields | Controls the serializable surface, filters system fields |
 | Complex types require `[POCO]` | Protects against pulling in UnityEngine.Object and other unintended types |
 | No cyclic references | Detected via `HashSet`; cycle causes error |
-| Dictionary keys — simple types or `Type` | Complex keys not supported |
+| Dictionary keys — simple types or `Type` | Complex keys not supported (logged + graceful `"null"`, not an exception) |
 | `Type.GetType()` on deserialization | Type must be available in current AppDomain |
 | `DateTime` without timezone | Fixed format `yyyy-MM-dd HH:mm:ss` |
-| `VisitedObjects` is static | Not thread-safe |
+| Deserialization/upload depth ≤ `MaxDepth` (64) | Guard against a corrupt deeply-nested save: overflow → log + `null`, not a StackOverflow |
 
 ---
 
