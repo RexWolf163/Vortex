@@ -26,11 +26,10 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             _animator.SetBool(_boolParamName, false);
         }
 
-        public override bool IsValid() => _animator != null && GetAnimatorStatesKeys().Contains(_boolParamName);
 
 #if UNITY_EDITOR
 
-
+        public override bool IsValid() => _animator != null && GetAnimatorStatesKeys().Contains(_boolParamName);
         public override string DropDownItemName => "AnimatorBoolSwitch";
         public override string DropDownGroupName => "Animator Control";
 
