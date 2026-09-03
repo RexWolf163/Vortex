@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Sirenix.OdinInspector;
 using UnityEngine;
 #if UNITY_EDITOR
@@ -24,6 +25,9 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
         {
             _animator.SetBool(_boolParamName, false);
         }
+
+        public override bool IsValid() => _animator != null && GetAnimatorStatesKeys().Contains(_boolParamName);
+
 #if UNITY_EDITOR
 
 

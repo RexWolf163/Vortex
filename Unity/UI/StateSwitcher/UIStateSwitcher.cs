@@ -118,6 +118,13 @@ namespace Vortex.Unity.UI.StateSwitcher
             [Button]
             private void SetSwitcher() => owner.Set(this);
 #endif
+            internal bool IsValid()
+            {
+                var errors = true;
+                foreach (var stateItem in StateItems)
+                    errors = errors && stateItem != null && stateItem.IsValid();
+                return errors;
+            }
         }
 
         #endregion
@@ -363,6 +370,17 @@ namespace Vortex.Unity.UI.StateSwitcher
                 if (state != stateData) continue;
                 State = i;
                 return;
+            }
+        }
+
+        private void OnValidate()
+        {
+            if (Application.isPlaying)
+                return;
+            foreach (var state in states)
+            {
+                if (!state.IsValid())
+                    Debug.LogError($"[UIStateSwitcher] state {name}.{state.Name} has errors!");
             }
         }
 #endif

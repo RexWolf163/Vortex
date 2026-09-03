@@ -101,6 +101,17 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             SetColor(Color.white);
         }
 
+        public override bool IsValid()
+        {
+            foreach (var link in _objects)
+            {
+                if (link == null)
+                    return false;
+            }
+
+            return true;
+        }
+
 #if UNITY_EDITOR
         public override StateItem Clone()
         {

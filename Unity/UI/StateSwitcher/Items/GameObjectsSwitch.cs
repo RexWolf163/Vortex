@@ -37,7 +37,13 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
 #endif
             if (onDelayed)
                 foreach (var gameObject in links)
-                    TimeController.Call(() => gameObject.SetActive(true), gameObject.transform);
+                {
+                    if (gameObject != null)
+                        TimeController.Call(() =>
+                        {
+                            if (gameObject != null) gameObject.SetActive(true);
+                        }, gameObject.transform);
+                }
             else
                 SwitchOn();
         }
@@ -53,7 +59,13 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
 #endif
             if (offDelayed)
                 foreach (var gameObject in links)
-                    TimeController.Call(() => gameObject.SetActive(false), gameObject.transform);
+                {
+                    if (gameObject != null)
+                        TimeController.Call(() =>
+                        {
+                            if (gameObject != null) gameObject.SetActive(false);
+                        }, gameObject.transform);
+                }
             else
                 SwitchOff();
         }
@@ -62,8 +74,11 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
         {
             foreach (var gameObject in links)
             {
-                TimeController.RemoveCall(gameObject.transform);
-                gameObject.SetActive(true);
+                if (gameObject != null)
+                {
+                    TimeController.RemoveCall(gameObject.transform);
+                    gameObject.SetActive(true);
+                }
             }
         }
 
@@ -71,22 +86,44 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
         {
             foreach (var gameObject in links)
             {
-                TimeController.RemoveCall(gameObject.transform);
-                gameObject.SetActive(false);
+                if (gameObject != null)
+                {
+                    TimeController.RemoveCall(gameObject.transform);
+                    gameObject.SetActive(false);
+                }
+#if UNITY_EDITOR
+                else if (!Application.isPlaying)
+                {
+                    Debug.LogError("[GameObjectSwitch] Has null link!");
+                }
+#endif
             }
         }
 
 
         public override void Dispose()
         {
-            SwitchOff();
             foreach (var gameObject in links)
             {
-                if (gameObject == null)
-                    continue;
-                TimeController.RemoveCall(gameObject.transform);
+                if (gameObject != null)
+                {
+                    TimeController.RemoveCall(gameObject.transform);
+                    gameObject.SetActive(false);
+                }
             }
+
             base.Dispose();
+        }
+
+        public override bool IsValid()
+        {
+            foreach (var link in links)
+            {
+                if (link == null)
+                    return false;
+            }
+
+            return true;
         }
 
 #if UNITY_EDITOR

@@ -24,6 +24,8 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             tweener.Back();
         }
 
+        public override bool IsValid() => tweener != null;
+
 #if UNITY_EDITOR
 
         public override string DropDownItemName => "Switch Tweener Hub";

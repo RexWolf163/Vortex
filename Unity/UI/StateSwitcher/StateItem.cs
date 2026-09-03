@@ -26,5 +26,11 @@ namespace Vortex.Unity.UI.StateSwitcher
         public abstract string DropDownGroupName { get; }
         public abstract StateItem Clone();
 #endif
+        /// <summary>
+        /// Проверка на ошибки настроек.
+        /// Возвращает false если есть ошибки
+        /// </summary>
+        /// <returns></returns>
+        public abstract bool IsValid();
     }
 }

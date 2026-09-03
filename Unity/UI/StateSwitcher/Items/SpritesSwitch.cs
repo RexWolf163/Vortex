@@ -49,6 +49,17 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             SetSprite(null);
         }
 
+        public override bool IsValid()
+        {
+            foreach (var link in _images)
+            {
+                if (link == null)
+                    return false;
+            }
+
+            return true;
+        }
+
 
 #if UNITY_EDITOR
         public override StateItem Clone()

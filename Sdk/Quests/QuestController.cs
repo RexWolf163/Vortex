@@ -7,6 +7,7 @@ using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Sdk.Quests.QuestsLogics;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 
 namespace Vortex.Sdk.Quests
 {
@@ -15,6 +16,8 @@ namespace Vortex.Sdk.Quests
     /// </summary>
     public static partial class QuestController
     {
+        private static object _owner = new();
+
         /// <summary>
         /// Обновление в данных 
         /// </summary>
@@ -83,7 +86,6 @@ namespace Vortex.Sdk.Quests
         private static void LoadGameLogic()
         {
             ResetController();
-            //RestorePresetData();
 
             // Гард на осиротевшие записи. Квест, удалённый из Database, но оставшийся в сейве, при
             // десериализации словаря попадает в индекс битой записью: ключа нет в целевом наборе (собранном
@@ -168,6 +170,8 @@ namespace Vortex.Sdk.Quests
 
         private static void ResetController()
         {
+            TimeController.RemoveCall(_owner);
+
             CompletedQuests.Clear();
             if (ActiveQuests.Count > 0)
             {
@@ -188,7 +192,8 @@ namespace Vortex.Sdk.Quests
         /// <summary>
         /// Проверка на выполнение условий старта
         /// </summary>
-        public static void CheckQuestStartConditions() => CheckQuestStartConditions(0);
+        public static void CheckQuestStartConditions() =>
+            TimeController.Call(() => CheckQuestStartConditions(0), _owner);
 
         /// <summary>
         /// Проверка на выполнение условий старта

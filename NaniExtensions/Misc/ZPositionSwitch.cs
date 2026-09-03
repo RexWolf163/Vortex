@@ -25,6 +25,18 @@ namespace Vortex.NaniExtensions.Misc
             foreach (var target in targets)
                 target.sortingOrder = 0;
         }
+
+        public override bool IsValid()
+        {
+            foreach (var link in targets)
+            {
+                if (link == null)
+                    return false;
+            }
+
+            return true;
+        }
+
 #if UNITY_EDITOR
 
         public override string DropDownItemName => "Z Position";

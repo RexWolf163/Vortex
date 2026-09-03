@@ -93,7 +93,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
                 var first = _index.First();
                 _focused = new StringData(null);
                 _focused.Set(first.Key);
-
+                var f = true;
                 foreach (var guid in _index.Keys)
                 {
                     await UniTask.Yield(token);
@@ -103,9 +103,10 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
                     var slotData = new SaveSlotData(guid, summary);
                     _saveSlots[guid] = slotData;
                     pool.AddItem(slotData, _focused, (Action<string>)SetFocus);
+                    if (!f) continue;
+                    f = false;
+                    storageFocusedSlot.SetData(_saveSlots[first.Key]);
                 }
-
-                storageFocusedSlot.SetData(_saveSlots[first.Key]);
             }
             catch (OperationCanceledException)
             {

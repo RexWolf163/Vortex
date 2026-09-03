@@ -25,6 +25,17 @@ namespace Vortex.SpineExtensions.UIs
             foreach (var meshRenderer in meshRenderers)
                 meshRenderer.sortingOrder = 0;
         }
+        
+        public override bool IsValid()
+        {
+            foreach (var link in meshRenderers)
+            {
+                if (link == null)
+                    return false;
+            }
+
+            return true;
+        }
 
 #if UNITY_EDITOR
 
