@@ -48,9 +48,9 @@ namespace Vortex.Unity.Components.Misc.StateSwitcher
                 uiComponent.SetText(text, position);
         }
 
+#if UNITY_EDITOR
         public override bool IsValid() => uiComponent != null;
 
-#if UNITY_EDITOR
         public override StateItem Clone()
         {
             return new TextSwitch

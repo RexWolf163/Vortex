@@ -26,6 +26,8 @@ namespace Vortex.NaniExtensions.Misc
                 target.sortingOrder = 0;
         }
 
+#if UNITY_EDITOR
+
         public override bool IsValid()
         {
             foreach (var link in targets)
@@ -36,8 +38,6 @@ namespace Vortex.NaniExtensions.Misc
 
             return true;
         }
-
-#if UNITY_EDITOR
 
         public override string DropDownItemName => "Z Position";
         public override string DropDownGroupName => "Graphics";

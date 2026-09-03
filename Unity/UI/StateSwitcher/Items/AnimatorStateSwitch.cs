@@ -27,16 +27,9 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             _animator.SetInteger(_stateName, _defaultStateNumber);
         }
 
-        public override bool IsValid() => _animator != null && GetAnimatorStatesKeys().Contains(_stateName);
-
-        private string[] GetAnimatorStatesKeys()
-        {
-            if (_animator == null) return new string[0];
-            return _animator.GetAnimatorParameters<int>();
-        }
-
 #if UNITY_EDITOR
 
+        public override bool IsValid() => _animator != null && GetAnimatorStatesKeys().Contains(_stateName);
 
         public override string DropDownItemName => "AnimatorStateSwitch";
         public override string DropDownGroupName => "Animator Control";
@@ -51,6 +44,11 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             };
         }
 
+        private string[] GetAnimatorStatesKeys()
+        {
+            if (_animator == null) return new string[0];
+            return _animator.GetAnimatorParameters<int>();
+        }
 #endif
     }
 }

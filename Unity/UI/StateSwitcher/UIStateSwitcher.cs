@@ -117,7 +117,7 @@ namespace Vortex.Unity.UI.StateSwitcher
             [HorizontalGroup("top", 0.2f), GUIColor("@Color.green")]
             [Button]
             private void SetSwitcher() => owner.Set(this);
-#endif
+
             internal bool IsValid()
             {
                 var errors = true;
@@ -125,6 +125,7 @@ namespace Vortex.Unity.UI.StateSwitcher
                     errors = errors && stateItem != null && stateItem.IsValid();
                 return errors;
             }
+#endif
         }
 
         #endregion

@@ -20,10 +20,9 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
         {
         }
 
-        public override bool IsValid() => true;
-
-
 #if UNITY_EDITOR
+
+        public override bool IsValid() => true;
 
         private void CorrectEventsSettings()
         {

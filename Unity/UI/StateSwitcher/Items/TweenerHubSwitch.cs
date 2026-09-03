@@ -24,10 +24,10 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
             tweener.Back();
         }
 
-        public override bool IsValid() => tweener != null;
 
 #if UNITY_EDITOR
 
+        public override bool IsValid() => tweener != null;
         public override string DropDownItemName => "Switch Tweener Hub";
         public override string DropDownGroupName => "Tweeners";
         public override StateItem Clone()

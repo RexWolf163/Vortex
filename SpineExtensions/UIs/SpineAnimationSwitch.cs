@@ -53,6 +53,9 @@ namespace Vortex.SpineExtensions.UIs
                 spineAnimation.AnimationState.SetEmptyAnimation(channel, 0);
         }
 
+#if UNITY_EDITOR
+
+
         public override bool IsValid()
         {
             if (spine == null && spineAnimation == null) return false;
@@ -61,8 +64,6 @@ namespace Vortex.SpineExtensions.UIs
 
             return true;
         }
-
-#if UNITY_EDITOR
 
         public override string DropDownItemName => "Switch Spine Animation";
         public override string DropDownGroupName => "Animator Control";

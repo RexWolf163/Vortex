@@ -53,6 +53,7 @@ namespace Vortex.SpineExtensions.UIs
             skeleton.SetSlotsToSetupPose();
         }
 
+#if UNITY_EDITOR
         public override bool IsValid()
         {
             if (spine == null && spineAnimation == null) return false;
@@ -61,8 +62,6 @@ namespace Vortex.SpineExtensions.UIs
 
             return true;
         }
-
-#if UNITY_EDITOR
 
         public override string DropDownItemName => "Switch Spine Skin";
         public override string DropDownGroupName => "Animator Control";

@@ -28,8 +28,6 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
 
         public override bool IsValid() => _animator != null && GetAnimatorStatesKeys().Contains(_boolParamName);
 
-        private string[] GetAnimatorStatesKeys() => _animator.GetAnimatorParameters<bool>();
-
 #if UNITY_EDITOR
 
 
@@ -44,6 +42,8 @@ namespace Vortex.Unity.UI.StateSwitcher.Items
                 _animator = _animator,
             };
         }
+
+        private string[] GetAnimatorStatesKeys() => _animator.GetAnimatorParameters<bool>();
 #endif
     }
 }

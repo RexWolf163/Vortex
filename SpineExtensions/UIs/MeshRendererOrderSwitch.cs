@@ -26,6 +26,8 @@ namespace Vortex.SpineExtensions.UIs
                 meshRenderer.sortingOrder = 0;
         }
         
+#if UNITY_EDITOR
+
         public override bool IsValid()
         {
             foreach (var link in meshRenderers)
@@ -36,8 +38,6 @@ namespace Vortex.SpineExtensions.UIs
 
             return true;
         }
-
-#if UNITY_EDITOR
 
         public override string DropDownItemName => "Switch MeshRenderer Order";
         public override string DropDownGroupName => "Animator Control";
