@@ -67,7 +67,8 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Handlers
                 if (!whiteList.Contains(lang))
                     continue;
                 _availableLocales.Add(lang);
-                _availableLocalesLabels.Add(lang.ToUpper().Translate());
+                // Invariant: это КЛЮЧ перевода — культурная ToUpper() ломает коды id/it/fi/vi на турецкой локали.
+                _availableLocalesLabels.Add(lang.ToUpperInvariant().Translate());
             }
         }
 

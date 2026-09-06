@@ -39,7 +39,9 @@ namespace Vortex.Unity.Components.Misc.LocalizationSystem
         [Button("Set Locale")]
         private void Refresh()
         {
-            uiComponent.SetText(language.ToUpper().Translate());
+            // Invariant: это КЛЮЧ перевода. Культурная ToUpper() на турецкой локали даёт "İD"/"İT"/"Fİ"/"Vİ"
+            // для кодов id/it/fi/vi — ключ не находится, язык подписан неверно.
+            uiComponent.SetText(language.ToUpperInvariant().Translate());
             if (!useSwitch)
                 return;
             uiComponent.SetSwitcher(

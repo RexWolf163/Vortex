@@ -52,7 +52,9 @@ namespace Vortex.Unity.LocalizationSystem.Presets
                     {
                         list[i] = list[i].TrimEnd('\r');
                         var tempDataArray = list[i].Split('\t');
-                        var key = tempDataArray[0].ToUpper();
+                        // Invariant: это КЛЮЧ локализации. Культурная ToUpper() на машине с турецкой локалью
+                        // даёт i → İ, и импортированные ключи перестают совпадать с теми, что ищет рантайм.
+                        var key = tempDataArray[0].ToUpperInvariant();
                         var tempCount = tempDataArray.Length;
                         if (!index.TryGetValue(key, out var localePreset))
                             localePreset = new LocalePreset(key);
