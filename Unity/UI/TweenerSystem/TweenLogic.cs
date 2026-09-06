@@ -212,7 +212,12 @@ namespace Vortex.Unity.UI.TweenerSystem
                     await UniTask.Yield();
                 }
 
-                if (_isDead)
+                // Токен проверяется в теле цикла, но выход по условию while его минует: skip-Back/Forward отменяет
+                // токен и сам выставляет _progress в конец → на возобновлении условие сразу ложно, и цикл
+                // выходит ШТАТНО. Без проверки здесь осиротевшее продолжение финализировало бы повторно
+                // (второй OnStart/OnEnd, SwitchOff, _onComplete) — в т.ч. на уже разрушенном носителе после
+                // завершения миниигры. Отменённый токен = финализацию уже сделал вызвавший skip, нам — выйти.
+                if (_isDead || token.IsCancellationRequested)
                     return;
 
                 _tweenTask = default;
