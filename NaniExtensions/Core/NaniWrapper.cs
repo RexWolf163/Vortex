@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Naninovel;
 using UnityEngine;
@@ -82,6 +83,17 @@ namespace Vortex.NaniExtensions.Core
 
         /// <summary>Owner-ключ для дебаунса SaveGlobal по родному останову скрипта (см. <see cref="OnNativeStopSave"/>).</summary>
         private static readonly object SaveGlobalOwner = new();
+
+        /// <summary>
+        /// Шлюз запуска скрипта захвачен: <c>Load</c> уже идёт, <c>Play</c> ещё не вызван (см. <see cref="PlayScript"/>).
+        /// </summary>
+        private static bool _starting;
+
+        /// <summary>
+        /// Идёт запуск скрипта через <see cref="PlayScript"/> — плеер ещё не <c>Playing</c>, но занимать его нельзя.
+        /// Учитывается в <see cref="NaniIsPlaying"/>.
+        /// </summary>
+        public static bool IsStartingScript => _starting;
 
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
@@ -247,8 +259,68 @@ namespace Vortex.NaniExtensions.Core
             OnNaniStop?.Invoke();
         }
 
+        /// <summary>
+        /// Единая точка запуска скрипта: сериализует запуски между собой. Пока один вызов не прошёл путь
+        /// «<c>Load</c> → <c>Play</c>», остальные ждут на шлюзе.
+        ///
+        /// Зачем. <c>LoadAndPlay</c> — это <c>await IScriptLoader.Load(path)</c> плюс <c>ScriptPlayer.Play(path)</c>,
+        /// и между ними асинхронное окно: внутри <c>Load</c> идёт preload акторов (инстанцирование префабов,
+        /// загрузка аппиренсов) — десятки кадров. В этом окне <c>ScriptPlayer.Playing</c> ещё <c>false</c>, то есть
+        /// плеер выглядит свободным. При <c>ResourcePolicy.Optimistic</c> (текущая настройка проекта) очередной
+        /// <c>Load</c> начинается с <c>UnloadAll()</c>, который отпускает держателей ассета, уже подготовленного
+        /// первым вызовом. Первый доходит до <c>Play</c> и падает на
+        /// «Failed to get '&lt;path&gt;' resource of type 'Naninovel.Script': not loaded».
+        ///
+        /// Шлюз учтён в <see cref="NaniIsPlaying"/>, поэтому ждущие «пока Нани освободится» (напр. RunNaniScript)
+        /// не проскакивают в это окно.
+        ///
+        /// Границы: лок держит только запуски, идущие через этот метод. Сбросы плеера извне — из
+        /// <see cref="OnLoadGame"/> (<c>ScriptPlayer.ResetService()</c>) и <see cref="OnStateChanged"/>
+        /// (Off/Win/Fail) — синхронные и шлюз не ждут; загрузка сейва или выход из сессии ровно в окне
+        /// Load→Play по-прежнему способны оборвать запуск.
+        /// </summary>
+        /// <param name="path">Ресурсный путь скрипта Naninovel (не путь ассета).</param>
+        /// <param name="beforeLoad">Подготовка, выполняемая ПОСЛЕ захвата шлюза и ДО <c>Load</c> (например
+        /// <c>ResetService</c> у галереи) — вне шлюза она порвала бы чужой цикл Load→Play.</param>
+        /// <param name="token">Отменяет ожидание шлюза; уже начатый <c>Load</c> не прерывает.</param>
+        public static async UniTask PlayScript(string path, Action beforeLoad = null,
+            CancellationToken token = default)
+        {
+            if (path.IsNullOrWhitespace())
+            {
+                Debug.LogError("[NaniWrapper] PlayScript: пустой путь скрипта.");
+                return;
+            }
+
+            // Кооперативный лок: между проверкой и захватом нет await, а весь код Naninovel живёт на главном
+            // потоке — гонки за флаг здесь нет.
+            while (_starting)
+            {
+                if (token.IsCancellationRequested)
+                    return;
+                await UniTask.Yield();
+            }
+
+            _starting = true;
+            try
+            {
+                beforeLoad?.Invoke();
+                await ScriptPlayer.LoadAndPlay(path);
+            }
+            finally
+            {
+                // Снимаем шлюз и на исключении: иначе одна упавшая загрузка навсегда заблокировала бы запуски.
+                _starting = false;
+            }
+        }
+
         public static bool NaniIsPlaying()
         {
+            // Запуск в процессе: Load идёт, Play ещё не вызван. Плеер не Playing, но путь занят —
+            // иначе ожидающие свободной Нани стартуют свой LoadAndPlay и обрушат текущий (см. PlayScript).
+            if (_starting)
+                return true;
+
             var id = ChoiceHandlerManager?.Actors?.FirstOrDefault()?.Id ?? "";
             if (!id.IsNullOrWhitespace()
                 && ChoiceHandlerManager != null
