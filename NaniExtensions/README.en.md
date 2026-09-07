@@ -49,7 +49,21 @@ The whole Nani package family is activated via the `USING_NANINOVELL` symbol, se
 | Method | Description |
 |--------|-------------|
 | `ResetNani()` | Stop all audio, reset variables, hide backgrounds, characters, text printers, reset choices |
-| `NaniIsPlaying()` | `true` if ScriptPlayer is playing **or a choice handler is visible** (the choice check is load-bearing — see below) |
+| `PlayScript(path, beforeLoad, token)` | The single entry point for starting a script, guarded by a gate — see below |
+| `IsStartingScript` | `true` while the `PlayScript` gate is held (`Load` in flight, `Play` not called yet) |
+| `NaniIsPlaying()` | `true` if **a start is in flight via `PlayScript`**, ScriptPlayer is playing **or a choice handler is visible** (both extra checks are load-bearing — see below) |
+
+### PlayScript — the start gate
+
+Start scripts **only** through `NaniWrapper.PlayScript`, never via `ScriptPlayer.LoadAndPlay` directly.
+
+`LoadAndPlay` is `await IScriptLoader.Load(path)` followed by `ScriptPlayer.Play(path)`, and there is an async window between them: `Load` performs actor preloading (prefab instantiation, appearance loading) spanning dozens of frames. Inside that window `ScriptPlayer.Playing` is still `false`, so the player looks idle. Under `ResourcePolicy.Optimistic` the next `Load` begins with `UnloadAll()`, releasing holders of the asset the first call had already prepared. The first call then reaches `Play` and throws `Failed to get '<path>' resource of type 'Naninovel.Script': not loaded`.
+
+`PlayScript` serialises starts: until one call has travelled `Load → Play`, the others wait on the gate. The gate flag is folded into `NaniIsPlaying()`, so callers waiting for "Naninovel to become free" (e.g. `RunNaniScript`) no longer slip into the window. The gate is released on exceptions too — a failed load never blocks subsequent starts.
+
+`beforeLoad` runs **after** the gate is taken and **before** `Load`; put there any preparation that would tear a concurrent cycle apart outside the lock (the typical case: `ScriptPlayer.ResetService()` in the gallery). `token` cancels only the wait on the gate; a `Load` already in flight is not interrupted.
+
+**Boundaries.** The lock only covers starts routed through `PlayScript`. Synchronous player resets that bypass it — `OnLoadGame` (`ScriptPlayer.ResetService()`) and `OnStateChanged` on `Off/Win/Fail` — do not wait for the gate: a save load or a session exit landing exactly inside the `Load→Play` window can still abort the start.
 
 ### Playback events
 
@@ -64,6 +78,7 @@ Both derive from `ScriptPlayer.OnPlay`/`OnStop`, but are filtered through `NaniI
 - Therefore a **stop is confirmed one frame later**: on stop the decision is deferred and `NaniIsPlaying()` is re-checked next frame — if playback resumed (Resume re-created the routine), the stop is suppressed; a matching `OnPlay` in the same frame also cancels the pending stop. A **start is reported immediately** (and cancels any pending stop).
 - A **real stop** (`Stop()` with no following `Resume`) stays `false` through the next frame → `OnNaniStop` fires (deferred by one frame).
 - The **choice check in `NaniIsPlaying()` stays** — a visible choice handler counts as "playing". This is a separate, multi-frame case (`@stop` + shown choices): playback stays `false` for many frames while waiting for input, so the one-frame debounce cannot cover it. Without the choice check `OnNaniStop` would fire on every choice.
+- The **`IsStartingScript` check in `NaniIsPlaying()`** covers a third multi-frame case — the window between `Load` and `Play` (see `PlayScript`). Side effect on the event contract: while the gate is held `OnNaniStop` will not fire, because the deferred stop confirmation also consults `NaniIsPlaying()`. Semantically correct (a script switch is not a stop), but it shifts subscriber timing.
 
 Contract: `OnNaniStop` is delivered one frame late; a synchronous `Stop→Play` pair (including a script switch via `Play()`) is treated as continued playback and emits no start/stop. If a signal on script *switch* is needed, subscribe to `ScriptPlayer.OnPlay` directly (a different `PlayedScript`).
 
