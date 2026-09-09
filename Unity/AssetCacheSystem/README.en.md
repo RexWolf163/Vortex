@@ -75,7 +75,8 @@ Config/
     DebugSettingsExtAssetsCache     — AssetCacheDebugLogs toggle (respects DebugMode)
 
 Editor/
-  MenuController                    — package menu items (Configs/AssetCache Settings, AssetsCache/Runtime Index)
+  MenuController                    — package menu items (AssetsCache/Runtime Index, AssetsCache/Config,
+                                      Configs/AssetCache Settings)
   AssetCacheIndexWindow             — EditorWindow: runtime index inspector (read-only)
 ```
 
@@ -296,7 +297,7 @@ catch (OperationCanceledException) { /* waiter cancelled */ }
 
 ## Editor
 
-`Tools/Vortex/Configs/AssetCache Settings` — pings the settings asset in the Project window. Uses `AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>()` — expects a single instance in the project; logs an error on multiplicity.
+`Tools/Vortex/AssetsCache/Config` and `Tools/Vortex/Configs/AssetCache Settings` — ping the settings asset in the Project window. Two entry points into one command: the first sits next to the package window, the second in the project-wide config list. Uses `AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>()` — expects a single instance in the project; logs an error on multiplicity.
 
 ### Runtime Index
 

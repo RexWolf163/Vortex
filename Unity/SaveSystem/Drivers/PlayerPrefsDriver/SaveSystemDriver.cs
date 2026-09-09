@@ -145,6 +145,35 @@ namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
 
                 _saveDataIndex.AddNew(item.Id, list);
             }
+
+            LogLoaded(guid);
+        }
+
+        /// <summary>
+        /// Лог факта загрузки: имя сейва и версия сборки, которой он записан. Версия печатается, только
+        /// если проставлена — у сейвов, записанных до появления поля, она пустая, и «version » ни о чём.
+        /// Сводка берётся из индекса (заполнен на Init), перечитывать summary из PlayerPrefs незачем.
+        /// </summary>
+        private static void LogLoaded(string guid)
+        {
+            if (!Saves.TryGetValue(guid, out var summary))
+                return;
+
+            var version = summary.Version.IsNullOrWhitespace() ? "" : $" | version {summary.Version}";
+            Debug.Log($"[SaveSystemDriver] Загружен сейв \"{ShortName(summary.Name)}\"{version} ({guid}).");
+        }
+
+        /// <summary>
+        /// Имя сейва для лога. Снаружи в имя может быть упаковано превью через разделитель — берём часть
+        /// до него: разбирать чужую упаковку драйверу незачем, а тащить base64 картинки в лог тем более.
+        /// </summary>
+        private static string ShortName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return "<без имени>";
+
+            var cut = name.IndexOf('|');
+            return cut >= 0 ? name[..cut] : name;
         }
 
         public void Remove(string guid)

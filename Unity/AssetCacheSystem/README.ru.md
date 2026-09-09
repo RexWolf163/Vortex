@@ -75,7 +75,8 @@ Config/
     DebugSettingsExtAssetsCache     — toggle AssetCacheDebugLogs (учитывает DebugMode)
 
 Editor/
-  MenuController                    — пункты меню пакета (Configs/AssetCache Settings, AssetsCache/Runtime Index)
+  MenuController                    — пункты меню пакета (AssetsCache/Runtime Index, AssetsCache/Config,
+                                      Configs/AssetCache Settings)
   AssetCacheIndexWindow             — EditorWindow: runtime-инспектор индекса (read-only)
 ```
 
@@ -296,7 +297,7 @@ catch (OperationCanceledException) { /* waiter отменён */ }
 
 ## Editor
 
-`Tools/Vortex/Configs/AssetCache Settings` — подсветить ассет настроек в Project window. Использует `AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>()` — ожидает один экземпляр в проекте, при множественности логирует ошибку.
+`Tools/Vortex/AssetsCache/Config` и `Tools/Vortex/Configs/AssetCache Settings` — подсветить ассет настроек в Project window. Два входа в одну команду: первый рядом с окном пакета, второй в общем списке конфигов проекта. Использует `AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>()` — ожидает один экземпляр в проекте, при множественности логирует ошибку.
 
 ### Runtime Index
 

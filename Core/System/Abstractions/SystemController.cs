@@ -44,8 +44,10 @@ namespace Vortex.Core.System.Abstractions
         /// Установить реализацию
         /// </summary>
         /// <param name="driver"></param>
-        /// <returns>TRUE - если слот драйвера был пустым, FALSE - если слот был полным. В этом случае
-        /// запускаются процессы отключения старого драйвера и инициализации нового</returns>
+        /// <returns>Признак первого назначения драйвера.
+        /// TRUE - если слот драйвера был пустым,
+        /// FALSE - если слот был полным или произошла ошибка назначения драйвера.
+        /// Если слот драйвера занят и ошибок нет, то в этом случае запускаются процессы отключения старого драйвера и инициализации нового</returns>
         public static bool SetDriver(TD driver)
         {
             if (driver == null)
@@ -80,9 +82,13 @@ namespace Vortex.Core.System.Abstractions
                 || driverType != driver.GetType().AssemblyQualifiedName)
                 return false;
 
+            //Страховка от некорректного вызова, который может привести к мультиподписке
+            IsInit = false;
+            if (Driver != null)
+                Driver.OnInit -= CallOnInit;
+
             if (Driver != null && !Driver.Equals(driver))
             {
-                Driver.OnInit -= CallOnInit;
                 Instance.OnDriverDisconnect();
                 Driver.Destroy();
                 Driver = driver;
