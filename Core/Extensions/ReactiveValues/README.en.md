@@ -93,6 +93,7 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 - No parameterless constructor — deserialization via `FormatterServices.GetUninitializedObject()`
 - Owner is assigned once and cannot be released
 - Not thread-safe
+- **`ReactiveCollection<T>` does not deduplicate mutations.** Every `Add`/`Remove`/`Insert`/`Sort`/`Reverse`/`Clear`/`Set(index)` raises `OnUpdate`/`OnUpdateData` **unconditionally** (unlike scalar `ReactiveValue<T>.Set`, which dedups via `EqualityComparer<T>`). There is no cheap correct dedup for a collection (it would require an O(n) compare on every mutation), and it is deliberately omitted — the primitive does exactly what it is told. **Resulting rule:** do not mutate the collection from within its own `OnUpdate`/`OnUpdateData` handler (e.g. auto-sort/normalize on change) — that is unbounded recursion with no stop (`StackOverflowException`). Perform normalization in the controller before writing, or as a separate external step. Scalar `ReactiveValue<T>` has no such loop — dedup absorbs re-writing the same value.
 
 ---
 
@@ -269,6 +270,7 @@ QuestController.SetListener(model.Level, this);
 | Instantiating `ReactiveCollection<T>` directly | Not possible — the class is abstract. Use the `ListData<T>` subclass |
 | `ReactiveCollection.Remove(v)` for a missing element | Events are not fired (no change happened) |
 | `ReactiveCollection.Set(index, value)` with the same value | No deduplication — the event fires anyway (unlike `ReactiveValue<T>.Set`) |
+| Mutating `ReactiveCollection<T>` from within its own `OnUpdate`/`OnUpdateData` | Unbounded recursion (no dedup) → `StackOverflowException`. Do not normalize the collection inside its own handler — do it in the controller before writing, or as a separate step |
 | `ReactiveCollection.Set(index, value)` / `RemoveAt(index)` / `RemoveRange(...)` / `Insert(...)` with invalid index | `ArgumentOutOfRangeException` / `ArgumentException` (standard `List<T>` behavior). Events are not fired |
 | `ReactiveCollection.Sort()` for `T` without `IComparable<T>` | `InvalidOperationException`. No overload with comparator available |
 | `ReactiveCollection.SetOwner` called twice | Error, owner is not reassigned. Call `ReleaseOwner(currentOwner)` first |

@@ -93,6 +93,7 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 - Нет конструктора без параметров — десериализация через `FormatterServices.GetUninitializedObject()`
 - Владелец назначается однократно и не может быть снят
 - Не потокобезопасен
+- **`ReactiveCollection<T>` не дедуплицирует мутации.** Каждый `Add`/`Remove`/`Insert`/`Sort`/`Reverse`/`Clear`/`Set(index)` поднимает `OnUpdate`/`OnUpdateData` **безусловно** (в отличие от скалярного `ReactiveValue<T>.Set`, где есть дедуп через `EqualityComparer<T>`). Дешёвого корректного дедупа для коллекции нет (потребовал бы O(n)-сравнения на каждую мутацию), и он намеренно не добавлен — примитив делает ровно то, что сказали. **Следствие-запрет:** нельзя мутировать коллекцию из её же обработчика `OnUpdate`/`OnUpdateData` (напр. авто-сортировка/нормализация при изменении) — это неограниченная рекурсия без стопа (`StackOverflowException`). Нормализацию выполнять в контроллере до записи либо отдельным внешним шагом. У скалярного `ReactiveValue<T>` такой петли нет — дедуп гасит повторную запись того же значения.
 
 ---
 
@@ -269,6 +270,7 @@ QuestController.SetListener(model.Level, this);
 | `ReactiveCollection<T>` инстанцирование напрямую | Невозможно — класс абстрактный. Использовать наследник `ListData<T>` |
 | `ReactiveCollection.Remove(v)` для отсутствующего элемента | События не вызываются (изменений не было) |
 | `ReactiveCollection.Set(index, value)` с тем же значением | Дедупликации нет — событие всё равно вызывается (в отличие от `ReactiveValue<T>.Set`) |
+| Мутация `ReactiveCollection<T>` из её же `OnUpdate`/`OnUpdateData` | Неограниченная рекурсия (дедупа нет) → `StackOverflowException`. Не нормализовать коллекцию в её собственном обработчике — делать это в контроллере до записи или отдельным шагом |
 | `ReactiveCollection.Set(index, value)` / `RemoveAt(index)` / `RemoveRange(...)` / `Insert(...)` с невалидным индексом | `ArgumentOutOfRangeException` / `ArgumentException` (стандартное поведение `List<T>`). Событие не вызывается |
 | `ReactiveCollection.Sort()` для `T` без `IComparable<T>` | `InvalidOperationException`. Перегрузка с компаратором отсутствует |
 | `ReactiveCollection.SetOwner` повторно | Ошибка, владелец не переназначается. Сначала `ReleaseOwner(currentOwner)` |
