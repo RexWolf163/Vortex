@@ -142,7 +142,10 @@ A connector with `TargetStepGuid == "-1"` (`CompleteChainStep`) completes the ch
 | Conditions use AND logic | All `Condition.Check()` must be `true` |
 | First matching connector wins | On auto-transition (0 conditions), remaining connectors are skipped |
 | No chain cancellation | Removal from `Index` only on completion |
-| Cyclic chains are allowed | No infinite loop protection |
+| **Chains must be unidirectional (acyclic)** | Each step normally runs exactly once per chain lifetime (actions are one-shot; conditions are one-shot-to-transition via `DeInit`). A step repeats ONLY on a data loop: a cycle of steps (e.g. `A→B→A` via unconditional connectors) causes synchronous `RunChain→CheckConditions→RunChain` recursion with no visited guard → `StackOverflowException`. There is no runtime protection — it is the preset author's responsibility |
+| Do not call `RunChain(guid)` again on an active chain | A repeated call re-runs the current step's actions and re-subscribes its conditions without `DeInit` of the previous ones — double firings. Start a chain once |
+
+> ⚠️ **Schema contract:** the step graph must be an acyclic directed graph. A loop through unconditional (0-condition) connectors is unbounded recursion with no stop. If chain presets are edited by non-programmers, consider a visited guard / depth limit in `RunChain`/`CheckConditions` that fails loud instead of `StackOverflowException`.
 
 ---
 
