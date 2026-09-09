@@ -75,7 +75,8 @@ Config/
     DebugSettingsExtAssetsCache     — AssetCacheDebugLogs toggle (respects DebugMode)
 
 Editor/
-  MenuController                    — Tools/Vortex/Configs/AssetCache Settings → ping the asset
+  MenuController                    — package menu items (Configs/AssetCache Settings, AssetsCache/Runtime Index)
+  AssetCacheIndexWindow             — EditorWindow: runtime index inspector (read-only)
 ```
 
 ### Bootstrap lifecycle
@@ -296,6 +297,32 @@ catch (OperationCanceledException) { /* waiter cancelled */ }
 ## Editor
 
 `Tools/Vortex/Configs/AssetCache Settings` — pings the settings asset in the Project window. Uses `AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>()` — expects a single instance in the project; logs an error on multiplicity.
+
+### Runtime Index
+
+`Tools/Vortex/AssetsCache/Runtime Index` — a window showing the current state of the registry. Data exists in Play Mode only: before bootstrap the model isn't created, and outside play the window shows a hint.
+
+Summary: loaded (active / survivors), inflight, owner count, and separately how many owners were destroyed without `Release` (their locks live until the next sweep). A progress bar shows survivor fill against `SurvivorCapacity`.
+
+The table holds one row per `AssetReference`:
+
+| Column | Meaning |
+|---|---|
+| Asset | Name of the loaded object, otherwise the file name resolved from the GUID |
+| State | `LOAD` (inflight) / `ACTIVE` / `SURVIVOR` |
+| Refs | How many owners hold the ref — the exact number `IsHeldByAnyOwner` decides on |
+| Type | Actual type of the loaded object |
+| LRU | Position in the survivor queue; `1/N` is the head, evicted first |
+
+Expanding a row reveals the GUID, the named owner list (destroyed ones are marked), and a button that pings the asset in the Project window.
+
+Sorting: `LOAD` → `ACTIVE` → `SURVIVOR`; within active, by descending refs; within survivors, by eviction order. An `ACTIVE` row with zero refs is highlighted yellow: by contract such a ref must sit in survivors, otherwise it never reaches eviction and lingers until `Cleanup` — a leak indicator.
+
+The snapshot is rebuilt in `OnInspectorUpdate` (~10 times/sec, only for a visible window); the "Авто" toggle disables it, next to a manual "Обновить" button, a "Конфиг" button (pings `AssetCacheSettings` through the same command as the menu item), and a name/GUID filter. The window is read-only: it never calls `Release` or triggers eviction.
+
+It lives in `Editor/` inside the package's runtime assembly under `#if UNITY_EDITOR`, so it reads the `internal` `AssetCacheModel` dictionaries directly, without widening the model's public API.
+
+### Debug logs
 
 Debug trace: in `DebugSettings` → `Log Settings` → `AssetCacheDebugLogs` toggle. Only effective if global `DebugMode` is on. Output: `HIT / JOIN / LOAD / REL / SWEEP / EVICT-skip / EVICT`.
 

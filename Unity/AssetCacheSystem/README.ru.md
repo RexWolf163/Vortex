@@ -75,7 +75,8 @@ Config/
     DebugSettingsExtAssetsCache     — toggle AssetCacheDebugLogs (учитывает DebugMode)
 
 Editor/
-  MenuController                    — Tools/Vortex/Configs/AssetCache Settings → ping ассета
+  MenuController                    — пункты меню пакета (Configs/AssetCache Settings, AssetsCache/Runtime Index)
+  AssetCacheIndexWindow             — EditorWindow: runtime-инспектор индекса (read-only)
 ```
 
 ### Lifecycle bootstrap
@@ -296,6 +297,32 @@ catch (OperationCanceledException) { /* waiter отменён */ }
 ## Editor
 
 `Tools/Vortex/Configs/AssetCache Settings` — подсветить ассет настроек в Project window. Использует `AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>()` — ожидает один экземпляр в проекте, при множественности логирует ошибку.
+
+### Runtime Index
+
+`Tools/Vortex/AssetsCache/Runtime Index` — окно текущего состояния реестра. Данные есть только в Play Mode: до bootstrap'а модель не создана, вне игры окно показывает подсказку.
+
+Сводка: загружено (active / survivors), inflight, число владельцев и отдельно — сколько владельцев уничтожено без `Release` (их locks доживут до ближайшего sweep'а). Полоса заполнения survivors относительно `SurvivorCapacity`.
+
+Таблица — строка на `AssetReference`:
+
+| Колонка | Значение |
+|---|---|
+| Ассет | Имя загруженного объекта, иначе имя файла по GUID |
+| Состояние | `LOAD` (inflight) / `ACTIVE` / `SURVIVOR` |
+| Ссылок | Сколько владельцев держат ref — то самое число, по которому решает `IsHeldByAnyOwner` |
+| Тип | Фактический тип загруженного объекта |
+| LRU | Позиция в очереди survivors, `1/N` — голова, выгрузится первой |
+
+Раскрытие строки даёт GUID, поимённый список владельцев (уничтоженные помечены) и кнопку ping'а ассета в Project window.
+
+Сортировка: `LOAD` → `ACTIVE` → `SURVIVOR`; внутри active — по убыванию ссылок, внутри survivors — по очереди выгрузки. Строка `ACTIVE` с нулём ссылок подсвечивается жёлтым: по контракту такой ref обязан лежать в survivors, иначе он не попадёт под eviction и провисит до `Cleanup` — индикатор утечки.
+
+Снимок пересобирается в `OnInspectorUpdate` (~10 раз/с, только для видимого окна); тумблер «Авто» его выключает, рядом ручное «Обновить», кнопка «Конфиг» (подсветка `AssetCacheSettings` — той же командой, что и пункт меню) и поиск по имени/GUID. Окно только читает: `Release`/eviction отсюда не вызываются.
+
+Живёт в `Editor/` рантайм-сборки пакета под `#if UNITY_EDITOR` — поэтому читает `internal`-словари `AssetCacheModel` напрямую, без расширения публичного API модели.
+
+### Debug-логи
 
 Debug-трассировка: в `DebugSettings` → `Log Settings` → toggle `AssetCacheDebugLogs`. Учитывается только при включённом глобальном `DebugMode`. Вывод: `HIT / JOIN / LOAD / REL / SWEEP / EVICT-skip / EVICT`.
 

@@ -8,17 +8,26 @@ using Vortex.Unity.Extensions.Editor;
 namespace Vortex.Unity.AssetCacheSystem.Editor
 {
     /// <summary>
-    /// Меню-команда быстрого доступа к единственному <see cref="AssetCacheSettings"/>-ассету
-    /// в проекте: <c>Vortex/Configs/AssetCache Settings</c>. Подсвечивает ассет в Project window.
+    /// Меню-команды пакета:
+    /// <c>Tools/Vortex/Configs/AssetCache Settings</c> — подсветить единственный
+    /// <see cref="AssetCacheSettings"/>-ассет в Project window;
+    /// <c>Tools/Vortex/AssetsCache/Runtime Index</c> — открыть runtime-инспектор индекса.
     /// </summary>
     public static class MenuController
     {
+        /// <summary>
+        /// Подсветить ассет настроек пакета в Project window. Не private: этой же командой пользуется
+        /// кнопка «Конфиг» в <see cref="AssetCacheIndexWindow"/> — реализация одна на оба входа.
+        /// </summary>
         [MenuItem("Tools/Vortex/Configs/AssetCache Settings")]
-        private static void FindConfig()
+        internal static void FindConfig()
         {
             var res = AssetDatabaseExt.GetSingletonAsset<AssetCacheSettings>();
             MenuConfigSearchController.FindAsset(res);
         }
+
+        [MenuItem("Tools/Vortex/AssetsCache/Runtime Index")]
+        private static void OpenRuntimeIndex() => AssetCacheIndexWindow.Open();
     }
 }
 #endif
