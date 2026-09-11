@@ -1,0 +1,26 @@
+{
+    "name": "ru.vortex.sdk.rebind",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.system",
+        "ru.vortex.extensions",
+        "ru.vortex.apploader",
+        "ru.vortex.app",
+        "ru.vortex.unity.filesystem",
+        "ru.vortex.unity.CoreAssetsSystem",
+        "ru.vortex.unity.editortools",
+        "Unity.InputSystem",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_VORTEX_REBIND"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

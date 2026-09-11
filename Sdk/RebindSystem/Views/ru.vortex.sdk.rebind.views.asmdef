@@ -1,0 +1,26 @@
+{
+    "name": "ru.vortex.sdk.rebind.views",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.sdk.rebind",
+        "ru.vortex.system",
+        "ru.vortex.extensions",
+        "ru.vortex.unity.ui.misc",
+        "ru.vortex.unity.editortools",
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "ru.vortex.extenums",
+        "ru.vortex.unity.extenums"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_VORTEX_REBIND"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
