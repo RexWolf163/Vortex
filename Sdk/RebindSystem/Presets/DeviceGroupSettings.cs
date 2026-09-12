@@ -25,7 +25,7 @@ namespace Vortex.Sdk.RebindSystem.Presets
 
         // Имя источника строкой, не nameof: метод живёт под UNITY_EDITOR, в билде имени нет.
         [SerializeField, ValueDropdown("DeviceLayoutsList"), Tooltip("Layout'ы устройств Input System.")]
-        private string[] deviceLayouts = Array.Empty<string>();
+        private string[] deviceLayouts = new string[0];
 
         [SerializeField, Min(1), Tooltip("Число слотов команды в этой группе.")]
         private int slots = 2;

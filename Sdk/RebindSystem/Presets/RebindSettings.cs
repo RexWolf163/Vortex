@@ -28,15 +28,15 @@ namespace Vortex.Sdk.RebindSystem.Presets
 
         [InfoBox("Пары команд одной карты, которым разрешено делить клавишу.")]
         [SerializeField]
-        private CommandPair[] allowedPairs = Array.Empty<CommandPair>();
+        private CommandPair[] allowedPairs = new CommandPair[0];
 
         [InfoBox("Защищённые команды: операция не может снять у них последнюю клавишу.")]
         [SerializeField, ValueDropdown("CommandIds")]
-        private string[] protectedCommands = Array.Empty<string>();
+        private string[] protectedCommands = new string[0];
 
         [InfoBox("Пропускаемые команды: целиком вне системы — не переназначаются и не участвуют в проверке.")]
         [SerializeField, ValueDropdown("CommandIds")]
-        private string[] skippedCommands = Array.Empty<string>();
+        private string[] skippedCommands = new string[0];
 
         [InfoBox("Запрещённые клавиши и комбинации.")]
         [SerializeField]

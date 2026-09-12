@@ -42,6 +42,12 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         [SerializeField] private UnityEvent<int> onSelected;
 
+        /// <summary>
+        /// Выбрано значение — игроком из списка или через <see cref="SetValue"/>. Аргумент — индекс исходного
+        /// (несортированного) списка. Кодовая пара сериализуемого <c>onSelected</c> для подписки из кода.
+        /// </summary>
+        public event Action<int> OnValueSelected;
+
         [SerializeField] private bool closeOnSelected;
         [SerializeField] private bool sorting;
 
@@ -215,6 +221,7 @@ namespace Vortex.Unity.UI.Misc.DropDown
             _currentValue = selectedIndex;
             _callback?.Invoke(index);
             onSelected?.Invoke(index);
+            OnValueSelected?.Invoke(index);
             var c = _sorted.Length;
             uiComponent?.SetText(c == 0 ? "" : c > selectedIndex ? _sorted[selectedIndex] : _sorted[0]);
         }

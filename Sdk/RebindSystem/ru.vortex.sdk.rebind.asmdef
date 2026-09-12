@@ -9,6 +9,7 @@
         "ru.vortex.unity.filesystem",
         "ru.vortex.unity.CoreAssetsSystem",
         "ru.vortex.unity.editortools",
+        "ru.vortex.unity.extensions",
         "Unity.InputSystem",
         "UniTask"
     ],

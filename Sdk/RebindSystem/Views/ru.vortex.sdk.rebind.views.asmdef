@@ -10,7 +10,8 @@
         "Unity.InputSystem",
         "UnityEngine.UI",
         "ru.vortex.extenums",
-        "ru.vortex.unity.extenums"
+        "ru.vortex.unity.extenums",
+        "ru.vortex.unity.ui.rollback"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -95,14 +95,35 @@ namespace Vortex.Sdk.RebindSystem.Controllers
             }
         }
 
-        /// <summary>Активность по умолчанию: первая по порядку группа каждого набора и все самостоятельные.</summary>
         private void ResetActivityToDefault()
         {
             Model.ActiveGroups.Clear();
+            Model.ActiveGroups.UnionWith(DefaultActiveGroups());
+        }
+
+        /// <summary>Активность по умолчанию: первая по порядку группа каждого набора и все самостоятельные.</summary>
+        private HashSet<string> DefaultActiveGroups()
+        {
+            var result = new HashSet<string>();
             var sets = new HashSet<string>();
             foreach (var group in Model.Groups)
                 if (string.IsNullOrEmpty(group.SwitchSet) || sets.Add(group.SwitchSet))
-                    Model.ActiveGroups.Add(group.Key);
+                    result.Add(group.Key);
+            return result;
+        }
+
+        /// <summary>
+        /// Состояние отличается от заводского: есть переопределённый, добавленный или снятый слот либо активность
+        /// групп не по умолчанию. Слот, назначенный явно, но совпадающий с заводским, отличием не считается.
+        /// </summary>
+        public bool HasChanges()
+        {
+            if (Model == null)
+                return false;
+            foreach (var slot in Model.Slots.Values)
+                if (slot.Origin is SlotOrigin.Overridden or SlotOrigin.Added or SlotOrigin.Cleared)
+                    return true;
+            return !Model.ActiveGroups.SetEquals(DefaultActiveGroups());
         }
 
         /// <summary>Пересобрать индекс занятости и состояния конфликта всех слотов.</summary>

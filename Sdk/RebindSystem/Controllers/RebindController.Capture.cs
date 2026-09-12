@@ -192,9 +192,14 @@ namespace Vortex.Sdk.RebindSystem.Controllers
         {
             _candidates.Clear();
             var hasPhysical = false;
-            foreach (var control in eventPtr.EnumerateChangedControls(device))
+            // Синтетические включены явно: без них перебор пропускает колесо мыши (scroll/up, scroll/down) и
+            // направления стиков. Дубли физических клавиш (ctrl при leftCtrl, anyKey) отсекаются ниже.
+            const InputControlExtensions.Enumerate flags = InputControlExtensions.Enumerate.IgnoreControlsInCurrentState
+                                                           | InputControlExtensions.Enumerate.IncludeSyntheticControls;
+            foreach (var control in eventPtr.EnumerateControls(flags, device))
             {
-                if (control.noisy || _swallowed.Contains(control) || !IsCandidateControl(control))
+                if (control.noisy || _swallowed.Contains(control) || !IsCandidateControl(control)
+                    || IsPointerMotion(control, device))
                     continue;
                 if (!TryReadPressed(control, eventPtr, out var pressed) || !pressed)
                     continue;
@@ -232,6 +237,14 @@ namespace Vortex.Sdk.RebindSystem.Controllers
                     if (!PassesFilters(candidate))
                         continue;
                     _chordSpent = true;
+                    // Запрещённую клавишу назначить нельзя — ловить её незачем: отказ для вьюшки, нажатие уходит
+                    // в игру. Так работает отмена перехвата клавишей из запрещённых (Esc → UICancel).
+                    if (ForbiddenMatcher.IsForbidden(candidate, Settings?.Forbidden))
+                    {
+                        _pendingReject = RejectReason.ForbiddenKey;
+                        continue;
+                    }
+
                     _pendingCandidate = candidate;
                 }
 
@@ -336,6 +349,13 @@ namespace Vortex.Sdk.RebindSystem.Controllers
         /// <summary>Кнопка или синтетическое направление оси (колесо мыши, направления стика).</summary>
         private static bool IsCandidateControl(InputControl control) =>
             control is ButtonControl || control is AxisControl && ServiceRule.IsHalfAxis(control.name);
+
+        /// <summary>
+        /// Направление движения указателя (<c>delta/up</c> и т.п.): полуось, но не кнопка. Контрол не помечен
+        /// noisy — без этой проверки любое движение мыши стало бы кандидатом.
+        /// </summary>
+        private static bool IsPointerMotion(InputControl control, InputDevice device) =>
+            device is Pointer pointer && control.parent == pointer.delta;
 
         private static bool TryReadPressed(InputControl control, InputEventPtr eventPtr, out bool pressed)
         {
