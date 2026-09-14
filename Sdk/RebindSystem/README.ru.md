@@ -1,6 +1,6 @@
 # RebindSystem
 
-Sdk-пакет фреймворка Vortex: ядро переназначения клавиш поверх проектного ассета Input System. Команде можно назначить несколько клавиш по группам устройств, конфликты «одна клавиша на несколько команд» проверяются в пределах карты ввода. Изменения игрока хранятся снимком отличий и накладываются на заводскую раскладку при запуске. Вьюшек в пакете нет — только модель, операции, перехват нажатия и события.
+Sdk-пакет фреймворка Vortex: переназначение клавиш поверх проектного ассета Input System. Команде можно назначить несколько клавиш по группам устройств, конфликты «одна клавиша на несколько команд» проверяются в пределах карты ввода. Изменения игрока хранятся снимком отличий и накладываются на заводскую раскладку при запуске. Ядро — модель, операции, перехват нажатия и события; отдельной сборкой идут готовые вьюшки меню управления.
 
 ## Назначение
 
@@ -12,29 +12,45 @@ Sdk-пакет фреймворка Vortex: ядро переназначени�
 - Снимок отличий с загрузкой по правилам «загруженное — загружено», изоляцией нечитаемого и копией исходника
 - Экспорт и импорт снимка — точка отката и массовый ремап
 - Правила разработчика в конфиге: разрешённые пары, защищённые, пропускаемые и запрещённые клавиши
+- Готовые вьюшки: список команд группы, слоты, зона мыши, индикаторы, сброс, переключение раскладки, источник отката для RollbackSystem
 
 Вне ответственности:
 
-- Вьюшки меню управления, глифы и локализация названий клавиш
+- Глифы, локализация названий клавиш, вёрстка меню
 - Правило срабатывания пересекающихся бинов (Ctrl, A и Ctrl+A) — внешние обработчики, в том числе `shortcutKeysConsumeInput` Input System
 - Надсистемные биндинги (оси, interactions, processors, прочие составные) — система их не видит и не трогает
 - Собственные `InputAction`, созданные кодом (например, `KeyboardHandler`), — идут мимо системы
 
 ## Зависимости
 
+**Ядро** — `ru.vortex.sdk.rebind`:
+
 | Зависимость | Назначение |
 |-------------|-----------|
 | `ru.vortex.system` | `SystemController`, `Singleton`, `ISystemDriver` |
 | `ru.vortex.extensions` | `InitValve`, сериализатор Vortex, сжатие строк |
-| `ru.vortex.apploader`, `ru.vortex.app` | `Loader`, `IProcess` — загрузка системы процессом |
+| `ru.vortex.apploader` | `Loader` — загрузка системы процессом |
 | `ru.vortex.unity.filesystem` | `FileBus` — путь файлового драйвера |
 | `ru.vortex.unity.CoreAssetsSystem` | `ICoreAsset` — автосоздание ассета настроек |
-| `ru.vortex.unity.editortools` | `[ToggleButton]` в тумблере `SdkSettings` |
+| `ru.vortex.unity.extensions` | `AssetDatabaseExt`, `MenuConfigSearchController` — пункт меню конфига |
 | `Unity.InputSystem` | Ассет действий, переопределения биндингов, события ввода |
 | UniTask | `RunAsync` процесса загрузки |
 | Sirenix Odin Inspector | Выпадашки команд и layout'ов, `[InfoBox]` в конфиге |
 
-Assembly: `ru.vortex.sdk.rebind`. Сборка собирается только при символе `USING_VORTEX_REBIND` (`defineConstraints`); символ включается тумблером `rebindSdk` в ассете `SdkSettings`.
+**Вьюшки** — `ru.vortex.sdk.rebind.views`:
+
+| Зависимость | Назначение |
+|-------------|-----------|
+| `ru.vortex.sdk.rebind` | Ядро |
+| `ru.vortex.system` | `IDataStorage`, базовый `SystemController` шины |
+| `ru.vortex.extensions` | `SwitcherState` |
+| `ru.vortex.unity.ui.misc` | `Pool`, `UIComponent`, `UIStateSwitcher` |
+| `ru.vortex.extenums` | Перегрузки `UIStateSwitcher.Set` |
+| `ru.vortex.unity.ui.rollback` | `RollbackSource` — источник отката |
+| `ru.vortex.unity.editortools` | `[ClassFilter]`, `[AutoLink]` |
+| `Unity.InputSystem` | Выпадашка карт в редакторе, layout устройства в `CaptureMouseHandler` |
+
+Обе сборки собираются только при символе `USING_VORTEX_REBIND` (`defineConstraints`); символ включается тумблером `rebindSdk` в ассете `SdkSettings`.
 
 ## Архитектура
 
@@ -74,7 +90,7 @@ InputSystem.actions (заводская раскладка)   RebindSettings (п
 | Концепция | Описание |
 |-----------|----------|
 | Команда (`RebindCommand`) | Экшен Input System, id — `Карта/Экшен`. Пропускаемая команда слотов не имеет |
-| Группа устройств (`DeviceGroupSettings`) | Ключ, layout'ы устройств (с наследованием: `Gamepad` покрывает DualSense), число слотов X, ключ набора переключения |
+| Группа устройств (`DeviceGroupSettings`) | Ключ, layout'ы устройств (с наследованием: `Gamepad` покрывает DualShock, DualSense, XInput), число слотов X, ключ набора переключения |
 | Слот (`BindSlot`) | Позиция в списке клавиш команды внутри группы. Адрес — `bindKey`: `Карта/Экшен#Группа#N` |
 | Значение (`BindingValue`) | Триггер и 0–2 модификатора — пути контролов. Неизменяемо |
 | Сигнатура | Нормализованный ключ сравнения значений: регистр, порядок модификаторов, стороны модификаторов по настройке |
@@ -127,6 +143,7 @@ InputSystem.actions (заводская раскладка)   RebindSettings (п
 - Модель `RebindBus.Data`: команды, слоты по группам, активность групп
 - Ответ операций — `RebindResult`: статус, причина, конфликты, изменённые слоты
 - Состояние клапана `RebindBus.Capture`
+- Признаки `RebindBus.CanPersist` (изменения сохраняются) и `HasChanges()` (есть отличия от заводских)
 - События шины: `OnSlotsChanged`, `OnRebuilt`, `OnGroupsChanged`, `OnCaptureChanged`
 - Снимок в хранилище драйвера и слой переопределений в ассете
 
@@ -146,10 +163,11 @@ InputSystem.actions (заводская раскладка)   RebindSettings (п
 
 - **Изменения в обход системы не отслеживаются** (см. «Критические требования»).
 - **Повторный запуск без перезагрузки домена не поддерживается.** Модель и ассет собираются с чистого листа, но `OnReady` статический и не переоткрывается — как у остальных шин Vortex.
-- **Ошибка чтения хранилища отключает запись до перезапуска.** Содержимое снимка неизвестно, перезаписывать его нельзя; изменения игрока действуют в памяти.
+- **Ошибка чтения хранилища отключает запись до перезапуска.** Содержимое снимка неизвестно, перезаписывать его нельзя; изменения игрока действуют в памяти, `CanPersist` — `false`.
 - **`Import` полностью нечитаемого текста возвращает `Applied`.** Остаются заводские настройки; признака деградации в результате нет, только предупреждение в лог.
 - **Пока пойманная клавиша зажата, прочие нажатия её устройства гасятся.** Иначе удерживаемая клавиша дошла бы до игры со следующим событием устройства.
 - **Из нескольких кандидатов за один апдейт ввода берётся первый.**
+- **Отмена перехвата запрещённой клавишей — только без модификатора.** Зажатый модификатор уже проглочен, и события его устройства гасятся: Ctrl+Esc до игры не дойдёт.
 - **Конфликты считаются только внутри группы.**
 
 ## API Reference
@@ -158,6 +176,7 @@ InputSystem.actions (заводская раскладка)   RebindSettings (п
 // ── Доступ ────────────────────────────────────────────────────────────────
 RebindBus.OnReady.Subscribe(OnRebindReady);    // InitValve: Subscribe / Unsubscribe
 bool              RebindBus.IsReady;
+bool              RebindBus.CanPersist;        // false — только в памяти: нет драйвера или хранилище не прочиталось
 IRebindController RebindBus.Controller;
 RebindModel       RebindBus.Data;              // null до загрузки
 CaptureValve      RebindBus.Capture;
@@ -168,7 +187,7 @@ RebindResult Take(string bindKey, BindingValue value);    // забрать у �
 RebindResult Clear(string bindKey);
 RebindResult Swap(string bindKeyA, string bindKeyB);
 void ResetCommand(string commandId);
-void ResetMap(string map);
+void ResetMap(string map);                                // null — без действия
 void ResetAll();                                          // включая активность групп
 void SetGroupActive(string groupKey, bool active);        // включение гасит группы своего набора
 
@@ -176,10 +195,13 @@ void SetGroupActive(string groupKey, bool active);        // включение 
 BindSlot                GetFirst(string commandId, string groupKey);
 IReadOnlyList<BindSlot> GetAll(string commandId, string groupKey = null);
 string                  BindSlot.GetDisplayString();      // «Ctrl+A»; глифы и локализация — вьюшка
+bool                    HasChanges();                     // есть отличия от заводских (слоты или активность групп)
 
 // ── Перехват ──────────────────────────────────────────────────────────────
-RejectReason SaveSignalForBind(string bindKey, Func<BindingValue, bool> filter = null);  // None — открыт
+RejectReason SaveSignalForBind(string bindKey);           // None — открыт; открытый — перенацелить
 void         CancelSaving();
+void         AddCaptureFilter(Func<BindingValue, bool> filter);     // постоянный фильтр кандидатов
+void         RemoveCaptureFilter(Func<BindingValue, bool> filter);
 
 // ── Откат ─────────────────────────────────────────────────────────────────
 string       Export();
@@ -208,7 +230,7 @@ RebindBus.OnCaptureChanged += valve => { };  // клапан: открытие, 
 
 ### 2. Ассет настроек
 
-`RebindSettings` реализует `ICoreAsset` и создаётся автоматически в `Assets/Resources/Settings/`. Если автосоздание выключено — `Tools → Vortex → Debug → Check Core Assets`.
+`RebindSettings` реализует `ICoreAsset` и создаётся автоматически в `Assets/Resources/Settings/`. Если автосоздание выключено — `Tools → Vortex → Debug → Check Core Assets`. Быстрый переход к ассету — `Tools → Vortex → Configs → Rebind Settings` (пункт есть только при включённом пакете).
 
 | Поле | По умолчанию | Смысл |
 |------|--------------|-------|
@@ -223,6 +245,8 @@ RebindBus.OnCaptureChanged += valve => { };  // клапан: открытие, 
 Дефолт запрещённых: синтетические и перехватываемые ОС клавиши (`anyKey`, `IMESelected`, Win, `contextMenu`, `printScreen`), `numLock`, `scrollLock`, `pause`, `f12` (скриншот Steam), `OEM1`–`OEM5`; любой модификатор + F1–F12, Tab, Enter, NumpadEnter, Esc; Alt+Space.
 
 Защиты, пары и пропуски формирует разработчик: по умолчанию списки пусты, встроенных предохранителей нет.
+
+Группа `Gamepad` покрывает всех наследников layout'а: DualShock, DualSense, XInput (в том числе Steam Deck и контроллеры под Steam Input), Switch Pro. Добавление `Joystick` захватывает HID-геймпады и джойстики, не распознанные как `Gamepad`; заводских биндингов у них нет, а пути кнопок привязаны к модели устройства.
 
 ### 3. Регистрация драйвера
 
@@ -243,14 +267,10 @@ private void OnDisable() => RebindBus.OnCaptureChanged -= OnCaptureChanged;
 
 public void OnSlotClicked(string bindKey)
 {
-    var reason = RebindBus.Controller.SaveSignalForBind(bindKey, IsNotUiClick);
+    var reason = RebindBus.Controller.SaveSignalForBind(bindKey);
     if (reason != RejectReason.None)
         view.ShowError(reason);
 }
-
-// Клик мышью по кнопке «Отмена» не должен стать биндом: отклонённый фильтром кандидат проходит в игру.
-private static bool IsNotUiClick(BindingValue candidate) =>
-    !(candidate.Trigger == "<Mouse>/leftButton" && EventSystem.current.IsPointerOverGameObject());
 
 private void OnCaptureChanged(CaptureValve valve)
 {
@@ -276,11 +296,16 @@ private void OnCaptureChanged(CaptureValve valve)
 
 - ловятся только устройства группы слота; нажатия других устройств работают как обычно;
 - нажатия, зажатые в момент открытия, не ловятся, пока не отпущены;
+- ловятся кнопки и синтетические направления: колесо мыши, направления стиков; движение указателя (`delta`) не ловится;
 - зажатый модификатор ждёт основную клавишу; одиночный модификатор, отпущенный без неё, сам становится клавишей; три модификатора или два, отпущенных без клавиши, — отказ;
-- запрещённая клавиша или недопустимый триггер — отказ, клапан остаётся открытым; внутрикартовый конфликт и успех закрывают клапан;
+- **запрещённая клавиша не перехватывается**: отказ `ForbiddenKey`, нажатие уходит в игру, клапан остаётся открытым. Так работает отмена перехвата клавишей из запрещённых: Esc в чёрном списке доходит до `UICancel`;
+- недопустимый триггер — отказ, клапан остаётся открытым; внутрикартовый конфликт и успех закрывают клапан;
 - повторный `SaveSignalForBind` перенацеливает клапан; `CancelSaving` и потеря фокуса окна — `Cancelled`;
+- кандидат, отклонённый фильтром (`AddCaptureFilter`), игнорируется и уходит в игру и UI;
 - пойманное нажатие до игровых команд не доходит;
 - путь обобщается до самого общего layout'а, который ещё входит в группу: DualSense в группе `Gamepad` даёт `<Gamepad>/buttonSouth`.
+
+Фильтры постоянные: регистрирует и снимает их вьюшка, клапан применяет все зарегистрированные. Готовый пример — `CaptureMouseHandler` (см. «Вьюшки»).
 
 ### 5. Конфликт: забрать или обменять
 
@@ -306,7 +331,32 @@ hint.text = slot?.GetDisplayString() ?? string.Empty;
 
 ### 7. Сменные раскладки
 
-Группы с общим `switchSet` взаимоисключающие: `SetGroupActive(key, true)` выключает остальные группы набора. Бинды неактивной группы не срабатывают, но редактируются, и конфликты в ней считаются. По умолчанию активна первая группа каждого набора и все самостоятельные.
+Группы с общим `switchSet` взаимоисключающие: `SetGroupActive(key, true)` выключает остальные группы набора. Бинды неактивной группы не срабатывают, но редактируются, и конфликты в ней считаются. По умолчанию активна первая группа каждого набора и все самостоятельные (без `switchSet`); самостоятельные переключение раскладок не затрагивает.
+
+## Вьюшки
+
+Сборка `ru.vortex.sdk.rebind.views`, пространство имён `Vortex.Sdk.RebindSystem.Views`.
+
+| Компонент | Назначение |
+|-----------|-----------|
+| `RebindGroupHandler` | Выводит в `Pool` обслуживаемые команды своих карт для одной группы. Поля: ключ группы, список карт, пул. Данные элемента — команда и группа. Пул перезаполняется по `OnRebuilt` |
+| `RebindCommandView` | Элемент пула группы: название команды (шаблон `titlePattern`: `{0}` — id, `{1}` — карта, `{2}` — экшен; проходит локализацию) и вложенный `Pool` слотов группы с индексом < X |
+| `RebindSlotView` | Элемент пула слотов: текст клавиши (`GetDisplayString`), свитчеры конфликта (`SlotConflict`), происхождения (`SlotOrigin`) и ожидания (`SwitcherState`). Публичный `SaveNewKey()` вешается на кнопку и открывает перехват |
+| `CaptureMouseHandler` | Зона перехвата мыши: пока включён, клавиши мыши ловятся только при указателе над ним (`IPointerEnter/Exit`), вне зоны мышь уходит в UI. Объект принимает лучи UI и не содержит кнопок |
+| `CaptureStateHandler` | Свитчер `SwitcherState`: `On` — клапан ждёт клавишу, `Off` — нет |
+| `CaptureCancelHandler` | Публичный `Cancel()` для кнопки «Отмена»; флажок `cancelOnDisable` прерывает ожидание при выключении объекта |
+| `SwitchSetHandler` | Переключение раскладки внутри набора: `Next()` / `Previous()` по порядку конфига, название активной группы в `UIComponent`. Пустой ключ набора — ошибка в лог |
+| `ChangesStateHandler` | Свитчер `SwitcherState`: `On` — есть отличия от заводских (`HasChanges()`) |
+| `ResetToFactoryHandler` | Публичный `ResetAll()` для кнопки «Сбросить всё»; открытый перехват прерывается |
+| `RebindRollback` | Источник отката для `RollbackHandler` (пакет RollbackSystem): точка — снимок `Export()`, откат — `Import()`, изменения — по отпечатку модели |
+
+Схема вёрстки меню: панель группы с `RebindGroupHandler` → пул строк на префабе с `RebindCommandView` → вложенный пул слотов на префабе с `RebindSlotView`. Панель перехвата — `CaptureStateHandler`, `CaptureMouseHandler`, `CaptureCancelHandler`.
+
+### Откат изменений
+
+Экран переназначения подключается к RollbackSystem: на `RollbackHandler` экрана добавить источник `RebindRollback`. Точка отката — состояние на момент открытия экрана или последнего «Сохранить», включая активность групп; откат прерывает открытый перехват и возвращает снимок. Снимок сравнивается не по тексту: разделы сжаты ZIP, а записи архива несут время создания — два экспорта одного состояния дают разные строки.
+
+`ChangesStateHandler` и откат отвечают на разные вопросы: первый сравнивает с заводскими настройками, откат — с точкой отката.
 
 ## Снимок
 
@@ -335,7 +385,7 @@ hint.text = slot?.GetDisplayString() ?? string.Empty;
 | Ситуация | Поведение |
 |----------|-----------|
 | Нет ассета `RebindSettings` | Ошибка в лог; групп нет — система ничего не обслуживает |
-| Драйвер не назначен в `DriverConfig` | Ошибка в лог, работа только в памяти |
+| Драйвер не назначен в `DriverConfig` | Ошибка в лог, работа только в памяти, `CanPersist` — `false` |
 | Хранилище не прочиталось | Заводские настройки, запись снимка отключена до перезапуска |
 | Снимок частично нечитаем | Нечитаемое — заводское, копия исходника перед первой перезаписью |
 | Заводских биндингов в группе больше X | Ошибка в лог при запуске; первая операция над командой (кроме сброса) отбрасывает лишние |
@@ -344,6 +394,7 @@ hint.text = slot?.GetDisplayString() ?? string.Empty;
 | `Clear` пустого слота | `Applied` без изменений |
 | Защищённая команда теряет последнюю клавишу | `Rejected` (`ProtectedLastBinding`); слоты сверх X в счёт не идут |
 | LeftCtrl+RightCtrl+A | `Rejected` (`AmbiguousModifiers`) |
+| Запрещённая клавиша при перехвате | Отказ `ForbiddenKey`, нажатие уходит в игру, клапан открыт |
 | Внутрикартовый конфликт при перехвате | Клапан закрывается, `Rejected` со списком |
 | Потеря фокуса окна при перехвате | `Cancelled`, слот без изменений |
 | Команда из `skippedCommands` | Слотов нет, `GetAll` — пусто, операции — `SkippedCommand` |
@@ -358,10 +409,10 @@ RebindSystem/
 │   └── RebindBus.cs                      # шина: доступ, события, канал к драйверу
 ├── Controllers/
 │   ├── RebindController.cs               # жизненный цикл, процесс Loader
-│   ├── RebindController.Build.cs         # модель из ассета и конфига, индекс, конфликты
+│   ├── RebindController.Build.cs         # модель из ассета и конфига, индекс, конфликты, HasChanges
 │   ├── RebindController.Operations.cs    # операции над слотами и группами
 │   ├── RebindController.Snapshot.cs      # снимок, загрузка, экспорт и импорт
-│   ├── RebindController.Capture.cs       # клапан перехвата
+│   ├── RebindController.Capture.cs       # клапан перехвата, фильтры кандидатов
 │   ├── AssetWriter.cs                    # единственный писатель в ассет
 │   ├── ServiceRule.cs                    # правило обслуживания
 │   ├── GroupResolver.cs                  # принадлежность биндингов группам
@@ -384,6 +435,20 @@ RebindSystem/
 ├── Drivers/
 │   ├── RebindPlayerPrefsDriver.cs
 │   └── RebindFileDriver.cs
+├── Editor/
+│   └── MenuController.cs                 # Tools/Vortex/Configs/Rebind Settings
+├── Views/                                # сборка ru.vortex.sdk.rebind.views
+│   ├── RebindGroupHandler.cs
+│   ├── RebindCommandView.cs
+│   ├── RebindSlotView.cs
+│   ├── CaptureMouseHandler.cs
+│   ├── CaptureStateHandler.cs
+│   ├── CaptureCancelHandler.cs
+│   ├── SwitchSetHandler.cs
+│   ├── ChangesStateHandler.cs
+│   ├── ResetToFactoryHandler.cs
+│   ├── RebindRollback.cs
+│   └── ru.vortex.sdk.rebind.views.asmdef
 ├── DefineSettings/
 │   ├── SdkSettings.Rebind.cs             # тумблер USING_VORTEX_REBIND
 │   └── sdk.settings.system.ext.asmref

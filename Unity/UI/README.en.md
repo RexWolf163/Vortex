@@ -18,6 +18,8 @@ This section does not manage interface lifecycles — that's `UIProviderSystem`'
 
 **CursorSystem** — custom system cursor. Default sprite, separate LMB/RMB sprites, an array of hover variants per UI zone. Unified API through `MouseHoverListener` on UGUI objects plus the public `CursorController.OnHover/OnUnHover` for non-UGUI sources. Alt-tab protection out of the box (via Input System soft reset).
 
+**RollbackSystem** — rolling back a screen's unsaved changes. `RollbackHandler` combines rollback sources (`RollbackSource` descendants), shows a change flag through `UIStateSwitcher` and drives two paths — "Save" and "Rollback"; disabling the screen means rollback. Reactive, no per-frame checks. A ready source covers dropdowns and sliders with a `RollbackControl` marker on the control.
+
 ## Dependencies
 
 UniTask, TextMeshPro, Odin Inspector. From the framework — `TimeController`, `ActionExt`, `IDataStorage`, `EditorTools`, `SettingsSystem` (for `CursorSystem`).
@@ -32,3 +34,4 @@ Each subsystem is documented separately:
 - `PoolSystem/` — object pool
 - `Misc/` — utility components
 - `CursorSystem/` — custom cursor
+- `RollbackSystem/` — screen change rollback

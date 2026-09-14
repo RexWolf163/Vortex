@@ -57,9 +57,12 @@ namespace Vortex.Sdk.RebindSystem.Views
             }
 
             foreach (var map in maps)
-            foreach (var command in data.GetCommands(map))
-                if (command.Serviced)
-                    pool.AddItem(command, group);
+            {
+                var commands = data.GetCommands(map);
+                foreach (var command in commands)
+                    if (command.Serviced)
+                        pool.AddItem(command, group);
+            }
         }
 
 #if UNITY_EDITOR

@@ -26,9 +26,16 @@ namespace Vortex.Unity.UI.PoolSystem
         private void Awake()
         {
             _index.Clear();
-            var list = GetComponentsInChildren<PoolItem>();
-            foreach (var item in list)
-                _freeItems.Enqueue(item);
+            // Только прямые дети контейнера: глубокий поиск захватил бы элементы вложенных пулов
+            // (пул внутри элемента пула) и отдал бы их под чужие данные.
+            foreach (Transform child in transform)
+            {
+                if (!child.gameObject.activeSelf)
+                    continue;
+                var item = child.GetComponent<PoolItem>();
+                if (item != null)
+                    _freeItems.Enqueue(item);
+            }
         }
 
         private void OnDestroy() => Clear();

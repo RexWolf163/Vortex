@@ -18,6 +18,8 @@ UI-слой фреймворка. Всё, что касается визуала
 
 **CursorSystem** — кастомный системный курсор. Дефолтный спрайт, отдельные на LMB/RMB, массив hover-вариантов по UI-зонам. Унифицированный API через `MouseHoverListener` на UGUI-объектах + публичный `CursorController.OnHover/OnUnHover` для не-UGUI источников. Защита от alt-tab из коробки (через Input System soft-reset).
 
+**RollbackSystem** — откат несохранённых изменений экрана. `RollbackHandler` объединяет источники отката (наследники `RollbackSource`), показывает признак изменений через `UIStateSwitcher` и ведёт два пути — «Сохранить» и «Откатить»; выключение экрана — откат. Работает реактивно, без покадровых проверок. Готовый источник — выпадающие списки и слайдеры с маркером `RollbackControl` на контроле.
+
 ## Зависимости
 
 UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeController`, `ActionExt`, `IDataStorage`, `EditorTools`, `SettingsSystem` (для `CursorSystem`).
@@ -32,3 +34,4 @@ UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeControl
 - `PoolSystem/` — пул объектов
 - `Misc/` — утилитарные компоненты
 - `CursorSystem/` — кастомный курсор
+- `RollbackSystem/` — откат изменений экрана

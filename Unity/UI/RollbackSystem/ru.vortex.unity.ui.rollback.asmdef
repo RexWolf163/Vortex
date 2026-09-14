@@ -1,15 +1,14 @@
 {
-    "name": "ru.vortex.sdk.rebind.views",
+    "name": "ru.vortex.unity.ui.rollback",
     "rootNamespace": "",
     "references": [
-        "ru.vortex.sdk.rebind",
-        "ru.vortex.system",
-        "ru.vortex.unity.ui.rollback",
-        "ru.vortex.unity.ui.misc",
-        "ru.vortex.unity.editortools",
         "ru.vortex.extensions",
         "ru.vortex.extenums",
-        "Unity.InputSystem"
+        "ru.vortex.unity.extenums",
+        "ru.vortex.unity.app",
+        "ru.vortex.unity.editortools",
+        "ru.vortex.unity.ui.misc",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -17,9 +16,7 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [
-        "USING_VORTEX_REBIND"
-    ],
+    "defineConstraints": [],
     "versionDefines": [],
     "noEngineReferences": false
 }
