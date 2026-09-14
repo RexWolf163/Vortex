@@ -28,7 +28,8 @@ DebugSettings (partial, SettingsPreset)
 ├── AppSystem/Debug/                          → appStates → AppStateDebugMode
 ├── InputBusSystem/Debug/Presets/             → inputLogs → InputDebugMode
 ├── UIProviderSystem/Debug/Presets/           → uiLogs → UiDebugMode
-└── UI/TweenerSystem/Debug/Presets/           → asyncTweenerLogs → AsyncTweenerDebugMode
+├── UI/TweenerSystem/Debug/Presets/           → asyncTweenerLogs → AsyncTweenerDebugMode
+└── SaveSystem/Debug/                         → globalSaveFailFast → GlobalSaveFailFast (not subordinate to DebugMode)
 
 MenuController (Editor)
 └── Tools/Vortex/Configs/Debug Settings       — pings the StartSettings asset
@@ -61,7 +62,8 @@ The `MyDebugMode` property is `true` only when both `DebugMode` AND `myToggle` a
 
 ### Guarantees
 - `[PropertyOrder(-100)]` (Odin) — `DebugMode` renders first in Inspector
-- All local toggles depend on `DebugMode` — disabling global disables all
+- All local log toggles depend on `DebugMode` — disabling global disables all
+- Exception — `globalSaveFailFast` (SaveSystem): it is not a log flag but global storage loading behavior, so it does not depend on `DebugMode`; it works only in the editor (`Application.isEditor`)
 
 ### Limitations
 - Partial extensions are spread across different packages — full toggle list visible only in the asset Inspector
@@ -102,11 +104,12 @@ if (Settings.Data().AppStateDebugMode)
 | InputBusSystem | `inputLogs` | `InputDebugMode` | `InputBusSystem/Debug/Presets/DebugSettingsExtInput.cs` |
 | UIProviderSystem | `uiLogs` | `UiDebugMode` | `UIProviderSystem/Debug/Presets/DebugSettingsExtUiProvider.cs` |
 | TweenerSystem | `asyncTweenerLogs` | `AsyncTweenerDebugMode` | `UI/TweenerSystem/Debug/Presets/DebugSettingsExtAsyncTweener.cs` |
+| SaveSystem | `globalSaveFailFast` (on by default) | `GlobalSaveFailFast` — not subordinate to `DebugMode`, editor only | `SaveSystem/Debug/DebugSettingsExtGlobalSave.cs` |
 
 ## Edge Cases
 
 | Situation | Behavior |
 |-----------|----------|
-| `DebugMode = false` | All local `XxxDebugMode` return `false` |
+| `DebugMode = false` | All local `XxxDebugMode` return `false`; `GlobalSaveFailFast` is unaffected |
 | Asset not created | `Settings.Data()` lacks debug properties — depends on `SettingsSystem` |
 | New package without toggle | Debug logs for that package are unmanaged — partial must be added |

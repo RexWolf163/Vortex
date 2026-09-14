@@ -8,7 +8,7 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 {
     /// <summary>
     /// Драйвер сохранения в файлы на диске.
-    /// Корневой путь — FileBus.GetAppPath()/Saves/.
+    /// Корневой путь — FileBus.GetAppPath()/{папка из SaveSettings}/ (по умолчанию Saves).
     /// На каждый сейв пишет два файла:
     ///   - {guid}.save    — XML SavePreset с данными, сжатый через Compress(guid).
     ///   - {guid}.summary — XML SaveSummary (для быстрого индекса без чтения тела сейва).
@@ -16,7 +16,6 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
     /// </summary>
     public sealed partial class FileSystemDriver : Singleton<FileSystemDriver>, IDriver
     {
-        private const string SavesFolder = "Saves";
         private const string SaveExtension = ".save";
         private const string SummaryExtension = ".summary";
         private const string IncrementFile = ".in";

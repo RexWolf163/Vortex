@@ -28,7 +28,8 @@ DebugSettings (partial, SettingsPreset)
 ├── AppSystem/Debug/                          → appStates → AppStateDebugMode
 ├── InputBusSystem/Debug/Presets/             → inputLogs → InputDebugMode
 ├── UIProviderSystem/Debug/Presets/           → uiLogs → UiDebugMode
-└── UI/TweenerSystem/Debug/Presets/           → asyncTweenerLogs → AsyncTweenerDebugMode
+├── UI/TweenerSystem/Debug/Presets/           → asyncTweenerLogs → AsyncTweenerDebugMode
+└── SaveSystem/Debug/                         → globalSaveFailFast → GlobalSaveFailFast (не подчинён DebugMode)
 
 MenuController (Editor)
 └── Tools/Vortex/Configs/Debug Settings       — пинг ассета StartSettings
@@ -61,7 +62,8 @@ public partial class DebugSettings
 
 ### Гарантии
 - `[PropertyOrder(-100)]` (Odin) — `DebugMode` отрисовывается первым в Inspector
-- Все локальные toggle зависят от `DebugMode` — выключение глобального отключает все
+- Все локальные toggle логов зависят от `DebugMode` — выключение глобального отключает все
+- Исключение — `globalSaveFailFast` (SaveSystem): это не флаг логов, а поведение загрузки глобального хранилища, поэтому он от `DebugMode` не зависит; работает только в редакторе (`Application.isEditor`)
 
 ### Ограничения
 - Partial-расширения разбросаны по разным пакетам — полный список toggle виден только в Inspector ассета
@@ -102,11 +104,12 @@ if (Settings.Data().AppStateDebugMode)
 | InputBusSystem | `inputLogs` | `InputDebugMode` | `InputBusSystem/Debug/Presets/DebugSettingsExtInput.cs` |
 | UIProviderSystem | `uiLogs` | `UiDebugMode` | `UIProviderSystem/Debug/Presets/DebugSettingsExtUiProvider.cs` |
 | TweenerSystem | `asyncTweenerLogs` | `AsyncTweenerDebugMode` | `UI/TweenerSystem/Debug/Presets/DebugSettingsExtAsyncTweener.cs` |
+| SaveSystem | `globalSaveFailFast` (по умолчанию включён) | `GlobalSaveFailFast` — не подчинён `DebugMode`, только редактор | `SaveSystem/Debug/DebugSettingsExtGlobalSave.cs` |
 
 ## Граничные случаи
 
 | Ситуация | Поведение |
 |----------|-----------|
-| `DebugMode = false` | Все локальные `XxxDebugMode` возвращают `false` |
+| `DebugMode = false` | Все локальные `XxxDebugMode` возвращают `false`; `GlobalSaveFailFast` не меняется |
 | Ассет не создан | `Settings.Data()` не содержит debug-свойств — зависит от `SettingsSystem` |
 | Новый пакет без toggle | Debug-логи этого пакета неуправляемы — нужно добавить partial |

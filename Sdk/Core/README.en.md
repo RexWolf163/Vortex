@@ -60,6 +60,7 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 | `GameController` | `Singleton<T>`, `IReactiveData`, `ISaveable`, partial, static | Game management bus |
 | `GameModel` | `ComplexModel<IGameData>` | Composite data model |
 | `GameTimeData` | `IGameData` | Timings inside the save body: playthrough time, its start date, app-time snapshot |
+| `AppTimeData` | `IGlobalData` | Total time in the application — a global storage module (key `Vortex.AppTime`) |
 | `IGameSessionService` | `interface` | Game session service contract — `IsReady` + `Name` |
 | `GameStates` | `enum` | Off, Play, Win, Fail, Paused, Loading |
 | `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` by game state |
@@ -201,7 +202,7 @@ Two independent counters with different lifetimes.
 | Counter | What it measures | Where it is stored |
 |---|---|---|
 | `PlayTime` | Time of a specific playthrough — strictly while the game state is `Play` | Save body (`GameTimeData.PlaySeconds`) |
-| `AppTime` | Total time in the application across all launches | `PlayerPrefs`, a snapshot goes into the save |
+| `AppTime` | Total time in the application across all launches | Global storage (`AppTimeData`), a snapshot goes into the save |
 
 ```csharp
 var played = GameController.PlayTime;        // TimeSpan, Zero outside a game
@@ -214,11 +215,15 @@ Analytics.Track("quest_done", GameController.PlayTime);
 
 **Playthrough time** belongs to the slot: on load it takes the save's value, on a new game it starts from zero. It grows only in `Play` — pause, loading and exiting stop the count. The value is committed to the save together with the open interval, so saving straight from gameplay loses nothing.
 
-**Application time** runs continuously from `AppStates.Running` until the application terminates. Focus loss does **not** stop the count (but does trigger a write — the OS may kill a backgrounded application). The value is flushed to `PlayerPrefs` once a minute and synchronously on termination.
+**Application time** runs continuously from `AppStates.Running` until the application terminates. Focus loss does **not** stop the count (but does trigger a write — the OS may kill a backgrounded application). The value is committed to the global storage (`GlobalSaveController.Commit<AppTimeData>()`) once a minute, on focus loss and on termination; in the last two cases the storage writes immediately.
 
 > Tracking is event-driven — no per-frame work, accumulation happens on state transitions. There is no live tick for UI: the consumer polls the getter itself.
 
-Deliberate decisions, recorded so they are not revisited: writing to `PlayerPrefs` directly instead of a driver scheme — avoiding overengineering for a single value; the application counter lives in SDK.Game rather than the core because it is analytics data for SDK consumers, not system-time infrastructure (`AppModel` holds the reference point).
+Deliberate decisions, recorded so they are not revisited:
+
+- the application counter is the global storage module `AppTimeData` rather than a direct `PlayerPrefs` write: the storage provides atomic writes, immediate writes on focus loss and termination, and backups without extra code;
+- the legacy `PlayerPrefs` key `Vortex.GameTime.AppSeconds` is migrated once and deleted when the next launch has read the migrated value from the storage: deletion is guaranteed to follow a successful write;
+- the application counter lives in SDK.Game rather than the core because it is analytics data for SDK consumers, not system-time infrastructure (`AppModel` holds the reference point).
 
 ## Edge Cases
 
@@ -231,11 +236,12 @@ Deliberate decisions, recorded so they are not revisited: writing to `PlayerPref
 | `Get<T>()` for unregistered type | Returns `null` from `ComplexModel` |
 | Focus loss (`Unfocused`) | Automatic `SetPause(true)` |
 | Focus loss during gameplay | The game goes to `Paused` and `PlayTime` stops. Resuming happens only via an explicit `SetPause(false)`: the player leaves pause deliberately, there is no auto-resume by design |
-| Focus loss and application time | `AppTime` keeps running; the value is flushed to `PlayerPrefs` along the way |
+| Focus loss and application time | `AppTime` keeps running; the value is committed to the global storage along the way, written immediately |
 | Saving straight from `Play` | The save receives the time including the open interval |
 | Loading an old-format save (no `GameTimeData`) | Zeros; `SessionStartedAt` is stamped with the date of that load |
 | System clock moved backwards | The negative delta is discarded — counters never decrease |
-| Garbage in the `PlayerPrefs` key | Treated as `0` (fail-soft: an analytics counter must not crash the application) |
+| Negative value in `AppTimeData` or garbage in the legacy `PlayerPrefs` key during migration | Treated as `0` (fail-soft: an analytics counter must not crash the application) |
+| Global storage not loaded (no driver) | `AppTime` starts from zero every launch; commits are rejected with a logged error |
 | `PlayTime` outside a game (`Off`, `Loading`, edit-mode) | `TimeSpan.Zero` |
 | `Stopping` | Controller `Dispose()` |
 | Editor mode (not Play Mode) | `GetData()` creates a temporary model, invokes `OnEditorGetData` |

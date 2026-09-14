@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
+using Vortex.Core.SaveSystem.Bus;
 using Vortex.Core.System.Enums;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 
@@ -17,8 +18,8 @@ namespace Vortex.Sdk.Core.GameCore
     ///    по возврату фокуса нет и не предполагается.
     /// 2. Время приложения — идёт непрерывно от перехода в <see cref="AppStates.Running"/> и до
     ///    завершения приложения. Расфокус НЕ останавливает счёт (но провоцирует запись —
-    ///    ОС может убить свёрнутое приложение без Stopping). Хранится в PlayerPrefs,
-    ///    отпечаток кладётся в сейв.
+    ///    ОС может убить свёрнутое приложение без Stopping). Хранится в глобальном хранилище
+    ///    (<see cref="AppTimeData"/>), отпечаток кладётся в сейв.
     ///
     /// Учёт событийный: работы в кадре нет, накопление идёт на переходах состояний.
     /// Длительности считаются разностями <see cref="TimeController.Time"/> (это секунды от 0001-01-01,
@@ -26,8 +27,10 @@ namespace Vortex.Sdk.Core.GameCore
     /// TimeController.Timestamp нельзя, он возвращает миллисекунды вопреки своему описанию.
     ///
     /// Осознанные архитектурные решения (не поднимать заново на ревью):
-    /// 1. Прямая запись в PlayerPrefs вместо драйверной схемы — трейд-офф ради отказа от
-    ///    оверинжиниринга: поднимать контроллер с драйвером ради одного long не окупается.
+    /// 1. Счётчик приложения — модуль глобального хранилища, фиксация через <see cref="GlobalSaveController"/>:
+    ///    раз в минуту, при расфокусе и при завершении. В Unfocused и Stopping хранилище пишет немедленно —
+    ///    своей синхронной записи здесь не нужно. Прежний ключ PlayerPrefs переносится однократно
+    ///    (<see cref="MigrateLegacyAppSeconds"/>).
     /// 2. Счётчик приложения живёт здесь, а не в Core/AppSystem, хотя измеряет время приложения.
     ///    AppModel держит точку отсчёта системного времени — это инфраструктура. Здесь же —
     ///    данные аналитики, нужные только потребителям SDK.Game, то есть доменная забота слоя 3.
@@ -35,7 +38,9 @@ namespace Vortex.Sdk.Core.GameCore
     /// </summary>
     public partial class GameController
     {
-        private const string AppSecondsKey = "Vortex.GameTime.AppSeconds";
+        /// <summary>Ключ PlayerPrefs, в котором счётчик жил до глобального хранилища. Только для миграции.</summary>
+        private const string LegacyAppSecondsKey = "Vortex.GameTime.AppSeconds";
+
         private const float FlushStepSeconds = 60f;
 
         /// <summary>Владелец отложенного вызова flush в TimeController.</summary>
@@ -61,7 +66,7 @@ namespace Vortex.Sdk.Core.GameCore
         /// <summary>Метка открытия отрезка приложения на оси TimeController.Time.</summary>
         private static double _appMark;
 
-        /// <summary>База, поднятая из PlayerPrefs на старте учёта.</summary>
+        /// <summary>База, поднятая из глобального хранилища на старте учёта.</summary>
         private static long _appBase;
 
         #endregion
@@ -150,6 +155,10 @@ namespace Vortex.Sdk.Core.GameCore
 
             OnLoadGame -= OnLoadGameForTime;
             OnLoadGame += OnLoadGameForTime;
+
+            //Хранилище читается на Starting, учёт стартует на Running — миграция успевает до базы учёта
+            GlobalSaveController.OnInit -= MigrateLegacyAppSeconds;
+            GlobalSaveController.OnInit += MigrateLegacyAppSeconds;
         }
 
         #endregion
@@ -264,7 +273,8 @@ namespace Vortex.Sdk.Core.GameCore
         /// <summary>
         /// Идемпотентно: Running приходит повторно (например, после возврата фокуса),
         /// и перезапись метки съедала бы уже отсчитанное время.
-        /// Старт именно на Running гарантирует, что TimeController уже инициализирован.
+        /// Старт именно на Running гарантирует, что TimeController уже инициализирован,
+        /// а глобальное хранилище прочитано.
         /// </summary>
         private static void StartAppTracking()
         {
@@ -298,20 +308,51 @@ namespace Vortex.Sdk.Core.GameCore
         {
             if (!_appStarted)
                 return;
-            PlayerPrefs.SetString(AppSecondsKey, CurrentAppSeconds().ToString(CultureInfo.InvariantCulture));
-            PlayerPrefs.Save();
+
+            var data = GlobalSaveController.Get<AppTimeData>();
+            if (data == null)
+                return;
+            data.AppSeconds = CurrentAppSeconds();
+            GlobalSaveController.Commit<AppTimeData>();
         }
 
         /// <summary>
-        /// Невалидное значение (мусор, не-число, отрицательное) трактуется как 0.
+        /// Отрицательное значение (порча) трактуется как 0.
         /// Осознанное отклонение от fail-fast: аналитический счётчик не должен ронять приложение.
         /// </summary>
         private static long ReadAppSeconds()
         {
-            var raw = PlayerPrefs.GetString(AppSecondsKey, string.Empty);
-            if (!long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) || value < 0)
-                return 0;
-            return value;
+            var value = GlobalSaveController.Get<AppTimeData>()?.AppSeconds ?? 0;
+            return value < 0 ? 0 : value;
+        }
+
+        /// <summary>
+        /// Однократный перенос счётчика из прежнего ключа PlayerPrefs. Ключ удаляется, только когда запуск
+        /// прочитал перенесённое значение из хранилища: удаление гарантированно идёт после успешной записи,
+        /// а неудачная запись оставляет ключ для повторного переноса. Невалидное старое значение — 0.
+        /// </summary>
+        private static void MigrateLegacyAppSeconds()
+        {
+            if (!PlayerPrefs.HasKey(LegacyAppSecondsKey))
+                return;
+
+            if (GlobalSaveController.HasStoredData<AppTimeData>())
+            {
+                PlayerPrefs.DeleteKey(LegacyAppSecondsKey);
+                PlayerPrefs.Save();
+                return;
+            }
+
+            var data = GlobalSaveController.Get<AppTimeData>();
+            if (data == null)
+                return;
+
+            var raw = PlayerPrefs.GetString(LegacyAppSecondsKey, string.Empty);
+            data.AppSeconds = long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                              && value > 0
+                ? value
+                : 0;
+            GlobalSaveController.Commit<AppTimeData>();
         }
 
         private static void ScheduleFlush() =>

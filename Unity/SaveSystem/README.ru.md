@@ -1,6 +1,6 @@
 # SaveSystem (Unity)
 
-**Namespace:** `Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver`, `Vortex.Unity.SaveSystem.Drivers.FileSystemDriver`, `Vortex.Unity.SaveSystem.Presets`, `Vortex.Unity.SaveSystem.View`
+**Namespace:** `Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver`, `Vortex.Unity.SaveSystem.Drivers.FileSystemDriver`, `Vortex.Unity.SaveSystem.Drivers.GlobalPrefsDriver`, `Vortex.Unity.SaveSystem.Drivers.GlobalFileDriver`, `Vortex.Unity.SaveSystem.Presets`, `Vortex.Unity.SaveSystem.View`, `Vortex.Unity.SaveSystem.Editor`
 **Сборка:** `ru.vortex.unity.save`
 **Платформа:** Unity 2021.3+
 
@@ -8,20 +8,23 @@
 
 ## Назначение
 
-Unity-слой системы сохранений. Предоставляет два сменных драйвера хранения с XML-сериализацией и сжатием, а также UI-компонент индикации прогресса. Активный драйвер выбирается через `DriverConfig` (codegen-whitelist).
+Unity-слой системы сохранений. Предоставляет сменные драйверы хранения слотов (XML-сериализация и сжатие) и глобального хранилища, общий ассет настроек `SaveSettings`, UI-компонент индикации прогресса и окно глобального хранилища. Активные драйверы выбираются через `DriverConfig` (codegen-whitelist) — у каждой шины своя строка.
 
 Возможности:
 
-- `PlayerPrefsDriver/SaveSystemDriver` — драйвер на `PlayerPrefs`
-- `FileSystemDriver/FileSystemDriver` — драйвер на файловую систему (`FileBus.GetAppPath()/Saves/`)
-- `SavePreset` — XML-сериализуемая обёртка для `SaveFolder[]` (общая для обоих драйверов)
+- `PlayerPrefsDriver/SaveSystemDriver` — драйвер слотов на `PlayerPrefs`
+- `FileSystemDriver/FileSystemDriver` — драйвер слотов на файловую систему (`FileBus.GetAppPath()/{savesFolder}/`, по умолчанию `Saves`)
+- `GlobalPrefsDriver`, `GlobalFileDriver` — драйверы глобального хранилища (`GlobalSaveController`)
+- `SavePreset` — XML-сериализуемая обёртка для `SaveFolder[]` (общая для драйверов слотов)
+- `SaveSettings` — общий ассет настроек: папка сейвов, число копий и папка глобального хранилища
 - `UISaveLoadComponent` — MonoBehaviour для отображения прогресса save/load
-- Каждый драйвер хранит индекс сохранений и метаданные (`SaveSummary`) в своём формате
+- Окно `Tools/Vortex/Global Save` — модули глобального хранилища с текущими значениями, сброс
+- Каждый драйвер слотов хранит индекс сохранений и метаданные (`SaveSummary`) в своём формате
 
 Вне ответственности:
 
-- `SaveController`, `ISaveable`, модели данных — Core
-- Логика сбора/раздачи данных — Core
+- `SaveController`, `GlobalSaveController`, `ISaveable`, `IGlobalData`, модели данных — Core
+- Логика сбора/раздачи данных, кодек и резервные копии глобального хранилища — Core
 - Шифрование (за пределами сжатия) — прикладной уровень
 
 ---
@@ -36,7 +39,11 @@ Unity-слой системы сохранений. Предоставляет �
 | `Vortex.Core.LocalizationSystem` | `StringExt.Translate()` (в `UISaveLoadComponent`) |
 | `Vortex.Unity.LocalizationSystem` | `[LocalizationKey]` атрибут |
 | `Vortex.Unity.UI.UIComponents` | `UIComponent` (в `UISaveLoadComponent`) |
-| `Vortex.Unity.FileSystem` | `FileBus.GetAppPath()`, `FileBus.CreateFolders()` (в `FileSystemDriver`) |
+| `Vortex.Unity.FileSystem` | `FileBus.GetAppPath()`, `FileBus.CreateFolders()` (в файловых драйверах) |
+| `Vortex.Core.SettingsSystem` | `Settings.Data()` — папки и число копий из `SaveSettings` |
+| `Vortex.Core.LoaderSystem` | `Loader.Register` — глобальный драйвер ставит контроллер в очередь загрузки |
+| `Vortex.Unity.AppSystem` | `TimeController.Call` — запись глобального хранилища в конце кадра |
+| `Vortex.Unity.SettingsSystem` | `SettingsPreset` — база `SaveSettings` (asmref в `ru.vortex.unity.settings`) |
 | `Vortex.Unity.DriverManagerSystem` | `DriverConfig` ассет, `DriversGenericList.cs` codegen |
 
 ---
@@ -55,6 +62,8 @@ SystemController.SetDriver(driver) → принимает только whitelist
 
 Для смены драйвера: открыть ассет `DriverConfig`, выбрать нужный `DriverType` для `SaveController`, нажать «Save Config» — перегенерировать `DriversGenericList.cs`.
 
+У глобального хранилища своя строка — `GlobalSaveController`: `GlobalFileDriver/GlobalFileDriver` или `GlobalPrefsDriver/GlobalPrefsDriver`. Без неё хранилище не загружается, а фиксации отклоняются с ошибкой.
+
 ---
 
 ## Архитектура
@@ -68,16 +77,24 @@ Vortex/Unity/SaveSystem/
 │   │   ├── SaveSystemDriver.cs                — partial: IDriver + поля
 │   │   ├── SaveSystemDriverExtRun.cs          — [RuntimeInitializeOnLoadMethod]
 │   │   └── Editor/SaveSystemDriverExtEditor.cs — [InitializeOnLoadMethod]
-│   └── FileSystemDriver/
-│       ├── FileSystemDriver.cs                — каркас, поля
-│       ├── FileSystemDriver.Run.cs            — bootstrap, Init
-│       ├── FileSystemDriver.Save.cs           — Save + BuildSavePreset
-│       ├── FileSystemDriver.Load.cs           — Load, Remove
-│       ├── FileSystemDriver.Index.cs          — GetIndex, GetNumberLastSave, ScanIndex
-│       ├── FileSystemDriver.Paths.cs          — пути и имена файлов
-│       ├── FileSystemDriver.Serialization.cs  — XML serialize/deserialize, Compress
-│       └── Editor/FileSystemDriverExtEditor.cs — [InitializeOnLoadMethod]
-├── Presets/SavePreset.cs                      — общий XML-контейнер
+│   ├── FileSystemDriver/
+│   │   ├── FileSystemDriver.cs                — каркас, поля
+│   │   ├── FileSystemDriver.Run.cs            — bootstrap, Init
+│   │   ├── FileSystemDriver.Save.cs           — Save + BuildSavePreset
+│   │   ├── FileSystemDriver.Load.cs           — Load, Remove
+│   │   ├── FileSystemDriver.Index.cs          — GetIndex, GetNumberLastSave, ScanIndex
+│   │   ├── FileSystemDriver.Paths.cs          — пути и имена файлов (папка — из SaveSettings)
+│   │   ├── FileSystemDriver.Serialization.cs  — XML serialize/deserialize, Compress
+│   │   └── Editor/FileSystemDriverExtEditor.cs — [InitializeOnLoadMethod]
+│   ├── GlobalPrefsDriver/GlobalPrefsDriver.cs — глобальное хранилище в PlayerPrefs
+│   └── GlobalFileDriver/GlobalFileDriver.cs   — глобальное хранилище в файле
+├── Settings/                                  — asmref → ru.vortex.unity.settings
+│   ├── SaveSettings.cs                        — общий ассет настроек
+│   └── SaveSettingsMenu.cs                    — Tools/Vortex/Configs/Save Settings
+├── Debug/                                     — asmref → ru.vortex.unity.debug
+│   └── DebugSettingsExtGlobalSave.cs          — тумблер fail-fast глобального хранилища
+├── Editor/GlobalSaveWindow.cs                 — Tools/Vortex/Global Save
+├── Presets/SavePreset.cs                      — общий XML-контейнер слотов
 └── View/UISaveLoadComponent.cs                — UI прогресса
 ```
 
@@ -123,7 +140,7 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
 
 ### Driver: FileSystem
 
-Хранит сейвы как файлы на диске. Корневой путь — `FileBus.GetAppPath()/Saves/`. Подходит для больших сейвов и read/write операций без ограничений PlayerPrefs.
+Хранит сейвы как файлы на диске. Корневой путь — `FileBus.GetAppPath()/{savesFolder}/` (`SaveSettings`, по умолчанию `Saves`; пусто — корень). Подходит для больших сейвов и read/write операций без ограничений PlayerPrefs.
 
 ```
 FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
@@ -152,6 +169,8 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
 
 #### Формат хранения FileSystem
 
+Пути даны для папки по умолчанию `Saves`.
+
 | Файл | Содержимое |
 |------|-----------|
 | `Saves/{guid}.save` | Сжатая XML-строка (`SavePreset`), ключ сжатия = GUID |
@@ -178,6 +197,58 @@ UISaveLoadComponent : MonoBehaviour
   └── Run() → Coroutine: обновление текста каждый кадр
 ```
 
+### SaveSettings (общий ассет)
+
+`SaveSettings` — `SettingsPreset` в `Resources/Settings`, общий для слотов и глобального хранилища; меню `Tools/Vortex/Configs/Save Settings`. Файл компилируется в сборку `ru.vortex.unity.settings` (asmref в `Settings/`), значения копируются в `SettingsModel`, откуда их читают драйверы и Core-контроллер.
+
+| Поле | Свойство `SettingsModel` | Кто читает | По умолчанию |
+|------|--------------------------|------------|--------------|
+| `savesFolder` | `SavesFolder` | `FileSystemDriver` | `Saves` |
+| `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — копий нет |
+| `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
+
+Папки задаются относительно `FileBus.GetAppPath()`; пусто — корень. Путь склеивается `Path.Combine`: абсолютный путь в поле заменит корень. Файловые драйверы читают папку при подключении — смена во время игры применится со следующего запуска.
+
+### Драйверы глобального хранилища
+
+Реализуют `IGlobalSaveDriver` (Core): только хранение строк и откладывание записи до конца кадра — `TimeController.Call(flush, this)`, повтор в кадре заменяет предыдущий. Формат, копии и их ротацию ведёт `GlobalSaveController`.
+
+Bootstrap: `[RuntimeInitializeOnLoadMethod]` → `GlobalSaveController.SetDriver(Instance)`. Принятый драйвер регистрирует контроллер в `Loader`, отклонённый — `Dispose()`. Событие `OnInit` драйвер не поднимает: готовность объявляет контроллер после чтения.
+
+#### GlobalFileDriver
+
+| Файл | Содержимое |
+|------|-----------|
+| `{globalSaveFolder}/GlobalSave.dat` | Контейнер (сжатый XML) |
+| `{globalSaveFolder}/GlobalSave_copy_{id}.dat` | Резервные копии; `id` — UTC-тики |
+| `*.tmp` | Временный файл атомарной записи |
+
+Запись атомарная: временный файл, затем `File.Replace` / `File.Move`. Расширения `.summary` нет — в список сейвов файл не попадает.
+
+#### GlobalPrefsDriver
+
+| Ключ | Содержимое |
+|------|-----------|
+| `VortexGlobalSave` | Контейнер |
+| `VortexGlobalSave_copy_{id}` | Резервные копии |
+| `VortexGlobalSave_copies` | Перечень копий через `;` — PlayerPrefs не перечисляет ключи |
+
+Атомарность записи ключа обеспечивает платформенная реализация PlayerPrefs.
+
+### Окно Global Save
+
+`Tools/Vortex/Global Save` (`Editor/GlobalSaveWindow.cs`, редакторная часть рантайм-сборки):
+
+- модули по ключу с текущими значениями строкой сериализатора — ровно тем, что уйдёт в контейнер;
+- «Сбросить» у модуля и «Сбросить всё» (с подтверждением) — значения по умолчанию, запись сразу;
+- «Настройки» — переход к `SaveSettings`.
+
+Данные есть только в Play Mode после загрузки хранилища.
+
+### Тумблер fail-fast
+
+`DebugSettings.globalSaveFailFast` (`Debug/`, asmref в `ru.vortex.unity.debug`) → `SettingsModel.GlobalSaveFailFast`. Включён по умолчанию, работает только в редакторе, не подчинён `DebugMode`. Поведение описано в README Core SaveSystem.
+
 ---
 
 ## Сжатие
@@ -193,6 +264,7 @@ UISaveLoadComponent : MonoBehaviour
 - Драйверы регистрируются автоматически через `[RuntimeInitializeOnLoadMethod]`
 - Активный выбирается через `DriverConfig` → `DriversGenericList.WhiteList`
 - `SaveController.Save/Load/Remove` делегируют активному драйверу
+- Папка сейвов, число копий и папка глобального хранилища — `SaveSettings`
 
 ### Выход
 
@@ -277,3 +349,14 @@ SaveController.Remove(selectedGuid);
 | Файл `{guid}.save` повреждён при `Load` | Decompress/XML-парсер бросит исключение, обработается catch с `LogError` |
 | `Remove` для отсутствующего GUID | `LogError`, no-op |
 | Дисковая ошибка записи (`Save`) | `LogError` через `Debug.LogException`, состояние `Saves` не обновляется |
+| Смена `savesFolder` | Старые сейвы остаются в прежней папке и в списке не появляются: переноса нет |
+
+### Драйверы глобального хранилища
+
+| Ситуация | Поведение |
+|----------|-----------|
+| Смена `globalSaveFolder` | Старый файл не читается — для хранилища это первый запуск (значения по умолчанию); переноса нет |
+| Папки нет при записи | Создаётся через `FileBus.CreateFolders` |
+| Ошибка ввода-вывода при чтении | `GlobalReadStatus.Error` → ветка «нечитаемо» контроллера |
+| Ошибка записи | `LogError` драйвера, `false` → контроллер логирует и повторит запись при следующей фиксации |
+| Переполнение `PlayerPrefs` (GlobalPrefsDriver) | Зависит от платформы |

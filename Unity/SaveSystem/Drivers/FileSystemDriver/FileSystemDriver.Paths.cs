@@ -1,4 +1,5 @@
 using System.IO;
+using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Unity.FileSystem.Bus;
 
 namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
@@ -6,10 +7,11 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
     public sealed partial class FileSystemDriver
     {
         /// <summary>
-        /// Путь к папке хранения сейвов.
+        /// Путь к папке хранения сейвов: папка из SaveSettings относительно корня данных приложения.
+        /// Пусто — корень.
         /// </summary>
         private static string GetSavesDirectory() =>
-            Path.Combine(FileBus.GetAppPath(), SavesFolder);
+            Path.Combine(FileBus.GetAppPath(), Settings.Data()?.SavesFolder ?? string.Empty);
 
         /// <summary>
         /// Полный путь к файлу тела сейва.

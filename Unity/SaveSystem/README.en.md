@@ -1,6 +1,6 @@
 # SaveSystem (Unity)
 
-**Namespace:** `Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver`, `Vortex.Unity.SaveSystem.Drivers.FileSystemDriver`, `Vortex.Unity.SaveSystem.Presets`, `Vortex.Unity.SaveSystem.View`
+**Namespace:** `Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver`, `Vortex.Unity.SaveSystem.Drivers.FileSystemDriver`, `Vortex.Unity.SaveSystem.Drivers.GlobalPrefsDriver`, `Vortex.Unity.SaveSystem.Drivers.GlobalFileDriver`, `Vortex.Unity.SaveSystem.Presets`, `Vortex.Unity.SaveSystem.View`, `Vortex.Unity.SaveSystem.Editor`
 **Assembly:** `ru.vortex.unity.save`
 **Platform:** Unity 2021.3+
 
@@ -8,20 +8,23 @@
 
 ## Purpose
 
-Unity layer of the save system. Provides two pluggable storage drivers with XML serialization and compression, plus a UI component for progress display. Active driver is selected via `DriverConfig` (codegen-whitelist).
+Unity layer of the save system. Provides pluggable storage drivers for slots (XML serialization and compression) and for the global storage, the shared `SaveSettings` asset, a UI component for progress display and a global storage window. Active drivers are selected via `DriverConfig` (codegen-whitelist) — each bus has its own row.
 
 Capabilities:
 
-- `PlayerPrefsDriver/SaveSystemDriver` — `PlayerPrefs`-backed driver
-- `FileSystemDriver/FileSystemDriver` — filesystem-backed driver (`FileBus.GetAppPath()/Saves/`)
-- `SavePreset` — XML-serializable wrapper for `SaveFolder[]` (shared by both drivers)
+- `PlayerPrefsDriver/SaveSystemDriver` — `PlayerPrefs`-backed slot driver
+- `FileSystemDriver/FileSystemDriver` — filesystem-backed slot driver (`FileBus.GetAppPath()/{savesFolder}/`, `Saves` by default)
+- `GlobalPrefsDriver`, `GlobalFileDriver` — global storage drivers (`GlobalSaveController`)
+- `SavePreset` — XML-serializable wrapper for `SaveFolder[]` (shared by the slot drivers)
+- `SaveSettings` — shared settings asset: saves folder, backup count and global storage folder
 - `UISaveLoadComponent` — MonoBehaviour for save/load progress display
-- Each driver maintains its own save index and metadata (`SaveSummary`) in its own format
+- `Tools/Vortex/Global Save` window — global storage modules with current values, reset
+- Each slot driver maintains its own save index and metadata (`SaveSummary`) in its own format
 
 Out of scope:
 
-- `SaveController`, `ISaveable`, data models — Core
-- Data collection/distribution logic — Core
+- `SaveController`, `GlobalSaveController`, `ISaveable`, `IGlobalData`, data models — Core
+- Data collection/distribution logic, global storage codec and backups — Core
 - Encryption (beyond compression) — application level
 
 ---
@@ -36,7 +39,11 @@ Out of scope:
 | `Vortex.Core.LocalizationSystem` | `StringExt.Translate()` (in `UISaveLoadComponent`) |
 | `Vortex.Unity.LocalizationSystem` | `[LocalizationKey]` attribute |
 | `Vortex.Unity.UI.UIComponents` | `UIComponent` (in `UISaveLoadComponent`) |
-| `Vortex.Unity.FileSystem` | `FileBus.GetAppPath()`, `FileBus.CreateFolders()` (in `FileSystemDriver`) |
+| `Vortex.Unity.FileSystem` | `FileBus.GetAppPath()`, `FileBus.CreateFolders()` (in the file drivers) |
+| `Vortex.Core.SettingsSystem` | `Settings.Data()` — folders and backup count from `SaveSettings` |
+| `Vortex.Core.LoaderSystem` | `Loader.Register` — the global driver puts the controller into the loading queue |
+| `Vortex.Unity.AppSystem` | `TimeController.Call` — end-of-frame global storage write |
+| `Vortex.Unity.SettingsSystem` | `SettingsPreset` — base of `SaveSettings` (asmref into `ru.vortex.unity.settings`) |
 | `Vortex.Unity.DriverManagerSystem` | `DriverConfig` asset, `DriversGenericList.cs` codegen |
 
 ---
@@ -55,6 +62,8 @@ SystemController.SetDriver(driver) → accepts only whitelisted candidate
 
 To switch drivers: open the `DriverConfig` asset, pick the desired `DriverType` for `SaveController`, click "Save Config" — `DriversGenericList.cs` will be regenerated.
 
+The global storage has its own row — `GlobalSaveController`: `GlobalFileDriver/GlobalFileDriver` or `GlobalPrefsDriver/GlobalPrefsDriver`. Without it the storage does not load and commits are rejected with an error.
+
 ---
 
 ## Architecture
@@ -68,16 +77,24 @@ Vortex/Unity/SaveSystem/
 │   │   ├── SaveSystemDriver.cs                — partial: IDriver + fields
 │   │   ├── SaveSystemDriverExtRun.cs          — [RuntimeInitializeOnLoadMethod]
 │   │   └── Editor/SaveSystemDriverExtEditor.cs — [InitializeOnLoadMethod]
-│   └── FileSystemDriver/
-│       ├── FileSystemDriver.cs                — skeleton, fields
-│       ├── FileSystemDriver.Run.cs            — bootstrap, Init
-│       ├── FileSystemDriver.Save.cs           — Save + BuildSavePreset
-│       ├── FileSystemDriver.Load.cs           — Load, Remove
-│       ├── FileSystemDriver.Index.cs          — GetIndex, GetNumberLastSave, ScanIndex
-│       ├── FileSystemDriver.Paths.cs          — paths and file names
-│       ├── FileSystemDriver.Serialization.cs  — XML serialize/deserialize, Compress
-│       └── Editor/FileSystemDriverExtEditor.cs — [InitializeOnLoadMethod]
-├── Presets/SavePreset.cs                      — shared XML container
+│   ├── FileSystemDriver/
+│   │   ├── FileSystemDriver.cs                — skeleton, fields
+│   │   ├── FileSystemDriver.Run.cs            — bootstrap, Init
+│   │   ├── FileSystemDriver.Save.cs           — Save + BuildSavePreset
+│   │   ├── FileSystemDriver.Load.cs           — Load, Remove
+│   │   ├── FileSystemDriver.Index.cs          — GetIndex, GetNumberLastSave, ScanIndex
+│   │   ├── FileSystemDriver.Paths.cs          — paths and file names (folder from SaveSettings)
+│   │   ├── FileSystemDriver.Serialization.cs  — XML serialize/deserialize, Compress
+│   │   └── Editor/FileSystemDriverExtEditor.cs — [InitializeOnLoadMethod]
+│   ├── GlobalPrefsDriver/GlobalPrefsDriver.cs — global storage in PlayerPrefs
+│   └── GlobalFileDriver/GlobalFileDriver.cs   — global storage in a file
+├── Settings/                                  — asmref → ru.vortex.unity.settings
+│   ├── SaveSettings.cs                        — shared settings asset
+│   └── SaveSettingsMenu.cs                    — Tools/Vortex/Configs/Save Settings
+├── Debug/                                     — asmref → ru.vortex.unity.debug
+│   └── DebugSettingsExtGlobalSave.cs          — global storage fail-fast toggle
+├── Editor/GlobalSaveWindow.cs                 — Tools/Vortex/Global Save
+├── Presets/SavePreset.cs                      — shared slot XML container
 └── View/UISaveLoadComponent.cs                — progress UI
 ```
 
@@ -123,7 +140,7 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
 
 ### Driver: FileSystem
 
-Stores saves as files on disk. Root path — `FileBus.GetAppPath()/Saves/`. Suitable for large saves and read/write operations without `PlayerPrefs` constraints.
+Stores saves as files on disk. Root path — `FileBus.GetAppPath()/{savesFolder}/` (`SaveSettings`, `Saves` by default; empty — root). Suitable for large saves and read/write operations without `PlayerPrefs` constraints.
 
 ```
 FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
@@ -152,6 +169,8 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
 
 #### FileSystem storage format
 
+Paths are given for the default `Saves` folder.
+
 | File | Content |
 |------|---------|
 | `Saves/{guid}.save` | Compressed XML string (`SavePreset`), compression key = GUID |
@@ -178,6 +197,58 @@ UISaveLoadComponent : MonoBehaviour
   └── Run() → Coroutine: updates text every frame
 ```
 
+### SaveSettings (shared asset)
+
+`SaveSettings` — a `SettingsPreset` in `Resources/Settings`, shared by slots and the global storage; menu `Tools/Vortex/Configs/Save Settings`. The file compiles into the `ru.vortex.unity.settings` assembly (asmref in `Settings/`); values are copied into `SettingsModel`, from where drivers and the Core controller read them.
+
+| Field | `SettingsModel` property | Read by | Default |
+|-------|--------------------------|---------|---------|
+| `savesFolder` | `SavesFolder` | `FileSystemDriver` | `Saves` |
+| `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — no copies |
+| `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
+
+Folders are relative to `FileBus.GetAppPath()`; empty — root. The path is joined with `Path.Combine`: an absolute path in the field replaces the root. File drivers read the folder when connected — a change during play applies from the next launch.
+
+### Global storage drivers
+
+Implement `IGlobalSaveDriver` (Core): only string storage and deferring the write to the end of frame — `TimeController.Call(flush, this)`, a repeat call within the frame replaces the previous one. Format, copies and their rotation are handled by `GlobalSaveController`.
+
+Bootstrap: `[RuntimeInitializeOnLoadMethod]` → `GlobalSaveController.SetDriver(Instance)`. The accepted driver registers the controller in `Loader`, a rejected one calls `Dispose()`. The driver does not raise `OnInit`: readiness is announced by the controller after reading.
+
+#### GlobalFileDriver
+
+| File | Content |
+|------|---------|
+| `{globalSaveFolder}/GlobalSave.dat` | Container (compressed XML) |
+| `{globalSaveFolder}/GlobalSave_copy_{id}.dat` | Backup copies; `id` — UTC ticks |
+| `*.tmp` | Temporary file of the atomic write |
+
+The write is atomic: a temporary file, then `File.Replace` / `File.Move`. There is no `.summary` extension — the file never shows up in the save list.
+
+#### GlobalPrefsDriver
+
+| Key | Content |
+|-----|---------|
+| `VortexGlobalSave` | Container |
+| `VortexGlobalSave_copy_{id}` | Backup copies |
+| `VortexGlobalSave_copies` | Copy list joined by `;` — PlayerPrefs cannot enumerate keys |
+
+Key write atomicity is provided by the platform's PlayerPrefs implementation.
+
+### Global Save window
+
+`Tools/Vortex/Global Save` (`Editor/GlobalSaveWindow.cs`, editor part of the runtime assembly):
+
+- modules by key with current values as the serializer string — exactly what goes into the container;
+- "Reset" per module and "Reset all" (with confirmation) — defaults, immediate write;
+- "Settings" — jumps to `SaveSettings`.
+
+Data is available only in Play Mode after the storage has loaded.
+
+### Fail-fast toggle
+
+`DebugSettings.globalSaveFailFast` (`Debug/`, asmref into `ru.vortex.unity.debug`) → `SettingsModel.GlobalSaveFailFast`. On by default, editor only, not subordinate to `DebugMode`. Behavior is described in the Core SaveSystem README.
+
 ---
 
 ## Compression
@@ -193,6 +264,7 @@ Both drivers compress save body via `string.Compress(guid)` and decompress via `
 - Drivers register automatically via `[RuntimeInitializeOnLoadMethod]`
 - Active driver is selected via `DriverConfig` → `DriversGenericList.WhiteList`
 - `SaveController.Save/Load/Remove` delegate to the active driver
+- Saves folder, backup count and global storage folder — `SaveSettings`
 
 ### Output
 
@@ -277,3 +349,14 @@ SaveController.Remove(selectedGuid);
 | Corrupted `{guid}.save` on `Load` | Decompress/XML parser throws, caught with `LogError` |
 | `Remove` for non-existent GUID | `LogError`, no-op |
 | Disk write error on `Save` | `LogError` via `Debug.LogException`, `Saves` state not updated |
+| `savesFolder` changed | Old saves stay in the previous folder and do not appear in the list: no migration |
+
+### Global storage drivers
+
+| Scenario | Behavior |
+|----------|----------|
+| `globalSaveFolder` changed | The old file is not read — for the storage it is a first launch (defaults); no migration |
+| Folder missing on write | Created via `FileBus.CreateFolders` |
+| I/O error on read | `GlobalReadStatus.Error` → the controller's "unreadable" branch |
+| Write error | Driver `LogError`, `false` → the controller logs and retries on the next commit |
+| `PlayerPrefs` overflow (GlobalPrefsDriver) | Platform-dependent |
