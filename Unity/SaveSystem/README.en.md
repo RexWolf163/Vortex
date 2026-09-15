@@ -18,7 +18,7 @@ Capabilities:
 - `SavePreset` — XML-serializable wrapper for `SaveFolder[]` (shared by the slot drivers)
 - `SaveSettings` — shared settings asset: saves folder, backup count and global storage folder
 - `UISaveLoadComponent` — MonoBehaviour for save/load progress display
-- `Tools/Vortex/Global Save` window — global storage modules with current values, reset
+- `Tools/Vortex/GlobalData/Index` window — index of global storage modules; in Play Mode — current values with live editing and reset
 - Each slot driver maintains its own save index and metadata (`SaveSummary`) in its own format
 
 Out of scope:
@@ -93,7 +93,7 @@ Vortex/Unity/SaveSystem/
 │   └── SaveSettingsMenu.cs                    — Tools/Vortex/Configs/Save Settings
 ├── Debug/                                     — asmref → ru.vortex.unity.debug
 │   └── DebugSettingsExtGlobalSave.cs          — global storage fail-fast toggle
-├── Editor/GlobalSaveWindow.cs                 — Tools/Vortex/Global Save
+├── Editor/GlobalDataIndexWindow.cs            — Tools/Vortex/GlobalData/Index
 ├── Presets/SavePreset.cs                      — shared slot XML container
 └── View/UISaveLoadComponent.cs                — progress UI
 ```
@@ -235,15 +235,32 @@ The write is atomic: a temporary file, then `File.Replace` / `File.Move`. There 
 
 Key write atomicity is provided by the platform's PlayerPrefs implementation.
 
-### Global Save window
+### Global Data window
 
-`Tools/Vortex/Global Save` (`Editor/GlobalSaveWindow.cs`, editor part of the runtime assembly):
+`Tools/Vortex/GlobalData/Index` (`Editor/GlobalDataIndexWindow.cs`, editor part of the runtime assembly). The mode depends on Play Mode.
 
-- modules by key with current values as the serializer string — exactly what goes into the container;
+**Outside Play Mode — index of the project's modules.** All `IGlobalData` implementations (`TypeCache`): key, type, assembly, default values (read-only). Problems that make the storage skip a module are flagged:
+
+- no public parameterless constructor — the module will not be found;
+- empty key — the module is neither read nor written;
+- duplicate key — all modules with that key are neither read nor written (listed).
+
+"Refresh" rebuilds the index; after a recompilation it is rebuilt automatically.
+
+**In Play Mode — storage contents with live editing.** Modules by key (`GlobalSaveController.Modules`):
+
+- a changed value is committed immediately (`GlobalSaveController.Commit(Type)`) — a write and `OnChanged`, just as from module code; subscribers (containers, quest conditions) react as usual;
 - "Reset" per module and "Reset all" (with confirmation) — defaults, immediate write;
-- "Settings" — jumps to `SaveSettings`.
+- while the storage is not loaded or has no driver — a message instead of the list.
 
-Data is available only in Play Mode after the storage has loaded.
+"Settings" jumps to `SaveSettings` (in both modes).
+
+**Which properties are shown.** Exactly those the serializer saves: getter and setter, a public getter or `[IsPOCO]`, no `[NotPOCO]`.
+
+| Property type | Display |
+|---------------|---------|
+| `bool`, `int`, `long`, `float`, `double`, `string`, `enum` | Field, editable |
+| Collections, nested objects, other types | Serializer string, read-only |
 
 ### Fail-fast toggle
 

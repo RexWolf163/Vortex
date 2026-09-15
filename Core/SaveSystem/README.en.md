@@ -313,7 +313,7 @@ Fail-fast: loading stops (`App.Exit()`), the gate does not open, writing is bloc
 |--------|-------------|
 | `Get<T>()` | Module with current values. Before loading — defaults |
 | `HasStoredData<T>()` | The module's data was present in the read container — for migrations |
-| `Commit<T>()` | Commit module changes. Before loading — rejected with an error |
+| `Commit<T>()` / `Commit(Type)` | Commit module changes. Before loading — rejected with an error. The type overload is for tooling |
 | `Reset<T>()` / `Reset(Type)` | Module → defaults in the same instance, immediate write, notification |
 | `ResetAll()` | Same for all modules |
 | `OnInit` / `IsInit` | Readiness gate and flag (storage has been read) |
@@ -357,6 +357,7 @@ Rules:
 - **Migrations** — via `HasStoredData<T>()`. Example: `AppTimeData` in SDK GameCore migrates from `PlayerPrefs`; the old key is deleted once the next launch has read the migrated value.
 - **Encryption is the module's job.** `Crypto.SetCryptoPack` runs PBKDF2 on every call (hundreds of milliseconds), so encrypt only when the data changes.
 - **Holding a module reference is fine:** loading and reset change values in the same instance.
+- **Checking a module** — the `Tools/Vortex/GlobalData/Index` window (Unity SaveSystem): outside Play Mode it shows the module, its key and problems that make the storage skip it; in Play Mode — current values with live editing.
 
 ### Limitations
 

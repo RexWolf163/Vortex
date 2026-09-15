@@ -95,9 +95,12 @@ namespace Vortex.Core.SaveSystem.Bus
         /// Зафиксировать изменения модуля. Запись — в конце кадра, одна на все фиксации кадра; в состояниях
         /// Unfocused и Stopping — сразу. До загрузки хранилища фиксация отклоняется с ошибкой в лог.
         /// </summary>
-        public static void Commit<T>() where T : class, IGlobalData
+        public static void Commit<T>() where T : class, IGlobalData => Commit(typeof(T));
+
+        /// <inheritdoc cref="Commit{T}"/>
+        public static void Commit(Type moduleType)
         {
-            var type = typeof(T);
+            var type = moduleType;
             if (!CanChange(type, "Фиксация"))
                 return;
 
