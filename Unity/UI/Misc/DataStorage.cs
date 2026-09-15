@@ -52,6 +52,19 @@ namespace Vortex.Unity.UI.Misc
             OnUpdateLink?.Invoke();
         }
 
+        public void AddData(Object data)
+        {
+            foreach (var o in Data.ToArray())
+            {
+                if (o.GetType() != data.GetType())
+                    continue;
+                Data.Remove(o);
+            }
+
+            Data.Add(data);
+            dataSwitcher?.Set(IsEmpty() ? SwitcherState.Off : SwitcherState.On);
+        }
+
         public T GetData<T>() where T : class => Data.FirstOrDefault(o => o is T) as T;
 
         /// <summary>
