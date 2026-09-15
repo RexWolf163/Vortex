@@ -26,6 +26,9 @@ namespace Vortex.Unity.UI.CursorSystem
     /// движении стиком) и дрожь реальной мыши порождают событие с отпущенной ЛКМ, которое затёрло бы инъекцию —
     /// UGUI увидел бы отпускание, и удержание/drag геймпад-кнопкой срывалось бы при каждом движении стика. Поэтому,
     /// пока инъекция активна, её биты вписываются в каждое событие состояния мыши (<see cref="OnInputEvent"/>).
+    ///
+    /// Источник кнопок — только не-мышиные контролы экшенов (<see cref="IsPressed"/>): нажатие самой мыши в
+    /// экшене драйвер не засчитывает, иначе собственная инъекция замыкается в петлю и кнопка залипает.
     /// </summary>
     public class GamepadCursorDriver : MonoBehaviour
     {
@@ -172,7 +175,14 @@ namespace Vortex.Unity.UI.CursorSystem
                 mouse.rightButton.WriteValueIntoEvent(1f, eventPtr);
         }
 
-        private static bool IsPressed(InputAction action) => action != null && action.IsPressed();
+        /// <summary>
+        /// Нажат ли экшен НЕ мышью. Экшен может содержать и биндинг самой мыши (например, <c>UI/RightClick</c> →
+        /// <c>&lt;Mouse&gt;/rightButton</c>). Засчитать его — петля: драйвер вписывает кнопку в мышь, экшен видит её
+        /// нажатой, и инъекция держит сама себя — кнопка мыши залипает после первого физического клика.
+        /// Драйвер переносит на мышь кнопки геймпада; мышь для него не источник.
+        /// </summary>
+        private static bool IsPressed(InputAction action) =>
+            action != null && action.IsPressed() && action.activeControl?.device is not Mouse;
 
         // Нажатие — сразу; отпускание — только после releaseGraceFrames подряд «не нажато».
         private bool Hold(bool pressed, ref bool held, ref int releaseStreak)
