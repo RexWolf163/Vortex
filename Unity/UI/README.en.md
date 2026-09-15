@@ -8,7 +8,7 @@ This section does not manage interface lifecycles — that's `UIProviderSystem`'
 
 **UIComponents** — a modular system where a single `UIComponent` manages arrays of typed parts: text, button, graphic, switcher. A unified API (`PutData`, `SetText`, `SetSprite`, `SetAction`) instead of manual work with each component. Supports Text, TMP, Image, SpriteRenderer, Button, AdvancedButton.
 
-**TweenerSystem** — UniTask-based animations. Two modes. Scene-bound — `TweenerHub` on a scene object with a `TweenLogic` array (color, opacity, scale, fill, pivot), Forward/Back/Pulse. Standalone — `AsyncTween` fluent API for one-off code-driven animations, with shortcuts for Move, Scale, Fade, Color. 16 easing types.
+**TweenerSystem** — UniTask-based animations. Two modes. Scene-bound — `TweenerHub` on a scene object with a `TweenLogic` array (color, opacity, scale, fill, pivot), Forward/Back/Pulse. Standalone — `AsyncTween` fluent API for one-off code-driven animations, with shortcuts for Move, Scale, Fade, Color. 16 easing types. `StateView<TEnum>` — a field-level state switcher on tweeners: a hub per enum value, with a state table and automatic hub creation in the inspector.
 
 **StateSwitcher** — state machine. `UIStateSwitcher` switches named states, each containing a set of `StateItem`: toggle GameObjects, change color (animated or instant), swap sprites, trigger Animator, run TweenerHub, fire UnityEvent.
 

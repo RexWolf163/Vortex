@@ -13,9 +13,10 @@ Capabilities:
 - `StateSwitcherAttribute` for enum binding with Inspector visualization
 - `OnStateSwitch` event on state change
 - Reentrancy protection
+- `Alt+S` / `Ctrl+Alt+S` hotkeys — add a `UIStateSwitcher` to an object or as a separate layer
 
 Out of scope:
-- Transition animations between states (use `TweenerHubSwitch` or `ColorsSwitch`)
+- Transition animations between states (use `TweenerHubSwitch`, `ColorsSwitch`, or `StateView<TEnum>` from TweenerSystem when the states are animations)
 - State selection logic (layer 3/4)
 
 ## Dependencies
@@ -45,8 +46,10 @@ StateSwitcher/
 │   ├── SpritesSwitch.cs        # Sprite on SpriteRenderer/Image
 │   ├── EventFire.cs            # UnityEvent on activation
 │   └── TweenerHubSwitch.cs     # Forward/Back on TweenerHub
-└── Handlers/
-    └── OnEnableStateRunner.cs  # Switch on OnEnable
+├── Handlers/
+│   └── OnEnableStateRunner.cs  # Switch on OnEnable
+└── Editor/
+    └── UIStateSwitcherShortcut.cs  # Alt+S / Ctrl+Alt+S
 ```
 
 ### UIStateSwitcher
@@ -123,6 +126,19 @@ In Inspector displays a state table:
 - Active state highlighting
 - Click to switch
 - **Sync** button — synchronizes state names with enum descriptions
+
+---
+
+## Hotkeys
+
+For selected scene objects or objects of an open prefab (`Editor/UIStateSwitcherShortcut.cs`):
+
+| Shortcut | Menu | Action |
+|----------|------|--------|
+| `Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` | Add a `UIStateSwitcher` to the object itself; skipped where one already exists |
+| `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher Layer` | A child layer `[UIStateSwitcher]` with a switcher: first in the hierarchy, at the zero point, on a plain `Transform` (`RectTransform` is removed); new layers are selected |
+
+Assets in the Project window are not affected. Undone in one step. Layer creation is shared code in `UI/Shortcuts/ComponentShortcuts.cs`, the same as for the `TweenerHub` hotkeys (`Alt+T` / `Ctrl+Alt+T`).
 
 ---
 

@@ -5,10 +5,12 @@
 
 ## Назначение
 
-Система анимаций на базе UniTask. Два режима: сценарный (`TweenerHub` + `TweenLogic`) и standalone (`AsyncTween` fluent API).
+Система анимаций на базе UniTask. Два режима: сценарный (`TweenerHub` + `TweenLogic`) и standalone (`AsyncTween` fluent API). Поверх сценарного — `StateView<TEnum>`: переключатель состояний, где каждое значение enum — свой `TweenerHub`.
 
 Возможности:
 - Сценарные анимации: Forward / Back / Pulse с поддержкой offset и switch-точек
+- `StateView<TEnum>` — состояния на твинерах: выбранное — Forward, остальные — Back; в инспекторе — таблица состояний и автосоздание хабов (Sync)
+- Горячие клавиши `Alt+T` / `Ctrl+Alt+T` — добавить `TweenerHub` на объект или отдельным слоем
 - 5 готовых TweenLogic: цвет, прозрачность CanvasGroup, масштаб, fillAmount, pivot
 - Standalone fluent API для одноразовых анимаций из кода
 - 16 типов easing + поддержка AnimationCurve
@@ -26,7 +28,7 @@
 | `Vortex.Core.SettingsSystem` | `Settings.Data()` — debug-флаги |
 | `Vortex.Unity.AppSystem` | `TimeController.Accumulate()` — аккумуляция вызовов |
 | `Vortex.Unity.EditorTools` | `[ClassLabel]` |
-| Odin Inspector | `[ShowInInspector]`, `[MinValue]`, `[MaxValue]` |
+| Odin Inspector | `[ShowInInspector]`, `[MinValue]`, `[MaxValue]`; `OdinValueDrawer` — шапка `StateView` |
 | TextMeshPro | Поддержка в `ColorLogic` |
 
 ---
@@ -38,6 +40,7 @@ TweenerSystem/
 ├── TweenerHub.cs               # Сценарный контроллер (MonoBehaviour)
 ├── TweenLogic.cs               # Абстрактная база анимации
 ├── TweenPreset.cs              # ScriptableObject: curve, duration, switch-флаги
+├── StateView.cs                # StateView<TEnum> + StateViewBase: TweenerHub на каждое состояние enum
 ├── TweenLogics/
 │   ├── ColorLogic.cs           # Цвет: Image, Text, TMP, SpriteRenderer
 │   ├── CanvasOpacityLogic.cs   # Прозрачность CanvasGroup + blocksRaycasts
@@ -48,6 +51,9 @@ TweenerSystem/
 │   ├── AsyncTween.cs           # Standalone fluent API
 │   ├── AsyncTweenExtensions.cs # Шорткаты (Move, Scale, Fade...)
 │   └── Easing.cs               # 16 типов easing
+├── Editor/
+│   ├── StateViewDrawer.cs      # Шапка состояний StateView, кнопка Sync (Odin)
+│   └── TweenerHubShortcut.cs   # Alt+T / Ctrl+Alt+T
 └── Debug/
     ├── Model/SettingsModelExtAsyncTweener.cs
     └── Presets/DebugSettingsExtAsyncTweener.cs
@@ -114,6 +120,52 @@ tweenerHub.Forward(true);   // мгновенный переход (skip)
 | `RectScaleLogic` | RectTransform[] | `localScale` (режим Both / X only / Y only) |
 | `FillImageLogic` | Image[] | `fillAmount` |
 | `PivotLogic` | RectTransform | `pivot` (Vector2 Lerp startPos→endPos) |
+
+### StateView&lt;TEnum&gt; (поле-класс)
+
+Переключатель состояний на твинерах: на каждое значение enum — свой `TweenerHub`. У выбранного состояния хаб в `Forward`, у остальных — в `Back`. Альтернатива `UIStateSwitcher`, когда состояния — это анимации.
+
+```csharp
+public enum GalleryState { Off, NaniCutscene, Image }
+
+[SerializeField] private StateView<GalleryState> playView;
+
+playView.Set(GalleryState.Image);       // Image — Forward, Off и NaniCutscene — Back
+playView.Set(GalleryState.Off, true);   // без анимации
+var current = playView.State;
+playView.Apply();                       // привести хабы к текущему состоянию
+```
+
+| Член | Описание |
+|------|----------|
+| `Set(TEnum value, bool skip = false)` | Выставить состояние: хаб выбранного — `Forward`, остальные — `Back`; `skip` — без анимации |
+| `State` | Текущее состояние |
+| `Apply(bool skip = false)` | Привести хабы к текущему состоянию — например, из `OnEnable` владельца |
+
+Устройство:
+
+- `[Serializable]`-класс — поле любого MonoBehaviour; сериализуются `state` (текущее состояние) и `hubs` (хабы).
+- Хабы идут по порядку значений enum (`Enum.GetValues`), а не по их числам: enum с пропусками (`A = 0, B = 5`) работает.
+- Общая часть — неgeneric-основа `StateViewBase`: один drawer обслуживает поле с любым enum.
+- Жизненного цикла у поля нет. При включении хабы сами возвращаются в последнее положение (изначально `Back`); чтобы привести их к сохранённому `state`, владелец вызывает `Apply()`.
+- Пустой элемент массива пропускается.
+
+Инспектор (`StateViewDrawer`, Odin):
+
+- над полем — таблица состояний, как у `[StateSwitcher]`: номер, подпись (из `Tooltip` / `LabelText` значения enum, иначе имя), назначенный хаб или `[None]`; активное состояние подсвечено;
+- клик по строке — переключение с Undo; вне Play Mode хабы переключаются мгновенно;
+- **Sync** — подгоняет длину массива под число состояний и каждому пустому состоянию создаёт дочерний слой владельца `[{поле}_{состояние}_Tween]` с `TweenerHub`, как `Ctrl+Alt+T`. Слои выстраиваются в порядке enum, всё отменяется одним шагом Undo. Ассет префаба в Project не синхронизируется — префаб нужно открыть.
+
+### Горячие клавиши
+
+Для выделенных объектов сцены или открытого префаба (`Editor/TweenerHubShortcut.cs`):
+
+| Сочетание | Меню | Действие |
+|-----------|------|----------|
+| `Alt+T` | `Tools/Vortex/UI/Add TweenerHub` | Добавить `TweenerHub` на сам объект; где он уже есть — пропуск |
+| `Ctrl+Alt+T` | `Tools/Vortex/UI/Add TweenerHub Layer` | Дочерний слой `[TweenerHub]` с хабом: первым в иерархии, в нулевой точке, на обычном `Transform` (`RectTransform` снимается); новые слои выделяются |
+
+Отмена — одним шагом Undo. Создание слоя — общий код `UI/Shortcuts/ComponentShortcuts.cs`; им же пользуется Sync у `StateView`.
 
 ---
 
@@ -184,3 +236,6 @@ new AsyncTween().SetPivot(rectTransform, newPivot, 0.3f).Run();
 | `Kill()` на `AsyncTween` | Отмена через `CancellationTokenSource`, `OnComplete` не вызывается, `OnKill` вызывается |
 | `Run()` после `Set()` | Параметры fluent-цепочки сбрасываются (`ResetParams`), но `OnKill` сохраняется до завершения или следующего `Kill` |
 | Повторный `Run()` без `Set()` | Мгновенное применение (`duration = 0`), `OnComplete` вызывается |
+| У состояния `StateView` нет хаба | `Set` / `Apply` пропускают пустой элемент |
+| Значение удалено из enum `StateView` | Sync укорачивает массив; слой удалённого состояния остаётся в иерархии — удалить вручную |
+| Sync на ассете префаба в Project | Ошибка в лог: слои создаются только в сцене или открытом префабе |

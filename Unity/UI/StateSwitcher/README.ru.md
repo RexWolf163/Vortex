@@ -13,9 +13,10 @@
 - `StateSwitcherAttribute` для привязки к enum с визуализацией в Inspector
 - Событие `OnStateSwitch` при смене состояния
 - Защита от реентрантности
+- Горячие клавиши `Alt+S` / `Ctrl+Alt+S` — добавить `UIStateSwitcher` на объект или отдельным слоем
 
 Вне ответственности:
-- Анимации переходов между состояниями (используйте `TweenerHubSwitch` или `ColorsSwitch`)
+- Анимации переходов между состояниями (используйте `TweenerHubSwitch`, `ColorsSwitch` или `StateView<TEnum>` из TweenerSystem, когда состояния — это анимации)
 - Логика выбора состояния (уровень 3/4)
 
 ## Зависимости
@@ -45,8 +46,10 @@ StateSwitcher/
 │   ├── SpritesSwitch.cs        # Спрайт на SpriteRenderer/Image
 │   ├── EventFire.cs            # UnityEvent при активации
 │   └── TweenerHubSwitch.cs     # Forward/Back на TweenerHub
-└── Handlers/
-    └── OnEnableStateRunner.cs  # Переключение при OnEnable
+├── Handlers/
+│   └── OnEnableStateRunner.cs  # Переключение при OnEnable
+└── Editor/
+    └── UIStateSwitcherShortcut.cs  # Alt+S / Ctrl+Alt+S
 ```
 
 ### UIStateSwitcher
@@ -123,6 +126,19 @@ private UIStateSwitcher switcher;
 - Подсветка активного состояния
 - Клик для переключения
 - Кнопка **Sync** — синхронизирует имена состояний с описаниями enum
+
+---
+
+## Горячие клавиши
+
+Для выделенных объектов сцены или открытого префаба (`Editor/UIStateSwitcherShortcut.cs`):
+
+| Сочетание | Меню | Действие |
+|-----------|------|----------|
+| `Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` | Добавить `UIStateSwitcher` на сам объект; где он уже есть — пропуск |
+| `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher Layer` | Дочерний слой `[UIStateSwitcher]` со свитчером: первым в иерархии, в нулевой точке, на обычном `Transform` (`RectTransform` снимается); новые слои выделяются |
+
+Ассеты в Project window не затрагиваются. Отмена — одним шагом Undo. Создание слоя — общий код `UI/Shortcuts/ComponentShortcuts.cs`, тот же, что у горячих клавиш `TweenerHub` (`Alt+T` / `Ctrl+Alt+T`).
 
 ---
 

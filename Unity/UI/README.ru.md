@@ -8,7 +8,7 @@ UI-слой фреймворка. Всё, что касается визуала
 
 **UIComponents** — модульная система, где один `UIComponent` управляет массивами типизированных part'ов: текст, кнопка, графика, switcher. Единый API (`PutData`, `SetText`, `SetSprite`, `SetAction`) вместо ручной работы с каждым компонентом. Поддерживает Text, TMP, Image, SpriteRenderer, Button, AdvancedButton.
 
-**TweenerSystem** — анимации на UniTask. Два режима. Сценарный — `TweenerHub` на сцене с массивом `TweenLogic` (цвет, прозрачность, масштаб, fill, pivot), Forward/Back/Pulse. Standalone — `AsyncTween` fluent API для одноразовых анимаций из кода, с шорткатами для Move, Scale, Fade, Color. 16 типов easing.
+**TweenerSystem** — анимации на UniTask. Два режима. Сценарный — `TweenerHub` на сцене с массивом `TweenLogic` (цвет, прозрачность, масштаб, fill, pivot), Forward/Back/Pulse. Standalone — `AsyncTween` fluent API для одноразовых анимаций из кода, с шорткатами для Move, Scale, Fade, Color. 16 типов easing. `StateView<TEnum>` — поле-переключатель состояний на твинерах: хаб на каждое значение enum, в инспекторе таблица состояний и автосоздание хабов.
 
 **StateSwitcher** — машина состояний. `UIStateSwitcher` переключает именованные состояния, каждое из которых содержит набор `StateItem`: включить/выключить GameObject'ы, сменить цвет (с анимацией или без), поменять спрайт, дёрнуть Animator, запустить TweenerHub, выстрелить UnityEvent.
 
