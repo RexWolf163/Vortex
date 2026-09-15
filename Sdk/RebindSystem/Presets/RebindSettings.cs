@@ -38,6 +38,12 @@ namespace Vortex.Sdk.RebindSystem.Presets
         [SerializeField, ValueDropdown("CommandIds")]
         private string[] skippedCommands = new string[0];
 
+        [InfoBox("Сквозные команды: действуют поверх любой карты (например, UI/Click имитирует клик мыши). " +
+                 "Совпадение их клавиши с командой другой карты — отдельный уровень конфликта Common:" +
+                 "допустимо, подсвечивается.")]
+        [SerializeField, ValueDropdown("CommandIds")]
+        private string[] commonCommands = new string[0];
+
         [InfoBox("Запрещённые клавиши и комбинации.")]
         [SerializeField]
         private ForbiddenEntry[] forbidden = DefaultForbidden();
@@ -55,6 +61,8 @@ namespace Vortex.Sdk.RebindSystem.Presets
         public IReadOnlyList<string> ProtectedCommands => protectedCommands ?? Array.Empty<string>();
 
         public IReadOnlyList<string> SkippedCommands => skippedCommands ?? Array.Empty<string>();
+
+        public IReadOnlyList<string> CommonCommands => commonCommands ?? Array.Empty<string>();
 
         public IReadOnlyList<ForbiddenEntry> Forbidden => forbidden ?? Array.Empty<ForbiddenEntry>();
 
@@ -151,7 +159,7 @@ namespace Vortex.Sdk.RebindSystem.Presets
             // Команды
             if (commands != null)
             {
-                foreach (var id in ProtectedCommands.Concat(SkippedCommands))
+                foreach (var id in ProtectedCommands.Concat(SkippedCommands).Concat(CommonCommands))
                     if (!commands.Contains(id))
                         yield return $"команды «{id}» нет в ассете ввода.";
 
@@ -170,6 +178,9 @@ namespace Vortex.Sdk.RebindSystem.Presets
 
             foreach (var id in ProtectedCommands.Intersect(SkippedCommands))
                 yield return $"команда «{id}» одновременно защищённая и пропускаемая.";
+
+            foreach (var id in CommonCommands.Intersect(SkippedCommands))
+                yield return $"команда «{id}» одновременно сквозная и пропускаемая — у пропускаемой нет слотов.";
 
             // Запрещённые
             foreach (var entry in Forbidden)

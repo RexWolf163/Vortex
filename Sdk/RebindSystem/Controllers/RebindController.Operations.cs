@@ -387,7 +387,8 @@ namespace Vortex.Sdk.RebindSystem.Controllers
             var crossMap = new List<ConflictInfo>();
             if (target != null)
                 ComputeConflict(target, crossMap);
-            return RebindResult.Applied(keys, crossMap.Where(c => c.Level == SlotConflict.CrossMap).ToArray());
+            return RebindResult.Applied(keys,
+                crossMap.Where(c => c.Level is SlotConflict.CrossMap or SlotConflict.Common).ToArray());
         }
 
         /// <summary>

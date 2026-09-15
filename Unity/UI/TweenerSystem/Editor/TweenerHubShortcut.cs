@@ -2,32 +2,35 @@
 
 using System.Linq;
 using UnityEditor;
-using UnityEngine;
+using Vortex.Unity.UI.Shortcuts;
 
 namespace Vortex.Unity.UI.TweenerSystem.Editor
 {
     /// <summary>
-    /// Горячая клавиша Alt+H (<c>Tools/Vortex/UI/Add TweenerHub</c>): добавить <see cref="TweenerHub"/> на
-    /// выделенные объекты сцены или открытого префаба. Объекты, где он уже есть, пропускаются — повторное
-    /// нажатие не плодит дубли. Ассеты в Project window не затрагиваются. Отменяется через Undo.
+    /// Горячие клавиши <see cref="TweenerHub"/> для выделенных объектов сцены или открытого префаба:
+    /// <list type="bullet">
+    /// <item>Alt+T (<c>Tools/Vortex/UI/Add TweenerHub</c>) — добавить на сам объект; где он уже есть — пропуск;</item>
+    /// <item>Ctrl+Alt+T (<c>Tools/Vortex/UI/Add TweenerHub Layer</c>) — добавить отдельным дочерним слоем
+    /// <c>[TweenerHub]</c>: первым в иерархии, в нулевой точке, на обычном Transform.</item>
+    /// </list>
+    /// Ассеты в Project window не затрагиваются. Отменяется через Undo.
     /// </summary>
     public static class TweenerHubShortcut
     {
-        private const string MenuPath = "Tools/Vortex/UI/Add TweenerHub &h";
+        private const string MenuPath = "Tools/Vortex/UI/Add TweenerHub &t";
+        private const string LayerMenuPath = "Tools/Vortex/UI/Add TweenerHub Layer %&t";
 
         [MenuItem(MenuPath)]
-        private static void Add()
-        {
-            foreach (var target in Targets())
-                if (target.GetComponent<TweenerHub>() == null)
-                    Undo.AddComponent<TweenerHub>(target);
-        }
+        private static void Add() => ComponentShortcuts.AddToTargets<TweenerHub>();
 
         [MenuItem(MenuPath, true)]
-        private static bool CanAdd() => Targets().Any();
+        private static bool CanAdd() => ComponentShortcuts.Targets().Any();
 
-        private static GameObject[] Targets() =>
-            Selection.gameObjects.Where(go => !EditorUtility.IsPersistent(go)).ToArray();
+        [MenuItem(LayerMenuPath)]
+        private static void AddLayer() => ComponentShortcuts.AddLayerToTargets<TweenerHub>();
+
+        [MenuItem(LayerMenuPath, true)]
+        private static bool CanAddLayer() => ComponentShortcuts.Targets().Any();
     }
 }
 #endif

@@ -149,7 +149,8 @@ namespace Vortex.Sdk.RebindSystem.Controllers
 
         /// <summary>
         /// Уровень конфликта слота; при переданном списке — сведения о каждом пересечении. Конфликт считается
-        /// только внутри группы слота.
+        /// только внутри группы слота. Пересечение карт, где одна из сторон — сквозная команда, — отдельный
+        /// уровень <see cref="SlotConflict.Common"/>: такая команда действует поверх любой карты.
         /// </summary>
         private SlotConflict ComputeConflict(BindSlot slot, List<ConflictInfo> infos)
         {
@@ -163,17 +164,39 @@ namespace Vortex.Sdk.RebindSystem.Controllers
                     continue;
 
                 var current = other.Map != slot.Map
-                    ? SlotConflict.CrossMap
+                    ? IsCommon(slot.CommandId) || IsCommon(other.CommandId)
+                        ? SlotConflict.Common
+                        : SlotConflict.CrossMap
                     : IsAllowedPair(slot.CommandId, other.CommandId)
                         ? SlotConflict.IntraMapAllowed
                         : SlotConflict.IntraMap;
 
                 infos?.Add(new ConflictInfo(slot.Signature, current, other.BindKey, other.Map));
-                if (current > level)
+                if (Severity(current) > Severity(level))
                     level = current;
             }
 
             return level;
+        }
+
+        /// <summary>Тяжесть конфликта. Порядок членов enum задаёт номера состояний свитчера, а не тяжесть.</summary>
+        private static int Severity(SlotConflict conflict) => conflict switch
+        {
+            SlotConflict.CrossMap => 1,
+            SlotConflict.Common => 2,
+            SlotConflict.IntraMapAllowed => 3,
+            SlotConflict.IntraMap => 4,
+            _ => 0
+        };
+
+        private bool IsCommon(string commandId)
+        {
+            if (Settings == null)
+                return false;
+            foreach (var id in Settings.CommonCommands)
+                if (id == commandId)
+                    return true;
+            return false;
         }
 
         private bool IsAllowedPair(string a, string b)

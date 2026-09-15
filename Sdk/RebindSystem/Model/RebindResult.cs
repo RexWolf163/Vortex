@@ -56,7 +56,7 @@ namespace Vortex.Sdk.RebindSystem.Model
     /// <summary>
     /// Ответ изменяющей операции и клапана. Неизменяем. При <see cref="RebindStatus.Rejected"/> в
     /// <see cref="Conflicts"/> — внутрикартовые конфликты, при <see cref="RebindStatus.Applied"/> —
-    /// межкартовые (для подсветки).
+    /// межкартовые (<see cref="SlotConflict.CrossMap"/> и <see cref="SlotConflict.Common"/>, для подсветки).
     /// </summary>
     public sealed class RebindResult
     {

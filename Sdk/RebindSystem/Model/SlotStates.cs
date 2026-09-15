@@ -19,7 +19,12 @@ namespace Vortex.Sdk.RebindSystem.Model
         Empty
     }
 
-    /// <summary>Уровень конфликта слота. Порядок членов — возрастание тяжести.</summary>
+    /// <summary>
+    /// Уровень конфликта слота. Значения — номера состояний свитчера (<c>UIStateSwitcher.Set(Enum)</c>), поэтому
+    /// новые члены добавляются только в конец. Тяжесть не следует из порядка членов: по возрастанию —
+    /// <see cref="None"/>, <see cref="CrossMap"/>, <see cref="Common"/>, <see cref="IntraMapAllowed"/>,
+    /// <see cref="IntraMap"/>.
+    /// </summary>
     public enum SlotConflict
     {
         None,
@@ -31,6 +36,12 @@ namespace Vortex.Sdk.RebindSystem.Model
         IntraMapAllowed,
 
         /// <summary>Та же клавиша у другой команды той же карты — недопустимо.</summary>
-        IntraMap
+        IntraMap,
+
+        /// <summary>
+        /// Та же клавиша в другой карте той же группы, и одна из сторон — сквозная команда (<c>commonCommands</c>
+        /// конфига): действует поверх любой карты. Допустимо, подсвечивается отдельно от <see cref="CrossMap"/>.
+        /// </summary>
+        Common
     }
 }

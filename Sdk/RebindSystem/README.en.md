@@ -5,13 +5,13 @@ Vortex framework Sdk package: key rebinding on top of the project-wide Input Sys
 ## Purpose
 
 - Key slots for every command (Input System action) — separately per device group
-- Conflict checks: within a map — rejection with a list, across maps — allowed with highlighting
+- Conflict checks: within a map — rejection with a list, across maps — allowed with highlighting; common commands (e.g. `UI/Click`) — a separate highlight level against any map
 - Operations: assign, take a key, clear, swap, reset a command / map / everything
 - "Press a key" capture valve with Shift/Ctrl/Alt modifiers
 - Switchable layouts: mutually exclusive groups of the same device
 - Diff snapshot loaded under "loaded is loaded" rules, with unreadable parts isolated and the source backed up
 - Snapshot export and import — rollback point and bulk remap
-- Developer rules in the config: allowed pairs, protected, skipped and forbidden keys
+- Developer rules in the config: allowed pairs, protected, skipped and common commands, forbidden keys
 - Ready-made views: group command list, slots, mouse zone, indicators, reset, layout switching, a rollback source for RollbackSystem
 
 Out of scope:
@@ -96,7 +96,8 @@ Factory bindings are not changed: changes go into the override layer (`overrideP
 | Signature | Normalized comparison key of values: case, modifier order, modifier sides per setting |
 | Occupancy index | "Group + signature → slots". Candidate checks without scanning all bindings |
 | Origin (`SlotOrigin`) | `Default`, `Overridden`, `Added`, `Cleared`, `Empty` |
-| Conflict (`SlotConflict`) | `None`, `CrossMap` (another map — allowed), `IntraMapAllowed` (allowed pair), `IntraMap` (only from loading or import) |
+| Conflict (`SlotConflict`) | `None`, `CrossMap` (another map — allowed), `IntraMapAllowed` (allowed pair), `IntraMap` (only from loading or import), `Common` (another map, one side is a common command — allowed, highlighted separately). Values are switcher state numbers; severity — see "Common commands" |
+| Common command | A command from `commonCommands` that acts on top of any map (`UI/Click`). Its key matches with other maps give `Common` instead of `CrossMap` |
 | Explicit assignment (`IsExplicit`) | The player assigned the slot. Saved even when equal to the factory value; cleared by a reset |
 | Valve (`CaptureValve`) | The "waiting for a press for a slot" state |
 
@@ -238,13 +239,14 @@ Turn on the `rebindSdk` toggle in the `SdkSettings` asset — this adds the `USI
 | `allowedPairs` | empty | Command pairs of one map allowed to share a key |
 | `protectedCommands` | empty | Commands whose last key an operation will not remove |
 | `skippedCommands` | empty | Commands entirely outside the system |
+| `commonCommands` | empty | Commands acting on top of any map: a key match with another map is `Common` |
 | `forbidden` | system keys and shortcuts | Forbidden keys: the key itself, with a specific modifier set, or with any |
 | `distinguishModifierSides` | off | Distinguish left and right modifiers |
 | `snapshotFolder` | `Controls` | Snapshot file folder relative to `FileBus.GetAppPath()` |
 
 Default forbidden keys: synthetic and OS-captured keys (`anyKey`, `IMESelected`, Win, `contextMenu`, `printScreen`), `numLock`, `scrollLock`, `pause`, `f12` (Steam screenshot), `OEM1`–`OEM5`; any modifier + F1–F12, Tab, Enter, NumpadEnter, Esc; Alt+Space.
 
-Protections, pairs and skips are set by the developer: lists are empty by default, there are no built-in safeguards.
+Protections, pairs, skips and common commands are set by the developer: lists are empty by default, there are no built-in safeguards.
 
 The `Gamepad` group covers all layout descendants: DualShock, DualSense, XInput (including Steam Deck and controllers under Steam Input), Switch Pro. Adding `Joystick` captures HID gamepads and joysticks not recognized as `Gamepad`; they have no factory bindings, and button paths are tied to the device model.
 
@@ -285,7 +287,7 @@ private void OnCaptureChanged(CaptureValve valve)
 
     switch (result.Status)
     {
-        case RebindStatus.Applied:  view.Highlight(result.Conflicts); break;   // cross-map
+        case RebindStatus.Applied:  view.Highlight(result.Conflicts); break;   // CrossMap and Common
         case RebindStatus.Rejected: view.OfferTakeOrSwap(result.Conflicts); break;
         case RebindStatus.Cancelled: view.Close(); break;
     }
@@ -333,6 +335,17 @@ Subscribing to `OnSlotsChanged`, `OnRebuilt` and `OnGroupsChanged` keeps the hin
 
 Groups with a shared `switchSet` are mutually exclusive: `SetGroupActive(key, true)` turns off the other groups of the set. Binds of an inactive group do not fire, but are editable, and conflicts in it are counted. By default the first group of each set and all standalone groups (no `switchSet`) are active; layout switching does not affect standalone groups.
 
+### 8. Common commands
+
+Maps usually do not overlap: a key shared by commands of different maps is `CrossMap` — allowed and highlighted, and the layout may show it the same as `None`. A common command acts on top of any map — for example, `UI/Click` imitates a mouse click in every mini-game. Listed in `commonCommands`, it gets a separate level: a key shared across maps where at least one side is a common command gives `SlotConflict.Common` on both slots.
+
+- Highlighting only: the operation is not rejected, just like `CrossMap`.
+- Within one map the usual rules apply: `IntraMap` and `IntraMapAllowed` are heavier.
+- `RebindResult.Conflicts` on `Applied` contains `CrossMap` and `Common`.
+- Severity ascending: `None`, `CrossMap`, `Common`, `IntraMapAllowed`, `IntraMap`. Enum values are the switcher state numbers (`UIStateSwitcher.Set(Enum)`), so new members are appended only at the end — severity does not follow the member order.
+
+In the slot prefab, `conflictSwitcher` gets a separate `Common` state.
+
 ## Views
 
 Assembly `ru.vortex.sdk.rebind.views`, namespace `Vortex.Sdk.RebindSystem.Views`.
@@ -341,7 +354,7 @@ Assembly `ru.vortex.sdk.rebind.views`, namespace `Vortex.Sdk.RebindSystem.Views`
 |-----------|---------|
 | `RebindGroupHandler` | Outputs the serviced commands of its maps for one group into a `Pool`. Fields: group key, map list, pool. Item data — command and group. The pool is refilled on `OnRebuilt` |
 | `RebindCommandView` | Group pool item: command title (`titlePattern`: `{0}` — id, `{1}` — map, `{2}` — action; localized) and a nested `Pool` of the group's slots with index < X |
-| `RebindSlotView` | Slot pool item: key text (`GetDisplayString`), conflict (`SlotConflict`), origin (`SlotOrigin`) and waiting (`SwitcherState`) switchers. Public `SaveNewKey()` goes on a button and opens capture |
+| `RebindSlotView` | Slot pool item: key text (`GetDisplayString`), conflict (`SlotConflict`, including `Common`), origin (`SlotOrigin`) and waiting (`SwitcherState`) switchers. Public `SaveNewKey()` goes on a button and opens capture |
 | `CaptureMouseHandler` | Mouse capture zone: while enabled, mouse keys are caught only with the pointer over it (`IPointerEnter/Exit`); outside the zone the mouse reaches the UI. The object receives UI raycasts and contains no buttons |
 | `CaptureStateHandler` | `SwitcherState` switcher: `On` — the valve is waiting for a key, `Off` — not |
 | `CaptureCancelHandler` | Public `Cancel()` for the "Cancel" button; the `cancelOnDisable` flag interrupts waiting when the object is disabled |
@@ -398,6 +411,9 @@ The snapshot is global: it is not tied to a save slot. Export returns the same t
 | Intra-map conflict during capture | The valve closes, `Rejected` with a list |
 | Window focus loss during capture | `Cancelled`, the slot is unchanged |
 | A command from `skippedCommands` | No slots, `GetAll` is empty, operations — `SkippedCommand` |
+| A common command's key matches a command of another map | Both slots — `Common`; the operation is applied |
+| A common command's key matches a command of its own map | Usual intra-map rules: `IntraMap` / `IntraMapAllowed` |
+| A command is both common and skipped | Config validation error: a skipped command has no slots |
 
 ## File structure
 

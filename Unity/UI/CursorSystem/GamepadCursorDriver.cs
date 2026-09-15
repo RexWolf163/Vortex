@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
@@ -20,6 +21,11 @@ namespace Vortex.Unity.UI.CursorSystem
     ///
     /// Привязки — строковые id экшенов из карты (дропдаун), резолвятся через <see cref="InputController"/> и
     /// читаются polling'ом (ReadValue/IsPressed). Требует наличие мыши как устройства (десктоп).
+    ///
+    /// Нативные события мыши несут ФИЗИЧЕСКОЕ состояние кнопок: перенос ОС-курсора (<c>WarpCursorPosition</c> при
+    /// движении стиком) и дрожь реальной мыши порождают событие с отпущенной ЛКМ, которое затёрло бы инъекцию —
+    /// UGUI увидел бы отпускание, и удержание/drag геймпад-кнопкой срывалось бы при каждом движении стика. Поэтому,
+    /// пока инъекция активна, её биты вписываются в каждое событие состояния мыши (<see cref="OnInputEvent"/>).
     /// </summary>
     public class GamepadCursorDriver : MonoBehaviour
     {
@@ -72,10 +78,14 @@ namespace Vortex.Unity.UI.CursorSystem
             _leftAction?.Enable();
             _rightAction?.Enable();
             _scrollAction?.Enable();
+
+            InputSystem.onEvent += (Action<InputEventPtr, InputDevice>)OnInputEvent;
         }
 
         private void OnDisable()
         {
+            InputSystem.onEvent -= (Action<InputEventPtr, InputDevice>)OnInputEvent;
+
             _moveAction?.Disable();
             _leftAction?.Disable();
             _rightAction?.Disable();
@@ -139,6 +149,27 @@ namespace Vortex.Unity.UI.CursorSystem
             InputSystem.QueueStateEvent(mouse,
                 new MouseState { position = mouse.position.ReadValue(), buttons = (ushort)merged, scroll = scroll });
             _injected = gp;
+        }
+
+        /// <summary>
+        /// Удержание инъекции против нативных событий мыши. Пока геймпад держит кнопку (<see cref="_injected"/>),
+        /// её бит вписывается в каждое событие состояния мыши — и в наше, и в нативное (warp ОС-курсора, реальная
+        /// мышь), иначе нативное событие с физически отпущенной кнопкой дало бы ложное отпускание. Отпускание
+        /// геймпад-кнопки проходит: к моменту обработки нашего события отпускания <see cref="_injected"/> уже 0.
+        /// Событие без кнопок в своём диапазоне (дельта позиции) не меняется.
+        /// </summary>
+        private void OnInputEvent(InputEventPtr eventPtr, InputDevice device)
+        {
+            if (_injected == 0 || device != Mouse.current)
+                return;
+            if (!eventPtr.IsA<StateEvent>() && !eventPtr.IsA<DeltaStateEvent>())
+                return;
+
+            var mouse = (Mouse)device;
+            if ((_injected & LeftBit) != 0)
+                mouse.leftButton.WriteValueIntoEvent(1f, eventPtr);
+            if ((_injected & RightBit) != 0)
+                mouse.rightButton.WriteValueIntoEvent(1f, eventPtr);
         }
 
         private static bool IsPressed(InputAction action) => action != null && action.IsPressed();
