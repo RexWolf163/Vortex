@@ -53,6 +53,7 @@ TweenerSystem/
 │   └── Easing.cs               # 16 типов easing
 ├── Editor/
 │   ├── StateViewDrawer.cs      # Шапка состояний StateView, кнопка Sync (Odin)
+│   ├── TweenerHubDrawer.cs     # Кнопки Back / Forward под полем TweenerHub (Odin)
 │   └── TweenerHubShortcut.cs   # Alt+T / Ctrl+Alt+T
 └── Debug/
     ├── Model/SettingsModelExtAsyncTweener.cs
@@ -79,6 +80,8 @@ tweenerHub.Forward(true);   // мгновенный переход (skip)
 - `OnEnable` — возобновление отложенных анимаций
 - `OnDisable` — снятие из очереди `TimeController`
 - `OnDestroy` — `DeInit()` всех TweenLogic
+
+В инспекторе под любым полем `TweenerHub` — кнопки **Back** и **Forward** (`Editor/TweenerHubDrawer.cs`): проверить анимацию, не заходя на сам хаб. Вне Play Mode переключение мгновенное, в Play Mode — с анимацией; пока поле пустое, кнопки недоступны. Кнопки есть и у элементов массива хабов в `StateView`.
 
 ### TweenLogic (abstract, Serializable)
 

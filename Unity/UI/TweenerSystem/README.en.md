@@ -53,6 +53,7 @@ TweenerSystem/
 │   └── Easing.cs               # 16 easing types
 ├── Editor/
 │   ├── StateViewDrawer.cs      # StateView state header, Sync button (Odin)
+│   ├── TweenerHubDrawer.cs     # Back / Forward buttons under a TweenerHub field (Odin)
 │   └── TweenerHubShortcut.cs   # Alt+T / Ctrl+Alt+T
 └── Debug/
     ├── Model/SettingsModelExtAsyncTweener.cs
@@ -79,6 +80,8 @@ Lifecycle:
 - `OnEnable` — resumes queued animations
 - `OnDisable` — removed from `TimeController` queue
 - `OnDestroy` — `DeInit()` on all TweenLogic
+
+In the inspector, every `TweenerHub` field gets **Back** and **Forward** buttons below it (`Editor/TweenerHubDrawer.cs`): check the animation without selecting the hub itself. Outside Play Mode the switch is instant, in Play Mode it animates; while the field is empty the buttons are disabled. The buttons also appear on elements of the `StateView` hub array.
 
 ### TweenLogic (abstract, Serializable)
 
