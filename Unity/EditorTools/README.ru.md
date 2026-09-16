@@ -14,7 +14,7 @@
 
 | Assembly | Содержимое | Constraints |
 |----------|-----------|-------------|
-| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `EditorSettings/`, `InspectorHandler`) | — |
+| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `EditorSettings/`, `PrefabTools/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin-drawer'ы (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Структура папок
@@ -26,6 +26,7 @@ EditorTools/
 ├── DataModelSystem/             # [DataModel] — развёртка runtime-объектов
 ├── Elements/                    # DrawingUtility, SearchablePopup
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
+├── PrefabTools/                 # PrefabOverrideCleanerWindow — чистка избыточных переопределений
 └── InspectorHandler.cs          # Утилиты SerializedProperty (IsPropertyNullable, GetPropertyValue)
 ```
 
@@ -33,7 +34,7 @@ EditorTools/
 
 - Атрибуты — без guard'ов, доступны в runtime (наследуются от `PropertyAttribute`/`Attribute`).
 - Drawer'ы (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + define-constraint `ODIN_INSPECTOR` на уровне asmdef.
-- Editor-утилиты (`Elements/`, `InspectorHandler`, `EditorSettings/`) — `#if UNITY_EDITOR`.
+- Editor-утилиты (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — наследуется от Odin `FoldoutGroupAttribute` под `#if ODIN_INSPECTOR`, иначе fallback на `Attribute`.
 
 ## Атрибуты
@@ -238,6 +239,22 @@ ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
 ToolsSettings.GetLineColor(DefaultColors.TextColor);
 ```
 
+### `PrefabTools/PrefabOverrideCleanerWindow`
+
+Окно чистки избыточных переопределений префаба — модификаций, значение которых совпадает со значением в исходном префабе. Такие переопределения копятся при правках вариантов и засоряют список Overrides.
+
+Открытие: ПКМ по объекту в Hierarchy → `Prefab/CleanOverrideTrash` (пункт также есть в меню `GameObject`). Работает и в сцене, и в режиме редактирования префаба — там выделяется корень варианта.
+
+- Сканируются все экземпляры префабов в поддереве выделенного объекта, включая сам объект и добавленные вложенные префабы.
+- Базовое значение читается из исходного префаба (`GetCorrespondingObjectFromSource`), текущее — с экземпляра; сравнение через `SerializedProperty`.
+- `float` сравнивается через `Mathf.Approximately` — шум вида `0.99999994` против `1` считается совпадением.
+- Ссылка на объект внутри префаба совпадает, если экземпляр ссылается на свою копию того же объекта источника.
+- Список сгруппирован по объекту и компоненту (кнопка Ping), у каждой строки галочка; кнопки «Все» / «Ничего» / «Обновить». Удаляется только отмеченное, перед удалением список пересобирается. Undo поддерживается.
+
+Совпадение с базой бывает намеренным: переопределение фиксирует значение от будущих правок базового префаба. Поэтому инструмент ничего не удаляет без подтверждения.
+
+Отличие от встроенного `Prefab/Remove Unused Overrides`: встроенный пункт удаляет **висячие** переопределения (цели или поля больше нет) и значения не сравнивает. `CleanOverrideTrash` удаляет **избыточные** (цель есть, значение равно базовому) и висячие не трогает. Порядок чистки — сначала встроенный пункт, потом этот.
+
 ## Зависимости
 
 - Odin Inspector (Sirenix) — обязателен для всех drawer'ов в `SirenixOdinDrawers/`.
@@ -251,3 +268,5 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 - `[ToggleButton]` на `int`/`byte` без `labelsMethod` — ErrorMessageBox.
 - `[ValueSelector]` с возвратом `null`/пустой коллекции — ErrorMessageBox под полем, само поле остаётся редактируемым стандартным drawer'ом.
 - `[DateTimeDraw]` и подобные на полях не-`long` — Odin не активирует drawer (TValue не совпадает).
+- `CleanOverrideTrash` пропускает: default overrides корня экземпляра (позиция, якоря, имя), составные и `[SerializeReference]`-свойства целиком, свойства, путь которых не находится в источнике или экземпляре (включая висячие `managedReferences[rid]`). Отдельные поля внутри `managedReferences[rid]` сравниваются, если путь резолвится.
+- `CleanOverrideTrash` на объекте вне экземпляров префабов — список пуст.

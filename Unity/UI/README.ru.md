@@ -20,6 +20,8 @@ UI-слой фреймворка. Всё, что касается визуала
 
 **RollbackSystem** — откат несохранённых изменений экрана. `RollbackHandler` объединяет источники отката (наследники `RollbackSource`), показывает признак изменений через `UIStateSwitcher` и ведёт два пути — «Сохранить» и «Откатить»; выключение экрана — откат. Работает реактивно, без покадровых проверок. Готовый источник — выпадающие списки и слайдеры с маркером `RollbackControl` на контроле.
 
+**UIBuilder** — editor-инструмент вёрстки. ПКМ в Hierarchy → `Vortex Primitives/Create Text` / `Create Button`: под объектом создаётся слой с `UIComponent`, экземпляром выбранного примитива и нужными `Set*Component`. Каталог примитивов — папка из `Project Settings → Vortex/UIBuilder`; параметры окна зависят от частей примитива. Новые виды элементов и секции добавляются без правки ядра.
+
 ## Зависимости
 
 UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeController`, `ActionExt`, `IDataStorage`, `EditorTools`, `SettingsSystem` (для `CursorSystem`).
@@ -35,3 +37,4 @@ UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeControl
 - `Misc/` — утилитарные компоненты
 - `CursorSystem/` — кастомный курсор
 - `RollbackSystem/` — откат изменений экрана
+- `UIBuilder/` — создание UI-слоёв из примитивов (Editor)

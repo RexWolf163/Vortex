@@ -14,7 +14,7 @@ Attributes and Odin drawers for Unity Inspector customization in Vortex projects
 
 | Assembly | Contents | Constraints |
 |----------|----------|-------------|
-| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `EditorSettings/`, `InspectorHandler`) | — |
+| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `EditorSettings/`, `PrefabTools/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin drawers (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Folder layout
@@ -26,6 +26,7 @@ EditorTools/
 ├── DataModelSystem/             # [DataModel] — runtime-object expansion
 ├── Elements/                    # DrawingUtility, SearchablePopup
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
+├── PrefabTools/                 # PrefabOverrideCleanerWindow — redundant override cleanup
 └── InspectorHandler.cs          # SerializedProperty utilities (IsPropertyNullable, GetPropertyValue)
 ```
 
@@ -33,7 +34,7 @@ EditorTools/
 
 - Attributes — no guards, available at runtime (inherit from `PropertyAttribute` / `Attribute`).
 - Drawers (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + the asmdef-level `ODIN_INSPECTOR` define constraint.
-- Editor utilities (`Elements/`, `InspectorHandler`, `EditorSettings/`) — `#if UNITY_EDITOR`.
+- Editor utilities (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — derives from Odin's `FoldoutGroupAttribute` under `#if ODIN_INSPECTOR`, falls back to `Attribute` otherwise.
 
 ## Attributes
@@ -238,6 +239,22 @@ ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
 ToolsSettings.GetLineColor(DefaultColors.TextColor);
 ```
 
+### `PrefabTools/PrefabOverrideCleanerWindow`
+
+A window for cleaning up redundant prefab overrides — modifications whose value equals the value in the source prefab. Such overrides pile up while editing variants and clutter the Overrides list.
+
+Open it via right-click on an object in the Hierarchy → `Prefab/CleanOverrideTrash` (the item is also in the `GameObject` menu). Works both in a scene and in Prefab Mode — there, select the variant root.
+
+- Scans every prefab instance in the subtree of the selected object, including the object itself and added nested prefabs.
+- The base value is read from the source prefab (`GetCorrespondingObjectFromSource`), the current value from the instance; comparison goes through `SerializedProperty`.
+- `float` is compared with `Mathf.Approximately` — noise like `0.99999994` vs `1` counts as equal.
+- A reference to an object inside the prefab matches if the instance references its own copy of the same source object.
+- The list is grouped by object and component (with a Ping button); each row has a checkbox; buttons «Все» / «Ничего» / «Обновить» (All / None / Refresh). Only checked rows are removed, and the list is rebuilt right before removal. Undo is supported.
+
+Matching the base can be intentional: the override pins the value against future edits of the base prefab. That is why the tool removes nothing without confirmation.
+
+Difference from the built-in `Prefab/Remove Unused Overrides`: the built-in item removes **dangling** overrides (the target or field no longer exists) and does not compare values. `CleanOverrideTrash` removes **redundant** ones (target exists, value equals the base) and leaves dangling ones alone. Recommended order: built-in item first, then this one.
+
 ## Dependencies
 
 - Odin Inspector (Sirenix) — required for all drawers in `SirenixOdinDrawers/`.
@@ -251,3 +268,5 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 - `[ToggleButton]` on `int` / `byte` without `labelsMethod` — ErrorMessageBox.
 - `[ValueSelector]` returning `null` / an empty collection — ErrorMessageBox below the field; the field remains editable through the default drawer.
 - `[DateTimeDraw]` and similar on non-`long` fields — Odin does not activate the drawer (TValue mismatch).
+- `CleanOverrideTrash` skips: default overrides of the instance root (position, anchors, name), composite and `[SerializeReference]` properties as a whole, and properties whose path does not resolve on the source or the instance (including dangling `managedReferences[rid]`). Individual fields inside `managedReferences[rid]` are compared when the path resolves.
+- `CleanOverrideTrash` on an object outside any prefab instance — the list is empty.

@@ -1,0 +1,21 @@
+{
+    "name": "ru.vortex.unity.ui.uibuilder",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.unity.ui.misc",
+        "ui.vortex.unity.components",
+        "ru.vortex.unity.localization",
+        "ru.vortex.unity.editortools"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
