@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Naninovel;
+using Naninovel.UI;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SettingsSystem.Bus;
@@ -117,6 +118,9 @@ namespace Vortex.NaniExtensions.Core
                     ScriptPlayer.Stop();
                     ResetNani();
                     break;
+                case GameStates.Paused:
+                    UIManager.GetUI<IBacklogUI>().Hide();
+                    break;
             }
         }
 
@@ -148,6 +152,10 @@ namespace Vortex.NaniExtensions.Core
             AudioManager.StopAllBgm();
             AudioManager.StopAllSfx();
             AudioManager.StopVoice();
+
+            UIManager.GetUI<IBacklogUI>().Hide();
+            UIManager.GetUI<IBacklogUI>().Clear();
+
 
             var bgs = BackgroundManager.Actors;
             var tween = new Tween(0);
