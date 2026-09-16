@@ -51,16 +51,21 @@ namespace Vortex.Unity.SaveSystem.Drivers.GlobalFileDriver
             Loader.Register(GlobalSaveController.Instance);
         }
 
-        private static string _folder;
-
-        public void Init() =>
-            _folder = Path.Combine(FileBus.GetAppPath(), Settings.Data()?.GlobalSaveFolder ?? string.Empty);
+        public void Init()
+        {
+        }
 
         public void Destroy()
         {
         }
 
-        private static string Folder => _folder;
+        /// <summary>
+        /// Папка вычисляется при обращении, а не в <see cref="Init"/>: порядок <c>[RuntimeInitializeOnLoadMethod]</c>
+        /// не гарантирован, и в билде драйвер подключается раньше настроек. Чтение идёт из очереди загрузки —
+        /// настройки к этому моменту загружены; без них — исключение, а не тихий откат в корень.
+        /// </summary>
+        private static string Folder =>
+            Path.Combine(FileBus.GetAppPath(), Settings.Data().GlobalSaveFolder ?? string.Empty);
 
         private static string MainPath => Path.Combine(Folder, FileName + Extension);
 

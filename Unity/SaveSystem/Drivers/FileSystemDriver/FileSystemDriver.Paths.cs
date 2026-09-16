@@ -8,10 +8,11 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
     {
         /// <summary>
         /// Путь к папке хранения сейвов: папка из SaveSettings относительно корня данных приложения.
-        /// Пусто — корень.
+        /// Пусто — корень. Настройки обязаны быть загружены (см. <c>Init</c>): без них — исключение, а не тихий
+        /// откат в корень.
         /// </summary>
         private static string GetSavesDirectory() =>
-            Path.Combine(FileBus.GetAppPath(), Settings.Data()?.SavesFolder ?? string.Empty);
+            Path.Combine(FileBus.GetAppPath(), Settings.Data().SavesFolder ?? string.Empty);
 
         /// <summary>
         /// Полный путь к файлу тела сейва.
