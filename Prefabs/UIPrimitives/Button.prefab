@@ -1,5 +1,113 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &946870617675195156
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4193496324607856646}
+  - component: {fileID: 8734552402398466384}
+  m_Layer: 0
+  m_Name: '[HoverSwitcher]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4193496324607856646
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 946870617675195156}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2462666452345227091}
+  - {fileID: 353676417888678129}
+  m_Father: {fileID: 282126829122695908}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8734552402398466384
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 946870617675195156}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7e27547ad8e9b940a928d44b8ef63bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.StateSwitcher.UIStateSwitcher
+  stateOnEnable: 0
+  duplicateOnCreate: 1
+  states:
+  - name: Free
+    stateItems: []
+  - name: Hover
+    stateItems:
+    - rid: 5711447335237845141
+  - name: Pressed
+    stateItems:
+    - rid: 5711447335237845142
+    - rid: 5711447335237845163
+  references:
+    version: 2
+    RefIds:
+    - rid: 5711447335237845141
+      type: {class: TweenerHubSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        tweener: {fileID: 8628044932367668364}
+    - rid: 5711447335237845142
+      type: {class: TweenerHubSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        tweener: {fileID: 8628044932367668364}
+    - rid: 5711447335237845163
+      type: {class: TweenerHubSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        tweener: {fileID: 8885305336351418822}
+--- !u!1 &1545579007662082290
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 485900275427956472}
+  m_Layer: 0
+  m_Name: Enabled
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &485900275427956472
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1545579007662082290}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1808694246931930658}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1936119766619234048
 GameObject:
   m_ObjectHideFlags: 0
@@ -65,7 +173,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 113b5429ec3461243a4761a3377b1f65, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -87,7 +195,7 @@ GameObject:
   - component: {fileID: 2396653518486133585}
   - component: {fileID: 6566330784601117420}
   m_Layer: 0
-  m_Name: tapZone
+  m_Name: TapZone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -140,7 +248,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: e16013476ef3ef2479f44de6b095c69d, type: 3}
+  m_Sprite: {fileID: 21300000, guid: e429c6672e364564da60801192ed055c, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -161,8 +269,6 @@ GameObject:
   - component: {fileID: 282126829122695908}
   - component: {fileID: 5704454258007656535}
   - component: {fileID: 8472316968155125152}
-  - component: {fileID: 2158127886750263273}
-  - component: {fileID: 7396499710482250733}
   m_Layer: 0
   m_Name: Button
   m_TagString: Untagged
@@ -177,11 +283,13 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4447502260034886180}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 4193496324607856646}
+  - {fileID: 3505023039947988457}
   - {fileID: 4497131620926053529}
   - {fileID: 1808694246931930658}
   - {fileID: 4109011307219765495}
@@ -207,8 +315,8 @@ MonoBehaviour:
   onClick: []
   onHover: []
   onExit: []
-  clickRegType: 2
-  uiStateSwitcher: {fileID: 3663335687586410040}
+  clickRegType: 1
+  uiStateSwitcher: {fileID: 8734552402398466384}
 --- !u!114 &8472316968155125152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -224,27 +332,46 @@ MonoBehaviour:
   onlyNativeSize: 0
   btn: {fileID: 0}
   advBtn: {fileID: 5704454258007656535}
---- !u!114 &2158127886750263273
+--- !u!1 &5090516682589826478
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3505023039947988457}
+  - component: {fileID: 490302550874026232}
+  - component: {fileID: 1394212044604046432}
+  m_Layer: 0
+  m_Name: '[EnableSwitcher]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3505023039947988457
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5090516682589826478}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 282126829122695908}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &490302550874026232
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4447502260034886180}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4221373521a4d35a12cf2f3afaf65c3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentSwitcher
-  onlyNativeSize: 0
-  switcher: {fileID: 7396499710482250733}
---- !u!114 &7396499710482250733
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4447502260034886180}
+  m_GameObject: {fileID: 5090516682589826478}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e7e27547ad8e9b940a928d44b8ef63bd, type: 3}
@@ -259,15 +386,27 @@ MonoBehaviour:
   - name: Enabled
     stateItems:
     - rid: 5711447335237845194
+  - name: Hide
+    stateItems:
+    - rid: 1477238245156978787
   references:
     version: 2
     RefIds:
+    - rid: 1477238245156978787
+      type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
+      data:
+        links: []
+        onDelayed: 0
+        offDelayed: 0
     - rid: 5711447335237845194
       type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
       data:
         links:
         - {fileID: 7932959572982474414}
         - {fileID: 4201127731016744634}
+        - {fileID: 1545579007662082290}
+        - {fileID: 7785858615472660551}
+        - {fileID: 7907288240992507431}
         onDelayed: 0
         offDelayed: 0
     - rid: 5711447335237845195
@@ -275,8 +414,151 @@ MonoBehaviour:
       data:
         links:
         - {fileID: 1936119766619234048}
+        - {fileID: 7145770670914735199}
+        - {fileID: 7785858615472660551}
+        - {fileID: 7907288240992507431}
         onDelayed: 0
         offDelayed: 0
+--- !u!114 &1394212044604046432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5090516682589826478}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4221373521a4d35a12cf2f3afaf65c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.UIComponents.Parts.UIComponentSwitcher
+  onlyNativeSize: 0
+  switcher: {fileID: 490302550874026232}
+--- !u!1 &5202044826978132309
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2462666452345227091}
+  - component: {fileID: 8628044932367668364}
+  m_Layer: 0
+  m_Name: '[HoverTweener]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2462666452345227091
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5202044826978132309}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4193496324607856646}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8628044932367668364
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5202044826978132309}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1ac6283c375a2648b4f9cdfd6b62489, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.TweenerSystem.TweenerHub
+  tweeners:
+  - rid: 5711447335237845143
+  references:
+    version: 2
+    RefIds:
+    - rid: 5711447335237845143
+      type: {class: ColorLogic, ns: Vortex.Unity.UI.TweenerSystem.TweenLogics, asm: ru.vortex.unity.ui.misc}
+      data:
+        offset: 0
+        offsetBack: 0
+        preset: {fileID: 11400000, guid: 8c317630be4c46b449f05aa1afadea95, type: 2}
+        targets:
+        - {fileID: 1061158002109729591}
+        targetsTexts: []
+        targetsTextMP: []
+        targetsTextUGUI: []
+        spriteRenderers: []
+        startColor: {r: 1, g: 1, b: 1, a: 0}
+        endColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!1 &6391968487158133923
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 353676417888678129}
+  - component: {fileID: 8885305336351418822}
+  m_Layer: 0
+  m_Name: '[PressedTweener]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &353676417888678129
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6391968487158133923}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4193496324607856646}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8885305336351418822
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6391968487158133923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1ac6283c375a2648b4f9cdfd6b62489, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.TweenerSystem.TweenerHub
+  tweeners:
+  - rid: 5711447335237845144
+  references:
+    version: 2
+    RefIds:
+    - rid: 5711447335237845144
+      type: {class: ColorLogic, ns: Vortex.Unity.UI.TweenerSystem.TweenLogics, asm: ru.vortex.unity.ui.misc}
+      data:
+        offset: 0
+        offsetBack: 0
+        preset: {fileID: 11400000, guid: 8c317630be4c46b449f05aa1afadea95, type: 2}
+        targets:
+        - {fileID: 6799997999589362712}
+        targetsTexts: []
+        targetsTextMP: []
+        targetsTextUGUI: []
+        spriteRenderers: []
+        startColor: {r: 1, g: 1, b: 1, a: 0}
+        endColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &7061583458123183564
 GameObject:
   m_ObjectHideFlags: 0
@@ -342,7 +624,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 72990329e1d5dce4e9f2a9d5a7978c42, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -352,6 +634,41 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &7145770670914735199
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4796389287632154137}
+  m_Layer: 0
+  m_Name: Disabled
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &4796389287632154137
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7145770670914735199}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1808694246931930658}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &7785858615472660551
 GameObject:
   m_ObjectHideFlags: 0
@@ -361,9 +678,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4497131620926053529}
-  - component: {fileID: 3663335687586410040}
-  - component: {fileID: 4965159323253816113}
-  - component: {fileID: 970826859248393133}
   m_Layer: 0
   m_Name: bgContainer
   m_TagString: Untagged
@@ -394,107 +708,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &3663335687586410040
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7785858615472660551}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e7e27547ad8e9b940a928d44b8ef63bd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.StateSwitcher.UIStateSwitcher
-  stateOnEnable: 0
-  duplicateOnCreate: 1
-  states:
-  - name: Free
-    stateItems: []
-  - name: Hover
-    stateItems:
-    - rid: 5711447335237845141
-  - name: Pressed
-    stateItems:
-    - rid: 5711447335237845163
-    - rid: 5711447335237845142
-  references:
-    version: 2
-    RefIds:
-    - rid: 5711447335237845141
-      type: {class: TweenerHubSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
-      data:
-        tweener: {fileID: 970826859248393133}
-    - rid: 5711447335237845142
-      type: {class: TweenerHubSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
-      data:
-        tweener: {fileID: 970826859248393133}
-    - rid: 5711447335237845163
-      type: {class: TweenerHubSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
-      data:
-        tweener: {fileID: 4965159323253816113}
---- !u!114 &4965159323253816113
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7785858615472660551}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1ac6283c375a2648b4f9cdfd6b62489, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.TweenerSystem.TweenerHub
-  tweeners:
-  - rid: 5711447335237845144
-  references:
-    version: 2
-    RefIds:
-    - rid: 5711447335237845144
-      type: {class: ColorLogic, ns: Vortex.Unity.UI.TweenerSystem.TweenLogics, asm: ru.vortex.unity.ui.misc}
-      data:
-        offset: 0
-        offsetBack: 0
-        preset: {fileID: 11400000, guid: 8c317630be4c46b449f05aa1afadea95, type: 2}
-        targets:
-        - {fileID: 6799997999589362712}
-        targetsTexts: []
-        targetsTextMP: []
-        targetsTextUGUI: []
-        spriteRenderers: []
-        startColor: {r: 1, g: 1, b: 1, a: 0}
-        endColor: {r: 0.74853146, g: 0.8396226, b: 0.7602128, a: 1}
---- !u!114 &970826859248393133
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7785858615472660551}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1ac6283c375a2648b4f9cdfd6b62489, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.TweenerSystem.TweenerHub
-  tweeners:
-  - rid: 5711447335237845143
-  references:
-    version: 2
-    RefIds:
-    - rid: 5711447335237845143
-      type: {class: ColorLogic, ns: Vortex.Unity.UI.TweenerSystem.TweenLogics, asm: ru.vortex.unity.ui.misc}
-      data:
-        offset: 0
-        offsetBack: 0
-        preset: {fileID: 11400000, guid: 8c317630be4c46b449f05aa1afadea95, type: 2}
-        targets:
-        - {fileID: 1061158002109729591}
-        targetsTexts: []
-        targetsTextMP: []
-        targetsTextUGUI: []
-        spriteRenderers: []
-        startColor: {r: 1, g: 1, b: 1, a: 0}
-        endColor: {r: 0.8113208, g: 0.8113208, b: 0.8113208, a: 1}
 --- !u!1 &7907288240992507431
 GameObject:
   m_ObjectHideFlags: 0
@@ -522,13 +735,15 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 485900275427956472}
+  - {fileID: 4796389287632154137}
   m_Father: {fileID: 282126829122695908}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: -20, y: -20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &7932959572982474414
 GameObject:
@@ -670,7 +885,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: cd8ea3b3e7c8eb54585ee8a325f5698c, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1

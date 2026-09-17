@@ -175,7 +175,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0009955b593c4e4e963e1f4fdc6cc2b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ru.vortex.unity.uiprovider::Vortex.Unity.UIProviderSystem.View.UserInterface
-  preset: 003fff09a8ab79691b5926b2efd6b6b9f56f83029c46ce1f417f3a95a1ab0560
+  preset: 
   wndContainer: {fileID: 0}
   tweeners:
   - {fileID: 1706688868072241851}
