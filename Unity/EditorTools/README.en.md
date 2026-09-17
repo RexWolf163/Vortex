@@ -268,5 +268,5 @@ Difference from the built-in `Prefab/Remove Unused Overrides`: the built-in item
 - `[ToggleButton]` on `int` / `byte` without `labelsMethod` — ErrorMessageBox.
 - `[ValueSelector]` returning `null` / an empty collection — ErrorMessageBox below the field; the field remains editable through the default drawer.
 - `[DateTimeDraw]` and similar on non-`long` fields — Odin does not activate the drawer (TValue mismatch).
-- `CleanOverrideTrash` skips: default overrides of the instance root (position, anchors, name), composite and `[SerializeReference]` properties as a whole, and properties whose path does not resolve on the source or the instance (including dangling `managedReferences[rid]`). Individual fields inside `managedReferences[rid]` are compared when the path resolves.
+- `CleanOverrideTrash` skips: default overrides of the instance root (position, anchors, name — Unity always keeps them and restores them on save; the window shows them as a separate "обязательных корневых" (required root) counter), composite and `[SerializeReference]` properties as a whole, and properties whose path does not resolve on the source or the instance (including dangling `managedReferences[rid]`). Individual fields inside `managedReferences[rid]` are compared when the path resolves.
 - `CleanOverrideTrash` on an object outside any prefab instance — the list is empty.

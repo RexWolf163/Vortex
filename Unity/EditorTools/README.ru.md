@@ -268,5 +268,5 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 - `[ToggleButton]` на `int`/`byte` без `labelsMethod` — ErrorMessageBox.
 - `[ValueSelector]` с возвратом `null`/пустой коллекции — ErrorMessageBox под полем, само поле остаётся редактируемым стандартным drawer'ом.
 - `[DateTimeDraw]` и подобные на полях не-`long` — Odin не активирует drawer (TValue не совпадает).
-- `CleanOverrideTrash` пропускает: default overrides корня экземпляра (позиция, якоря, имя), составные и `[SerializeReference]`-свойства целиком, свойства, путь которых не находится в источнике или экземпляре (включая висячие `managedReferences[rid]`). Отдельные поля внутри `managedReferences[rid]` сравниваются, если путь резолвится.
+- `CleanOverrideTrash` пропускает: default overrides корня экземпляра (позиция, якоря, имя — Unity хранит их всегда и восстанавливает при сохранении; в окне показываются отдельным счётчиком «обязательных корневых»), составные и `[SerializeReference]`-свойства целиком, свойства, путь которых не находится в источнике или экземпляре (включая висячие `managedReferences[rid]`). Отдельные поля внутри `managedReferences[rid]` сравниваются, если путь резолвится.
 - `CleanOverrideTrash` на объекте вне экземпляров префабов — список пуст.

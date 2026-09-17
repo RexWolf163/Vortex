@@ -38,6 +38,7 @@ namespace Vortex.Unity.EditorTools.PrefabTools
         private readonly List<Entry> _entries = new();
         private readonly HashSet<(Object target, string path)> _excluded = new();
         private int _totalModifications;
+        private int _defaultOverrides;
         private Vector2 _scroll;
 
         [MenuItem(MenuPath, true)]
@@ -70,17 +71,18 @@ namespace Vortex.Unity.EditorTools.PrefabTools
         {
             _entries.Clear();
             _totalModifications = 0;
+            _defaultOverrides = 0;
             if (root == null)
                 return;
 
-            _entries.AddRange(CollectRedundant(root, out _totalModifications));
+            _entries.AddRange(CollectRedundant(root, out _totalModifications, out _defaultOverrides));
             Repaint();
         }
 
         private void RemoveSelected()
         {
             var selected = new HashSet<(Object, string)>(
-                CollectRedundant(root, out _).Select(e => e.Key).Where(k => !_excluded.Contains(k)));
+                CollectRedundant(root, out _, out _).Select(e => e.Key).Where(k => !_excluded.Contains(k)));
             if (selected.Count == 0)
                 return;
 
@@ -128,9 +130,15 @@ namespace Vortex.Unity.EditorTools.PrefabTools
             return result;
         }
 
-        private static List<Entry> CollectRedundant(GameObject root, out int totalModifications)
+        /// <param name="defaultOverrides">
+        /// Обязательные переопределения корня экземпляра (позиция, якоря, имя, …): Unity хранит их всегда и
+        /// восстанавливает при сохранении, поэтому в чистку не попадают — только в счётчик.
+        /// </param>
+        private static List<Entry> CollectRedundant(GameObject root, out int totalModifications,
+            out int defaultOverrides)
         {
             totalModifications = 0;
+            defaultOverrides = 0;
             var result = new List<Entry>();
             var sourceToInstance = BuildSourceMap(root);
             var serialized = new Dictionary<Object, SerializedObject>();
@@ -144,9 +152,14 @@ namespace Vortex.Unity.EditorTools.PrefabTools
                 totalModifications += modifications.Length;
                 foreach (var modification in modifications)
                 {
+                    if (PrefabUtility.IsDefaultOverride(modification))
+                    {
+                        defaultOverrides++;
+                        continue;
+                    }
+
                     if (modification.target == null
                         || !sourceToInstance.TryGetValue(modification.target, out var instanceObject)
-                        || PrefabUtility.IsDefaultOverride(modification)
                         || !IsRedundant(modification, instanceObject, serialized))
                         continue;
 
@@ -262,7 +275,8 @@ namespace Vortex.Unity.EditorTools.PrefabTools
                 EditorGUILayout.ObjectField("Корень", root, typeof(GameObject), true);
 
             EditorGUILayout.LabelField(
-                $"Переопределений всего: {_totalModifications}, совпадают с базой: {_entries.Count}");
+                $"Переопределений всего: {_totalModifications}, обязательных корневых: {_defaultOverrides}, " +
+                $"совпадают с базой: {_entries.Count}", EditorStyles.wordWrappedLabel);
             EditorGUILayout.HelpBox(
                 "Совпадение с базой бывает намеренным: такое переопределение фиксирует значение от будущих правок " +
                 "базового префаба. Снимите галочки с тех, что нужно сохранить.", MessageType.None);
