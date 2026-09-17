@@ -12,7 +12,7 @@ namespace Vortex.Unity.DebugSystem.Editor
         [MenuItem("Tools/Vortex/Configs/Debug Settings")]
         private static void FindConfig()
         {
-            var resource = Resources.LoadAll<StartSettings>("");
+            var resource = Resources.LoadAll<DebugSettings>("");
             if (resource == null || resource.Length == 0)
                 return;
             var res = resource[0];
