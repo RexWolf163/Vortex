@@ -22,6 +22,18 @@ UI-слой фреймворка. Всё, что касается визуала
 
 **UIBuilder** — editor-инструмент вёрстки. ПКМ в Hierarchy → `Vortex Primitives/Create Text` / `Create Button`: под объектом создаётся слой с `UIComponent`, экземпляром выбранного примитива и нужными `Set*Component`. Каталог примитивов — папка из `Project Settings → Vortex/UIBuilder`; параметры окна зависят от частей примитива. Новые виды элементов и секции добавляются без правки ядра.
 
+## Горячие клавиши
+
+Команды для выделенных объектов сцены или открытого префаба. Ассеты в Project window не затрагиваются, отмена — одним шагом Undo, новые слои выделяются.
+
+| Сочетание | Меню | Действие |
+|-----------|------|----------|
+| `Alt+T` / `Ctrl+Alt+T` | `Tools/Vortex/UI/Add TweenerHub` / `… Layer` | `TweenerHub` на объект или отдельным слоем — см. `TweenerSystem/` |
+| `Alt+S` / `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` / `… Layer` | `UIStateSwitcher` на объект или отдельным слоем — см. `StateSwitcher/` |
+| `Alt+I` | `Tools/Vortex/UI/Add BackgroundLayer` | Дочерний слой `Background` с `Image` (Maskable выключен, Raycast Target включён): первым в иерархии, `RectTransform` растянут по родителю. Повторное нажатие — ещё один слой |
+
+Код — `Shortcuts/` (`ComponentShortcuts.cs` — общее создание слоёв компонентов, `BackgroundLayerShortcut.cs`).
+
 ## Зависимости
 
 UniTask, TextMeshPro, Odin Inspector. Из фреймворка — `TimeController`, `ActionExt`, `IDataStorage`, `EditorTools`, `SettingsSystem` (для `CursorSystem`).

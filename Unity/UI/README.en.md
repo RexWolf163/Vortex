@@ -22,6 +22,18 @@ This section does not manage interface lifecycles — that's `UIProviderSystem`'
 
 **UIBuilder** — an editor layout tool. Right-click in the Hierarchy → `Vortex Primitives/Create Text` / `Create Button`: a layer with `UIComponent`, an instance of the chosen primitive and the required `Set*Component`s is created under the object. The primitive catalog is a folder set in `Project Settings → Vortex/UIBuilder`; window parameters depend on the primitive's parts. New element kinds and sections are added without touching the core.
 
+## Hotkeys
+
+Commands for selected objects in the scene or an open prefab. Assets in the Project window are not affected; undone in one step; new layers are selected.
+
+| Shortcut | Menu | Action |
+|----------|------|--------|
+| `Alt+T` / `Ctrl+Alt+T` | `Tools/Vortex/UI/Add TweenerHub` / `… Layer` | `TweenerHub` on the object or as a separate layer — see `TweenerSystem/` |
+| `Alt+S` / `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` / `… Layer` | `UIStateSwitcher` on the object or as a separate layer — see `StateSwitcher/` |
+| `Alt+I` | `Tools/Vortex/UI/Add BackgroundLayer` | A child `Background` layer with an `Image` (Maskable off, Raycast Target on): first in the hierarchy, `RectTransform` stretched to the parent. Pressing again adds another layer |
+
+Code — `Shortcuts/` (`ComponentShortcuts.cs` — shared component layer creation, `BackgroundLayerShortcut.cs`).
+
 ## Dependencies
 
 UniTask, TextMeshPro, Odin Inspector. From the framework — `TimeController`, `ActionExt`, `IDataStorage`, `EditorTools`, `SettingsSystem` (for `CursorSystem`).
