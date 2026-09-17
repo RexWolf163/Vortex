@@ -44,7 +44,7 @@ namespace Vortex.Unity.UI.Misc
         private string patternValue = "{2} < {0} < {1}";
 
 
-        [SerializeField] private SliderView slider;
+        [SerializeField] private SliderView[] sliders = new SliderView[0];
 
         [SerializeField] private TweenerHub tweenPulsation;
 
@@ -70,15 +70,7 @@ namespace Vortex.Unity.UI.Misc
         {
             StorageValue.OnUpdateLink += UpdateLink;
             switcher?.Set(CounterStates.Empty);
-            _cachedValue = GetValue();
-            var minValue = GetMinValue();
-            var maxValue = GetMaxValue();
-            if (slider != null) slider.Set(_cachedValue, maxValue, minValue);
-            value?.SetText(string.Format(patternValue, _cachedValue, maxValue, minValue));
-            min?.SetText(string.Format(patternMin, minValue));
-            max?.SetText(string.Format(patternMax, maxValue));
-            OnValueUpdated();
-            Init();
+            UpdateLink();
         }
 
         private void OnDisable()
@@ -90,7 +82,19 @@ namespace Vortex.Unity.UI.Misc
 
         private void UpdateLink()
         {
+            // Полный ре-подписочный цикл: без DeInit подкласс остаётся подписан на СТАРЫЙ _data,
+            // и апдейты из НОВОГО не приходят. -= на пустом event — no-op в C#, безопасно
+            // даже до первого Init.
+            DeInit();
             _data = StorageValue.GetData<T>();
+            if (_data == null)
+                return;
+
+            // Синхронизация кэша ДО OnValueUpdated: без этого разница между старым _cachedValue
+            // и значением новой модели может ложно активировать pulse-tween.
+            _cachedValue = GetValue();
+            Init();
+
             OnMinUpdated();
             OnMaxUpdated();
             OnValueUpdated();
@@ -115,7 +119,9 @@ namespace Vortex.Unity.UI.Misc
             if (maxValue < _cachedValue)
                 _cachedValue = maxValue;
             value?.SetText(string.Format(patternValue, _cachedValue, maxValue, minValue));
-            if (slider != null) slider.Set(_cachedValue, maxValue, minValue);
+            if (sliders != null)
+                foreach (var slider in sliders)
+                    slider.Set(_cachedValue, maxValue, minValue);
 
             if (switcher != null)
             {
@@ -166,7 +172,9 @@ namespace Vortex.Unity.UI.Misc
             var maxValue = GetMaxValue();
 
             min?.SetText(string.Format(patternMin, newValue));
-            if (slider != null) slider.Set(_cachedValue, maxValue, newValue);
+            if (sliders != null)
+                foreach (var slider in sliders)
+                    slider.Set(_cachedValue, maxValue, newValue);
         }
 
         /// <summary>
@@ -178,7 +186,9 @@ namespace Vortex.Unity.UI.Misc
             var newValue = GetMaxValue();
 
             max?.SetText(string.Format(patternMax, newValue));
-            if (slider != null) slider.Set(_cachedValue, newValue, minValue);
+            if (sliders != null)
+                foreach (var slider in sliders)
+                    slider.Set(_cachedValue, newValue, minValue);
         }
 
 

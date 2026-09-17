@@ -39,6 +39,12 @@ namespace Vortex.Sdk.AudioLocalizationSystem
             if (clip == null)
                 return;
             var channel = clip.Channel;
+            if (channel == null)
+            {
+                Debug.LogError($"[AudioLocalizationController] Audio channel for {data.Name} not set");
+                return;
+            }
+
             AudioController.StopAllSounds(channel.Name);
             AudioController.PlaySound(clip);
         }
