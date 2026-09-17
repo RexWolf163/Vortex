@@ -30,11 +30,11 @@ namespace Vortex.Unity.UI.Misc
 
         private void Refresh(float value)
         {
-            uiComponent.SetText(string.Format(pattern, slider.value * 100));
+            uiComponent.SetText(string.Format(pattern, slider.normalizedValue * 100));
             if (levels == null)
                 return;
             var state = levels.Length;
-            var val = slider.value * 100;
+            var val = slider.normalizedValue * 100;
             for (var i = 0; i < levels.Length; i++)
                 if (val < levels[i])
                 {
