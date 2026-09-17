@@ -85,15 +85,21 @@ Use case: bindings that cannot be hard-wired via `[UIComponentLink]` (attribute 
 
 ### CounterViewBase&lt;T&gt; (abstract)
 
-Base component for a counter view with min/max/current value, slider, pulse animation, and threshold visual states.
+Base component for a counter view with min/max/current value, an array of sliders, pulse animation, and threshold visual states. Extracting numbers from the model and subscribing to its reactive fields is the subclass's job; the base owns lifecycle, rendering, and state switching.
 
 Subclass implements:
 - `int GetValue()` — current value
 - `int GetMinValue()` — range minimum
 - `int GetMaxValue()` — range maximum
-- `void Init()` / `void DeInit()` — domain subscriptions
+- `void Init()` — subscribe to the reactive fields of `Data`
+- `void DeInit()` — symmetric unsubscribe (must be idempotent: `-= handler` on an empty event is a no-op, and access to the internal model reference must be null-guarded because `DeInit` can be called before the first `Init`)
 
-The data model is accessed via `protected T Data` (cached on first access, reset on `UpdateLink`).
+The data model is accessed via `protected T Data`. The base automatically re-fetches this reference on `UpdateLink` (whenever the storage's contents are fully replaced).
+
+**Lifecycle:**
+- `OnEnable` → subscribes to `IDataStorage.OnUpdateLink`, calls `switcher.Set(Empty)`, then runs `UpdateLink()` once for initial setup.
+- `UpdateLink` (internal) on every storage signal: `DeInit()` → re-fetch `Data` → null-guard → sync value cache → `Init()` → refresh all blocks (min/max/value/switcher/sliders). Same path for the initial enable and every subsequent re-link — the subclass's subscriptions move to the fresh model without leaks.
+- `OnDisable` → unsubscribes from `OnUpdateLink` and calls `DeInit()`.
 
 Inspector fields (all optional — the component works with any subset):
 
@@ -103,7 +109,7 @@ Inspector fields (all optional — the component works with any subset):
 | Min Value UI | `min` (UIComponent), `patternMin = "{0}"` | Min text widget and its format pattern |
 | Max Value UI | `max` (UIComponent), `patternMax = "{0}"` | Max text widget |
 | Current Value UI | `value` (UIComponent), `patternValue = "{2} < {0} < {1}"` | Current value text widget. Receives three args: `{0}` = value, `{1}` = max, `{2}` = min |
-| — | `slider` (SliderView) | Animated slider |
+| — | `sliders` (`SliderView[]`) | Array of animated sliders — each receives the same (value, max, min) |
 | — | `tweenPulsation` (TweenerHub) | Pulse animation on value change |
 | — | `switcher` (UIStateSwitcher over `CounterStates`) | Threshold visual states |
 | Animations | `onUp` / `onDown` | Animate on increase / decrease |
@@ -120,11 +126,17 @@ Inspector fields (all optional — the component works with any subset):
 | `Fill` | `value == maxValue` |
 
 Subclass API:
-- `UpdateValue()` / `UpdateMinValue()` / `UpdateMaxValue()` — manually refresh the corresponding block.
+- `UpdateValue()` / `UpdateMinValue()` / `UpdateMaxValue()` — the subclass calls these from its own subscription handler on a reactive field to push a refresh through the corresponding block of UI.
 
 ### CounterViewAdvanced
 
-A ready-to-use `CounterViewBase<T>` subclass for the typical "model with three `IntData` (current/min/max)" scenario. Holds `[SerializeField]` references to the source's reactive properties, maps them to `GetValue`/`GetMinValue`/`GetMaxValue`, and subscribes in `Init()`.
+Standalone component for the typical "three separate `IDataStorage`s, each holding an `IntData`" scenario. **Not a subclass** of `CounterViewBase<T>` — an independent reimplementation of the same UI behaviour (same `CounterStates` thresholds, same pulse-tween, same format patterns) with three separate sources that subscribes to `IntData.OnUpdate` for value/min/max on its own.
+
+Differences vs. `CounterViewBase<T>`:
+- Three sources instead of one (`sourceValue` / `sourceMin` / `sourceMax`) — convenient when min/max live in separate models or properties.
+- A single `SliderView` instead of an array.
+- No subclass required — works out of the box when data is exposed as `IntData`.
+- Locked to `IntData` — for domain models with non-int fields or computed values, use `CounterViewBase<T>` with a subclass.
 
 ### SliderView
 

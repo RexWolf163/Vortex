@@ -119,7 +119,7 @@ namespace Vortex.NaniExtensions.Core
                     ResetNani();
                     break;
                 case GameStates.Paused:
-                    UIManager.GetUI<IBacklogUI>().Hide();
+                    UIManager.GetUI<IBacklogUI>()?.Hide();
                     break;
             }
         }
@@ -153,8 +153,8 @@ namespace Vortex.NaniExtensions.Core
             AudioManager.StopAllSfx();
             AudioManager.StopVoice();
 
-            UIManager.GetUI<IBacklogUI>().Hide();
-            UIManager.GetUI<IBacklogUI>().Clear();
+            UIManager.GetUI<IBacklogUI>()?.Hide();
+            UIManager.GetUI<IBacklogUI>()?.Clear();
 
 
             var bgs = BackgroundManager.Actors;
