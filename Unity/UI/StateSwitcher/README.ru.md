@@ -46,10 +46,8 @@ StateSwitcher/
 │   ├── SpritesSwitch.cs        # Спрайт на SpriteRenderer/Image
 │   ├── EventFire.cs            # UnityEvent при активации
 │   └── TweenerHubSwitch.cs     # Forward/Back на TweenerHub
-├── Handlers/
-│   └── OnEnableStateRunner.cs  # Переключение при OnEnable
-└── Editor/
-    └── UIStateSwitcherShortcut.cs  # Alt+S / Ctrl+Alt+S
+└── Handlers/
+    └── OnEnableStateRunner.cs  # Переключение при OnEnable
 ```
 
 ### UIStateSwitcher
@@ -131,14 +129,14 @@ private UIStateSwitcher switcher;
 
 ## Горячие клавиши
 
-Для выделенных объектов сцены или открытого префаба (`Editor/UIStateSwitcherShortcut.cs`):
+Для выделенных объектов сцены или открытого префаба (`UI/UIBuilder/Shortcuts/UIStateSwitcherShortcut.cs`):
 
 | Сочетание | Меню | Действие |
 |-----------|------|----------|
 | `Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` | Добавить `UIStateSwitcher` на сам объект; где он уже есть — пропуск |
 | `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher Layer` | Дочерний слой `[UIStateSwitcher]` со свитчером: первым в иерархии, в нулевой точке, на обычном `Transform` (`RectTransform` снимается); новые слои выделяются |
 
-Ассеты в Project window не затрагиваются. Отмена — одним шагом Undo. Создание слоя — общий код `UI/Shortcuts/ComponentShortcuts.cs`, тот же, что у горячих клавиш `TweenerHub` (`Alt+T` / `Ctrl+Alt+T`).
+Ассеты в Project window не затрагиваются. Отмена — одним шагом Undo. Пункты меню живут в пакете `UIBuilder` вместе с остальными горячими клавишами вёрстки; добавление компонента и создание слоя — общий код `EditorTools/HierarchyTools/HierarchyLayers.cs`, тот же, что у горячих клавиш `TweenerHub` (`Alt+T` / `Ctrl+Alt+T`).
 
 ---
 

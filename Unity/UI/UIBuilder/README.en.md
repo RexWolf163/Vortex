@@ -40,6 +40,10 @@ UIBuilder/
 ├── UIBuilderSettingsProvider.cs    # Project Settings → Vortex/UIBuilder page
 ├── UIBuilderCreateWindow.cs        # Creation parameters window
 ├── UIBuilderCatalog.cs             # Prefab catalog of a folder (with subfolders)
+├── Shortcuts/                      # Layout hotkeys (shared code — EditorTools/HierarchyTools)
+│   ├── BackgroundLayerShortcut.cs  # Alt+I — Background layer with an Image
+│   ├── TweenerHubShortcut.cs       # Alt+T / Ctrl+Alt+T — TweenerHub on the object / as a layer
+│   └── UIStateSwitcherShortcut.cs  # Alt+S / Ctrl+Alt+S — UIStateSwitcher on the object / as a layer
 ├── Base/
 │   ├── UIBuilderModule.cs          # Element kind module (+ generic UIBuilderModule<TSettings>)
 │   ├── UIBuilderModuleSettings.cs  # Common module settings
@@ -74,6 +78,8 @@ Common module settings fields:
 | `defaultPrefab` | `GameObject` (`[ValueDropdown]`) | Primitive preselected when the window opens. Picked from the folder catalog |
 | `defaultLayerName` | `string` | Name of the created layer. The subclass sets the default via its constructor |
 | `defaultSize` | `Vector2` | Size of the created layer (`sizeDelta`), `240 × 80` by default |
+
+Besides module settings, the page has a **Background Layer (Alt+I)** block: `backgroundColor` — the `Image` color of the layer created by `Add BackgroundLayer`, black by default.
 
 **Sync** (`Sync`) runs when the settings page opens and when settings of a missing module are requested:
 - adds settings for modules that have none;
@@ -114,6 +120,16 @@ A shared piece of creation parameters bound to a `UIComponent` part type (`PartT
 1. `Project Settings → Vortex/UIBuilder` — set the primitive folder for each module, optionally the default prefab, name and size.
 2. Right-click an object in the Hierarchy → `Vortex Primitives/Create Text` or `Create Button`.
 3. In the window pick a primitive, the layer name, fill in the sections → «Создать» (Create).
+
+## Add BackgroundLayer hotkey
+
+`Alt+I` (`Tools/Vortex/UI/Add BackgroundLayer`) — adds a child `Background` layer with an `Image` to every selected object in the scene or an open prefab:
+- color — `backgroundColor` from the settings (black by default); Maskable off, Raycast Target on;
+- the layer is first in the hierarchy (drawn under the other children), `RectTransform` stretched to the parent;
+- pressing again adds another layer; new layers are selected; undone in one step;
+- assets in the Project window are not affected. A parent without a `RectTransform` has nothing to stretch to.
+
+The `TweenerHub` (`Alt+T` / `Ctrl+Alt+T`) and `UIStateSwitcher` (`Alt+S` / `Ctrl+Alt+S`) hotkeys live here too — described in the `TweenerSystem` and `StateSwitcher` READMEs. Target selection, Undo grouping and layer creation for all commands are shared code in `EditorTools/HierarchyTools/HierarchyLayers.cs`.
 
 ## Extension
 

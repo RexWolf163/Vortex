@@ -53,8 +53,7 @@ TweenerSystem/
 │   └── Easing.cs               # 16 easing types
 ├── Editor/
 │   ├── StateViewDrawer.cs      # StateView state header, Sync button (Odin)
-│   ├── TweenerHubDrawer.cs     # Back / Forward buttons under a TweenerHub field (Odin)
-│   └── TweenerHubShortcut.cs   # Alt+T / Ctrl+Alt+T
+│   └── TweenerHubDrawer.cs     # Back / Forward buttons under a TweenerHub field (Odin)
 └── Debug/
     ├── Model/SettingsModelExtAsyncTweener.cs
     └── Presets/DebugSettingsExtAsyncTweener.cs
@@ -161,14 +160,14 @@ Inspector (`StateViewDrawer`, Odin):
 
 ### Hotkeys
 
-For selected scene objects or objects of an open prefab (`Editor/TweenerHubShortcut.cs`):
+For selected scene objects or objects of an open prefab (`UI/UIBuilder/Shortcuts/TweenerHubShortcut.cs`):
 
 | Shortcut | Menu | Action |
 |----------|------|--------|
 | `Alt+T` | `Tools/Vortex/UI/Add TweenerHub` | Add a `TweenerHub` to the object itself; skipped where one already exists |
 | `Ctrl+Alt+T` | `Tools/Vortex/UI/Add TweenerHub Layer` | A child layer `[TweenerHub]` with a hub: first in the hierarchy, at the zero point, on a plain `Transform` (`RectTransform` is removed); new layers are selected |
 
-Undone in one step. Layer creation is shared code in `UI/Shortcuts/ComponentShortcuts.cs`; the `StateView` Sync uses it too.
+Undone in one step. The menu items live in the `UIBuilder` package together with the other layout hotkeys; adding the component and creating the layer is shared code in `EditorTools/HierarchyTools/HierarchyLayers.cs`, also used by the `StateView` Sync.
 
 ---
 

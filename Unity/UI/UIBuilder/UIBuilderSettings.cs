@@ -19,6 +19,15 @@ namespace Vortex.Unity.UI.UIBuilder
 
         [SerializeReference] private List<UIBuilderModuleSettings> modules = new();
 
+        [SerializeField] private Color backgroundColor = Color.black;
+
+        /// <summary>Цвет <c>Image</c> слоя, создаваемого <c>Add BackgroundLayer</c> (Alt+I).</summary>
+        internal Color BackgroundColor
+        {
+            get => backgroundColor;
+            set => backgroundColor = value;
+        }
+
         internal UIBuilderModuleSettings GetFor(Type settingsType)
         {
             var settings = modules.FirstOrDefault(m => m != null && m.GetType() == settingsType);

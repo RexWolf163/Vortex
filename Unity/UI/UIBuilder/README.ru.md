@@ -40,6 +40,10 @@ UIBuilder/
 ├── UIBuilderSettingsProvider.cs    # Страница Project Settings → Vortex/UIBuilder
 ├── UIBuilderCreateWindow.cs        # Окно параметров создания
 ├── UIBuilderCatalog.cs             # Каталог префабов папки (с подпапками)
+├── Shortcuts/                      # Горячие клавиши вёрстки (общий код — EditorTools/HierarchyTools)
+│   ├── BackgroundLayerShortcut.cs  # Alt+I — слой Background с Image
+│   ├── TweenerHubShortcut.cs       # Alt+T / Ctrl+Alt+T — TweenerHub на объект / слоем
+│   └── UIStateSwitcherShortcut.cs  # Alt+S / Ctrl+Alt+S — UIStateSwitcher на объект / слоем
 ├── Base/
 │   ├── UIBuilderModule.cs          # Модуль вида элемента (+ generic UIBuilderModule<TSettings>)
 │   ├── UIBuilderModuleSettings.cs  # Общие настройки модуля
@@ -74,6 +78,8 @@ UIBuilder/
 | `defaultPrefab` | `GameObject` (`[ValueDropdown]`) | Примитив, выбранный при открытии окна. Выбирается из каталога папки |
 | `defaultLayerName` | `string` | Имя создаваемого слоя. Значение по умолчанию задаёт наследник через конструктор |
 | `defaultSize` | `Vector2` | Размер создаваемого слоя (`sizeDelta`), по умолчанию `240 × 80` |
+
+Кроме настроек модулей, на странице есть блок **Background Layer (Alt+I)**: `backgroundColor` — цвет `Image` слоя, создаваемого `Add BackgroundLayer`, по умолчанию чёрный.
 
 **Синхронизация** (`Sync`) — при открытии страницы настроек и при обращении к настройкам отсутствующего модуля:
 - добавляет настройки для модулей, у которых их нет;
@@ -114,6 +120,16 @@ UIBuilder/
 1. `Project Settings → Vortex/UIBuilder` — указать папку примитивов для каждого модуля, при желании префаб, имя и размер по умолчанию.
 2. ПКМ по объекту в Hierarchy → `Vortex Primitives/Create Text` или `Create Button`.
 3. В окне выбрать примитив, имя слоя, заполнить секции → «Создать».
+
+## Горячая клавиша Add BackgroundLayer
+
+`Alt+I` (`Tools/Vortex/UI/Add BackgroundLayer`) — в каждый выделенный объект сцены или открытого префаба добавляется дочерний слой `Background` с `Image`:
+- цвет — `backgroundColor` из настроек (по умолчанию чёрный); Maskable выключен, Raycast Target включён;
+- слой первым в иерархии (рисуется под остальными детьми), `RectTransform` растянут по родителю;
+- повторное нажатие — ещё один слой; новые слои выделяются; отмена — одним шагом Undo;
+- ассеты в Project window не затрагиваются. У родителя без `RectTransform` растягивать не по чему.
+
+Здесь же живут горячие клавиши `TweenerHub` (`Alt+T` / `Ctrl+Alt+T`) и `UIStateSwitcher` (`Alt+S` / `Ctrl+Alt+S`) — описаны в README `TweenerSystem` и `StateSwitcher`. Выбор целей, группировка Undo и создание слоёв у всех команд — общий код `EditorTools/HierarchyTools/HierarchyLayers.cs`.
 
 ## Расширение
 

@@ -51,6 +51,17 @@ namespace Vortex.Unity.UI.UIBuilder
                 changed |= EditorGUI.EndChangeCheck() | tree.ApplyChanges();
             }
 
+            var settings = UIBuilderSettings.instance;
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Background Layer (Alt+I)", EditorStyles.boldLabel);
+            EditorGUI.BeginChangeCheck();
+            var color = EditorGUILayout.ColorField("Default Color", settings.BackgroundColor);
+            if (EditorGUI.EndChangeCheck())
+            {
+                settings.BackgroundColor = color;
+                changed = true;
+            }
+
             if (changed)
                 UIBuilderSettings.instance.SaveToDisk();
         }

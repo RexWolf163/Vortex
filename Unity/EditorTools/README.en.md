@@ -14,7 +14,7 @@ Attributes and Odin drawers for Unity Inspector customization in Vortex projects
 
 | Assembly | Contents | Constraints |
 |----------|----------|-------------|
-| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `EditorSettings/`, `PrefabTools/`, `InspectorHandler`) | — |
+| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin drawers (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Folder layout
@@ -27,6 +27,7 @@ EditorTools/
 ├── Elements/                    # DrawingUtility, SearchablePopup
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
 ├── PrefabTools/                 # PrefabOverrideCleanerWindow — redundant override cleanup
+├── HierarchyTools/              # HierarchyLayers — adding components and layers to selected objects
 └── InspectorHandler.cs          # SerializedProperty utilities (IsPropertyNullable, GetPropertyValue)
 ```
 
@@ -34,7 +35,7 @@ EditorTools/
 
 - Attributes — no guards, available at runtime (inherit from `PropertyAttribute` / `Attribute`).
 - Drawers (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + the asmdef-level `ODIN_INSPECTOR` define constraint.
-- Editor utilities (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`) — `#if UNITY_EDITOR`.
+- Editor utilities (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — derives from Odin's `FoldoutGroupAttribute` under `#if ODIN_INSPECTOR`, falls back to `Attribute` otherwise.
 
 ## Attributes
@@ -254,6 +255,21 @@ Open it via right-click on an object in the Hierarchy → `Prefab/CleanOverrideT
 Matching the base can be intentional: the override pins the value against future edits of the base prefab. That is why the tool removes nothing without confirmation.
 
 Difference from the built-in `Prefab/Remove Unused Overrides`: the built-in item removes **dangling** overrides (the target or field no longer exists) and does not compare values. `CleanOverrideTrash` removes **redundant** ones (target exists, value equals the base) and leaves dangling ones alone. Recommended order: built-in item first, then this one.
+
+### `HierarchyTools/HierarchyLayers`
+
+Shared logic of the "add component / layer" editor commands for selected objects in the scene or an open prefab (Project window assets are not affected). Used by the layout hotkeys of the `UIBuilder` package (`Alt+T`, `Alt+S`, `Alt+I` and the layer variants) and by the `StateView` Sync.
+
+| Method | Purpose |
+|--------|---------|
+| `Targets()` | Selected scene / open prefab objects |
+| `AddToTargets<T>()` | Add a component to the selected objects; skipped where it already exists |
+| `AddLayerToTargets<T>()` | A `[{type}]` layer with the component in every selected object |
+| `AddLayersToTargets(create)` | Create a layer in every selected object with the `create` factory: one Undo group, new layers are selected |
+| `CreateLayer<T>(parent, name)` | A layer on a plain `Transform`: first in the hierarchy, at the zero point (`RectTransform` removed) |
+| `CreateStretchedLayer(parent, name, configure)` | A UI layer: first in the hierarchy, `RectTransform` stretched to the parent; `configure` adds components before Undo registration |
+
+Layer creation is registered in Undo after it is built — undo removes it entirely. Undo grouping across several targets is done by `AddLayersToTargets`.
 
 ## Dependencies
 

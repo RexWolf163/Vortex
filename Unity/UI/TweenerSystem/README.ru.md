@@ -53,8 +53,7 @@ TweenerSystem/
 │   └── Easing.cs               # 16 типов easing
 ├── Editor/
 │   ├── StateViewDrawer.cs      # Шапка состояний StateView, кнопка Sync (Odin)
-│   ├── TweenerHubDrawer.cs     # Кнопки Back / Forward под полем TweenerHub (Odin)
-│   └── TweenerHubShortcut.cs   # Alt+T / Ctrl+Alt+T
+│   └── TweenerHubDrawer.cs     # Кнопки Back / Forward под полем TweenerHub (Odin)
 └── Debug/
     ├── Model/SettingsModelExtAsyncTweener.cs
     └── Presets/DebugSettingsExtAsyncTweener.cs
@@ -161,14 +160,14 @@ playView.Apply();                       // привести хабы к теку
 
 ### Горячие клавиши
 
-Для выделенных объектов сцены или открытого префаба (`Editor/TweenerHubShortcut.cs`):
+Для выделенных объектов сцены или открытого префаба (`UI/UIBuilder/Shortcuts/TweenerHubShortcut.cs`):
 
 | Сочетание | Меню | Действие |
 |-----------|------|----------|
 | `Alt+T` | `Tools/Vortex/UI/Add TweenerHub` | Добавить `TweenerHub` на сам объект; где он уже есть — пропуск |
 | `Ctrl+Alt+T` | `Tools/Vortex/UI/Add TweenerHub Layer` | Дочерний слой `[TweenerHub]` с хабом: первым в иерархии, в нулевой точке, на обычном `Transform` (`RectTransform` снимается); новые слои выделяются |
 
-Отмена — одним шагом Undo. Создание слоя — общий код `UI/Shortcuts/ComponentShortcuts.cs`; им же пользуется Sync у `StateView`.
+Отмена — одним шагом Undo. Пункты меню живут в пакете `UIBuilder` вместе с остальными горячими клавишами вёрстки; добавление компонента и создание слоя — общий код `EditorTools/HierarchyTools/HierarchyLayers.cs`, им же пользуется Sync у `StateView`.
 
 ---
 

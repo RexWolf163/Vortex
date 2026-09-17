@@ -5,7 +5,7 @@ using UnityEngine;
 using Vortex.Unity.EditorTools.EditorSettings;
 using Vortex.Unity.EditorTools.Elements;
 using Vortex.Unity.UI.Attributes;
-using Vortex.Unity.UI.Shortcuts;
+using Vortex.Unity.EditorTools.HierarchyTools;
 
 namespace Vortex.Unity.UI.TweenerSystem.Editor
 {
@@ -145,7 +145,7 @@ namespace Vortex.Unity.UI.TweenerSystem.Editor
 
             var field = Property.Name;
             var filled = view.FillEmpty(i =>
-                ComponentShortcuts.CreateLayer<TweenerHub>(owner.gameObject, $"[{field}_{view.NameAt(i)}_Tween]"));
+                HierarchyLayers.CreateLayer<TweenerHub>(owner.gameObject, $"[{field}_{view.NameAt(i)}_Tween]"));
 
             EditorUtility.SetDirty(owner);
             PrefabUtility.RecordPrefabInstancePropertyModifications(owner);

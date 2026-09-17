@@ -14,7 +14,7 @@
 
 | Assembly | Содержимое | Constraints |
 |----------|-----------|-------------|
-| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `EditorSettings/`, `PrefabTools/`, `InspectorHandler`) | — |
+| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin-drawer'ы (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Структура папок
@@ -27,6 +27,7 @@ EditorTools/
 ├── Elements/                    # DrawingUtility, SearchablePopup
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
 ├── PrefabTools/                 # PrefabOverrideCleanerWindow — чистка избыточных переопределений
+├── HierarchyTools/              # HierarchyLayers — добавление компонентов и слоёв в выделенные объекты
 └── InspectorHandler.cs          # Утилиты SerializedProperty (IsPropertyNullable, GetPropertyValue)
 ```
 
@@ -34,7 +35,7 @@ EditorTools/
 
 - Атрибуты — без guard'ов, доступны в runtime (наследуются от `PropertyAttribute`/`Attribute`).
 - Drawer'ы (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + define-constraint `ODIN_INSPECTOR` на уровне asmdef.
-- Editor-утилиты (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`) — `#if UNITY_EDITOR`.
+- Editor-утилиты (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — наследуется от Odin `FoldoutGroupAttribute` под `#if ODIN_INSPECTOR`, иначе fallback на `Attribute`.
 
 ## Атрибуты
@@ -254,6 +255,21 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 Совпадение с базой бывает намеренным: переопределение фиксирует значение от будущих правок базового префаба. Поэтому инструмент ничего не удаляет без подтверждения.
 
 Отличие от встроенного `Prefab/Remove Unused Overrides`: встроенный пункт удаляет **висячие** переопределения (цели или поля больше нет) и значения не сравнивает. `CleanOverrideTrash` удаляет **избыточные** (цель есть, значение равно базовому) и висячие не трогает. Порядок чистки — сначала встроенный пункт, потом этот.
+
+### `HierarchyTools/HierarchyLayers`
+
+Общая логика editor-команд «добавить компонент / слой» для выделенных объектов сцены или открытого префаба (ассеты Project window не затрагиваются). Пользуются горячие клавиши вёрстки пакета `UIBuilder` (`Alt+T`, `Alt+S`, `Alt+I` и слоевые варианты) и Sync у `StateView`.
+
+| Метод | Назначение |
+|-------|-----------|
+| `Targets()` | Выделенные объекты сцены / открытого префаба |
+| `AddToTargets<T>()` | Добавить компонент на выделенные объекты; где он уже есть — пропуск |
+| `AddLayerToTargets<T>()` | Слой `[{тип}]` с компонентом в каждый выделенный объект |
+| `AddLayersToTargets(create)` | Создать слой в каждом выделенном объекте фабрикой `create`: одна группа Undo, новые слои выделяются |
+| `CreateLayer<T>(parent, name)` | Слой на обычном `Transform`: первым в иерархии, в нулевой точке (`RectTransform` снимается) |
+| `CreateStretchedLayer(parent, name, configure)` | UI-слой: первым в иерархии, `RectTransform` растянут по родителю; `configure` добавляет компоненты до регистрации в Undo |
+
+Создание слоя регистрируется в Undo после сборки — отмена удаляет его целиком. Группировку Undo для нескольких целей ведёт `AddLayersToTargets`.
 
 ## Зависимости
 

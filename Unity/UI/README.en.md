@@ -30,9 +30,9 @@ Commands for selected objects in the scene or an open prefab. Assets in the Proj
 |----------|------|--------|
 | `Alt+T` / `Ctrl+Alt+T` | `Tools/Vortex/UI/Add TweenerHub` / `… Layer` | `TweenerHub` on the object or as a separate layer — see `TweenerSystem/` |
 | `Alt+S` / `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` / `… Layer` | `UIStateSwitcher` on the object or as a separate layer — see `StateSwitcher/` |
-| `Alt+I` | `Tools/Vortex/UI/Add BackgroundLayer` | A child `Background` layer with an `Image` (Maskable off, Raycast Target on): first in the hierarchy, `RectTransform` stretched to the parent. Pressing again adds another layer |
+| `Alt+I` | `Tools/Vortex/UI/Add BackgroundLayer` | A child `Background` layer with an `Image` (color from `Project Settings → Vortex/UIBuilder`, black by default; Maskable off, Raycast Target on): first in the hierarchy, `RectTransform` stretched to the parent. Pressing again adds another layer — see `UIBuilder/` |
 
-Code — `Shortcuts/` (`ComponentShortcuts.cs` — shared component layer creation, `BackgroundLayerShortcut.cs`).
+Menu items — `UIBuilder/Shortcuts/`; adding components and creating layers is shared code in `EditorTools/HierarchyTools/HierarchyLayers.cs`.
 
 ## Dependencies
 

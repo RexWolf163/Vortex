@@ -1,10 +1,9 @@
-#if UNITY_EDITOR
-
 using System.Linq;
 using UnityEditor;
-using Vortex.Unity.UI.Shortcuts;
+using Vortex.Unity.EditorTools.HierarchyTools;
+using Vortex.Unity.UI.StateSwitcher;
 
-namespace Vortex.Unity.UI.StateSwitcher.Editor
+namespace Vortex.Unity.UI.UIBuilder.Shortcuts
 {
     /// <summary>
     /// Горячие клавиши <see cref="UIStateSwitcher"/> для выделенных объектов сцены или открытого префаба:
@@ -21,16 +20,15 @@ namespace Vortex.Unity.UI.StateSwitcher.Editor
         private const string LayerMenuPath = "Tools/Vortex/UI/Add UIStateSwitcher Layer %&s";
 
         [MenuItem(MenuPath)]
-        private static void Add() => ComponentShortcuts.AddToTargets<UIStateSwitcher>();
+        private static void Add() => HierarchyLayers.AddToTargets<UIStateSwitcher>();
 
         [MenuItem(MenuPath, true)]
-        private static bool CanAdd() => ComponentShortcuts.Targets().Any();
+        private static bool CanAdd() => HierarchyLayers.Targets().Any();
 
         [MenuItem(LayerMenuPath)]
-        private static void AddLayer() => ComponentShortcuts.AddLayerToTargets<UIStateSwitcher>();
+        private static void AddLayer() => HierarchyLayers.AddLayerToTargets<UIStateSwitcher>();
 
         [MenuItem(LayerMenuPath, true)]
-        private static bool CanAddLayer() => ComponentShortcuts.Targets().Any();
+        private static bool CanAddLayer() => HierarchyLayers.Targets().Any();
     }
 }
-#endif

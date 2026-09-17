@@ -46,10 +46,8 @@ StateSwitcher/
 │   ├── SpritesSwitch.cs        # Sprite on SpriteRenderer/Image
 │   ├── EventFire.cs            # UnityEvent on activation
 │   └── TweenerHubSwitch.cs     # Forward/Back on TweenerHub
-├── Handlers/
-│   └── OnEnableStateRunner.cs  # Switch on OnEnable
-└── Editor/
-    └── UIStateSwitcherShortcut.cs  # Alt+S / Ctrl+Alt+S
+└── Handlers/
+    └── OnEnableStateRunner.cs  # Switch on OnEnable
 ```
 
 ### UIStateSwitcher
@@ -131,14 +129,14 @@ In Inspector displays a state table:
 
 ## Hotkeys
 
-For selected scene objects or objects of an open prefab (`Editor/UIStateSwitcherShortcut.cs`):
+For selected scene objects or objects of an open prefab (`UI/UIBuilder/Shortcuts/UIStateSwitcherShortcut.cs`):
 
 | Shortcut | Menu | Action |
 |----------|------|--------|
 | `Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` | Add a `UIStateSwitcher` to the object itself; skipped where one already exists |
 | `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher Layer` | A child layer `[UIStateSwitcher]` with a switcher: first in the hierarchy, at the zero point, on a plain `Transform` (`RectTransform` is removed); new layers are selected |
 
-Assets in the Project window are not affected. Undone in one step. Layer creation is shared code in `UI/Shortcuts/ComponentShortcuts.cs`, the same as for the `TweenerHub` hotkeys (`Alt+T` / `Ctrl+Alt+T`).
+Assets in the Project window are not affected. Undone in one step. The menu items live in the `UIBuilder` package together with the other layout hotkeys; adding the component and creating the layer is shared code in `EditorTools/HierarchyTools/HierarchyLayers.cs`, the same as for the `TweenerHub` hotkeys (`Alt+T` / `Ctrl+Alt+T`).
 
 ---
 

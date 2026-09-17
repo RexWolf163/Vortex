@@ -30,9 +30,9 @@ UI-слой фреймворка. Всё, что касается визуала
 |-----------|------|----------|
 | `Alt+T` / `Ctrl+Alt+T` | `Tools/Vortex/UI/Add TweenerHub` / `… Layer` | `TweenerHub` на объект или отдельным слоем — см. `TweenerSystem/` |
 | `Alt+S` / `Ctrl+Alt+S` | `Tools/Vortex/UI/Add UIStateSwitcher` / `… Layer` | `UIStateSwitcher` на объект или отдельным слоем — см. `StateSwitcher/` |
-| `Alt+I` | `Tools/Vortex/UI/Add BackgroundLayer` | Дочерний слой `Background` с `Image` (Maskable выключен, Raycast Target включён): первым в иерархии, `RectTransform` растянут по родителю. Повторное нажатие — ещё один слой |
+| `Alt+I` | `Tools/Vortex/UI/Add BackgroundLayer` | Дочерний слой `Background` с `Image` (цвет — `Project Settings → Vortex/UIBuilder`, по умолчанию чёрный; Maskable выключен, Raycast Target включён): первым в иерархии, `RectTransform` растянут по родителю. Повторное нажатие — ещё один слой — см. `UIBuilder/` |
 
-Код — `Shortcuts/` (`ComponentShortcuts.cs` — общее создание слоёв компонентов, `BackgroundLayerShortcut.cs`).
+Пункты меню — `UIBuilder/Shortcuts/`; добавление компонентов и создание слоёв — общий код `EditorTools/HierarchyTools/HierarchyLayers.cs`.
 
 ## Зависимости
 
