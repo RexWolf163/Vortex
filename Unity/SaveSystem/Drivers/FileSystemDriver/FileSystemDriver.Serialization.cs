@@ -16,9 +16,11 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
             return sw.ToString().Compress(guid);
         }
 
-        private static SavePreset DeserializeSavePreset(string guid, string xml)
+        /// <summary>Распаковка тела сейва. Отделена от разбора: между ними работают реакторы коррекции.</summary>
+        private static string DecompressSave(string guid, string data) => data.Decompress(guid);
+
+        private static SavePreset DeserializeSavePreset(string xml)
         {
-            xml = xml.Decompress(guid);
             var xmls = new XmlSerializer(typeof(SavePreset));
             using var sr = new StringReader(xml);
             return xmls.Deserialize(sr) as SavePreset;

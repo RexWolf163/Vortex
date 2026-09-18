@@ -7,6 +7,7 @@ using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SaveSystem;
 using Vortex.Core.SaveSystem.Abstraction;
+using Vortex.Core.SaveSystem.Reactors;
 using Vortex.Unity.SaveSystem.Presets;
 
 namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
@@ -128,6 +129,11 @@ namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
 
             var saveData = PlayerPrefs.GetString(GetSaveName(guid));
             saveData = saveData.Decompress(guid);
+
+            // Коррекция устаревшего сейва идёт по распакованной строке: до разбора читается и то, что новой
+            // сборкой уже не разбирается. Версия — из сводки, она прочитана на Init; пусто — самый старый сейв.
+            saveData = SaveReactors.Apply(saveData, Saves.TryGetValue(guid, out var summary) ? summary.Version : null,
+                SaveSettings.GetReactors());
 
             var xmls = new XmlSerializer(typeof(SavePreset));
             var save = xmls.Deserialize(new StringReader(saveData)) as SavePreset;

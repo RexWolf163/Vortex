@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.SaveSystem.Reactors;
+using Vortex.Unity.SaveSystem.Presets;
 
 namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 {
@@ -33,7 +35,13 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
                 return;
             }
 
-            var preset = DeserializeSavePreset(guid, dataXml);
+            // Коррекция устаревшего сейва идёт по распакованной строке: до разбора читается и то, что новой
+            // сборкой уже не разбирается. Версия — из сводки, она прочитана на Init; пусто — самый старый сейв.
+            var raw = DecompressSave(guid, dataXml);
+            raw = SaveReactors.Apply(raw, Saves.TryGetValue(guid, out var summary) ? summary.Version : null,
+                SaveSettings.GetReactors());
+
+            var preset = DeserializeSavePreset(raw);
             if (preset == null)
             {
                 Debug.LogError($"[FileSystemDriver] Не удалось десериализовать сейв {guid}.");

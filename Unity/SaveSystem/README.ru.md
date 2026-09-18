@@ -16,7 +16,7 @@ Unity-слой системы сохранений. Предоставляет �
 - `FileSystemDriver/FileSystemDriver` — драйвер слотов на файловую систему (`FileBus.GetAppPath()/{savesFolder}/`, по умолчанию `Saves`)
 - `GlobalPrefsDriver`, `GlobalFileDriver` — драйверы глобального хранилища (`GlobalSaveController`)
 - `SavePreset` — XML-сериализуемая обёртка для `SaveFolder[]` (общая для драйверов слотов)
-- `SaveSettings` — общий ассет настроек: папка сейвов, число копий и папка глобального хранилища
+- `SaveSettings` — общий ассет настроек: папка сейвов, число копий, папка глобального хранилища и список блоков коррекции устаревших сейвов
 - `UISaveLoadComponent` — MonoBehaviour для отображения прогресса save/load
 - Окно `Tools/Vortex/SaveData/Global Index` — индекс модулей глобального хранилища; в Play Mode — текущие значения с правкой на лету и сброс
 - Каждый драйвер слотов хранит индекс сохранений и метаданные (`SaveSummary`) в своём формате
@@ -206,6 +206,9 @@ UISaveLoadComponent : MonoBehaviour
 | `savesFolder` | `SavesFolder` | `FileSystemDriver` | `Saves` |
 | `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — копий нет |
 | `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
+| `reactors` | — (читается из пресета) | драйверы слотов | пусто |
+
+`reactors` — блоки коррекции устаревших сейвов (`SaveReactor`, `[SerializeReference]`). В `SettingsModel` список не переносится: расширение модели собирается в сборку настроек, а она о SaveSystem не знает — ссылка дала бы цикл сборок. Драйверы берут список из самого пресета через `SaveSettings.GetReactors()` (ленивая загрузка из `Resources/Settings`; ассета нет — пустой список). Механизм описан в README Core SaveSystem.
 
 Папки задаются относительно `FileBus.GetAppPath()`; пусто — корень. Путь склеивается `Path.Combine`: абсолютный путь в поле заменит корень. Файловые драйверы читают папку при подключении — смена во время игры применится со следующего запуска.
 
@@ -268,9 +271,11 @@ Bootstrap: `[RuntimeInitializeOnLoadMethod]` → `GlobalSaveController.SetDriver
 
 ---
 
-## Сжатие
+## Сжатие и коррекция
 
 Оба драйвера сжимают тело сейва через `string.Compress(guid)` и распаковывают через `string.Decompress(guid)`. GUID используется как ключ сжатия. Метаданные (`SaveSummary`) и инкремент-файл (`.in`) **не сжимаются**.
+
+Порядок на загрузке: чтение → `Decompress(guid)` → `SaveReactors.Apply(raw, version, SaveSettings.GetReactors())` → разбор XML. Версия берётся из сводки, прочитанной на `Init`, поэтому обращений к диску не добавляется; сводки нет — сейв считается самым старым. Правило и формат реакторов — в README Core SaveSystem.
 
 ---
 

@@ -13,7 +13,9 @@
         "ru.vortex.unity.app",
         "ru.vortex.apploader",
         "ru.vortex.settings",
-        "ru.vortex.unity.editortools"
+        "ru.vortex.unity.editortools",
+        "ru.vortex.unity.settings",
+        "ru.vortex.unity.extensions"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

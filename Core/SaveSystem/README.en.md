@@ -21,6 +21,7 @@ Slot capabilities:
 - `SaveProcessData` — two-level progress (global + module)
 - Events: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
 - `SaveSummary` — save metadata (name, date, app version, XML-serializable)
+- `SaveReactor` — an outdated-save correction block: edits the raw string before parsing, within a version window
 - Auto-generation of GUID for new saves
 
 Out of scope:
@@ -114,7 +115,7 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 
 1. Lock check (`State == Loading` → return)
 2. `State = Loading`, `OnLoadStart`
-3. `Driver.Load(guid)` — driver populates `SaveDataIndex`
+3. `Driver.Load(guid)` — the driver reads the save body, runs the correction reactors (see below) and populates `SaveDataIndex`
 4. For each `ISaveable` — `await OnLoad(token)` (module reads from `SaveController.GetData()`)
 5. `State = Idle`, `OnLoadComplete`
 
@@ -244,6 +245,46 @@ SaveController.Remove(guid);
 | Exception in `GetSaveData` / `OnLoad` | `Log.Print(Error)`, `State = Idle`, Complete event fires |
 | `ISaveable` not registered | Data not collected/distributed |
 | `SaveSummary` XML serialization | `Date` as `UnixTimestamp` (long), `DateTime.FromFileTimeUtc` |
+
+---
+
+## Save correction reactors
+
+A mechanism for fixing outdated saves. The data format is known to the module, not to the save system, so Core only provides the seam: the call point, the order and the applicability rule. The actual fixes are written by the data owner.
+
+### How it works
+
+On load the slot driver decompresses the save body and, **before parsing**, passes the string to `SaveReactors.Apply(raw, saveVersion, reactors)`. Reactors run in list order, each returning the string after its own edits; the result goes to the parser.
+
+Editing the raw string is a deliberate choice: after parsing there is nothing left to fix — the build can no longer read a removed type or a renamed field. The save system has no typed stage: `SavePreset` consists of strings, and the modules parse them into objects themselves.
+
+### Applicability
+
+The window is defined by the build version that wrote the save (`SaveSummary.Version`): a reactor applies when the version is not older than `minVersion` and not newer than `maxVersion`. An empty bound means no limit on that side.
+
+Comparison (`SaveVersion.Compare`) is segment-wise by dots, with an arbitrary number of segments. A segment contributes its numeric prefix up to the first non-digit (`260910-rc1` → `260910`); a missing segment counts as zero (`1.0` = `1.0.0`). An empty version is the oldest — that is how saves written before the field existed are read.
+
+### Writing a reactor
+
+```csharp
+[Serializable]
+public class RenameQuestField : SaveReactor
+{
+    public override string TransformRaw(string raw) =>
+        raw.Replace("<Id>oldName</Id>", "<Id>newName</Id>");
+}
+```
+
+The reactor is added to the `SaveSettings` list (Unity layer), where its window bounds are set as well. The list is empty by default.
+
+### Guarantees and limits
+
+- The save on disk is **not rewritten**: the correction lives only in the loaded data. The version in the summary changes on the next save.
+- The correction runs on every load — the result is not cached.
+- A save that falls into no window (including one newer than the build) is read as is.
+- A reactor knows nothing about other reactors or about other modules' structure — it locates its own piece in the string itself.
+- An exception inside a reactor stops the correction: the block name and stack go to the log, and parsing proceeds with the string produced before the failing block.
+- The global storage is not covered: `GlobalContainer` has no version, and the data format there is the module's concern.
 
 ---
 

@@ -16,7 +16,7 @@ Capabilities:
 - `FileSystemDriver/FileSystemDriver` — filesystem-backed slot driver (`FileBus.GetAppPath()/{savesFolder}/`, `Saves` by default)
 - `GlobalPrefsDriver`, `GlobalFileDriver` — global storage drivers (`GlobalSaveController`)
 - `SavePreset` — XML-serializable wrapper for `SaveFolder[]` (shared by the slot drivers)
-- `SaveSettings` — shared settings asset: saves folder, backup count and global storage folder
+- `SaveSettings` — shared settings asset: saves folder, backup count, global storage folder and the list of outdated-save correction blocks
 - `UISaveLoadComponent` — MonoBehaviour for save/load progress display
 - `Tools/Vortex/SaveData/Global Index` window — index of global storage modules; in Play Mode — current values with live editing and reset
 - Each slot driver maintains its own save index and metadata (`SaveSummary`) in its own format
@@ -206,6 +206,9 @@ UISaveLoadComponent : MonoBehaviour
 | `savesFolder` | `SavesFolder` | `FileSystemDriver` | `Saves` |
 | `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — no copies |
 | `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
+| `reactors` | — (read from the preset) | slot drivers | empty |
+
+`reactors` — outdated-save correction blocks (`SaveReactor`, `[SerializeReference]`). The list is not copied into `SettingsModel`: the model extension compiles into the settings assembly, which knows nothing about SaveSystem — a reference would create an assembly cycle. Drivers take the list from the preset itself via `SaveSettings.GetReactors()` (lazy load from `Resources/Settings`; no asset — an empty list). The mechanism is described in the Core SaveSystem README.
 
 Folders are relative to `FileBus.GetAppPath()`; empty — root. The path is joined with `Path.Combine`: an absolute path in the field replaces the root. File drivers read the folder when connected — a change during play applies from the next launch.
 
@@ -268,9 +271,11 @@ Key write atomicity is provided by the platform's PlayerPrefs implementation.
 
 ---
 
-## Compression
+## Compression and correction
 
 Both drivers compress save body via `string.Compress(guid)` and decompress via `string.Decompress(guid)`. The GUID serves as the compression key. Metadata (`SaveSummary`) and the increment file (`.in`) are **not compressed**.
+
+Load order: read → `Decompress(guid)` → `SaveReactors.Apply(raw, version, SaveSettings.GetReactors())` → XML parsing. The version comes from the summary read at `Init`, so no extra disk access is added; with no summary the save is treated as the oldest. The rule and the reactor format are in the Core SaveSystem README.
 
 ---
 
