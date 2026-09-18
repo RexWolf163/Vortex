@@ -51,6 +51,10 @@ namespace Vortex.Sdk.GallerySystem.View
         [SerializeField, ValueSelector(nameof(GetSorters))]
         private string sorter;
 
+        [SerializeField, Tooltip("Сбрасывать выделение (highlight) в null, если последняя просмотренная " +
+                                 "карточка отсутствует в текущем пуле. Выкл — выделение сохраняет прежнее значение.")]
+        private bool resetSelectionWhenLastViewedAbsent = true;
+
         [Header("Overrides")]
         [SerializeField] private List<IconOverride> iconOverrides = new();
 
@@ -138,7 +142,9 @@ namespace Vortex.Sdk.GallerySystem.View
                 ? new HashSet<string>(deniedGuids)
                 : null;
 
-            var filtered = new List<IGalleryEntry>(raw.Length);
+            // (entry, unlocked): статус метки считается один раз здесь и переиспользуется
+            // и фильтром lockedMode, и BoolData isLocked ниже — без повторного IsMarkedByAny.
+            var filtered = new List<(IGalleryEntry entry, bool unlocked)>(raw.Length);
             for (var i = 0; i < raw.Length; i++)
             {
                 var rec = raw[i];
@@ -152,16 +158,17 @@ namespace Vortex.Sdk.GallerySystem.View
                 var unlocked = IsMarkedByAny(entry.GuidPreset);
                 if (lockedMode == LockedMode.Hide && !unlocked) continue;
 
-                filtered.Add(entry);
+                filtered.Add((entry, unlocked));
             }
 
             var comparer = ResolveSorter();
             if (comparer != null)
-                filtered.Sort(comparer);
+                filtered.Sort((a, b) => comparer.Compare(a.entry, b.entry));
 
             if (filtered.Count == 0)
             {
                 if (stubTweener != null) stubTweener.Forward();
+                RestoreSelection();
                 return;
             }
 
@@ -169,9 +176,9 @@ namespace Vortex.Sdk.GallerySystem.View
 
             for (var i = 0; i < filtered.Count; i++)
             {
-                var entry = filtered[i];
+                var (entry, unlocked) = filtered[i];
                 var preview = ResolveIcon(entry);
-                var isLocked = new BoolData(!IsMarkedByAny(entry.GuidPreset), this);
+                var isLocked = new BoolData(!unlocked, this);
 
                 // Замыкание захватывает конкретный entry — карточка получает индивидуальные колбэки
                 // без необходимости передавать guid в сигнатуре.
@@ -186,8 +193,20 @@ namespace Vortex.Sdk.GallerySystem.View
                 _currentPoolGuids.Add(entry.GuidPreset);
             }
 
+            RestoreSelection();
+        }
+
+        /// <summary>
+        /// Восстановить выделение по «последней просмотренной»: если она в текущем пуле — выделить её.
+        /// Иначе, при включённом <see cref="resetSelectionWhenLastViewedAbsent"/> (по умолчанию) —
+        /// сбросить выделение в <c>null</c>; при выключенном — оставить прежнее значение.
+        /// </summary>
+        private void RestoreSelection()
+        {
             if (!string.IsNullOrEmpty(_lastViewedGuid) && _currentPoolGuids.Contains(_lastViewedGuid))
                 _selectedGuid.Set(_lastViewedGuid, this);
+            else if (resetSelectionWhenLastViewedAbsent)
+                _selectedGuid.Set(null, this);
         }
 
         private void HandleFocus(string guid)

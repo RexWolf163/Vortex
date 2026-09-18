@@ -135,7 +135,7 @@ namespace Vortex.Sdk.GallerySystem.View
         /// <c>LastViewedGuid</c>, реактив триггернет <see cref="ApplySelected"/> на этой
         /// и остальных карточках. 
         /// </summary>
-        public void SetFocuse()
+        public void SetFocus()
         {
             _callbacks?.OnFocus?.Invoke();
         }

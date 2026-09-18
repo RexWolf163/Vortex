@@ -2,10 +2,10 @@
 
 **Пакет:** SDK-каркас галлереи + Unity-виджет пула
 
-| Часть | Namespace | Assembly | Слой |
-|---|---|---|---|
-| Контракт | `Vortex.Sdk.GallerySystem.*` | `ru.vortex.sdk.gallery` | SDK (Layer 3) |
-| Виджет | `Vortex.Sdk.GallerySystem.View.*` | `ru.vortex.unity.gallery.view` | Unity/UI (Layer 2) |
+| Часть | Namespace | Assembly |
+|---|---|---|
+| Контракт | `Vortex.Sdk.GallerySystem.*` | `ru.vortex.sdk.gallery` |
+| Виджет | `Vortex.Sdk.GallerySystem.View.*` | `ru.vortex.sdk.gallery.view` |
 
 Физически лежат вместе: `Assets/Vortex/Sdk/GallerySystem/` — контракт и компараторы, `Assets/Vortex/Sdk/GallerySystem/View/` — виджет.
 
@@ -171,6 +171,7 @@ Data-массив: `{ Sprite, BoolData, StringData, IGalleryEntry, GalleryPoolCa
 | `deniedGuids` | Точечные исключения guid'ов. |
 | `lockedMode` | `Hide` — закрытые не в пуле; `ShowAsLocked` — в пуле, `isLocked=true`. |
 | `sorter` | FullName реализации `IGalleryEntryComparer`. Пусто — без сортировки (порядок как из Database — не гарантирован). |
+| `resetSelectionWhenLastViewedAbsent` | Сбрасывать highlight в `null`, если последняя просмотренная карточка не в текущем пуле. По умолчанию вкл; выкл — highlight сохраняет прежнее значение. |
 | `iconOverrides` | Список `(guid, Sprite)` — заменить иконку модели на «эту» для конкретной сцены. |
 | `pool` | `Pool` из `Vortex.Unity.UI.PoolSystem`. |
 | `stubTweener` | Опциональный `TweenerHub`. Forward при пустом пуле, Back — при непустом. |
@@ -210,7 +211,7 @@ public class MyCardPreset : RecordPreset<MyCardModel> { /* поля контен
 | `RecordMarksBus.IsReady == false` при OnEnable | Подписка на `OnReady`, отложенное `RefreshPool`. При закрытии виджета подписка снимается. |
 | `Database.GetRecords` пуст, либо всё отфильтровано | Пустой пул → `stubTweener.Forward()`. |
 | `sorter` не найден в домене / не реализует `IGalleryEntryComparer` | Warning + порядок как из Database. |
-| `LastViewedGuid` отсутствует в текущем пуле | Стартовая позиция не устанавливается — `selectedGuid = null`. |
+| `LastViewedGuid` отсутствует в текущем пуле | При `resetSelectionWhenLastViewedAbsent` (по умолчанию) — `selectedGuid` сбрасывается в `null`; при выключенном — сохраняет прежнее значение. |
 | `Open(guid)` — guid не в пуле | Warning, состояние не меняется. |
 | `pool == null` | LogError при OnEnable, дальнейшая работа отменена. |
 | Fast Enter Play | Статик `_lastViewedGuid` сохраняется (по конвенции проекта); подписки очищаются в OnDisable. |

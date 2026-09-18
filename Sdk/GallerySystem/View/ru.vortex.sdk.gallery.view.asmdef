@@ -1,5 +1,5 @@
 {
-    "name": "ru.vortex.unity.gallery.view",
+    "name": "ru.vortex.sdk.gallery.view",
     "rootNamespace": "",
     "references": [
         "GUID:f8bd5c3617b1cb84685c54db06778ba6",
