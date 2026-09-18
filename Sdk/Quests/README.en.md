@@ -94,6 +94,17 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 
 `SavePoint` is a marker logic that saves its `Key` to `QuestModel.Step` during execution. On restoration, all logics up to and including the matching `SavePoint` are skipped.
 
+### Readable name (`QuestName`)
+
+`Record.Name` is marked `[NotPOCO]`: it comes from the preset but is neither saved nor shown in the data window. That is why the model has a separate `QuestName` field — a copy of the name of the preset with the same GUID, for human reading only. Quest logic does not rely on it.
+
+| Moment | What happens |
+|--------|--------------|
+| Index build (`QuestModels`) | The name is set right away: records are created from presets, `CopyFrom` carries `Name` over, and the index copies it into `QuestName` |
+| New game, load | `QuestController.FillQuestNames` sets the name again — needed for saves written before the field existed: `QuestName` is empty there and the load overwrites the value with it |
+
+Visible in the save and in the `Tools/Vortex/SaveData/Game Index` window: without this field a quest would show up as a bare GUID.
+
 ### Quest Interruption (`Blocked`)
 
 A second condition set — `InterruptConditions` — answers "when to forbid" (start conditions answer "when to open"). Its fold is **mirror-opposite of start**: **OR between groups** (any group firing blocks the quest), AND within a group. An empty set ⇒ the quest is non-interruptible (backward compatibility: existing quests keep their behavior).

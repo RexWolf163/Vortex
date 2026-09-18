@@ -97,10 +97,7 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 
 ### Editor
 
-- `Tools/Vortex/SaveData/Game Index` (`GameCore/Editor/GameDataIndexWindow.cs`) — the game data window. Outside Play Mode — an index of every `GameModel.IGameData` implementation in the project: type, assembly, default values and problems that make the model skip a module (no public parameterless constructor, open generic type). In Play Mode — the model contents with live editing: a changed property is written immediately and `CallUpdateEvent` is raised; a module and the whole model can be reset. The property list and value fields come from the shared `EditorTools/DataTools/PocoInspector.cs`, the same one used by the global storage window `Tools/Vortex/SaveData/Global Index`.
-- `GameControllerExtEditor` — the editor API for tools: `EditorModules()`, `EditorResetModule(type)`, `EditorResetAll()`, `EditorCommit()`. Built on `ComplexModel.GetEditorIndex()` and `ComplexModel.EditorResetModule(type)`.
-
-The game model lives only within a session and is stored with the save: edits from the window do not reach the file on their own. Outside Play Mode, accessing the model creates a temporary instance — the values shown there are the defaults.
+`GameControllerExtEditor` — the editor API for tools: `EditorModules()` (model modules: type → instance), `EditorResetModule(type)`, `EditorResetAll()`, `EditorCommit()`. Built on `ComplexModel.GetEditorIndex()` and `ComplexModel.EditorResetModule(type)`, with no reflection.
 
 ### Guarantees
 - `NewGame()` is blocked until `ExitGame()` is called (lock mechanism)
@@ -113,6 +110,30 @@ The game model lives only within a session and is stored with the save: edits fr
 - One `GameController` instance per application
 - `ExitGame()` is required before a subsequent `NewGame()`
 - `_data` is lazily created — fail-fast on `GetState()` before initialization
+
+## Game Data window
+
+`Tools/Vortex/SaveData/Game Index` (`GameCore/Editor/GameDataIndexWindow.cs`). The mode depends on Play Mode. The global storage window `Global Index` sits next to it in the same submenu.
+
+**Outside Play Mode — index of the project's modules.** All `GameModel.IGameData` implementations (`TypeCache`): type, assembly, default values (read-only). Problems that make the model skip a module are flagged:
+
+- no public parameterless constructor — the module will not be created;
+- open generic type — the model will not create it;
+- an instance creation error — with the exception text.
+
+"Refresh" rebuilds the index; after a recompilation it is rebuilt automatically.
+
+**In Play Mode — model contents with live editing.** Modules by type (`GameController.EditorModules()`):
+
+- a changed value is written into the module immediately, followed by `CallUpdateEvent` — subscribers (views, quest conditions) react as usual;
+- "Reset" on a module recreates it with default values, "Reset all" (with confirmation) rebuilds the whole model as a new game would;
+- the header shows the current `GameStates`; outside a session (`Off`) a hint says a new game will rebuild the model.
+
+**How it differs from the `Global Index` window.** The game model has no keys — modules are addressed by type, so duplicates are impossible and there is no key column. There is no "Settings" button either: the model has no settings asset of its own. The main difference is that the model lives only within a session and reaches the disk with the save: edits from the window write nothing by themselves. Outside Play Mode, accessing the model creates a temporary instance, so the values shown there are the defaults.
+
+**Which properties are shown.** Exactly those the serializer saves: getter and setter, a public getter or `[IsPOCO]`, no `[NotPOCO]`. The property list and value fields come from the shared `EditorTools/DataTools/PocoInspector.cs` — the same one used by the `Global Index` window. Simple types (`bool`, `int`, `long`, `float`, `double`, `string`, `enum`) are editable, everything else is shown as a read-only serializer string.
+
+A field marked `[NotPOCO]` never shows up in the window. If a module should be readable by name rather than by id, a separate POCO property is added — as done for quests (`QuestModel.QuestName`).
 
 ## Usage
 
