@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.sdk.gallery.sprites",
-    "rootNamespace": "Vortex.Sdk.GallerySpritesSystem",
+    "rootNamespace": "",
     "references": [
         "ru.vortex.sdk.gallery",
         "ru.vortex.core.assethandle",

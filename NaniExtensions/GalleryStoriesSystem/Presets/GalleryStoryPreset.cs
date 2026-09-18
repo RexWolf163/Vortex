@@ -20,12 +20,12 @@ namespace Vortex.NaniExtensions.GalleryStoriesSystem.Presets
     /// (<c>ScriptPlayer.ResetService()</c> обнуляет загруженный Script-инстанс).
     /// </summary>
     [CreateAssetMenu(fileName = "GalleryStoryPreset",
-                     menuName = "Vortex/Presets/Gallery/Story")]
+        menuName = "Vortex/Presets/Gallery/Story")]
     public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
     {
-        [SerializeField, ReadOnly]
+        [SerializeField, Naninovel.ReadOnly]
         [InfoBox("$" + nameof(ScriptPathValidationMessage),
-                 "$" + nameof(ScriptPathValidationType))]
+            "$" + nameof(ScriptPathValidationType))]
         private string scriptPath;
 
         [NonSerialized, ShowInInspector]
@@ -96,6 +96,7 @@ namespace Vortex.NaniExtensions.GalleryStoriesSystem.Presets
                 // .cs-файлы под "t:Script" тоже попадают как MonoScript — LoadAssetAtPath<Script> вернёт null.
                 if (s != null && s.Path == path) return s;
             }
+
             return null;
         }
 #endif

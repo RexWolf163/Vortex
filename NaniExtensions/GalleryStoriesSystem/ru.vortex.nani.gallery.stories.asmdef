@@ -9,7 +9,8 @@
         "ru.vortex.nani.core",
         "ru.vortex.system",
         "ru.vortex.unity.extensions",
-        "UniTask"
+        "UniTask",
+        "Elringus.Naninovel.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
