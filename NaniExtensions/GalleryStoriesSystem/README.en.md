@@ -2,7 +2,6 @@
 
 **Namespace:** `Vortex.NaniExtensions.GalleryStoriesSystem.*`
 **Assembly:** `ru.vortex.nani.gallery.stories` (define: `USING_NANINOVELL`)
-**Layer:** NaniExtensions (Unity-side wrapper over Naninovel)
 **Package type:** consumer for [GallerySystem](../../Sdk/GallerySystem/README.en.md) — narrative gallery cards
 
 ---

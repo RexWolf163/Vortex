@@ -2,7 +2,6 @@
 
 **Namespace:** `Vortex.NaniExtensions.GalleryStoriesSystem.*`
 **Assembly:** `ru.vortex.nani.gallery.stories` (define: `USING_NANINOVELL`)
-**Слой:** NaniExtensions (Unity-обёртка над Naninovel)
 **Тип пакета:** consumer для [GallerySystem](../../Sdk/GallerySystem/README.ru.md) — нарративные галлерейные карточки
 
 ---
