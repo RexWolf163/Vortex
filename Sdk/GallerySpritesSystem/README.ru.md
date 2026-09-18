@@ -2,7 +2,6 @@
 
 **Namespace:** `Vortex.Sdk.GallerySpritesSystem.*`
 **Assembly:** `ru.vortex.sdk.gallery.sprites`
-**Слой:** SDK
 **Тип пакета:** consumer для [GallerySystem](../GallerySystem/README.ru.md) — художественные карточки-спрайты галлереи
 
 ---

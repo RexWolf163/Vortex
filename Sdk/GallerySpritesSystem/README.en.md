@@ -2,7 +2,6 @@
 
 **Namespace:** `Vortex.Sdk.GallerySpritesSystem.*`
 **Assembly:** `ru.vortex.sdk.gallery.sprites`
-**Layer:** SDK
 **Package type:** consumer for [GallerySystem](../GallerySystem/README.en.md) — art sprite gallery cards
 
 ---

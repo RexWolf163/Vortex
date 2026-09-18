@@ -2,10 +2,10 @@
 
 **Пакет:** driver-нейтральная обёртка над Unity-ассетом с единым async-контрактом
 
-| Часть | Namespace | Assembly | Слой |
-|---|---|---|---|
-| Контракт + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` | Core (Layer 1) |
-| Addressable-реализация | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) | Unity (Layer 2) |
+| Часть | Namespace | Assembly |
+|---|---|---|
+| Контракт + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` |
+| Addressable-реализация | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) |
 
 Физически: `Assets/Vortex/Core/AssetHandleSystem/` (контракт + `DirectAssetHandle`), `Assets/Vortex/Unity/AssetCacheSystem/AddressableAssetHandle.cs` (тонкий адаптер живёт рядом с `AssetCache`, отдельного пакета не заслуживает).
 

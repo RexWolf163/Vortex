@@ -2,7 +2,6 @@
 
 **Namespace:** `Vortex.Sdk.RecordMarksSystem.*`
 **Assembly:** `ru.vortex.sdk.recordmarks`
-**Слой:** SDK (Layer 3)
 
 ---
 

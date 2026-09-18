@@ -2,10 +2,10 @@
 
 **Package:** driver-neutral wrapper over a Unity asset with a unified async contract
 
-| Part | Namespace | Assembly | Layer |
-|---|---|---|---|
-| Contract + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` | Core (Layer 1) |
-| Addressable impl | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) | Unity (Layer 2) |
+| Part | Namespace | Assembly |
+|---|---|---|
+| Contract + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` |
+| Addressable impl | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) |
 
 Physical layout: `Assets/Vortex/Core/AssetHandleSystem/` (contract + `DirectAssetHandle`), `Assets/Vortex/Unity/AssetCacheSystem/AddressableAssetHandle.cs` (a thin adapter lives next to `AssetCache` — doesn't warrant its own package).
 
