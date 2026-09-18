@@ -4,7 +4,7 @@
 
 | Часть | Namespace | Assembly | Слой |
 |---|---|---|---|
-| Контракт + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` | Core (Layer 3) |
+| Контракт + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` | Core (Layer 1) |
 | Addressable-реализация | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) | Unity (Layer 2) |
 
 Физически: `Assets/Vortex/Core/AssetHandleSystem/` (контракт + `DirectAssetHandle`), `Assets/Vortex/Unity/AssetCacheSystem/AddressableAssetHandle.cs` (тонкий адаптер живёт рядом с `AssetCache`, отдельного пакета не заслуживает).
@@ -40,7 +40,7 @@
 
 - **Refcount между разными handle** — не делаем на уровне контракта. `AddressableAssetHandle` делегирует в `AssetCache`, тот делает свой owner-based refcount.
 - **Автоматическая обработка отсутствия Addressables** — если проект отключит Addressables, `AddressableAssetHandle` в пресете десериализуется как `null`. Consumer при обращении получит NRE — это сознательное решение (маскирование конфиг-бага fallback'ом было бы вреднее).
-- **Управление жизненным циклом контейнера handle** — держит его consumer (пресет / кэш моделей). Handle сам себе owner своего underlying-ресурса, не своего инстанса.
+- **Жизненный цикл handle — на держателе, не на потребителях.** `Load` и `Release` зовёт **владелец** handle (пресет / кэш моделей, открывший экран) — по одному разу за цикл. Потребители, которым нужен ассет, только читают через `LoadAsync` и **`Release` не зовут**: иначе выдернут ассет из-под других читателей того же handle. Handle — single-owner своего underlying-ресурса; его собственный инстанс ведёт держатель.
 
 ---
 
@@ -51,7 +51,7 @@
 | `UniTask` | Core | Async-контракт |
 | Unity Engine | Core | `UnityEngine.Object`, `Sprite` (пример), `SerializeField` |
 | `Vortex.Unity.AssetCacheSystem` | Unity | `AssetCache.Load` / `AssetCache.Release` — underlying-механизм |
-| `Vortex.Core.LoggerSystem` | Unity | Warning при `LoadAsync` после `Release` |
+| `Vortex.Core.LoggerSystem` | Unity | Warning при повторном `LoadAsync` без `Release` |
 | Unity Addressables | Unity | `AssetReference`, только внутри `AddressableAssetHandle` |
 
 ---
@@ -73,11 +73,12 @@ public abstract class AssetHandle<T> where T : UnityEngine.Object
 **Инварианты:**
 
 - **I1.** `Asset != null && IsLoaded == true` — эквивалентны.
-- **I2.** До `Release`: повторный `LoadAsync` возвращает тот же экземпляр `T`.
+- **I2.** До `Release`: повторный `LoadAsync` возвращает тот же экземпляр `T` (Lazy — с warning: загрузка поверх неотпущенного ассета).
 - **I3.** `Release` идемпотентен.
 - **I4.** `DirectAssetHandle.Release()` — гарантированно no-op.
 - **I5.** Core-сборка не содержит ссылок на `UnityEngine.AddressableAssets`.
 - **I6.** `AddressableAssetHandle` — sole owner своего Addressables-handle через `AssetCache` (`owner = this`).
+- **I7.** `Release` не терминален: handle переиспользуем — следующий `LoadAsync` грузит ассет заново.
 
 ---
 
@@ -90,18 +91,15 @@ public abstract class AssetHandle<T> where T : UnityEngine.Object
 ### `AddressableAssetHandle<T>`
 
 - `[SerializeField] AssetReference reference` — ссылка на Addressables-ассет.
-- `[NonSerialized] T _cached` — кэш loaded-ассета.
-- `[NonSerialized] bool _released` — терминальный флаг.
+- `[NonSerialized] T _cached` — кэш loaded-ассета; единственное состояние (handle переиспользуем).
 
 Flow `LoadAsync(ct)`:
-1. Если `_released` → warning + `default(T)`.
-2. Если `_cached != null` → мгновенно.
-3. Иначе — `await AssetCache.Load<T>(this, reference, ct)` → сохранить в `_cached`.
+1. Если `_cached != null` → warning (повторный Load без Release) + тот же экземпляр, без обращения к `AssetCache`.
+2. Иначе — `await AssetCache.Load<T>(this, reference, ct)` → сохранить в `_cached`.
 
 Flow `Release()`:
-1. Если `_released` — return.
-2. `AssetCache.Release(this)` → освободить в кэше.
-3. `_cached = null`, `_released = true`.
+1. Если `_cached == null` — no-op (нечего освобождать).
+2. `AssetCache.Release(this)`; `_cached = null`. Handle снова готов к `LoadAsync`.
 
 ---
 
@@ -150,9 +148,9 @@ async UniTask ShowFullscreen(GallerySpritePreset preset, CancellationToken ct)
 
 | Ситуация | Поведение |
 |---|---|
-| `LoadAsync` до `Release` — повторный вызов | Возвращает тот же экземпляр `T`; для Lazy — без обращения к `AssetCache` |
-| `LoadAsync` после `Release` | Warning в логгер, возвращает `default(T)` |
-| `Release` до `LoadAsync` (Lazy) | No-op — освобождать нечего, флаг `_released` выставляется |
+| `LoadAsync` до `Release` — повторный вызов | Тот же экземпляр `T`; для Lazy — warning (повторный Load без Release) и без обращения к `AssetCache` |
+| `LoadAsync` после `Release` (Lazy) | Handle переиспользуем — грузит ассет заново с чистого листа |
+| `Release` до `LoadAsync` (Lazy) | No-op — освобождать нечего |
 | Повторный `Release` | Идемпотентно, no-op |
 | `DirectAssetHandle` с `asset == null` | `IsLoaded == false`, `LoadAsync` возвращает `null`. Валидна как «пусто по замыслу» |
 | `AddressableAssetHandle.reference == null` | `AssetCache.Load` бросает `ArgumentNullException` — fail-fast конфиг-баг |

@@ -4,7 +4,7 @@
 
 | Part | Namespace | Assembly | Layer |
 |---|---|---|---|
-| Contract + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` | Core (Layer 3) |
+| Contract + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` | Core (Layer 1) |
 | Addressable impl | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) | Unity (Layer 2) |
 
 Physical layout: `Assets/Vortex/Core/AssetHandleSystem/` (contract + `DirectAssetHandle`), `Assets/Vortex/Unity/AssetCacheSystem/AddressableAssetHandle.cs` (a thin adapter lives next to `AssetCache` — doesn't warrant its own package).
@@ -40,7 +40,7 @@ Out of scope:
 
 - **Refcount across different handles** — not at the contract level. `AddressableAssetHandle` delegates to `AssetCache`, which has its own owner-based refcount.
 - **Automatic handling of missing Addressables** — if the project disables Addressables, `AddressableAssetHandle` in the preset deserializes as `null`. The consumer will hit an NRE on access — this is intentional (a fallback would mask a config bug).
-- **Managing the handle container's lifetime** — that's the consumer's job (preset / model cache). The handle owns only its underlying resource, not its own instance.
+- **Handle lifetime is the holder's job, not the consumers'.** `Load` and `Release` are called by the handle's **owner** (the preset / model cache that opened the screen) — once per cycle. Consumers that just need the asset only read via `LoadAsync` and **do not call `Release`**: doing so would yank the asset out from under other readers of the same handle. The handle is the single owner of its underlying resource; its own instance is driven by the holder.
 
 ---
 
@@ -51,7 +51,7 @@ Out of scope:
 | `UniTask` | Core | Async contract |
 | Unity Engine | Core | `UnityEngine.Object`, `Sprite` (example), `SerializeField` |
 | `Vortex.Unity.AssetCacheSystem` | Unity | `AssetCache.Load` / `AssetCache.Release` — underlying mechanism |
-| `Vortex.Core.LoggerSystem` | Unity | Warning on `LoadAsync` after `Release` |
+| `Vortex.Core.LoggerSystem` | Unity | Warning on a repeated `LoadAsync` without `Release` |
 | Unity Addressables | Unity | `AssetReference`, only inside `AddressableAssetHandle` |
 
 ---
@@ -73,11 +73,12 @@ public abstract class AssetHandle<T> where T : UnityEngine.Object
 **Invariants:**
 
 - **I1.** `Asset != null && IsLoaded == true` — equivalent.
-- **I2.** Before `Release`: a repeated `LoadAsync` returns the same `T` instance.
+- **I2.** Before `Release`: a repeated `LoadAsync` returns the same `T` instance (Lazy — with a warning: a load over a not-released asset).
 - **I3.** `Release` is idempotent.
 - **I4.** `DirectAssetHandle.Release()` — guaranteed no-op.
 - **I5.** The Core assembly contains no references to `UnityEngine.AddressableAssets`.
 - **I6.** `AddressableAssetHandle` is the sole owner of its Addressables handle through `AssetCache` (`owner = this`).
+- **I7.** `Release` is not terminal: the handle is reusable — the next `LoadAsync` loads the asset again.
 
 ---
 
@@ -90,18 +91,15 @@ Single field `[SerializeField] T asset`. `LoadAsync` returns `UniTask.FromResult
 ### `AddressableAssetHandle<T>`
 
 - `[SerializeField] AssetReference reference` — Addressables asset link.
-- `[NonSerialized] T _cached` — cached loaded asset.
-- `[NonSerialized] bool _released` — terminal flag.
+- `[NonSerialized] T _cached` — cached loaded asset; the only state (the handle is reusable).
 
 `LoadAsync(ct)` flow:
-1. If `_released` → warning + `default(T)`.
-2. If `_cached != null` → return immediately.
-3. Otherwise — `await AssetCache.Load<T>(this, reference, ct)` → save to `_cached`.
+1. If `_cached != null` → warning (repeated load without Release) + the same instance, without touching `AssetCache`.
+2. Otherwise — `await AssetCache.Load<T>(this, reference, ct)` → save to `_cached`.
 
 `Release()` flow:
-1. If `_released` — return.
-2. `AssetCache.Release(this)` → release in the cache.
-3. `_cached = null`, `_released = true`.
+1. If `_cached == null` — no-op (nothing to release).
+2. `AssetCache.Release(this)`; `_cached = null`. The handle is ready for `LoadAsync` again.
 
 ---
 
@@ -150,9 +148,9 @@ async UniTask ShowFullscreen(GallerySpritePreset preset, CancellationToken ct)
 
 | Situation | Behaviour |
 |---|---|
-| `LoadAsync` before `Release` — repeated call | Returns the same `T` instance; for Lazy — without touching `AssetCache` |
-| `LoadAsync` after `Release` | Warning to logger, returns `default(T)` |
-| `Release` before `LoadAsync` (Lazy) | No-op — nothing to release; the `_released` flag is set |
+| `LoadAsync` before `Release` — repeated call | The same `T` instance; for Lazy — a warning (repeated load without Release) and without touching `AssetCache` |
+| `LoadAsync` after `Release` (Lazy) | The handle is reusable — loads the asset again from scratch |
+| `Release` before `LoadAsync` (Lazy) | No-op — nothing to release |
 | Repeated `Release` | Idempotent no-op |
 | `DirectAssetHandle` with `asset == null` | `IsLoaded == false`, `LoadAsync` returns `null`. Valid as "empty by design" |
 | `AddressableAssetHandle.reference == null` | `AssetCache.Load` throws `ArgumentNullException` — fail-fast on a config bug |
