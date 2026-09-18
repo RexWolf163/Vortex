@@ -37,6 +37,7 @@
 | `Vortex.Core.SaveSystem` (`GlobalSaveController`, `IGlobalData`) | Резолв global-модели, commit после мутации |
 | `Vortex.Core.LoggerSystem` | Диагностика |
 | `Vortex.Unity.AppSystem.System.TimeSystem` (`TimeController.Accumulate`) | Батчинг событий за кадр |
+| `Vortex.Unity.CoreAssetsSystem` (`ICoreAsset`) | Автосоздание SO настроек в `Resources/Settings/` |
 | Unity Engine | `ScriptableObject`, `Resources.Load`, `RuntimeInitializeOnLoadMethod`, EditorWindow |
 
 ---
@@ -102,7 +103,7 @@ Merge-семантика Vortex-сериализатора: при загруз�
 | Имя метки — глобально уникальная строка | `SlotMarks ∩ GlobalMarks = ∅`, дубликат внутри списка тоже исключается из индекса |
 | Смена имени метки между релизами теряет её state в сейве | Стабильный ключ — контракт разработчика |
 | Live-editing SO в рантайме не поддерживается | Bootstrap читает SO один раз |
-| Отсутствие SO отключает пакет | LogError + все `Mark`/`Unmark` возвращают warning |
+| Отсутствие SO отключает пакет | SO авто-создаётся как `ICoreAsset`; если всё же нет — LogError + все `Mark`/`Unmark` возвращают warning |
 | Смерть GUID (удалён пресет) не чистит его из HashSet автоматически | Cleanup — задача Editor-инструмента или миграции |
 | Не потокобезопасен | Все операции — Unity main-thread |
 
@@ -131,7 +132,7 @@ Merge-семантика Vortex-сериализатора: при загруз�
 | `SlotMarks : IReadOnlyList<string>` | Метки, живущие per-slot (`SaveController`) |
 | `GlobalMarks : IReadOnlyList<string>` | Метки, живущие per-account (`GlobalSaveController`) |
 
-Создание: `Create → Vortex → Settings → RecordMarks`.
+Создание: автоматически — SO реализует `ICoreAsset`, контроллер Core Assets кладёт экземпляр в `Resources/Settings/` (`Tools → Vortex → Debug → Check Core Assets`, либо на перезагрузке домена при включённом авто-режиме). Вручную — `Create → Vortex → Settings → RecordMarks`.
 
 ### Модели (для рефлексии реестров, не для прямой работы)
 
@@ -140,13 +141,15 @@ Merge-семантика Vortex-сериализатора: при загруз�
 | `RecordMarksSlotData : GameModel.IGameData` | Регистрируется рефлексией в `GameModel` |
 | `RecordMarksGlobalData : IGlobalData` (`GetGlobalKey() = "Vortex.RecordMarks.Global"`) | Регистрируется рефлексией в `GlobalSaveController` |
 
+Поле `Data` обеих моделей — `internal` + `[IsPOCO]`: снаружи сборки пакета его не заменить и не прочитать (owner-lock у `RecordMarksBus`), а сериализатор Vortex работает с ним рефлексией.
+
 ---
 
 ## Использование
 
 ### Настройка
 
-1. `Create → Vortex → Settings → RecordMarks` в `Assets/Resources/Settings/`.
+1. SO настроек создаётся автоматически (реализует `ICoreAsset`): `Tools → Vortex → Debug → Check Core Assets`, либо на перезагрузке домена при включённом авто-режиме. Вручную — `Create → Vortex → Settings → RecordMarks` в `Assets/Resources/Settings/`.
 2. Заполнить `slotMarks` и `globalMarks` уникальными именами. Рекомендуемая форма — дот-неймспейс: `"gallery.unlocked"`, `"codex.viewed"`, `"shop.everPurchased"`.
 
 ### Потребитель
@@ -213,7 +216,7 @@ Debug.Log($"{unlockedCount} / {total}");
 
 | Ситуация | Поведение |
 |----------|-----------|
-| SO не найден в `Resources/Settings/RecordMarksSettings` | `LogError` одноразово в Bootstrap; `IsReady` навсегда `false`; каждый `Mark`/`Unmark` даёт warning |
+| SO не найден в `Resources/Settings/RecordMarksSettings` | В норме не бывает — SO авто-создаётся (`ICoreAsset`); если авто-создание не отработало: `LogError` одноразово в Bootstrap, `IsReady` навсегда `false`, каждый `Mark`/`Unmark` даёт warning |
 | Метка присутствует и в `slotMarks`, и в `globalMarks` | `LogError`, исключается из обоих списков; операции с этим именем возвращают no-op |
 | Пустая строка / whitespace в списке | `LogWarning`, пропускается |
 | Дубликат в пределах одного списка | `LogWarning`, второе и последующие пропускаются |

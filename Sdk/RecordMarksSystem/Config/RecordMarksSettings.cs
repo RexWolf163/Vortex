@@ -1,4 +1,5 @@
 using UnityEngine;
+using Vortex.Unity.CoreAssetsSystem;
 
 namespace Vortex.Sdk.RecordMarksSystem.Config
 {
@@ -10,11 +11,16 @@ namespace Vortex.Sdk.RecordMarksSystem.Config
     /// сбрасываются при новой игре. Метки в <see cref="globalMarks"/> живут в
     /// <c>GlobalSaveController</c> — переживают слоты и рестарты.
     ///
-    /// Списки не пересекаются, дубликатов не должно быть, пустых имён быть не должно
-    /// (см. <c>OnValidate</c> и Inv-1 ТЗ).
+    /// Списки не пересекаются, дубликатов не должно быть, пустых имён быть не должно (см. <c>OnValidate</c>).
+    ///
+    /// Реализует <see cref="ICoreAsset"/> — единственный экземпляр создаётся автоматически в
+    /// <c>Assets/Resources/Settings/</c> контроллером Core Assets (<c>Tools → Vortex → Debug →
+    /// Check Core Assets</c>, либо при включённом авто-режиме — на перезагрузке домена), поэтому
+    /// bootstrap bus'а всегда находит ассет. Ручное создание через
+    /// <c>Create → Vortex → Settings → RecordMarks</c> тоже доступно.
     /// </summary>
     [CreateAssetMenu(fileName = "RecordMarksSettings", menuName = "Vortex/Settings/RecordMarks")]
-    public class RecordMarksSettings : ScriptableObject
+    public class RecordMarksSettings : ScriptableObject, ICoreAsset
     {
         /// <summary>
         /// Идентификаторы меток, сохраняемых per-slot. Рекомендуемая форма имени —

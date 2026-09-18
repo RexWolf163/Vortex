@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 using Vortex.Sdk.Core.GameCore;
 
 namespace Vortex.Sdk.RecordMarksSystem.Models
@@ -8,7 +9,7 @@ namespace Vortex.Sdk.RecordMarksSystem.Models
     /// <see cref="GameModel.IGameData"/> — рефлексионно подхватывается <c>GameController</c>
     /// при <c>Init</c>, сериализуется/десериализуется через стандартный контракт save-модели.
     ///
-    /// Публичный тип хранения — <see cref="Dictionary{TKey,TValue}"/> со значением-<c>List</c>,
+    /// Тип хранения — <see cref="Dictionary{TKey,TValue}"/> со значением-<c>List</c>,
     /// потому что сериализатор Vortex не понимает <c>HashSet</c> (нет реализации <c>IList</c>).
     /// O(1)-операции над множеством GUID обеспечивает <c>RecordMarksBus</c> отдельным
     /// runtime-кешем <c>HashSet</c>, синхронизируемым с <see cref="Data"/> при каждой мутации.
@@ -21,9 +22,12 @@ namespace Vortex.Sdk.RecordMarksSystem.Models
     public class RecordMarksSlotData : GameModel.IGameData
     {
         /// <summary>
-        /// Хранилище меток: ключ — идентификатор метки, значение — список GUID пресетов
-        /// Database, помеченных ею.
+        /// Хранилище меток: ключ — идентификатор метки, значение — список GUID пресетов Database.
+        /// Доступ <c>internal</c> — полный owner-lock (зеркально <c>RecordMarksGlobalData</c>): ни
+        /// ссылку, ни содержимое снаружи сборки не достать. Сериализуется несмотря на непубличный
+        /// getter — помечено <c>[IsPOCO]</c>; <c>SerializeController</c> читает/пишет рефлексией.
         /// </summary>
-        public Dictionary<string, List<string>> Data { get; set; } = new();
+        [IsPOCO]
+        internal Dictionary<string, List<string>> Data { get; set; } = new();
     }
 }

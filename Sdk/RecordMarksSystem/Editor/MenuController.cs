@@ -21,7 +21,8 @@ namespace Vortex.Sdk.RecordMarksSystem.Editor
             {
                 Debug.LogWarning(
                     $"[RecordMarks] Settings asset not found at '{SettingsResourcePath}'. " +
-                    "Use 'Create/Vortex/Settings/RecordMarks' to create one.");
+                    "Run 'Tools/Vortex/Debug/Check Core Assets' to auto-create it (ICoreAsset), " +
+                    "or 'Create/Vortex/Settings/RecordMarks' manually.");
                 return;
             }
             Selection.activeObject = settings;
