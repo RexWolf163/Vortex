@@ -60,10 +60,14 @@ GalleryStoryPreset (SO)
 GalleryStoryModel (Record, IGalleryEntry)
     ├── GuidPreset, Icon, Name, Description     — public (from Record + CopyFrom)
     ├── internal ScriptPath                     — copy of the string from the preset
+    ├── [NonSerialized] _active                 — our script has actually started (race guard)
     ├── Show()      → Show(CancellationToken.None)
-    ├── Show(ct)    → +sub OnNaniStop → NaniWrapper.PlayScript(ScriptPath, token: ct).Forget()
+    ├── Show(ct)    → _active=false; +sub OnNaniStart/OnNaniStop → PlayScript(ScriptPath, token: ct).Forget()
     │                     │
-    │                     └──(nani finished on its own)── HandleAutoStop → -unsub → Hide() (no-op)
+    │                     ├─ HandleNaniStart ─(PlayedScript.Path == ours)─→ _active=true; -unsub Start
+    │                     │
+    │                     └─ HandleAutoStop  ─(!_active — foreign stop before our start)─→ ignore
+    │                          └─(_active && our script no longer playing)─→ -unsub both → Hide() (no-op)
     │
     └── Hide()      → if PlayedScript.Path == ScriptPath → ScriptPlayer.Stop(); else no-op
                     │
@@ -110,8 +114,9 @@ public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
 - **I1.** `ScriptPath` is internal; unreachable from outside the assembly.
 - **I2.** The serialized SO stores only the `scriptPath` string; references to `Naninovel.Script` are not saved.
 - **I3.** `Show`/`Hide` are synchronous (as `IGalleryEntry` requires). The async `PlayScript` goes into `Forget()` — the model doesn't block its caller.
-- **I4.** `Show` subscribes the model to `NaniWrapper.OnNaniStop`; when **our** script finishes — auto-`Hide()`. Lifecycle is symmetric: `Show → (nani finished) → Hide()`, no external call required.
+- **I4.** `Show` subscribes the model to `NaniWrapper.OnNaniStart` and `OnNaniStop`; when **our** script finishes — auto-`Hide()`. Lifecycle is symmetric: `Show → (nani finished) → Hide()`, no external call required.
 - **I5.** Auto-`Hide` is idempotent with a manual `Hide`: if the player clicked "Close" → `Stop()` → OnNaniStop → HandleAutoStop → `Hide()` — the second `Hide` no-ops (PlayedScript is already null).
+- **I6.** Race guard `_active`: auto-`Hide` fires only after our script has actually started (`OnNaniStart` with `PlayedScript.Path == ScriptPath` → `_active = true`, unsubscribe from Start). A foreign `OnNaniStop` in the window between `Show` and our script's start (while `PlayScript` gates Load→Play), with `_active == false`, is ignored — the subscription isn't torn down prematurely. `_active` is `[NonSerialized]`, not saved; it resets at the start of every `Show`, and a stale subscription is inert while `_active == false`.
 
 ---
 
@@ -142,9 +147,11 @@ The card enters `GalleryView` automatically when its type is allowed and its `Gu
 | Designer dragged Script manually | `OnValueChanged` copies `Path` into `scriptPath` and clears `script`. Only the serialized field is visible after |
 | Nani script unloaded between shows | The package stores only the string; the next `Show` makes Naninovel reload the script by path. This architecture solves the unload issue |
 | "Show" clicked while a script is active | `NaniWrapper.PlayScript` gates launches: until one Load→Play completes, the next one waits |
+| Our script has actually started | `OnNaniStart` with `PlayedScript.Path == ScriptPath` → `_active = true`, unsubscribe from `OnNaniStart` |
+| Foreign `OnNaniStop` between `Show` and our script's start | `_active == false` → `HandleAutoStop` ignores it; subscription kept, waiting for our `OnNaniStart` (race guard) |
 | `Hide()` with no active script | `PlayedScript == null` check — no-op |
 | `Hide()` while a different script plays (story launch between Show and Hide) | `PlayedScript.Path != ScriptPath` check — no-op; the other script is left alone |
-| The nani script finished on its own (ran out of commands) | `OnNaniStop` fires → `HandleAutoStop` unsubscribes + calls `Hide()` (no-op at that point, but symmetrically closes the cycle) |
+| The nani script finished on its own (ran out of commands) | `_active == true` → `OnNaniStop` fires → `HandleAutoStop` unsubscribes from both + calls `Hide()` (no-op at that point, but symmetrically closes the cycle) |
 | Our script is playing when another one starts (@goto to an external script) | `OnNaniStop` fires with a new `PlayedScript.Path != ScriptPath` → HandleAutoStop unsubscribes + `Hide()` no-op |
 | Repeated `Show` on the same instance | `-=` before `+=` in Show guards against double subscription |
 | Project without `USING_NANINOVELL` | The package doesn't compile (define constraint) — story cards are simply not present |

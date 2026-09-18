@@ -60,10 +60,14 @@ GalleryStoryPreset (SO)
 GalleryStoryModel (Record, IGalleryEntry)
     ├── GuidPreset, Icon, Name, Description     — публичные (из Record + CopyFrom)
     ├── internal ScriptPath                     — копия строки из пресета
+    ├── [NonSerialized] _active                 — наш скрипт реально стартовал (гонка-гард)
     ├── Show()      → Show(CancellationToken.None)
-    ├── Show(ct)    → +sub OnNaniStop → NaniWrapper.PlayScript(ScriptPath, token: ct).Forget()
+    ├── Show(ct)    → _active=false; +sub OnNaniStart/OnNaniStop → PlayScript(ScriptPath, token: ct).Forget()
     │                     │
-    │                     └──(nani сама остановилась)── HandleAutoStop → -unsub → Hide() (no-op)
+    │                     ├─ HandleNaniStart ─(PlayedScript.Path == наш)─→ _active=true; -unsub Start
+    │                     │
+    │                     └─ HandleAutoStop  ─(!_active — чужой стоп до старта)─→ игнор
+    │                          └─(_active && наш скрипт больше не играет)─→ -unsub оба → Hide() (no-op)
     │
     └── Hide()      → если PlayedScript.Path == ScriptPath → ScriptPlayer.Stop() иначе no-op
                     │
@@ -110,8 +114,9 @@ public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
 - **I1.** `ScriptPath` — internal; извне сборки недоступен.
 - **I2.** В сериализованном SO хранится только строка `scriptPath`; ссылки на `Naninovel.Script` не сохраняются.
 - **I3.** `Show`/`Hide` — синхронные (требование `IGalleryEntry`). Асинхронный `PlayScript` уходит в `Forget()` — модель не блокирует вызывающего.
-- **I4.** `Show` подписывает модель на `NaniWrapper.OnNaniStop`; при завершении **нашего** скрипта — авто-`Hide()`. Lifecycle симметричен: `Show → (nani закончилась) → Hide()`, без ручного вмешательства.
+- **I4.** `Show` подписывает модель на `NaniWrapper.OnNaniStart` и `OnNaniStop`; при завершении **нашего** скрипта — авто-`Hide()`. Lifecycle симметричен: `Show → (nani закончилась) → Hide()`, без ручного вмешательства.
 - **I5.** Auto-`Hide` идемпотентен с ручным `Hide`: если игрок нажал «Закрыть» → `Stop()` → OnNaniStop → HandleAutoStop → `Hide()` — второй `Hide` no-op'нется (PlayedScript уже null).
+- **I6.** Гонка-гард `_active`: авто-`Hide` срабатывает только после того, как наш скрипт реально стартовал (`OnNaniStart` с `PlayedScript.Path == ScriptPath` → `_active = true`, отписка от Start). Чужой `OnNaniStop` в окне между `Show` и стартом нашего скрипта (пока `PlayScript` шлюзует Load→Play) при `_active == false` игнорируется — подписка не рвётся преждевременно. `_active` — `[NonSerialized]`, в сейв не входит; сбрасывается в начале каждого `Show`, а стейл-подписка при `_active == false` инертна.
 
 ---
 
@@ -142,9 +147,11 @@ public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
 | Дизайнер перетащил Script вручную | `OnValueChanged` копирует `Path` в `scriptPath` и очищает `script`. Дальше видимо только сериализованное поле |
 | Nani-скрипт выгружен между показами | Пакет хранит только строку; следующий `Show` заставит Naninovel перезагрузить скрипт по пути. Проблема выгрузки решена этой архитектурой |
 | Клик «Смотреть» во время активного скрипта | `NaniWrapper.PlayScript` шлюзует запуски: пока один Load→Play не завершился, следующий ждёт |
+| Наш скрипт реально стартовал | `OnNaniStart` с `PlayedScript.Path == ScriptPath` → `_active = true`, отписка от `OnNaniStart` |
+| Чужой `OnNaniStop` между `Show` и стартом нашего скрипта | `_active == false` → `HandleAutoStop` игнорирует; подписка сохраняется, ждём наш `OnNaniStart` (гонка-гард) |
 | `Hide()` без активного скрипта | Проверка `PlayedScript == null` — no-op |
 | `Hide()` пока играет чужой скрипт (нарративный запуск между Show и Hide) | Проверка `PlayedScript.Path != ScriptPath` — no-op; чужой скрипт не трогается |
-| Nani-скрипт завершился сам (кончились команды) | `OnNaniStop` fires → `HandleAutoStop` отписывается + вызывает `Hide()` (no-op в этой точке, но симметрично замыкает цикл) |
+| Nani-скрипт завершился сам (кончились команды) | `_active == true` → `OnNaniStop` fires → `HandleAutoStop` отписывается от обоих + вызывает `Hide()` (no-op в этой точке, но симметрично замыкает цикл) |
 | Пока играет наш скрипт, стартовал другой (@goto на внешний скрипт) | `OnNaniStop` fires с новым `PlayedScript.Path != ScriptPath` → HandleAutoStop отписывается + `Hide()` no-op |
 | Повторный `Show` того же инстанса | `-=` перед `+=` в Show защищает от двойной подписки |
 | Проект без `USING_NANINOVELL` | Пакет не компилируется (define constraint) — карточки-истории просто не подключены |
