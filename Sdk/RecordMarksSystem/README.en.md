@@ -82,14 +82,14 @@ Vortex serializer merge semantics: when a slot is loaded, the outer `Dictionary<
 - `RecordMarksBus.IsMarked(mark, guid)` — mark presence on a GUID.
 - `RecordMarksBus.GetMarked(mark)` — all GUIDs under a mark.
 - Events `OnReady`, `OnMarksLoaded`, `OnMarked`, `OnUnmarked`.
-- Mutation of `RecordMarksSlotData.Data` / `RecordMarksGlobalData.Data` — Bus only.
+- Mutation of `RecordMarksSlotData.Data` / `RecordMarksGlobalData.Data` — Bus only. The `Data` field is `internal`, unreachable outside the assembly.
 - Serialisation — standard `IGameData` / `IGlobalData` contract; no hand-written save code in the package.
 
 ### Guarantees
 
 - **Ratchet.** `Mark(m, g)` for an already-marked `(m, g)` is a silent no-op; no event.
 - **Batching.** `OnMarked` / `OnUnmarked` fire once per `LateUpdate` in accumulation order. There is a 1-frame delay between mutation and event.
-- **Owner-lock.** The Bus is the sole writer of `_slotCache` / `_globalCache` / `_pending` / models. No external concurrent mutation.
+- **Owner-lock.** The Bus is the sole writer of `_slotCache` / `_globalCache` / `_pending`. The models are locked **structurally at the assembly boundary**: the `Data` field is `internal` + `[IsPOCO]`, unreachable from outside the assembly for both read and write; the Vortex serializer accesses it via reflection.
 - **Re-entrant Bootstrap.** Fast Enter Play does not accumulate subscriptions: `-= then +=` before each hook.
 - **Idempotent OnGlobalReady / OnSlotChanged.** A duplicate call re-syncs state against the SO without data loss.
 - **Slot isolation.** On `OnLoadGame` / `OnNewGame`, `_pending.Clear()` runs first — an event from the previous session cannot reach the next session's consumer.

@@ -11,6 +11,15 @@ namespace Vortex.Unity.DatabaseSystem.Attributes
         public Type RecordClass { get; private set; }
         public RecordTypes? RecordType { get; private set; }
 
+        /// <summary>
+        /// Опциональная группировка выпадашки по короткому имени типа записи
+        /// (<c>Type.Name</c> без namespace). При включении drawer префиксует каждое
+        /// имя записи «TypeShortName/» — <c>SearchablePopup</c> строит из этого отдельные
+        /// раскрываемые разделы. Полезно, когда <c>RecordClass = null</c> и выпадашка
+        /// содержит записи разных типов.
+        /// </summary>
+        public bool GroupByType { get; set; }
+
 
         public DbRecordAttribute(Type @class)
         {

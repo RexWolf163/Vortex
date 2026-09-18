@@ -13,7 +13,9 @@
         "UniTask.Addressables",
         "ru.vortex.unity.extensions",
         "ru.vortex.unity.CoreAssetsSystem",
-        "ru.vortex.unity.ui.misc"
+        "ru.vortex.unity.ui.misc",
+        "ru.vortex.core.assethandle",
+        "ru.vortex.logger"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

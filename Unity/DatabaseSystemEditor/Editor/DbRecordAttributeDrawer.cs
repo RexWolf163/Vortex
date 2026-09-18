@@ -49,18 +49,20 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
         {
             public readonly RecordTypes? RecordType;
             public readonly Type RecordClass;
+            public readonly bool GroupByType;
 
-            public CacheKey(RecordTypes? recordType, Type recordClass)
+            public CacheKey(RecordTypes? recordType, Type recordClass, bool groupByType)
             {
                 RecordType = recordType;
                 RecordClass = recordClass;
+                GroupByType = groupByType;
             }
 
             public bool Equals(CacheKey other) =>
-                RecordType == other.RecordType && RecordClass == other.RecordClass;
+                RecordType == other.RecordType && RecordClass == other.RecordClass && GroupByType == other.GroupByType;
 
             public override bool Equals(object obj) => obj is CacheKey o && Equals(o);
-            public override int GetHashCode() => HashCode.Combine(RecordType, RecordClass);
+            public override int GetHashCode() => HashCode.Combine(RecordType, RecordClass, GroupByType);
         }
 
         private sealed class CacheEntry
@@ -142,7 +144,7 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
         private static (string[] names, string[] guids) ResolveList(
             DbRecordAttribute attribute, IDriverEditor driver)
         {
-            var key = new CacheKey(attribute.RecordType, attribute.RecordClass);
+            var key = new CacheKey(attribute.RecordType, attribute.RecordClass, attribute.GroupByType);
             var now = EditorApplication.timeSinceStartup;
 
             if (!Cache.TryGetValue(key, out var entry))
@@ -182,7 +184,10 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                     : Database.GetRecords();
                 foreach (var record in list)
                 {
-                    n.Add(record.Name.Replace(".", "/"));
+                    var name = record.Name.Replace(".", "/");
+                    if (attribute.GroupByType)
+                        name = record.GetType().Name + "/" + name;
+                    n.Add(name);
                     g.Add(record.GuidPreset);
                 }
             }
@@ -200,11 +205,17 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
                         continue;
                     }
 
-                    if (attribute.RecordClass != null &&
-                        !attribute.RecordClass.IsAssignableFrom(record.GetData().GetType()))
+                    // GetData() создаёт новый инстанс модели через CopyFrom — считаем один раз,
+                    // используем и для фильтра RecordClass, и для префикса группировки.
+                    var dataType = record.GetData().GetType();
+
+                    if (attribute.RecordClass != null && !attribute.RecordClass.IsAssignableFrom(dataType))
                         continue;
 
-                    n.Add(record.Name.Replace(".", "/"));
+                    var name = record.Name.Replace(".", "/");
+                    if (attribute.GroupByType)
+                        name = dataType.Name + "/" + name;
+                    n.Add(name);
                     g.Add(record.GuidPreset);
                 }
             }

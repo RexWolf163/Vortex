@@ -82,14 +82,14 @@ Merge-семантика Vortex-сериализатора: при загруз�
 - `RecordMarksBus.IsMarked(mark, guid)` — есть ли метка на GUID.
 - `RecordMarksBus.GetMarked(mark)` — все GUID под меткой.
 - События `OnReady`, `OnMarksLoaded`, `OnMarked`, `OnUnmarked`.
-- Мутация `RecordMarksSlotData.Data` / `RecordMarksGlobalData.Data` — только через Bus.
+- Мутация `RecordMarksSlotData.Data` / `RecordMarksGlobalData.Data` — только через Bus. Поле `Data` — `internal`, снаружи сборки недоступно.
 - Сериализация — стандартный контракт `IGameData` / `IGlobalData`; ручного save-кода в пакете нет.
 
 ### Гарантии
 
 - **Ratchet.** `Mark(m, g)` при уже помеченном `(m, g)` — тихий no-op, событие не фаерится.
 - **Батчинг.** `OnMarked` / `OnUnmarked` фаерятся один раз за `LateUpdate`, в порядке накопления. Между мутацией и событием есть задержка в 1 кадр.
-- **Owner-lock.** Единственный писатель `_slotCache` / `_globalCache` / `_pending` / моделей — Bus. Нет одновременной мутации извне.
+- **Owner-lock.** Единственный писатель `_slotCache` / `_globalCache` / `_pending` — Bus. Модели закрыты **структурно на уровне сборки**: поле `Data` — `internal` + `[IsPOCO]`, снаружи сборки его нельзя ни прочитать, ни заменить; сериализатор Vortex работает с ним рефлексией.
 - **Идемпотентность повторного Bootstrap.** Fast Enter Play не удваивает подписки: `-= then +=` перед каждой.
 - **Идемпотентность OnGlobalReady / OnSlotChanged.** Дублирующий вызов пересинхронизирует состояние с SO без потери данных.
 - **Изоляция слотов.** При `OnLoadGame` / `OnNewGame` `_pending.Clear()` вызывается первой строкой — событие предыдущей сессии не долетит до consumer'а следующей.

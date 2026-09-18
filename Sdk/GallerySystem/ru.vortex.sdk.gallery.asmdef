@@ -1,0 +1,16 @@
+{
+    "name": "ru.vortex.sdk.gallery",
+    "rootNamespace": "",
+    "references": [
+        "GUID:ec37981827cc88c419565420343ee58c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
