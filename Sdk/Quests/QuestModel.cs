@@ -12,6 +12,16 @@ namespace Vortex.Sdk.Quests
     public class QuestModel : Record
     {
         public event Action OnStateUpdated;
+
+        /// <summary>
+        /// Читаемое имя квеста — копия <see cref="Record.Name"/> пресета с тем же GUID. Нужно только для чтения
+        /// человеком: <c>Record.Name</c> помечен <c>[NotPOCO]</c>, поэтому в сейве и окне данных
+        /// (<c>Tools/Vortex/SaveData/Game Index</c>) квест иначе виден одним GUID. Проставляется при сборке индекса
+        /// (<c>QuestModels</c>) и восстанавливается контроллером на новой игре и загрузке; логика квестов на него
+        /// не опирается.
+        /// </summary>
+        public string QuestName { get; internal set; }
+
         public QuestState State { get; internal set; }
 
         public QuestConditions[] StartConditions { get; private set; }

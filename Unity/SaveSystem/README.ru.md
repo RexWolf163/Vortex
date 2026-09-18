@@ -18,7 +18,7 @@ Unity-слой системы сохранений. Предоставляет �
 - `SavePreset` — XML-сериализуемая обёртка для `SaveFolder[]` (общая для драйверов слотов)
 - `SaveSettings` — общий ассет настроек: папка сейвов, число копий и папка глобального хранилища
 - `UISaveLoadComponent` — MonoBehaviour для отображения прогресса save/load
-- Окно `Tools/Vortex/GlobalData/Index` — индекс модулей глобального хранилища; в Play Mode — текущие значения с правкой на лету и сброс
+- Окно `Tools/Vortex/SaveData/Global Index` — индекс модулей глобального хранилища; в Play Mode — текущие значения с правкой на лету и сброс
 - Каждый драйвер слотов хранит индекс сохранений и метаданные (`SaveSummary`) в своём формате
 
 Вне ответственности:
@@ -93,7 +93,7 @@ Vortex/Unity/SaveSystem/
 │   └── SaveSettingsMenu.cs                    — Tools/Vortex/Configs/Save Settings
 ├── Debug/                                     — asmref → ru.vortex.unity.debug
 │   └── DebugSettingsExtGlobalSave.cs          — тумблер fail-fast глобального хранилища
-├── Editor/GlobalDataIndexWindow.cs            — Tools/Vortex/GlobalData/Index
+├── Editor/GlobalDataIndexWindow.cs            — Tools/Vortex/SaveData/Global Index
 ├── Presets/SavePreset.cs                      — общий XML-контейнер слотов
 └── View/UISaveLoadComponent.cs                — UI прогресса
 ```
@@ -237,7 +237,7 @@ Bootstrap: `[RuntimeInitializeOnLoadMethod]` → `GlobalSaveController.SetDriver
 
 ### Окно Global Data
 
-`Tools/Vortex/GlobalData/Index` (`Editor/GlobalDataIndexWindow.cs`, редакторная часть рантайм-сборки). Режим зависит от Play Mode.
+`Tools/Vortex/SaveData/Global Index` (`Editor/GlobalDataIndexWindow.cs`, редакторная часть рантайм-сборки). Режим зависит от Play Mode.
 
 **Вне Play Mode — индекс модулей проекта.** Все реализации `IGlobalData` (`TypeCache`): ключ, тип, сборка, значения по умолчанию (только чтение). Отмечаются проблемы, из-за которых хранилище пропустит модуль:
 
@@ -255,7 +255,7 @@ Bootstrap: `[RuntimeInitializeOnLoadMethod]` → `GlobalSaveController.SetDriver
 
 «Настройки» — переход к `SaveSettings` (в обоих режимах).
 
-**Какие свойства видны.** Ровно те, что сохраняет сериализатор: getter и setter, публичный getter или `[IsPOCO]`, без `[NotPOCO]`.
+**Какие свойства видны.** Ровно те, что сохраняет сериализатор: getter и setter, публичный getter или `[IsPOCO]`, без `[NotPOCO]`. Список свойств и поля значений даёт общий `EditorTools/DataTools/PocoInspector.cs` — тот же, что у окна данных игры `Tools/Vortex/SaveData/Game Index`.
 
 | Тип свойства | Отображение |
 |--------------|-------------|

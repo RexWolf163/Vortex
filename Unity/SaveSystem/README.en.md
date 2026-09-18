@@ -18,7 +18,7 @@ Capabilities:
 - `SavePreset` — XML-serializable wrapper for `SaveFolder[]` (shared by the slot drivers)
 - `SaveSettings` — shared settings asset: saves folder, backup count and global storage folder
 - `UISaveLoadComponent` — MonoBehaviour for save/load progress display
-- `Tools/Vortex/GlobalData/Index` window — index of global storage modules; in Play Mode — current values with live editing and reset
+- `Tools/Vortex/SaveData/Global Index` window — index of global storage modules; in Play Mode — current values with live editing and reset
 - Each slot driver maintains its own save index and metadata (`SaveSummary`) in its own format
 
 Out of scope:
@@ -93,7 +93,7 @@ Vortex/Unity/SaveSystem/
 │   └── SaveSettingsMenu.cs                    — Tools/Vortex/Configs/Save Settings
 ├── Debug/                                     — asmref → ru.vortex.unity.debug
 │   └── DebugSettingsExtGlobalSave.cs          — global storage fail-fast toggle
-├── Editor/GlobalDataIndexWindow.cs            — Tools/Vortex/GlobalData/Index
+├── Editor/GlobalDataIndexWindow.cs            — Tools/Vortex/SaveData/Global Index
 ├── Presets/SavePreset.cs                      — shared slot XML container
 └── View/UISaveLoadComponent.cs                — progress UI
 ```
@@ -237,7 +237,7 @@ Key write atomicity is provided by the platform's PlayerPrefs implementation.
 
 ### Global Data window
 
-`Tools/Vortex/GlobalData/Index` (`Editor/GlobalDataIndexWindow.cs`, editor part of the runtime assembly). The mode depends on Play Mode.
+`Tools/Vortex/SaveData/Global Index` (`Editor/GlobalDataIndexWindow.cs`, editor part of the runtime assembly). The mode depends on Play Mode.
 
 **Outside Play Mode — index of the project's modules.** All `IGlobalData` implementations (`TypeCache`): key, type, assembly, default values (read-only). Problems that make the storage skip a module are flagged:
 
@@ -255,7 +255,7 @@ Key write atomicity is provided by the platform's PlayerPrefs implementation.
 
 "Settings" jumps to `SaveSettings` (in both modes).
 
-**Which properties are shown.** Exactly those the serializer saves: getter and setter, a public getter or `[IsPOCO]`, no `[NotPOCO]`.
+**Which properties are shown.** Exactly those the serializer saves: getter and setter, a public getter or `[IsPOCO]`, no `[NotPOCO]`. The property list and value fields come from the shared `EditorTools/DataTools/PocoInspector.cs` — the same one used by the game data window `Tools/Vortex/SaveData/Game Index`.
 
 | Property type | Display |
 |---------------|---------|

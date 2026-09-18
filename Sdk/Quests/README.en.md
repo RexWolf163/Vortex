@@ -52,6 +52,7 @@ Out of scope:
 QuestController (static, partial)
 ├── QuestModels : IGameData                       ← registered in GameModel
 │   └── Dictionary<string, QuestModel> Index      ← multi-instance copies from Database
+│       ├── QuestName: string                     ← preset name, for human reading only
 │       ├── State: QuestState (Unset→Locked→Ready→InProgress→…→Blocked)
 │       ├── StartConditions[]                     ← AND-groups (AND between groups too)
 │       ├── InterruptConditions[]                 ← OR-groups, prioritized over start → Blocked
@@ -120,7 +121,7 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 | `QuestController` | static, partial | Lifecycle controller |
 | `QuestControllerExtIndex` | partial | Queries: `IsComplete(id)` |
 | `QuestControllerExtEditor` | partial, `#if UNITY_EDITOR` | Editor integration |
-| `QuestModel` | `Record` | Quest model: state, conditions, logics |
+| `QuestModel` | `Record` | Quest model: state, conditions, logics, readable name (`QuestName`) |
 | `QuestModels` | `IGameData` | Quest index container |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject preset for Database |
 | `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed, Blocked |

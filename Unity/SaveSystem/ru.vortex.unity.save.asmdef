@@ -12,7 +12,8 @@
         "ru.vortex.unity.filesystem",
         "ru.vortex.unity.app",
         "ru.vortex.apploader",
-        "ru.vortex.settings"
+        "ru.vortex.settings",
+        "ru.vortex.unity.editortools"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

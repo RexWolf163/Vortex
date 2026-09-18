@@ -95,6 +95,13 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 - `GameController.AppTime` (`TimeSpan`) — total time in the application across all launches
 - `GameController.SessionStarted` (`DateTime`) — start date of the current playthrough
 
+### Editor
+
+- `Tools/Vortex/SaveData/Game Index` (`GameCore/Editor/GameDataIndexWindow.cs`) — the game data window. Outside Play Mode — an index of every `GameModel.IGameData` implementation in the project: type, assembly, default values and problems that make the model skip a module (no public parameterless constructor, open generic type). In Play Mode — the model contents with live editing: a changed property is written immediately and `CallUpdateEvent` is raised; a module and the whole model can be reset. The property list and value fields come from the shared `EditorTools/DataTools/PocoInspector.cs`, the same one used by the global storage window `Tools/Vortex/SaveData/Global Index`.
+- `GameControllerExtEditor` — the editor API for tools: `EditorModules()`, `EditorResetModule(type)`, `EditorResetAll()`, `EditorCommit()`. Built on `ComplexModel.GetEditorIndex()` and `ComplexModel.EditorResetModule(type)`.
+
+The game model lives only within a session and is stored with the save: edits from the window do not reach the file on their own. Outside Play Mode, accessing the model creates a temporary instance — the values shown there are the defaults.
+
 ### Guarantees
 - `NewGame()` is blocked until `ExitGame()` is called (lock mechanism)
 - Before transitioning to `Play` (after `NewGame` and `OnLoad`), `GameController` waits for all registered `IGameSessionService` to become ready, with no timeout (fail-fast)

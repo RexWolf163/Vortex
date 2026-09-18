@@ -14,7 +14,7 @@ Attributes and Odin drawers for Unity Inspector customization in Vortex projects
 
 | Assembly | Contents | Constraints |
 |----------|----------|-------------|
-| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `InspectorHandler`) | — |
+| `ru.vortex.unity.editortools` | Attributes (runtime) + editor utilities (`Elements/`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `DataTools/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin drawers (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Folder layout
@@ -28,6 +28,7 @@ EditorTools/
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
 ├── PrefabTools/                 # PrefabOverrideCleanerWindow — redundant override cleanup
 ├── HierarchyTools/              # HierarchyLayers — adding components and layers to selected objects
+├── DataTools/                   # PocoInspector — drawing Vortex POCO models in data windows
 └── InspectorHandler.cs          # SerializedProperty utilities (IsPropertyNullable, GetPropertyValue)
 ```
 
@@ -35,7 +36,7 @@ EditorTools/
 
 - Attributes — no guards, available at runtime (inherit from `PropertyAttribute` / `Attribute`).
 - Drawers (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + the asmdef-level `ODIN_INSPECTOR` define constraint.
-- Editor utilities (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`) — `#if UNITY_EDITOR`.
+- Editor utilities (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `DataTools/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — derives from Odin's `FoldoutGroupAttribute` under `#if ODIN_INSPECTOR`, falls back to `Attribute` otherwise.
 
 ## Attributes
@@ -255,6 +256,16 @@ Open it via right-click on an object in the Hierarchy → `Prefab/CleanOverrideT
 Matching the base can be intentional: the override pins the value against future edits of the base prefab. That is why the tool removes nothing without confirmation.
 
 Difference from the built-in `Prefab/Remove Unused Overrides`: the built-in item removes **dangling** overrides (the target or field no longer exists) and does not compare values. `CleanOverrideTrash` removes **redundant** ones (target exists, value equals the base) and leaves dangling ones alone. Recommended order: built-in item first, then this one.
+
+### `DataTools/PocoInspector`
+
+Drawing of Vortex POCO models in editor data windows (`Tools/Vortex/SaveData/Global Index`, `Tools/Vortex/SaveData/Game Index`).
+
+| Method | Purpose |
+|--------|---------|
+| `Properties(type)` | Properties the serializer saves: getter and setter, a public getter or `[IsPOCO]`, no `[NotPOCO]`. Cached per type |
+| `DrawValue(property, target, out result)` | A value field; `true` means the value changed. `bool`, `int`, `long`, `float`, `double`, `string`, `enum` are editable, everything else is read-only |
+| `DrawReadOnly(label, value)` | A value with no input field: the serializer string in a disabled area |
 
 ### `HierarchyTools/HierarchyLayers`
 

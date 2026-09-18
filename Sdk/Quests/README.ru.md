@@ -52,6 +52,7 @@
 QuestController (static, partial)
 ├── QuestModels : IGameData                       ← регистрируется в GameModel
 │   └── Dictionary<string, QuestModel> Index      ← multi-instance копии из Database
+│       ├── QuestName: string                     ← имя из пресета, только для чтения человеком
 │       ├── State: QuestState (Unset→Locked→Ready→InProgress→…→Blocked)
 │       ├── StartConditions[]                     ← AND-группы (и между группами AND)
 │       ├── InterruptConditions[]                 ← OR-группы, приоритетнее старта → Blocked
@@ -120,7 +121,7 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 | `QuestController` | static, partial | Контроллер жизненного цикла |
 | `QuestControllerExtIndex` | partial | Запросы: `IsComplete(id)` |
 | `QuestControllerExtEditor` | partial, `#if UNITY_EDITOR` | Editor-интеграция |
-| `QuestModel` | `Record` | Модель квеста: состояние, условия, логики |
+| `QuestModel` | `Record` | Модель квеста: состояние, условия, логики, читаемое имя (`QuestName`) |
 | `QuestModels` | `IGameData` | Контейнер индекса квестов |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject-пресет для Database |
 | `QuestState` | `enum` | Unset, Locked, Ready, InProgress, Reward, Completed, Failed, Blocked |

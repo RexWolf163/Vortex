@@ -14,7 +14,7 @@
 
 | Assembly | Содержимое | Constraints |
 |----------|-----------|-------------|
-| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `InspectorHandler`) | — |
+| `ru.vortex.unity.editortools` | Атрибуты (runtime) + editor-утилиты (`Elements/`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `DataTools/`, `InspectorHandler`) | — |
 | `ru.vortex.unity.editortools.sirenix` | Odin-drawer'ы (`SirenixOdinDrawers/`) | `defineConstraints: ["ODIN_INSPECTOR"]` |
 
 ### Структура папок
@@ -28,6 +28,7 @@ EditorTools/
 ├── EditorSettings/              # ToolsSettings, ThemeColors, DefaultColors
 ├── PrefabTools/                 # PrefabOverrideCleanerWindow — чистка избыточных переопределений
 ├── HierarchyTools/              # HierarchyLayers — добавление компонентов и слоёв в выделенные объекты
+├── DataTools/                   # PocoInspector — отрисовка POCO-моделей Vortex в окнах данных
 └── InspectorHandler.cs          # Утилиты SerializedProperty (IsPropertyNullable, GetPropertyValue)
 ```
 
@@ -35,7 +36,7 @@ EditorTools/
 
 - Атрибуты — без guard'ов, доступны в runtime (наследуются от `PropertyAttribute`/`Attribute`).
 - Drawer'ы (`SirenixOdinDrawers/`) — `#if UNITY_EDITOR` + define-constraint `ODIN_INSPECTOR` на уровне asmdef.
-- Editor-утилиты (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`) — `#if UNITY_EDITOR`.
+- Editor-утилиты (`Elements/`, `InspectorHandler`, `EditorSettings/`, `PrefabTools/`, `HierarchyTools/`, `DataTools/`) — `#if UNITY_EDITOR`.
 - `PropertyFoldoutGroupAttribute` — наследуется от Odin `FoldoutGroupAttribute` под `#if ODIN_INSPECTOR`, иначе fallback на `Attribute`.
 
 ## Атрибуты
@@ -255,6 +256,16 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 Совпадение с базой бывает намеренным: переопределение фиксирует значение от будущих правок базового префаба. Поэтому инструмент ничего не удаляет без подтверждения.
 
 Отличие от встроенного `Prefab/Remove Unused Overrides`: встроенный пункт удаляет **висячие** переопределения (цели или поля больше нет) и значения не сравнивает. `CleanOverrideTrash` удаляет **избыточные** (цель есть, значение равно базовому) и висячие не трогает. Порядок чистки — сначала встроенный пункт, потом этот.
+
+### `DataTools/PocoInspector`
+
+Отрисовка POCO-моделей Vortex в editor-окнах данных (`Tools/Vortex/SaveData/Global Index`, `Tools/Vortex/SaveData/Game Index`).
+
+| Метод | Назначение |
+|-------|-----------|
+| `Properties(type)` | Свойства, которые сохраняет сериализатор: getter и setter, публичный getter или `[IsPOCO]`, без `[NotPOCO]`. Результат кешируется по типу |
+| `DrawValue(property, target, out result)` | Поле значения; `true` — значение изменено. `bool`, `int`, `long`, `float`, `double`, `string`, `enum` редактируются, остальное — только чтение |
+| `DrawReadOnly(label, value)` | Значение без поля ввода: строка сериализатора в отключённой области |
 
 ### `HierarchyTools/HierarchyLayers`
 

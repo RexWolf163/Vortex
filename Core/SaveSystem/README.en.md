@@ -357,7 +357,7 @@ Rules:
 - **Migrations** — via `HasStoredData<T>()`. Example: `AppTimeData` in SDK GameCore migrates from `PlayerPrefs`; the old key is deleted once the next launch has read the migrated value.
 - **Encryption is the module's job.** `Crypto.SetCryptoPack` runs PBKDF2 on every call (hundreds of milliseconds), so encrypt only when the data changes.
 - **Holding a module reference is fine:** loading and reset change values in the same instance.
-- **Checking a module** — the `Tools/Vortex/GlobalData/Index` window (Unity SaveSystem): outside Play Mode it shows the module, its key and problems that make the storage skip it; in Play Mode — current values with live editing.
+- **Checking a module** — the `Tools/Vortex/SaveData/Global Index` window (Unity SaveSystem): outside Play Mode it shows the module, its key and problems that make the storage skip it; in Play Mode — current values with live editing.
 
 ### Limitations
 

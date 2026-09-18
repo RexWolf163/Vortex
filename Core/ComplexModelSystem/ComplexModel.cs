@@ -77,6 +77,22 @@ namespace Vortex.Core.ComplexModelSystem
             return null;
         }
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// Editor: индекс модели «как есть» — для инструментов. Рабочий код берёт данные через <see cref="Get{TU}"/>.
+        /// </summary>
+        public IReadOnlyDictionary<Type, T> GetEditorIndex() => Index;
+
+        /// <summary>
+        /// Editor: пересоздать модуль указанного типа со значениями по умолчанию. Тип не в индексе — ничего не делает.
+        /// </summary>
+        public void EditorResetModule(Type type)
+        {
+            if (Index.ContainsKey(type))
+                Index[type] = Activator.CreateInstance(type) as T;
+        }
+#endif
+
         /// <summary>
         /// Сериализует модель в Json строку Vortex
         /// </summary>

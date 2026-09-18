@@ -72,6 +72,7 @@ namespace Vortex.Sdk.Quests
         private static void NewGameLogic()
         {
             ResetController();
+            FillQuestNames();
 
             //Инициализация квестов
             var list = _data.Index.Values.Where(q => q.State == QuestState.Unset);
@@ -98,6 +99,8 @@ namespace Vortex.Sdk.Quests
                 .ToList();
             foreach (var key in orphans)
                 _data.Index.Remove(key);
+
+            FillQuestNames();
 
             foreach (var quest in _data.Index.Values)
             {
@@ -144,6 +147,17 @@ namespace Vortex.Sdk.Quests
             }
 
             CheckQuestStartConditions();
+        }
+
+        /// <summary>
+        /// Проставляет <see cref="QuestModel.QuestName"/> — читаемое имя из пресета с тем же GUID. Записи индекса
+        /// собраны из пресетов (<c>QuestModels</c>) и имя получают там же; здесь оно восстанавливается после
+        /// загрузки сейва, записанного до появления поля, — там в него пишется пустое значение.
+        /// </summary>
+        private static void FillQuestNames()
+        {
+            foreach (var quest in _data.Index.Values)
+                quest.QuestName = quest.Name;
         }
 
         /// <summary>

@@ -3,17 +3,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
-using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
 using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Core.SaveSystem.Bus;
+using Vortex.Unity.EditorTools.DataTools;
 
 namespace Vortex.Unity.SaveSystem.Editor
 {
     /// <summary>
-    /// Окно глобальных данных: <c>Tools/Vortex/GlobalData/Index</c>.
+    /// Окно глобальных данных: <c>Tools/Vortex/SaveData/Global Index</c>.
     ///
     /// Вне Play Mode — индекс всех реализаций <see cref="IGlobalData"/> в проекте: ключ, тип, сборка, значения по
     /// умолчанию и проблемы, из-за которых хранилище модуль пропустит (нет публичного конструктора без параметров,
@@ -22,16 +21,12 @@ namespace Vortex.Unity.SaveSystem.Editor
     /// В Play Mode — содержимое глобального хранилища с правкой на лету: изменённое свойство сразу фиксируется
     /// (<c>GlobalSaveController.Commit</c>) — запись и уведомление подписчиков как от кода модуля. Сброс модуля и всех.
     ///
-    /// Показываются свойства, которые сохраняет сериализатор: getter и setter, публичный getter или <c>[IsPOCO]</c>,
-    /// без <c>[NotPOCO]</c>. Простые типы редактируются полями; коллекции и вложенные объекты — только чтение
-    /// (строка сериализатора).
+    /// Список свойств и поля значений — общие с окном данных игры: <see cref="PocoInspector"/>.
     /// </summary>
     public class GlobalDataIndexWindow : EditorWindow
     {
         /// <summary>Пункт меню настроек живёт в сборке настроек — вызывается по пути, без ссылки на неё.</summary>
         private const string SettingsMenu = "Tools/Vortex/Configs/Save Settings";
-
-        private const BindingFlags PropertyFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
         private sealed class ModuleInfo
         {
@@ -45,13 +40,11 @@ namespace Vortex.Unity.SaveSystem.Editor
             public string Problem;
         }
 
-        private static readonly Dictionary<Type, PropertyInfo[]> PropertiesCache = new();
-
         private readonly HashSet<Type> _expanded = new();
         private List<ModuleInfo> _index;
         private Vector2 _scroll;
 
-        [MenuItem("Tools/Vortex/GlobalData/Index")]
+        [MenuItem("Tools/Vortex/SaveData/Global Index")]
         private static void Open()
         {
             var window = GetWindow<GlobalDataIndexWindow>("Global Data");
@@ -134,8 +127,8 @@ namespace Vortex.Unity.SaveSystem.Editor
 
                     EditorGUILayout.LabelField("Значения по умолчанию", EditorStyles.boldLabel);
                     using (new EditorGUI.DisabledScope(true))
-                        foreach (var property in Properties(info.Type))
-                            DrawValue(property, info.Defaults, out _);
+                        foreach (var property in PocoInspector.Properties(info.Type))
+                            PocoInspector.DrawValue(property, info.Defaults, out _);
                 }
             }
         }
@@ -232,9 +225,9 @@ namespace Vortex.Unity.SaveSystem.Editor
                     if (!open)
                         continue;
 
-                    foreach (var property in Properties(type))
+                    foreach (var property in PocoInspector.Properties(type))
                     {
-                        if (!DrawValue(property, module, out var value))
+                        if (!PocoInspector.DrawValue(property, module, out var value))
                             continue;
                         property.SetValue(module, value);
                         GlobalSaveController.Commit(type);
@@ -259,70 +252,6 @@ namespace Vortex.Unity.SaveSystem.Editor
             else
                 _expanded.Remove(type);
             return now;
-        }
-
-        /// <summary>Свойства, которые сохраняет сериализатор Vortex, — то, что реально лежит в хранилище.</summary>
-        private static PropertyInfo[] Properties(Type type)
-        {
-            if (PropertiesCache.TryGetValue(type, out var properties))
-                return properties;
-
-            properties = type.GetProperties(PropertyFlags)
-                .Where(p => p.CanRead
-                            && p.SetMethod != null
-                            && p.GetIndexParameters().Length == 0
-                            && p.GetCustomAttribute<NotPOCOAttribute>() == null
-                            && (p.GetMethod is { IsPublic: true } || p.GetCustomAttribute<IsPOCOAttribute>() != null))
-                .ToArray();
-            PropertiesCache[type] = properties;
-            return properties;
-        }
-
-        /// <summary>
-        /// Поле свойства. <c>true</c> — значение изменено, новое — в <paramref name="result"/>. Типы без поля
-        /// показываются строкой сериализатора, только чтение.
-        /// </summary>
-        private static bool DrawValue(PropertyInfo property, object target, out object result)
-        {
-            var type = property.PropertyType;
-            var label = ObjectNames.NicifyVariableName(property.Name);
-            var value = property.GetValue(target);
-            result = value;
-
-            EditorGUI.BeginChangeCheck();
-            if (type == typeof(bool))
-                result = EditorGUILayout.Toggle(label, (bool)value);
-            else if (type == typeof(int))
-                result = EditorGUILayout.IntField(label, (int)value);
-            else if (type == typeof(long))
-                result = EditorGUILayout.LongField(label, (long)value);
-            else if (type == typeof(float))
-                result = EditorGUILayout.FloatField(label, (float)value);
-            else if (type == typeof(double))
-                result = EditorGUILayout.DoubleField(label, (double)value);
-            else if (type == typeof(string))
-                result = EditorGUILayout.TextField(label, (string)value);
-            else if (type.IsEnum)
-                result = EditorGUILayout.EnumPopup(label, (Enum)value);
-            else
-            {
-                EditorGUI.EndChangeCheck();
-                DrawReadOnly(label, value);
-                return false;
-            }
-
-            return EditorGUI.EndChangeCheck();
-        }
-
-        private static void DrawReadOnly(string label, object value)
-        {
-            EditorGUILayout.LabelField(label, value == null ? "null" : "только чтение");
-            if (value == null)
-                return;
-
-            using (new EditorGUI.IndentLevelScope())
-            using (new EditorGUI.DisabledScope(true))
-                EditorGUILayout.TextArea(value.SerializeProperties());
         }
 
         #endregion
