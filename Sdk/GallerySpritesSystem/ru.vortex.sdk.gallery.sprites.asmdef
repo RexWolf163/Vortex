@@ -10,7 +10,9 @@
         "ru.vortex.logger",
         "UniTask",
         "ru.vortex.unity.extensions",
-        "ru.vortex.system"
+        "ru.vortex.system",
+        "ru.vortex.unity.ui.misc",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

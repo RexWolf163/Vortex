@@ -21,8 +21,8 @@ namespace Vortex.Sdk.GallerySpritesSystem.Presets
 
         /// <summary>
         /// Read-only accessor для <see cref="GallerySpriteModel.CopyFrom"/>: модель делает
-        /// deep-clone этого handle-шаблона, чтобы runtime-инстанс имел свои <c>_cached</c>/
-        /// <c>_released</c> и не разделял состояние с пресетом.
+        /// deep-clone этого handle-шаблона, чтобы runtime-инстанс имел своё состояние загрузки
+        /// (<c>_cached</c>) и не разделял его с пресетом.
         /// </summary>
         public AssetHandle<Sprite> FullscreenTemplate => fullscreen;
     }

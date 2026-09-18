@@ -133,7 +133,7 @@ public static class GallerySpriteController
 ### Инварианты
 
 - **I1.** `Fullscreen` — internal; извне сборки недоступен ни для чтения, ни для мутации.
-- **I2.** Handle модели — независимый deep-clone handle пресета: `_cached`/`_released` не разделяются.
+- **I2.** Handle модели — независимый deep-clone handle пресета: состояние загрузки (`_cached`) не разделяется.
 - **I3.** Только один viewer активен в момент времени (registry).
 - **I4.** `Show`/`Hide` — синхронные (требование `IGalleryEntry`), внутри — только зов bus.
 
@@ -155,7 +155,9 @@ public static class GallerySpriteController
 
 ## Viewer implementation guide
 
-Пакет **не поставляет UI-компонент** — реализация fullscreen-viewer'а живёт в UI-слое приложения. Шаблон:
+Пакет поставляет **готовый** `GallerySpriteViewer` (`View/`): регистрируется в шине на `Awake`, грузит fullscreen через `GallerySpriteController`, кладёт спрайт в поле `Image`, запускает показ `TweenerHub`'ом (Forward — открыть, Back — закрыть) и реализует `IDataStorage` — отдаёт текущую модель дочерним виджетам панели через `GetData<T>()` / `OnUpdateLink`. Для типовой галереи достаточно повесить его на панель fullscreen'а и назначить `Image` + твинер.
+
+Если нужно кастомное поведение (свои переходы, аналитика, несколько состояний) — пишется свой viewer по тому же контракту. Шаблон:
 
 ```csharp
 using System.Threading;
@@ -230,7 +232,7 @@ public class FullscreenSpriteViewer : MonoBehaviour
 
 **Дисциплина (важно):**
 
-- **`Register` только один раз** в проекте. Если появится второй viewer — bus его отклонит с LogError.
+- **Один viewer на весь проект и на всё время сессии.** `Register` — на `Awake`, `Unregister` — на `OnDestroy`. Второй одновременно живой viewer bus отклонит (LogError, первый остаётся активным). Это дизайн-инвариант: два viewer'а спрайтовой галереи не сосуществуют. Смена сцены галереи предполагает, что старый viewer уничтожается (Unregister) до появления нового — держать двух viewer'ов одновременно (аддитивная загрузка с перекрытием) нельзя.
 - **`InternalClose` не зовёт `model.Hide()`** — иначе петля через bus. При закрытии по инициативе viewer'а (OnDisable, переход на новый entry) — только напрямую `ReleaseFullscreen` + hide UI.
 - **`OnCloseClicked` зовёт `_current.Hide()`**, не `InternalClose()` напрямую. Так закрытие проходит через модель → bus → HandleHide → InternalClose, и любой сторонний слушатель (аналитика) получит событие.
 - **Race при быстром переключении**: за время `await LoadFullscreenAsync` может прийти новый `Show`. Проверять `if (_current != model) return` после await.

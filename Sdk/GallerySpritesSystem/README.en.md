@@ -133,7 +133,7 @@ public static class GallerySpriteController
 ### Invariants
 
 - **I1.** `Fullscreen` is internal; from outside the assembly it can neither be read nor mutated.
-- **I2.** The model's handle is an independent deep-clone of the preset's handle: `_cached`/`_released` are not shared.
+- **I2.** The model's handle is an independent deep-clone of the preset's handle: the load state (`_cached`) is not shared.
 - **I3.** Only one viewer is active at a time (registry).
 - **I4.** `Show`/`Hide` are synchronous (as `IGalleryEntry` requires); inside — only a bus call.
 
@@ -155,7 +155,9 @@ The card enters `GalleryView` automatically when its type is allowed (`allowedTy
 
 ## Viewer implementation guide
 
-The package **does not ship a UI component** — the fullscreen viewer implementation lives in the app's UI layer. Template:
+The package ships a **ready-made** `GallerySpriteViewer` (`View/`): it registers with the bus on `Awake`, loads the fullscreen asset via `GallerySpriteController`, puts the sprite into an `Image` field, launches the reveal with a `TweenerHub` (Forward — open, Back — close) and implements `IDataStorage` — exposing the current model to the panel's child widgets via `GetData<T>()` / `OnUpdateLink`. For a typical gallery it is enough to put it on the fullscreen panel and assign the `Image` + tweener.
+
+If you need custom behaviour (custom transitions, analytics, multiple states) — write your own viewer against the same contract. Template:
 
 ```csharp
 using System.Threading;
@@ -230,7 +232,7 @@ public class FullscreenSpriteViewer : MonoBehaviour
 
 **Discipline (important):**
 
-- **`Register` exactly once** in the project. A second viewer will be rejected by the bus with a LogError.
+- **One viewer for the whole project and the whole session.** `Register` on `Awake`, `Unregister` on `OnDestroy`. A second concurrently-alive viewer is rejected by the bus (LogError, the first stays active). This is a design invariant: two sprite-gallery viewers do not coexist. Switching the gallery scene assumes the old viewer is destroyed (Unregister) before the new one appears — keeping two viewers alive at once (additive load with overlap) is not allowed.
 - **`InternalClose` does not call `model.Hide()`** — that would create a bus loop. When the viewer closes on its own initiative (OnDisable, transition to a new entry) — only direct `ReleaseFullscreen` + hide UI.
 - **`OnCloseClicked` calls `_current.Hide()`**, not `InternalClose()` directly. This routes the close through model → bus → HandleHide → InternalClose, and any listener (analytics) sees the event.
 - **Race on rapid switching**: while `await LoadFullscreenAsync` is running, a new `Show` may come in. Check `if (_current != model) return` after the await.
