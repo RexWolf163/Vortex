@@ -1,0 +1,25 @@
+{
+    "name": "ru.vortex.nani.gallery.stories",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.sdk.gallery",
+        "ru.vortex.database",
+        "ru.vortex.unity.database",
+        "ru.vortex.extensions",
+        "ru.vortex.nani.core",
+        "ru.vortex.system",
+        "ru.vortex.unity.extensions",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_NANINOVELL"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
