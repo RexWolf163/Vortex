@@ -1,0 +1,24 @@
+{
+    "name": "ru.vortex.sdk.gallery.sprites",
+    "rootNamespace": "Vortex.Sdk.GallerySpritesSystem",
+    "references": [
+        "ru.vortex.sdk.gallery",
+        "ru.vortex.core.assethandle",
+        "ru.vortex.database",
+        "ru.vortex.unity.database",
+        "ru.vortex.extensions",
+        "ru.vortex.logger",
+        "UniTask",
+        "ru.vortex.unity.extensions",
+        "ru.vortex.system"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

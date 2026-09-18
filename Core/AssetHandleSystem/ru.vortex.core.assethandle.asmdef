@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.core.assethandle",
-    "rootNamespace": "Vortex.Core.AssetHandleSystem",
+    "rootNamespace": "",
     "references": [
         "UniTask"
     ],
