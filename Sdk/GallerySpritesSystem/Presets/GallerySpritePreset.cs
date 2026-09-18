@@ -14,7 +14,7 @@ namespace Vortex.Sdk.GallerySpritesSystem.Presets
     /// `AddressableAssetHandle`) через Odin `[SerializeReference]`-picker.
     /// </summary>
     [CreateAssetMenu(fileName = "GallerySpritePreset",
-                     menuName = "Vortex/Presets/Gallery/Sprite")]
+                     menuName = "Database/Gallery/Sprite")]
     public class GallerySpritePreset : RecordPreset<GallerySpriteModel>
     {
         [SerializeReference] private AssetHandle<Sprite> fullscreen;

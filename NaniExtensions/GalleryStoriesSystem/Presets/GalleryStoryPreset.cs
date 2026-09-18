@@ -20,7 +20,7 @@ namespace Vortex.NaniExtensions.GalleryStoriesSystem.Presets
     /// (<c>ScriptPlayer.ResetService()</c> обнуляет загруженный Script-инстанс).
     /// </summary>
     [CreateAssetMenu(fileName = "GalleryStoryPreset",
-        menuName = "Vortex/Presets/Gallery/Story")]
+        menuName = "Database/Gallery/Story")]
     public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
     {
         [SerializeField, Naninovel.ReadOnly]
