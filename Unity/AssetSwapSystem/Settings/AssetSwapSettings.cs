@@ -57,7 +57,9 @@ namespace Vortex.Unity.AssetSwapSystem
         }
 
         /// <summary>
-        /// Найти и убрать null-элементы и дубликаты по <see cref="AssetSwapGroup.index"/>.
+        /// Найти и убрать null-элементы и дубликаты по <see cref="AssetSwapGroup.index"/>;
+        /// выровнять длину <see cref="AssetSwapGroup.variantComments"/> под
+        /// <see cref="AssetSwapGroup.variantsCount"/> у каждой оставшейся группы.
         /// Каждое удаление — <c>Debug.LogError</c> (инвариант I1). Вызывается при открытии
         /// страницы ProjectSettings и в начале любого public API вызова.
         /// </summary>
@@ -79,6 +81,7 @@ namespace Vortex.Unity.AssetSwapSystem
                     changed = true;
                     continue;
                 }
+                changed |= NormalizeVariantComments(g);
                 kept.Add(g);
             }
             if (changed)
@@ -86,6 +89,23 @@ namespace Vortex.Unity.AssetSwapSystem
                 groups = kept;
                 SaveToDisk();
             }
+        }
+
+        private static bool NormalizeVariantComments(AssetSwapGroup g)
+        {
+            g.variantComments ??= new List<string>();
+            var changed = false;
+            while (g.variantComments.Count < g.variantsCount)
+            {
+                g.variantComments.Add(string.Empty);
+                changed = true;
+            }
+            if (g.variantComments.Count > g.variantsCount)
+            {
+                g.variantComments.RemoveRange(g.variantsCount, g.variantComments.Count - g.variantsCount);
+                changed = true;
+            }
+            return changed;
         }
     }
 }
