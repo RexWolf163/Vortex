@@ -89,9 +89,9 @@ Symlinks via `mklink` (Windows) or `ln -s` (Unix) work too, but complicate IDE e
 
 ## Related project files
 
-- [`F:\Claude\Vortex\AITools\Prompt code quality analysis.md`](../Prompt%20code%20quality%20analysis.md) — original LLM prompt for code quality analysis (earlier manual version). The `code-quality` skill extends it with branch A+ and a formal protocol.
-- [`F:\Claude\Критерии_оценки_кода_Unity.md`](../../../Критерии_оценки_кода_Unity.md) — canonical formulas for code quality. The `code-quality` skill inlines them.
-- [`F:\Claude\vortex-context.md`](../../../vortex-context.md) and [`F:\Claude\architecture_context.md`](../../../architecture_context.md) — architectural foundations behind `vortex-layer-detect` and `vortex-initial-architecture`.
+- `Prompt code quality analysis.md` — original LLM prompt for code quality analysis (earlier manual version). The `code-quality` skill extends it with branch A+ and a formal protocol.
+- `Критерии_оценки_кода_Unity.md` — canonical formulas for code quality. The `code-quality` skill inlines them.
+- `vortex-context.md` and `architecture_context.md` — architectural foundations behind `vortex-layer-detect` and `vortex-initial-architecture`.
 
 ## Versioning
 

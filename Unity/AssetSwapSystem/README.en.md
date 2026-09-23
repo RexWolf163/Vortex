@@ -33,7 +33,10 @@ Out of scope:
 
 ## Dependencies
 
-None — just the built-in `UnityEditor` API (SettingsProvider, ScriptableSingleton, AssetDatabase, AssetImporter).
+- **UniTask** (`Cysharp.Threading.Tasks`) — the only external dependency (referenced in the asmdef). All heavy operations (`ValidateAsync` / `ValidateAllAsync` / `ApplyAsync`, the holder scanner) are async on UniTask with `await UniTask.Yield()` between steps. The package does not compile without UniTask.
+- Built-in `UnityEditor` API — SettingsProvider, ScriptableSingleton, AssetDatabase, AssetImporter, EditorWindow.
+
+No dependencies on other Vortex packages.
 
 ---
 

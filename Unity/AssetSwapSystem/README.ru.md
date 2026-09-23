@@ -33,7 +33,10 @@ Editor-only утилита для подмены ассетов на разны�
 
 ## Зависимости
 
-Никаких — только штатный `UnityEditor` API (SettingsProvider, ScriptableSingleton, AssetDatabase, AssetImporter).
+- **UniTask** (`Cysharp.Threading.Tasks`) — единственная внешняя зависимость (ссылка в asmdef). Все тяжёлые операции (`ValidateAsync` / `ValidateAllAsync` / `ApplyAsync`, холдер-сканер) асинхронны на UniTask с `await UniTask.Yield()` между шагами. Без UniTask пакет не компилируется.
+- Штатный `UnityEditor` API — SettingsProvider, ScriptableSingleton, AssetDatabase, AssetImporter, EditorWindow.
+
+Никаких зависимостей от других пакетов Vortex.
 
 ---
 

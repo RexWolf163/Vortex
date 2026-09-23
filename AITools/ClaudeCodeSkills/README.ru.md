@@ -89,9 +89,9 @@ cp -r Vortex/AITools/ClaudeCodeSkills/* .claude/skills/
 
 ## Связь с другими файлами проекта
 
-- [`F:\Claude\Vortex\AITools\Prompt code quality analysis.md`](../Prompt%20code%20quality%20analysis.md) — оригинальный LLM-промпт оценки качества (более ранняя ручная версия). Скилл `code-quality` расширяет его веткой A+ и формализованным протоколом.
-- [`F:\Claude\Критерии_оценки_кода_Unity.md`](../../../Критерии_оценки_кода_Unity.md) — канон формул оценки. Скилл `code-quality` содержит его инлайн.
-- [`F:\Claude\vortex-context.md`](../../../vortex-context.md) и [`F:\Claude\architecture_context.md`](../../../architecture_context.md) — архитектурные основания, на которых построены скиллы `vortex-layer-detect` и `vortex-initial-architecture`.
+- `Prompt code quality analysis.md` — оригинальный LLM-промпт оценки качества (более ранняя ручная версия). Скилл `code-quality` расширяет его веткой A+ и формализованным протоколом.
+- `Критерии_оценки_кода_Unity.md` — канон формул оценки. Скилл `code-quality` содержит его инлайн.
+- `vortex-context.md` и `architecture_context.md` — архитектурные основания, на которых построены скиллы `vortex-layer-detect` и `vortex-initial-architecture`.
 
 ## Версионирование
 
