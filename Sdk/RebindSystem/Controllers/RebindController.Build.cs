@@ -95,10 +95,14 @@ namespace Vortex.Sdk.RebindSystem.Controllers
             }
         }
 
-        private void ResetActivityToDefault()
+        /// <summary><c>true</c> — состав активных групп изменился.</summary>
+        private bool ResetActivityToDefault()
         {
+            var defaults = DefaultActiveGroups();
+            var changed = !Model.ActiveGroups.SetEquals(defaults);
             Model.ActiveGroups.Clear();
-            Model.ActiveGroups.UnionWith(DefaultActiveGroups());
+            Model.ActiveGroups.UnionWith(defaults);
+            return changed;
         }
 
         /// <summary>Активность по умолчанию: первая по порядку группа каждого набора и все самостоятельные.</summary>

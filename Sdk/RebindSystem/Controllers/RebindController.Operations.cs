@@ -76,7 +76,7 @@ namespace Vortex.Sdk.RebindSystem.Controllers
             if (reason != RejectReason.None)
                 return RebindResult.Rejected(reason);
             if (slot.Value.IsEmpty)
-                return RebindResult.Applied(Array.Empty<string>(), Array.Empty<ConflictInfo>());
+                return RebindResult.Unchanged();
             if (IsProtected(command.Id) && RemainingAfter(command, new[] { slot }) == 0)
                 return RebindResult.Rejected(RejectReason.ProtectedLastBinding);
 
@@ -98,7 +98,7 @@ namespace Vortex.Sdk.RebindSystem.Controllers
                 return RebindResult.Rejected(reason);
 
             if (ReferenceEquals(a, b))
-                return RebindResult.Applied(Array.Empty<string>(), Array.Empty<ConflictInfo>());
+                return RebindResult.Unchanged();
 
             var valueA = a.Value;
             var valueB = b.Value;
@@ -184,7 +184,7 @@ namespace Vortex.Sdk.RebindSystem.Controllers
             var scope = new Scope();
             foreach (var command in Model.GetCommands(map))
                 ResetInto(command, scope);
-            CommitRebuilt();
+            CommitRebuilt(scope.Changed.Count > 0);
         }
 
         /// <summary>Сброс всех изменений до заводского состояния, включая активность групп.</summary>
@@ -195,8 +195,10 @@ namespace Vortex.Sdk.RebindSystem.Controllers
             var scope = new Scope();
             foreach (var command in Model.Commands.Values)
                 ResetInto(command, scope);
-            ResetActivityToDefault();
-            CommitRebuilt();
+            var activityChanged = ResetActivityToDefault();
+            if (!CommitRebuilt(scope.Changed.Count > 0 || activityChanged))
+                return;
+
             RebindBus.RaiseGroupsChanged();
         }
 
@@ -354,11 +356,13 @@ namespace Vortex.Sdk.RebindSystem.Controllers
 
         /// <summary>
         /// Завершение операции над слотами: нормализация (кроме сброса), конфликты, ассет, сохранение, событие.
+        /// Ни один слот не тронут — операция ничего не меняла: <see cref="RebindStatus.Unchanged"/> без записи
+        /// снимка и без событий.
         /// </summary>
         private RebindResult Commit(Scope scope, BindSlot target, bool normalize = true)
         {
             if (scope.Changed.Count == 0)
-                return RebindResult.Applied(Array.Empty<string>(), Array.Empty<ConflictInfo>());
+                return RebindResult.Unchanged();
 
             if (normalize)
                 Normalize(scope);
@@ -393,14 +397,19 @@ namespace Vortex.Sdk.RebindSystem.Controllers
 
         /// <summary>
         /// Завершение массового сброса: полная пересборка индекса и ассета (включая активность групп), сохранение,
-        /// «пересобрано всё».
+        /// «пересобрано всё». Сброс ничего не изменил (<paramref name="changed"/> — <c>false</c>) — ни записи,
+        /// ни события; <c>false</c> в ответе.
         /// </summary>
-        private void CommitRebuilt()
+        private bool CommitRebuilt(bool changed)
         {
+            if (!changed)
+                return false;
+
             RebuildIndex();
             ApplyAllToAsset();
             Persist();
             RebindBus.RaiseRebuilt();
+            return true;
         }
     }
 }

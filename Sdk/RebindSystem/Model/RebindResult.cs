@@ -7,7 +7,16 @@ namespace Vortex.Sdk.RebindSystem.Model
     {
         Applied,
         Rejected,
-        Cancelled
+
+        /// <summary>Операция прервана: игрок отменил перехват, окно потеряло фокус, импорт до загрузки.</summary>
+        Cancelled,
+
+        /// <summary>
+        /// Операция ничего не изменила: запрошенное состояние уже выполнено (та же клавиша в тот же слот,
+        /// очистка пустого слота, обмен слота с самим собой, сброс уже заводского состояния). Снимок не
+        /// пишется, события не поднимаются. Новые члены — только в конец: значения используются как номера.
+        /// </summary>
+        Unchanged
     }
 
     public enum RejectReason
@@ -85,5 +94,7 @@ namespace Vortex.Sdk.RebindSystem.Model
             new(RebindStatus.Rejected, reason, conflicts, null);
 
         internal static RebindResult Cancelled() => new(RebindStatus.Cancelled, RejectReason.None, null, null);
+
+        internal static RebindResult Unchanged() => new(RebindStatus.Unchanged, RejectReason.None, null, null);
     }
 }

@@ -12,7 +12,7 @@ Capabilities:
 - Support for Text, TextMeshPro, TextMeshProUGUI, Button, AdvancedButton, SpriteRenderer, Image, UIStateSwitcher
 - Position-based part addressing for multi-part components
 - `[UIComponentLink]` attribute for type-safe position selection in Inspector
-- Optional text localization (enabled by default)
+- Optional text localization (enabled by default) with re-application on locale change
 
 Out of scope:
 - Data display logic (layer 3/4)
@@ -65,6 +65,12 @@ Partial MonoBehaviour. Stores four part arrays:
 The `Init` button in Inspector runs recursive `GetComponentsInChildren` for all four part types. When nested `UIComponent` containers exist in the hierarchy — first recursively calls `Init()` on each child `UIComponent`, then **excludes** all parts already owned by child containers. Each part belongs to exactly one `UIComponent`.
 
 After collecting parts, `Init()` populates `_testData` with current values (texts, sprites, switcher states) for debugging via the `Test` button.
+
+### Localization
+
+`useLocalization` is on by default: texts pass through `StringExt.Translate()`. The component remembers the last values passed to `SetText` per part position — the parts hold the translation, and only the component knows the key. On `OnEnable` (and only when `useLocalization` is on) it subscribes to `Localization.OnLocalizationChanged` and re-applies the cached texts on the event; on `OnDisable` it unsubscribes.
+
+Texts set only in the prefab are not updated on a locale change: the component never set them and does not know the key. For that case there is `SetTextComponent` with its `[LocalizationKey]` field.
 
 ### UIComponentPart (abstract)
 
@@ -127,12 +133,15 @@ private int position = -1;  // -1 = default, 0..N = specific part
 | Situation | Behavior |
 |-----------|----------|
 | `SetText("x", pos)` without `UIComponentText` or out of range | `Debug.LogError`, return |
-| `SetText("x")` when `uiComponentTexts == null` | `NullReferenceException` |
+| `SetText("x")` when `uiComponentTexts == null` or the array is empty | `Debug.LogError`, return |
 | `SetAction(null)` | Current listener removed |
 | `PutData()` with array shorter than part count | Texts/buttons/graphics: missing entries are nullified (empty string / null / null). Switchers: processing breaks early |
 | `SetSprite(Texture2D)` | `Sprite` created via `Sprite.Create()` |
 | `position` out of range | `Debug.LogError` + return (positional methods), `IndexOutOfRangeException` (direct array access) |
-| `useLocalization = true` (default) | Texts passed through `StringExt.Translate()` |
+| `useLocalization = true` (default) | Texts pass through `StringExt.Translate()`; the component subscribes to locale changes |
+| Locale change, no text was set from code | Nothing happens: the cache is empty, prefab text is left alone |
+| Locale change, the part set changed after the last `SetText` | Warning in the log, texts are not re-applied |
+| Locale change, `null` was written into a position | The position is cleared: `Translate(null)` returns an empty string |
 
 ### UIComponentLinkAttribute
 

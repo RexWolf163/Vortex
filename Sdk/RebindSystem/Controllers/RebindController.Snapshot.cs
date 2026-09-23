@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
@@ -411,16 +412,47 @@ namespace Vortex.Sdk.RebindSystem.Controllers
             if (!IsInitialized)
                 return RebindResult.Cancelled();
 
+            var before = StateFingerprint();
+
             BuildModel();
             if (!ApplySnapshotText(json))
-                Debug.LogWarning("[RebindController] Импортируемый снимок частично нечитаем — нечитаемое заменено заводским.");
+                Debug.LogWarning(
+                    "[RebindController] Импортируемый снимок частично нечитаем — нечитаемое заменено заводским.");
             RebuildIndex();
             ApplyAllToAsset();
+
+            // Состояние совпало с прежним: ассет переписан заново (BuildModel начинает с чистого листа), но
+            // снимок и подписчиков трогать незачем — карта та же.
+            if (StateFingerprint() == before)
+                return RebindResult.Unchanged();
 
             Persist();
             RebindBus.RaiseRebuilt();
             RebindBus.RaiseGroupsChanged();
             return RebindResult.Applied(Model.Slots.Keys.ToArray(), Array.Empty<ConflictInfo>());
+        }
+
+        /// <summary>
+        /// Детерминированный отпечаток состояния: активность групп, значения слотов и признак явного назначения.
+        /// По тексту снимка состояния не сравнить — разделы сжимаются ZIP, а запись архива несёт время создания,
+        /// поэтому два снимка одного состояния дают разные строки.
+        /// </summary>
+        private string StateFingerprint()
+        {
+            if (Model == null)
+                return string.Empty;
+
+            var builder = new StringBuilder();
+            foreach (var group in Model.Groups)
+                builder.Append(Model.IsGroupActive(group.Key) ? '+' : '-').Append(group.Key).Append('\n');
+
+            foreach (var key in Model.Slots.Keys.OrderBy(k => k, StringComparer.Ordinal))
+            {
+                var slot = Model.Slots[key];
+                builder.Append(key).Append('=').Append(slot.Value).Append(slot.IsExplicit ? "|e" : "").Append('\n');
+            }
+
+            return builder.ToString();
         }
     }
 }

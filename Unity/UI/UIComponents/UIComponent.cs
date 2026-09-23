@@ -3,6 +3,7 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.Events;
 using Vortex.Core.LocalizationSystem;
+using Vortex.Core.LocalizationSystem.Bus;
 using Vortex.Unity.UI.UIComponents.Parts;
 
 namespace Vortex.Unity.UI.UIComponents
@@ -44,6 +45,13 @@ namespace Vortex.Unity.UI.UIComponents
          VerticalGroup("Link/Components")]
         protected UIComponentSwitcher[] uiComponentSwitchers;
 
+        /// <summary>
+        /// Последние тексты, переданные в <see cref="SetText(string,int)"/>, по позициям частей. Нужны, чтобы
+        /// переустановить их при смене локали: в частях лежит уже переведённое значение, ключ известен только здесь.
+        /// Пусто — текст из кода не задавали: обновлять нечего.
+        /// </summary>
+        protected string[] Texts;
+
 #if UNITY_EDITOR
         /// <summary>
         /// Editor: пометить грязными цели всех частей после SetText/SetSprite/… в edit-mode, чтобы правки
@@ -69,18 +77,42 @@ namespace Vortex.Unity.UI.UIComponents
 
         #region Private
 
-        /*
         private void OnEnable()
         {
-            var count = uiComponentTexts?.Length ?? 0;
-            for (var i = 0; i < count; i++)
-                SetText(String.Empty, i);
-
-            count = uiComponentGraphics?.Length ?? 0;
-            for (var i = 0; i < count; i++)
-                SetSprite(null, i);
+            if (useLocalization)
+                Localization.OnLocalizationChanged += RefreshData;
         }
-        */
+
+        private void OnDisable()
+        {
+            Localization.OnLocalizationChanged -= RefreshData;
+        }
+
+        /// <summary>
+        /// Смена локали: переустановить тексты из кэша. Кэш пуст — текст из кода не задавали (например, он стоит
+        /// в префабе), обновлять нечего.
+        /// </summary>
+        private void RefreshData()
+        {
+            if (Texts == null)
+                return;
+
+            if (Texts.Length != uiComponentTexts.Length)
+            {
+                Debug.LogWarning($"[UIComponent: {transform.name}] Cached texts do not match parts count");
+                return;
+            }
+
+            for (var i = 0; i < Texts.Length; i++)
+                SetText(Texts[i], i);
+        }
+
+        /// <summary>Кэш под текущее число текстовых частей. Состав частей сменился — кэш пересоздаётся.</summary>
+        private void EnsureTextsCache()
+        {
+            if (Texts == null || Texts.Length != uiComponentTexts.Length)
+                Texts = new string[uiComponentTexts.Length];
+        }
 
         #endregion
 
@@ -134,10 +166,12 @@ namespace Vortex.Unity.UI.UIComponents
         {
             if (uiComponentTexts == null || uiComponentTexts.Length <= position)
             {
-                Debug.LogError($"[UIComponent: {transform.name}] No UI components for this content]");
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
                 return;
             }
 
+            EnsureTextsCache();
+            Texts[position] = text;
             uiComponentTexts[position].PutData(useLocalization ? text.Translate() : text);
         }
 
@@ -147,6 +181,16 @@ namespace Vortex.Unity.UI.UIComponents
         /// <param name="text">Текст для внедрения в компонент</param>
         public virtual void SetText(string text)
         {
+            if (uiComponentTexts == null || uiComponentTexts.Length == 0)
+            {
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
+                return;
+            }
+
+            EnsureTextsCache();
+            for (var i = 0; i < Texts.Length; i++)
+                Texts[i] = text;
+
             text = useLocalization ? text.Translate() : text;
             foreach (var uiComponentText in uiComponentTexts)
             {
@@ -167,7 +211,7 @@ namespace Vortex.Unity.UI.UIComponents
         {
             if (uiComponentButtons == null || uiComponentButtons.Length <= position)
             {
-                Debug.LogError($"[UIComponent: {transform.name}] No UI components for this content]");
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
                 return;
             }
 
@@ -205,7 +249,7 @@ namespace Vortex.Unity.UI.UIComponents
         {
             if (uiComponentGraphics == null || uiComponentGraphics.Length <= position)
             {
-                Debug.LogError($"[UIComponent: {transform.name}] No UI components for this content]");
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
                 return;
             }
 
@@ -221,7 +265,7 @@ namespace Vortex.Unity.UI.UIComponents
         {
             if (uiComponentGraphics == null || uiComponentGraphics.Length <= position)
             {
-                Debug.LogError($"[UIComponent: {transform.name}] No UI components for this content]");
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
                 return;
             }
 
@@ -243,7 +287,7 @@ namespace Vortex.Unity.UI.UIComponents
         {
             if (uiComponentSwitchers == null || uiComponentSwitchers.Length <= position)
             {
-                Debug.LogError($"[UIComponent: {transform.name}] No UI components for this content]");
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
                 return;
             }
 

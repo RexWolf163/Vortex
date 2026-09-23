@@ -151,6 +151,7 @@ The first failure is `Rejected` with a reason:
 ### Guarantees
 
 - One changing operation — one save and one event. Exceptions — `ResetAll` and `Import`: `OnRebuilt`, then `OnGroupsChanged`
+- An operation that changes nothing writes no snapshot and raises no events: the answer is `Unchanged`. States are compared by slot values, explicit-assignment flags and group activity — the snapshot text does not work for this, its sections are compressed and carry a creation time
 - Operations never create intra-map conflicts: `IntraMap` is possible only from loading or import
 - An operation never leaves a protected command without keys
 - After an operation on a command, each of its groups has at most X keys and no duplicates; reset and loading do not trim to X
@@ -165,7 +166,8 @@ The first failure is `Rejected` with a reason:
 - **Changes that bypass the system are not tracked** (see "Critical requirements").
 - **A re-run without a domain reload is not supported.** The model and asset are rebuilt from a clean slate, but `OnReady` is static and does not reopen — as with other Vortex buses.
 - **A storage read error disables writing until restart.** The snapshot content is unknown and must not be overwritten; the player's changes work in memory, `CanPersist` is `false`.
-- **`Import` of fully unreadable text returns `Applied`.** Factory settings remain; the result carries no degradation flag, only a log warning.
+- **`Import` of fully unreadable text returns `Applied`.** Factory settings remain; the result carries no degradation flag, only a log warning. If the state was already the factory one, the answer is `Unchanged`.
+- **`Import` of a state equal to the current one returns `Unchanged`.** The snapshot is not rewritten and neither `Rebuilt` nor `GroupsChanged` is raised. The asset is still rebuilt: an import starts from a clean slate.
 - **While a caught key is held, other presses of its device are suppressed.** Otherwise the held key would reach the game with the device's next event.
 - **Of several candidates in one input update, the first is taken.**
 - **Cancelling capture with a forbidden key works only without a modifier.** A held modifier is already swallowed and its device's events are suppressed: Ctrl+Esc will not reach the game.
@@ -290,6 +292,7 @@ private void OnCaptureChanged(CaptureValve valve)
         case RebindStatus.Applied:  view.Highlight(result.Conflicts); break;   // CrossMap and Common
         case RebindStatus.Rejected: view.OfferTakeOrSwap(result.Conflicts); break;
         case RebindStatus.Cancelled: view.Close(); break;
+        case RebindStatus.Unchanged: view.Close(); break;   // the requested state already holds
     }
 }
 ```
@@ -342,6 +345,7 @@ Maps usually do not overlap: a key shared by commands of different maps is `Cros
 - Highlighting only: the operation is not rejected, just like `CrossMap`.
 - Within one map the usual rules apply: `IntraMap` and `IntraMapAllowed` are heavier.
 - `RebindResult.Conflicts` on `Applied` contains `CrossMap` and `Common`.
+- Result statuses: `Applied` — the map changed; `Rejected` — the operation was refused with a reason; `Cancelled` — the capture was interrupted (cancel, focus loss, import before loading); `Unchanged` — the requested state already holds, no snapshot write and no events.
 - Severity ascending: `None`, `CrossMap`, `Common`, `IntraMapAllowed`, `IntraMap`. Enum values are the switcher state numbers (`UIStateSwitcher.Set(Enum)`), so new members are appended only at the end — severity does not follow the member order.
 
 In the slot prefab, `conflictSwitcher` gets a separate `Common` state.
@@ -361,7 +365,7 @@ Assembly `ru.vortex.sdk.rebind.views`, namespace `Vortex.Sdk.RebindSystem.Views`
 | `SwitchSetHandler` | Layout switching within a set: `Next()` / `Previous()` in config order, active group title in a `UIComponent`. An empty set key logs an error |
 | `ChangesStateHandler` | `SwitcherState` switcher: `On` — differs from factory (`HasChanges()`) |
 | `ResetToFactoryHandler` | Public `ResetAll()` for the "Reset all" button; an open capture is interrupted |
-| `RebindRollback` | Rollback source for `RollbackHandler` (RollbackSystem package): the point is an `Export()` snapshot, rollback — `Import()`, changes — by a model fingerprint |
+| `RebindRollback` | Rollback source for `RollbackHandler` (RollbackSystem package): the point is an `Export()` snapshot, rollback — `Import()`, changes — by a model fingerprint. A rollback with no changes raises no events: `Import` answers `Unchanged` |
 
 Menu layout: a group panel with `RebindGroupHandler` → a row pool on a prefab with `RebindCommandView` → a nested slot pool on a prefab with `RebindSlotView`. The capture panel — `CaptureStateHandler`, `CaptureMouseHandler`, `CaptureCancelHandler`.
 
@@ -403,8 +407,10 @@ The snapshot is global: it is not tied to a save slot. Export returns the same t
 | Snapshot partially unreadable | Unreadable parts — factory, source backed up before the first overwrite |
 | More than X factory bindings in a group | Error in the log at start; the first operation on the command (except a reset) drops the extra ones |
 | Operation before loading | `Rejected` (`UnknownSlot`); `Import` — `Cancelled`; resets and switching — no-op |
+| An operation changes nothing (same key into the same slot, `Swap` of a slot with itself, reset of an already-factory state) | `Unchanged`: no snapshot write and no events |
+| `Import` of a snapshot equal to the current state (e.g. a rollback with no changes) | `Unchanged`: no events, views are not rebuilt |
 | `ResetMap(null)` | No-op: resetting everything is `ResetAll` only |
-| `Clear` of an empty slot | `Applied` with no changes |
+| `Clear` of an empty slot | `Unchanged`: the map did not change, no snapshot write, no events |
 | A protected command would lose its last key | `Rejected` (`ProtectedLastBinding`); slots beyond X do not count |
 | LeftCtrl+RightCtrl+A | `Rejected` (`AmbiguousModifiers`) |
 | Forbidden key during capture | `ForbiddenKey` rejection, the press reaches the game, the valve stays open |
