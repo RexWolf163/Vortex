@@ -23,15 +23,13 @@ namespace Vortex.NaniExtensions.GalleryStoriesSystem.Presets
         menuName = "Database/Gallery/Story")]
     public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
     {
-        [SerializeField, Naninovel.ReadOnly]
-        [InfoBox("$" + nameof(ScriptPathValidationMessage),
-            "$" + nameof(ScriptPathValidationType))]
+        [SerializeField, Naninovel.ReadOnly] [InfoBox("$ScriptPathValidationMessage", "$ScriptPathValidationType")]
         private string scriptPath;
 
         [NonSerialized, ShowInInspector]
         [Tooltip("Перетащи сюда nani-скрипт — его Path скопируется в scriptPath, а поле очистится. " +
                  "Ссылка на Script не сериализуется (защита от выгрузки инстанса самой naninovel).")]
-        [OnValueChanged(nameof(OnScriptChanged))]
+        [OnValueChanged("$OnScriptChanged")]
         private Script script;
 
         /// <summary>
