@@ -33,13 +33,13 @@ namespace Vortex.Sdk.GallerySystem.View
     public class GalleryView : MonoBehaviour
     {
         [Header("Data source")]
-        [SerializeField, ValueSelector(nameof(GetAvailableMarks))]
+        [SerializeField, ValueSelector("$GetAvailableMarks")]
         private string[] marks = new string[0];
 
-        [SerializeField, ValueSelector(nameof(GetGalleryEntryTypes))]
+        [SerializeField, ValueSelector("$GetGalleryEntryTypes")]
         private string[] allowedTypes = new string[0];
 
-        [SerializeField, ValueSelector(nameof(GetGalleryEntryTypes))]
+        [SerializeField, ValueSelector("$GetGalleryEntryTypes")]
         private string[] deniedTypes = new string[0];
 
         [SerializeField, DbRecord(GroupByType = true)]
@@ -48,7 +48,7 @@ namespace Vortex.Sdk.GallerySystem.View
         [Header("Behaviour")]
         [SerializeField] private LockedMode lockedMode = LockedMode.Hide;
 
-        [SerializeField, ValueSelector(nameof(GetSorters))]
+        [SerializeField, ValueSelector("$GetSorters")]
         private string sorter;
 
         [SerializeField, Tooltip("Сбрасывать выделение (highlight) в null, если последняя просмотренная " +
