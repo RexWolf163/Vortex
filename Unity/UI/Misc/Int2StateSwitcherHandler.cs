@@ -28,13 +28,13 @@ namespace Vortex.Unity.UI.Misc
             _source ??= storage as IDataStorage;
             if (_source == null)
             {
-                Debug.LogError($"[Int2StateSwitcherHandler] No IDataStorage selected for {name}");
+                Debug.LogError($"[Int2StateSwitcherHandler] No IDataStorage selected for {name}", this);
                 return;
             }
 
             if (switcher == null)
             {
-                Debug.LogError($"[Int2StateSwitcherHandler] No UIStateSwitcher selected for {name}");
+                Debug.LogError($"[Int2StateSwitcherHandler] No UIStateSwitcher selected for {name}", this);
                 return;
             }
 

@@ -47,7 +47,7 @@ namespace Vortex.Unity.VideoSystem.Handlers
         {
             if (index < 0 || index >= _list.Count)
             {
-                Debug.LogError($"[ScreenModeHandler] Invalid screen mode index selected: {index}");
+                Debug.LogError($"[ScreenModeHandler] Invalid screen mode index selected: {index}", this);
                 return;
             }
 

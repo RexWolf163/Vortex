@@ -93,7 +93,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
             var view = go.GetComponent<EffectView>();
             if (view == null)
             {
-                Debug.LogError($"[EffectPool] Префаб '{prefab.name}' не имеет EffectView. Эффект не будет работать.");
+                Debug.LogError($"[EffectPool] Префаб '{prefab.name}' не имеет EffectView. Эффект не будет работать.", this);
                 Destroy(go);
                 return null;
             }

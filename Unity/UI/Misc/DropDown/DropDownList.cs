@@ -27,7 +27,7 @@ namespace Vortex.Unity.UI.Misc.DropDown
         {
             if (text == null || text.Length == 0)
             {
-                Debug.LogError("[DropDownList] Call on empty list.");
+                Debug.LogError("[DropDownList] Call on empty list.", this);
                 Destroy(gameObject);
                 return;
             }

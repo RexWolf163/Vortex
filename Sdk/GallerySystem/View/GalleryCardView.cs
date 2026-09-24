@@ -46,7 +46,7 @@ namespace Vortex.Sdk.GallerySystem.View
             _source ??= storage as IDataStorage;
             if (_source == null)
             {
-                Debug.LogError($"[GalleryCardView] '{name}': storage is not IDataStorage.");
+                Debug.LogError($"[GalleryCardView] '{name}': storage is not IDataStorage.", this);
                 return;
             }
 

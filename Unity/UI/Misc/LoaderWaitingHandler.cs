@@ -35,6 +35,6 @@ namespace Vortex.Unity.UI.Misc
         private void OnReady() => tweener.Forward();
 
         private void OnError(INeedDelay loader) =>
-            Debug.LogError($"[LoaderWaitingHandler] loading failed for {loader.GetType().Name}.");
+            Debug.LogError($"[LoaderWaitingHandler] loading failed for {loader.GetType().Name}.", this);
     }
 }

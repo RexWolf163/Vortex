@@ -56,7 +56,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
                 {
                     baseParams[i] = AddNumber(baseParams[i]);
                     list.Clear();
-                    Debug.LogError($"\u2757 Неуникальное название параметра «{n}»");
+                    Debug.LogError($"\u2757 Неуникальное название параметра «{n}»", this);
                     CheckErrors();
                     return;
                 }
@@ -69,7 +69,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
                 var mappedParam = mappedParams[i];
                 if (mappedParam == null)
                 {
-                    Debug.LogError($"\u2757 Null значение в конфиге");
+                    Debug.LogError($"\u2757 Null значение в конфиге", this);
                     continue;
                 }
 
@@ -80,7 +80,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
                 {
                     mappedParams[i].name = AddNumber(mappedParams[i].name);
                     list.Clear();
-                    Debug.LogError($"\u2757 Неуникальное название параметра «{n}»");
+                    Debug.LogError($"\u2757 Неуникальное название параметра «{n}»", this);
                     CheckErrors();
                     return;
                 }
@@ -98,7 +98,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
                 {
                     if (parameterLink is MappedParameterLink p)
                         p.parent = "";
-                    Debug.LogError($"\u2757 Несуществующий родитель у параметра {mappedParam.Name}");
+                    Debug.LogError($"\u2757 Несуществующий родитель у параметра {mappedParam.Name}", this);
                 }
             }
 
@@ -133,7 +133,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
                 {
                     if (parent is MappedParameterLink p)
                         p.parent = "";
-                    Debug.LogError($"\u2757 Обнаружен цикличный указатель родителей для параметра «{preset.Name}»");
+                    Debug.LogError($"\u2757 Обнаружен цикличный указатель родителей для параметра «{preset.Name}»", this);
                     continue;
                 }
 

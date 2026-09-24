@@ -70,7 +70,7 @@ namespace Vortex.Steam.SteamConnectionSystem.Runtime
                 // The most common case where this happens is when SteamManager gets destroyed because of Application.Quit(),
                 // and then some Steamworks code in some other OnDestroy gets called afterwards, creating a new SteamManager.
                 // You should never call Steamworks functions in OnDestroy, always prefer OnDisable if possible.
-                Debug.LogError("Tried to Initialize the SteamAPI twice in one session!");
+                Debug.LogError("Tried to Initialize the SteamAPI twice in one session!", this);
                 return;
             }
 

@@ -23,7 +23,7 @@ namespace Vortex.Unity.Components.Misc.LocalizationSystem
         {
             if (uiComponent == null)
             {
-                Debug.LogError($"Target for SetText:{name} component is missing.");
+                Debug.LogError($"Target for SetText:{name} component is missing.", this);
                 return;
             }
 

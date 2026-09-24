@@ -196,7 +196,7 @@ namespace Vortex.Unity.UI.UIComponents
             {
 #if UNITY_EDITOR
                 if (uiComponentText == null)
-                    Debug.LogError($"[UIComponent] brokenLinks in {name} GameObject");
+                    Debug.LogError($"[UIComponent] brokenLinks in {name} GameObject", this);
 #endif
                 uiComponentText.PutData(text);
             }

@@ -36,7 +36,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             var guid = await SaveController.Save(GetSaveName(texture));
             if (guid == null)
             {
-                Debug.LogError("[SaveGameHandler] Couldn't save game");
+                Debug.LogError("[SaveGameHandler] Couldn't save game", this);
                 return;
             }
 

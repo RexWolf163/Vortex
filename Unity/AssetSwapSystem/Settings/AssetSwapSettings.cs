@@ -45,7 +45,7 @@ namespace Vortex.Unity.AssetSwapSystem
         {
             if (GetGroup(group.index) != null)
             {
-                Debug.LogError($"{LogPrefix} Duplicate group AssetGroup{group.index} in settings — new one ignored.");
+                Debug.LogError($"{LogPrefix} Duplicate group AssetGroup{group.index} in settings — new one ignored.", this);
                 return;
             }
             groups.Add(group);
@@ -77,7 +77,7 @@ namespace Vortex.Unity.AssetSwapSystem
                 }
                 if (!seen.Add(g.index))
                 {
-                    Debug.LogError($"{LogPrefix} Duplicate group AssetGroup{g.index} in settings — dropped.");
+                    Debug.LogError($"{LogPrefix} Duplicate group AssetGroup{g.index} in settings — dropped.", this);
                     changed = true;
                     continue;
                 }

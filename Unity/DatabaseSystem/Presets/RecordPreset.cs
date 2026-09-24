@@ -121,7 +121,7 @@ namespace Vortex.Unity.DatabaseSystem.Presets
             }
 
             if (number > 0 && nameRecord != string.Empty)
-                Debug.LogError($"[DbRecord] Name {name} for records already exists!");
+                Debug.LogError($"[DbRecord] Name {name} for records already exists!", this);
         }
 
         private static string CleanFileName(string fileName)

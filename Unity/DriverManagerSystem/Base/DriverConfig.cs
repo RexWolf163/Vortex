@@ -124,7 +124,7 @@ namespace Vortex.Unity.DriverManagerSystem.Base
                                  || r.SystemType.IsNullOrWhitespace()
                                  && r.SystemType == " "))
             {
-                Debug.LogError("[DriverConfig] Нельзя сохранять недозаполненный конфиг");
+                Debug.LogError("[DriverConfig] Нельзя сохранять недозаполненный конфиг", this);
                 return;
             }
 
