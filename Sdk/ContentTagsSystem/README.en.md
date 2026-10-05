@@ -6,6 +6,33 @@
 
 ---
 
+## Where it applies
+
+The package covers one class of problems: the same game ships in several editions that differ not in content but in what is shown. That decision is made once, at build time, and afterwards changes neither by the player nor by the course of the game.
+
+The typical example is the **main menu**. The Steam build has a "Rate the game" button and a block of social links; the publisher build must have neither — no store button, no external links. A "DLC" section belongs where DLC is sold and makes no sense in a demo. The menu itself is shared: the same prefabs, the same scenes, the same code.
+
+Without the package this is done by editing prefabs per build: build for Steam — put the button back, build for the publisher — take it out. With the package the button is tagged `store_links` once, the tag is enabled in the `steam` bundle and not in `publisher_x`, and before the build a single field changes — the active edition.
+
+Neighbouring problems have the same shape:
+
+| Problem | Tag | Enabled in editions |
+|---------|-----|---------------------|
+| "Rate on Steam" button | `store_links` | `steam` |
+| Social links block | `social_links` | `steam`, `gog` |
+| DLC section in the menu | `dlc_section` | everywhere except `demo` |
+| Call to buy the full version | `demo_upsell` | `demo` only |
+| Debug menu entries | `dev_tools` | none of the release editions |
+
+When the package does not fit:
+
+- the content must be **physically absent** from the build — censorship, age ratings, regional bans: that is `AssetSwapSystem`, which swaps assets before the build. Here what is hidden still ships;
+- visibility depends on **what the player did** — unlocked, viewed, bought: that is `RecordMarksSystem` and other progress systems;
+- visibility depends on **ownership of paid content**: that is an ownership check on the platform's side, not build configuration;
+- the switch belongs to the **player in the options** — then it is an ordinary game setting, not an edition.
+
+---
+
 ## Purpose
 
 Configuration of which interfaces and systems ship in a given edition of the build. One game goes out in several editions — the Steam storefront, the GOG storefront, a publisher build, a demo — and they differ in what is shown: a store button, a social links block, a DLC section, a menu item.

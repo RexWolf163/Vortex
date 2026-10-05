@@ -5,6 +5,34 @@
 
 ---
 
+## Where it applies
+
+The package covers one class of problems: you need to remember a fact about a `Database` record — what has already happened to it — and that fact must outlive the scene, the session, and sometimes the save slot.
+
+The typical example is a **gallery**. Illustrations live in `Database` as separate presets, each with its own GUID. The game needs to know two things: which cards are unlocked, and which of the unlocked ones the player has already looked at (the "new" badge). Both are boolean facts about a GUID, and neither belongs next to the content itself: the illustration never changes, only the player's relation to it does.
+
+The package keeps sets of GUIDs under the names `gallery.unlocked` and `gallery.viewed`, answers `IsMarked` / `GetMarked`, and decides on its own where those sets are written — into the slot or into the account. What the card shows, in which order the illustrations go and how the badge looks is the gallery's job, not the package's.
+
+Neighbouring problems have the same shape:
+
+| Problem | Mark | Stored in |
+|---------|------|-----------|
+| Illustration unlocked for good | `gallery.unlocked` | account (`globalMarks`) |
+| Card has already been viewed | `gallery.viewed` | slot (`slotMarks`) |
+| Bestiary entry encountered | `codex.unlocked` | slot |
+| Cutscene watched, may be skipped | `cutscene.viewed` | account |
+| Item ever purchased | `shop.everPurchased` | slot |
+
+Choosing between slot and account is choosing what the fact means: "in this playthrough" or "for this player at all". The same GUID may carry both marks at once.
+
+When the package does not fit:
+
+- the fact is not boolean but carries a value — a counter, progress, a date, a level: that is a model of your own in `IGameData`;
+- content is hidden by the edition of the build rather than by player actions: that is `ContentTagsSystem`;
+- you need the unlocked content itself — the package stores only the mark-to-GUID relation.
+
+---
+
 ## Purpose
 
 A registry of named boolean marks attached to `Database` preset GUIDs. A mark is a fact — «this event occurred for this record» (unlocked, viewed, ever purchased). The package stores only the mark-to-GUID relation; the content of the marked entities is out of scope.

@@ -4,7 +4,9 @@
     "references": [
         "ru.vortex.extensions",
         "ru.vortex.unity.ui.misc",
-        "ru.vortex.unity.editortools"
+        "ru.vortex.unity.editortools",
+        "ru.vortex.extenums",
+        "ru.vortex.extenums"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
