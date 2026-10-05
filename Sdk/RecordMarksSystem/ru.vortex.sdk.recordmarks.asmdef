@@ -1,6 +1,6 @@
 {
     "name": "ru.vortex.sdk.recordmarks",
-    "rootNamespace": "Vortex.Sdk.RecordMarksSystem",
+    "rootNamespace": "",
     "references": [
         "GUID:a00fea34cd87e874eb05688c1583b814",
         "GUID:9b629820a0db1ee4ebf4641e8cabb0c8",

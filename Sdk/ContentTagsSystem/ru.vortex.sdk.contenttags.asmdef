@@ -1,0 +1,20 @@
+{
+    "name": "ru.vortex.sdk.contenttags",
+    "rootNamespace": "Vortex.Sdk.ContentTagsSystem",
+    "references": [
+        "ru.vortex.extensions",
+        "ru.vortex.unity.ui.misc",
+        "ru.vortex.unity.editortools"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_VORTEX_CONTENT_TAGS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
