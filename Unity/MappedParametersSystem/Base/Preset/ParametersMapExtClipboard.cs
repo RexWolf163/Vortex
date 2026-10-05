@@ -67,7 +67,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
             }
             catch (Exception e)
             {
-                Debug.LogError($"[ParametersMap] Ошибка при сериализации в JSON: {e.Message}");
+                Debug.LogError($"[ParametersMap] Ошибка при сериализации в JSON: {e.Message}", this);
             }
         }
 
@@ -90,7 +90,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
                 var dto = JsonUtility.FromJson<ParametersMapDTO>(json);
                 if (dto == null)
                 {
-                    Debug.LogError("[ParametersMap] Не удалось десериализовать JSON.");
+                    Debug.LogError("[ParametersMap] Не удалось десериализовать JSON.", this);
                     return;
                 }
 
@@ -128,7 +128,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[ParametersMap] Ошибка десериализации: {e}");
+                Debug.LogError($"[ParametersMap] Ошибка десериализации: {e}", this);
             }
         }
     }

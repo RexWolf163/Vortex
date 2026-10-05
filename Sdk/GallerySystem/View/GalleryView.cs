@@ -80,7 +80,7 @@ namespace Vortex.Sdk.GallerySystem.View
         {
             if (pool == null)
             {
-                Debug.LogError($"[GalleryView] '{name}': Pool reference is missing.");
+                Debug.LogError($"[GalleryView] '{name}': Pool reference is missing.", this);
                 return;
             }
 

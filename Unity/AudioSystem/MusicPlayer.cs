@@ -28,7 +28,7 @@ namespace Vortex.Unity.AudioSystem
         {
             if (audioSource == null)
             {
-                Debug.LogError("[MusicPlayer] Audio Source is null");
+                Debug.LogError("[MusicPlayer] Audio Source is null", this);
                 return;
             }
 

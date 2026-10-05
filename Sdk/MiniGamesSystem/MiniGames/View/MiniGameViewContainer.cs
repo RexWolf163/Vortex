@@ -48,7 +48,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.View
         {
             if (Hub == null || Storage == null)
             {
-                Debug.LogError($"[MiniGameViewContainer:{name}] Wrong gameHub link");
+                Debug.LogError($"[MiniGameViewContainer:{name}] Wrong gameHub link", this);
                 return;
             }
 

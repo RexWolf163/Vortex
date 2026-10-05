@@ -50,7 +50,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
                 if (!defines.TryAdd(attr.Define, (bool)fieldInfo.GetValue(this)))
                 {
                     Debug.LogError(
-                        $"[SdkSettings] Дубликат DefineSymbol \"{attr.Define}\" на поле \"{fieldInfo.Name}\" — пропущен.");
+                        $"[SdkSettings] Дубликат DefineSymbol \"{attr.Define}\" на поле \"{fieldInfo.Name}\" — пропущен.", this);
                 }
             }
 
@@ -106,7 +106,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SdkSettings] Ошибка при обработке {group} — {ex.Message}");
+                Debug.LogError($"[SdkSettings] Ошибка при обработке {group} — {ex.Message}", this);
             }
         }
 
@@ -155,7 +155,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SdkSettings] Ошибка при обработке {group} — {ex.Message}");
+                Debug.LogError($"[SdkSettings] Ошибка при обработке {group} — {ex.Message}", this);
             }
         }
 

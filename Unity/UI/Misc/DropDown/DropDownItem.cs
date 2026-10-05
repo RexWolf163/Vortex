@@ -38,7 +38,7 @@ namespace Vortex.Unity.UI.Misc.DropDown
             _model.OnUpdateData += Refresh;
 
             if (_selectCallback == null)
-                Debug.LogError($"[DropDownItem] Selection callback is null for «{_text}» item");
+                Debug.LogError($"[DropDownItem] Selection callback is null for «{_text}» item", this);
 
             uiComponent.SetAction(Select);
 

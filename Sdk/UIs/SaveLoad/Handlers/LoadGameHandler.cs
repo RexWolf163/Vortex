@@ -33,7 +33,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             var saveSlot = Storage.GetData<SaveSlotData>();
             if (saveSlot == null)
             {
-                Debug.LogError("[LoadGameHandler] No save slot found");
+                Debug.LogError("[LoadGameHandler] No save slot found", this);
                 return;
             }
 

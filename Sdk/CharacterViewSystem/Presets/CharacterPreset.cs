@@ -42,7 +42,7 @@ namespace Vortex.Sdk.CharacterViewSystem.Presets
                     var beh = behaviors[i];
                     if (beh == null)
                     {
-                        Debug.LogError($"[{GetType().Name}] {name}: behaviors[{i}] не реализует CharacterBehavior.");
+                        Debug.LogError($"[{GetType().Name}] {name}: behaviors[{i}] не реализует CharacterBehavior.", this);
                         App.Exit();
                         return Array.Empty<CharacterBehavior>();
                     }

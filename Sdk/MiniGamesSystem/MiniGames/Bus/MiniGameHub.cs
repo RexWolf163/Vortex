@@ -146,7 +146,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
         /// <param name="playConfig">Стартовая конфигурация игры</param>
         protected virtual async UniTask PlayMiniGame(object playConfig)
         {
-            Debug.LogError($"[{GetType().Name}] Broken game hub Play logic!");
+            Debug.LogError($"[{GetType().Name}] Broken game hub Play logic!", this);
             await UniTask.Yield();
         }
 
@@ -159,7 +159,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
 
             if (error)
             {
-                Debug.LogError($"[{GetType().Name}] Configuration incomplete for {gameObject.name} ");
+                Debug.LogError($"[{GetType().Name}] Configuration incomplete for {gameObject.name} ", this);
                 return;
             }
 
@@ -202,7 +202,7 @@ namespace Vortex.Sdk.MiniGamesSystem.MiniGames.Bus
                 data = Data as T;
 
             if (data == null)
-                Debug.LogError($"[{GetType().Name}] Wrong data type «{typeof(T).Name}» requested.");
+                Debug.LogError($"[{GetType().Name}] Wrong data type «{typeof(T).Name}» requested.", this);
             return data;
         }
 

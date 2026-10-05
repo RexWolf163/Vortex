@@ -24,7 +24,7 @@ namespace Vortex.Unity.VideoSystem.Handlers
         {
             if (index < 0 || index >= _list.Length)
             {
-                Debug.LogError($"[ScreenModeHandler] Invalid screen resolution index selected: {index}");
+                Debug.LogError($"[ScreenModeHandler] Invalid screen resolution index selected: {index}", this);
                 return;
             }
 

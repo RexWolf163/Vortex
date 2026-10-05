@@ -33,7 +33,7 @@ namespace Vortex.Unity.UI.Misc
             _property = type.GetProperty(property);
             if (_property == null)
             {
-                Debug.LogError($"[DataCapturer] {name}: {property} property not found in type {source.GetType().Name}");
+                Debug.LogError($"[DataCapturer] {name}: {property} property not found in type {source.GetType().Name}", this);
                 enabled = false;
                 return;
             }

@@ -25,7 +25,7 @@ namespace Vortex.Steam.SteamAchievements.Runtime
             if (_instance != this)
             {
                 Destroy(this);
-                Debug.LogError("Попытка повторного создания AchievementsManager");
+                Debug.LogError("Попытка повторного создания AchievementsManager", this);
                 return;
             }
 

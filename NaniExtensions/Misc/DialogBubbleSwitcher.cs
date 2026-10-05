@@ -123,7 +123,7 @@ namespace Vortex.NaniExtensions.Misc
                     if (targetHandler == null)
                     {
                         Debug.LogError(
-                            $"[DialogBubbleSwitcher] Не найден компонент BubblePositionTarget для {actor.Id}!");
+                            $"[DialogBubbleSwitcher] Не найден компонент BubblePositionTarget для {actor.Id}!", this);
                         worldPos = genericChar.Transform.position;
                         break;
                     }

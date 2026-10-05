@@ -19,7 +19,7 @@ namespace Vortex.Unity.Components.Misc
         void Awake()
         {
             if (key is null or "")
-                Debug.LogError($"[NotDestroyableSystemContainer: {name}] Key is empty");
+                Debug.LogError($"[NotDestroyableSystemContainer: {name}] Key is empty", this);
 
             //Удаляет себя если есть другие контейнеры с тем же ключом
             var list = FindObjectsByType<NotDestroyableSystemContainer>(

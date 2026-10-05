@@ -42,7 +42,7 @@ namespace Vortex.Unity.AudioSystem.Handlers
             if (_sample == null)
                 Debug.LogError(audioSample.IsNullOrWhitespace()
                     ? "[MusicHandler] Empty Sample data."
-                    : "[MusicHandler] Incorrect Sample data.");
+                    : "[MusicHandler] Incorrect Sample data.", this);
             if (isActiveAndEnabled)
                 OnEnable();
         }

@@ -40,7 +40,7 @@ namespace Vortex.Unity.AudioSystem.Presets
             var audioClip = audioClips[Random.Range(0, audioClips.Length)].editorAsset;
             if (audioClip == null)
             {
-                Debug.LogError("SoundSampleAddressablePreset.TestSound: No audio clip found.");
+                Debug.LogError("SoundSampleAddressablePreset.TestSound: No audio clip found.", this);
                 return;
             }
 

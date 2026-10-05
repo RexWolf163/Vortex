@@ -179,7 +179,7 @@ namespace Vortex.Unity.UI.StateSwitcher
                 if (_isSwitching)
                 {
                     Debug.LogError(
-                        $"[UIStateSwitcher] Реентрантный вызов Set({value}) во время переключения состояния");
+                        $"[UIStateSwitcher] Реентрантный вызов Set({value}) во время переключения состояния", this);
                     return;
                 }
 
@@ -189,7 +189,7 @@ namespace Vortex.Unity.UI.StateSwitcher
                     // Проверка на выход за границы массива
                     if (value < -1 || value >= states.Length)
                     {
-                        Debug.LogError($"[UIStateSwitcher] Попытка установить некорректный индекс состояния: {value}");
+                        Debug.LogError($"[UIStateSwitcher] Попытка установить некорректный индекс состояния: {value}", this);
                         return;
                     }
 #if UNITY_EDITOR
@@ -221,7 +221,7 @@ namespace Vortex.Unity.UI.StateSwitcher
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"{_goName}: {ex}");
+                    Debug.LogError($"{_goName}: {ex}", this);
                 }
                 finally
                 {
@@ -284,7 +284,7 @@ namespace Vortex.Unity.UI.StateSwitcher
                 }
             }
 
-            Debug.LogError($"[UIStateSwitcher] В '{gameObject.name}' отсутствует состояние '{state}'");
+            Debug.LogError($"[UIStateSwitcher] В '{gameObject.name}' отсутствует состояние '{state}'", this);
             Set(stateOnEnable);
         }
 
@@ -381,7 +381,7 @@ namespace Vortex.Unity.UI.StateSwitcher
             foreach (var state in states)
             {
                 if (!state.IsValid())
-                    Debug.LogError($"[UIStateSwitcher] state {name}.{state.Name} has errors!");
+                    Debug.LogError($"[UIStateSwitcher] state {name}.{state.Name} has errors!", this);
             }
         }
 #endif

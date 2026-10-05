@@ -36,7 +36,7 @@ namespace Vortex.Sdk.MapLevels.View
         {
             if (switcher == null)
             {
-                Debug.LogError($"[MapLevelView] {name}: UIStateSwitcher не задан.");
+                Debug.LogError($"[MapLevelView] {name}: UIStateSwitcher не задан.", this);
                 return;
             }
 

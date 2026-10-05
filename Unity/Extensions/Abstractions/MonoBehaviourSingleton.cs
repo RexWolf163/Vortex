@@ -45,7 +45,7 @@ namespace Vortex.Unity.Extensions.Abstractions
             if (_instance == this)
                 return;
             if (_instance != null)
-                Debug.LogError($"[{GetType().Name}: {name}] Singleton already created!");
+                Debug.LogError($"[{GetType().Name}: {name}] Singleton already created!", this);
             _instance = (T)this;
         }
     }

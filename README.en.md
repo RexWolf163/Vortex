@@ -200,9 +200,3 @@ public class HeroPanel : MonoBehaviour
 **Optional:**
 - Addressables — for `AddressablesDriver` of the `Database` package and for `AssetCache` (if not installed, the corresponding assemblies are auto-disabled via `defineConstraints`)
 - protobuf-net — for `ComplexModel` serialization
-
----
-
-## License
-
-Proprietary. All rights reserved.

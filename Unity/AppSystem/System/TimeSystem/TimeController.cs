@@ -352,7 +352,7 @@ namespace Vortex.Unity.AppSystem.System.TimeSystem
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError(ex);
+                    Debug.LogError(ex, this);
                 }
             }
             _inWave = false;

@@ -61,7 +61,7 @@ namespace Vortex.Unity.AppSystem.System
             if (newState == AppStates.Stopping)
             {
 #if UNITY_EDITOR
-                Debug.LogError("[AppStateHandler] App state is stopping.");
+                Debug.LogError("[AppStateHandler] App state is stopping.", this);
                 UnityEditor.EditorApplication.isPlaying = false;
 #else
                 Application.Quit();
