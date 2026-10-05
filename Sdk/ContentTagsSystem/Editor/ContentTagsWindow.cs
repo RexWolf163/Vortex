@@ -24,7 +24,7 @@ namespace Vortex.Sdk.ContentTagsSystem.Editor
 
         private Vector2 _scroll;
 
-        [MenuItem("Tools/Vortex/Content Tags")]
+        [MenuItem("Tools/Vortex/Content Tags/Index")]
         private static void Open() => GetWindow<ContentTagsWindow>("Content Tags").Show();
 
         private void OnEnable() => _declared = ContentTagsCatalog.EditorKeys().ToArray();

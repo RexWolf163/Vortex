@@ -1,11 +1,10 @@
 {
     "name": "ru.vortex.sdk.contenttags",
-    "rootNamespace": "Vortex.Sdk.ContentTagsSystem",
+    "rootNamespace": "",
     "references": [
         "ru.vortex.extensions",
         "ru.vortex.unity.ui.misc",
         "ru.vortex.unity.editortools",
-        "ru.vortex.extenums",
         "ru.vortex.extenums"
     ],
     "includePlatforms": [],

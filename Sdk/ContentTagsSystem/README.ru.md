@@ -87,7 +87,7 @@ Handlers
 
 Editor
   ├── ContentTagsIndex                     ← индекс «тег → носители» одним проходом
-  └── ContentTagsWindow                    ← Tools/Vortex/Content Tags, только чтение
+  └── ContentTagsWindow                    ← Tools/Vortex/Content Tags/Index, только чтение
 ```
 
 ### Порядок работы
@@ -199,7 +199,7 @@ Editor
 ### Настройка проекта
 
 1. Включите тоггл пакета в `Tools → Vortex → Configs → SDK Settings`.
-2. `Create → Vortex → Settings → Content Tags`, положите ассет в `Resources`.
+2. `Create → Vortex → Settings → Content Tags`, положите ассет в `Resources`. Быстрый доступ к нему потом — `Tools → Vortex → Content Tags → Settings`.
 3. Объявите теги: ключ плюс описание, зачем тег заведён.
 4. Заведите бандлы изданий и отметьте в каждом включённые теги.
 5. Выберите `activeBundle`.
@@ -217,7 +217,7 @@ if (ContentBus.IsActive("store_links"))
 ### Перед сборкой издания
 
 1. Поставьте нужный `activeBundle` в ассете.
-2. Откройте `Tools → Vortex → Content Tags`, нажмите **Обновить**.
+2. Откройте `Tools → Vortex → Content Tags → Index`, нажмите **Обновить**.
 3. Проверьте состав издания и разделы «объявлены, но не используются» и «используются, но не объявлены» — второй означает опечатку в компоненте или удалённое объявление.
 4. **Find** в строке носителя: открытая сцена — выделение объекта, префаб — открытие в режиме редактирования и выделение, закрытая сцена — подсветка ассета.
 
