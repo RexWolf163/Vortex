@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
@@ -36,11 +37,18 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     public static class VirtualCursorFocusController
     {
         private static readonly object Key = new();
+        private static readonly object FollowOwner = new();
 
         // 3 px — укладывает hardware noise ОС-мыши и int-округление WarpCursorPosition
         // в одном кадре. Якорь при этом абсорбирует дрейф (см. OnScreenPositionChanged),
         // поэтому порог per-frame, а не "всего накопилось от момента SetFocus".
         private const float AnchorToleranceSqr = 9f;
+
+        // Порог сопровождения — минимальное движение target'а в пикс², которое вызывает
+        // переноc курсора. Чуть меньше AnchorToleranceSqr, чтобы follow-tick реагировал на
+        // ScrollRect-смещение раньше, чем OnScreenPositionChanged мог бы ошибочно сработать
+        // от того же движения. Экономия на no-op кадрах (target не движется).
+        private const float FollowThresholdSqr = 0.25f; // 0.5 px
 
         private static FocusModel _model;
 
@@ -71,6 +79,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             else
                 VirtualCursorBus.OnReady += AttachPositionWatcher;
 
+            // Follow-петля: самоперепланирующаяся через TimeController.Accumulate (как у драйверов
+            // ввода). На каждом кадре сверяет ScreenPoint текущего target'а с якорем и, если тот
+            // физически сместился (ScrollRect, layout group, анимация, DOTween на RectTransform), —
+            // переносит курсор следом (ReportPointer + warp). Это важно, когда FocusCenterScrollRect
+            // прокручивает контент под фокусным элементом: без follow'а курсор остался бы в точке
+            // прежнего warp'а, визуально оторвавшись от элемента.
+            TimeController.Accumulate(FollowFocus, FollowOwner);
+
             IsReady = true;
         }
 
@@ -87,6 +103,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             if (VirtualCursorBus.Data != null)
                 VirtualCursorBus.Data.ScreenPosition.OnUpdate -= OnScreenPositionChanged;
             VirtualCursorBus.OnReady -= AttachPositionWatcher;
+            TimeController.RemoveCall(FollowOwner);
             _focusAnchor = null;
             _model = null;
             IsReady = false;
@@ -463,6 +480,49 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 if (ReferenceEquals(ts[i], target)) return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Follow-петля: сопровождение курсора за физически смещающимся target'ом. Запускается
+        /// каждый кадр через <see cref="TimeController.Accumulate"/> (самоперепланирующаяся
+        /// в finally — любой бросок в теле не рвёт цикл). Семантика:
+        /// <list type="bullet">
+        /// <item>Nav-mode выключен (<see cref="_focusAnchor"/>==null) → ничего не делаем.</item>
+        /// <item>Нет current / target неактивен → ничего не делаем (ScreenPoint читать бессмысленно,
+        /// да и warp бесполезен).</item>
+        /// <item>target.ScreenPoint отличается от anchor на &gt;<see cref="FollowThresholdSqr"/> —
+        /// переносим курсор: обновляем anchor (чтобы OnScreenPositionChanged абсорбировал
+        /// собственный ReportPointer), шлём <c>ReportPointer</c> + warp ОС-мыши (с last-флагами,
+        /// как при входе в nav-mode).</item>
+        /// </list>
+        /// Это закрывает кейс «ScrollRect прокрутил контент / layout group пересчитался /
+        /// анимация передвинула target» — target движется БЕЗ собственных событий, но
+        /// <c>IFocusTarget.ScreenPoint</c> у <see cref="FocusTargetComponent"/> пересчитывается
+        /// при каждом запросе из live-RectTransform, так что polling даёт актуальную точку.
+        /// </summary>
+        private static void FollowFocus()
+        {
+            try { TickFollow(); }
+            finally { TimeController.Accumulate(FollowFocus, FollowOwner); }
+        }
+
+        private static void TickFollow()
+        {
+            if (!_focusAnchor.HasValue) return;
+            if (_model == null) return;
+            var current = _model.CurrentFocus.Value;
+            if (current == null || !current.IsActive) return;
+
+            var newPos = current.ScreenPoint;
+            if ((newPos - _focusAnchor.Value).sqrMagnitude < FollowThresholdSqr) return;
+
+            // Anchor обновляем ДО ReportPointer — иначе OnScreenPositionChanged (который наш
+            // собственный хук на ScreenPosition.OnUpdate) увидел бы большой delta от старого
+            // якоря и сработал бы ClearFocus. С обновлённым якорем: delta=0 → absorb-ветка.
+            _focusAnchor = newPos;
+            VirtualCursorController.ReportPointer(newPos, PointerSourceKind.Direct);
+            if (_lastWarpSystemMouse)
+                Mouse.current?.WarpCursorPosition(newPos);
         }
 
         private static void OnScreenPositionChanged(Vector2 newPos)
