@@ -36,11 +36,6 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         //   • Android + ГЕЙМПАД: DirectInputDriver — двигает виртуальный курсор напрямую через
         //     ReportPointer, не завязан на наличие ОС-мыши. UINavigationDriver — альтернативное
         //     управление через фокус-навигацию (без курсора).
-        //
-        // TODO(android-cursor): платформенного гейта на бутстрап нет — на чисто-тач устройстве
-        // VirtualCursorBootstrap/Dispatcher/Renderer поднимаются всегда. HidesCursor скрывает визуал,
-        // но объекты всё равно висят. Это ок (нет overhead), но при желании можно гейтить
-        // через `SupportsPlatform` на InputDriver-уровне (уже есть) и/или добавить флаг на Bootstrap.
         private void Awake()
         {
             VirtualCursorController.Init(settings);
