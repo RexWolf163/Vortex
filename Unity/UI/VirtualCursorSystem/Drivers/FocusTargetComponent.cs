@@ -131,7 +131,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 if (!_missingGroupLogged)
                 {
                     Debug.LogError(
-                        "[FocusTarget] Нет FocusGroup в родительской иерархии. " +
+                        $"[FocusTarget] Нет FocusGroup в родительской иерархии {transform.parent?.name}.{transform.name}. " +
                         "Этот target не будет участвовать в фокус-навигации. " +
                         "Добавь FocusGroup на любого предка этого объекта.",
                         this);
