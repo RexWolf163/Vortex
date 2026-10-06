@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
@@ -31,8 +32,6 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// LateUpdate (микро-коррекция, визуально незаметно). При <c>Unrestricted</c> клампа нет
     /// по дизайну.
     /// </summary>
-    [AddComponentMenu("Vortex/Virtual Cursor/Focus Center ScrollRect")]
-    [RequireComponent(typeof(ScrollRect))]
     public class FocusCenterScrollRect : MonoBehaviour
     {
         [SerializeField, Tooltip("Центрировать по горизонтали. Применяется только если ScrollRect.horizontal=true.")]
@@ -45,14 +44,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                                           "unscaledTime: работает даже на паузе (меню).")]
         private float animationDuration = 0.12f;
 
-        private ScrollRect _scrollRect;
+        [SerializeField, AutoLink] private ScrollRect _scrollRect;
         private FocusModel _focusModel;
         private Coroutine _animRoutine;
-
-        private void Awake()
-        {
-            _scrollRect = GetComponent<ScrollRect>();
-        }
 
         private void OnEnable()
         {
@@ -127,7 +121,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
             // Уважаем оси ScrollRect: горизонталь двигаем, только если ScrollRect разрешает И тоггл on.
             if (!centerHorizontal || !_scrollRect.horizontal) newAnchored.x = content.anchoredPosition.x;
-            if (!centerVertical || !_scrollRect.vertical)     newAnchored.y = content.anchoredPosition.y;
+            if (!centerVertical || !_scrollRect.vertical) newAnchored.y = content.anchoredPosition.y;
 
             // Если целевая позиция уже выставлена (нулевой delta) — не стартуем корутину впустую.
             if ((newAnchored - content.anchoredPosition).sqrMagnitude < 0.01f) return;
@@ -155,6 +149,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 _scrollRect.content.anchoredPosition = Vector2.LerpUnclamped(start, target, eased);
                 yield return null;
             }
+
             _scrollRect.content.anchoredPosition = target;
             _animRoutine = null;
         }
