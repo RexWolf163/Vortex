@@ -8,7 +8,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// <see cref="CursorSkinSelector"/>. Загружается бутстрапом пакета и передаётся в
     /// <see cref="VirtualCursorController.Init"/>.
     /// </summary>
-    [CreateAssetMenu(fileName = "CursorSkinSettings", menuName = "Vortex/UI/Cursor Skin Settings")]
+    [CreateAssetMenu(fileName = "CursorSkinSettings", menuName = "Vortex/Cursor/Cursor Skin Settings")]
     public class CursorSkinSettings : ScriptableObject
     {
         [SerializeField, Tooltip("Брейкпоинты по Screen.height (по возрастанию). Единый источник для всех тем.")]

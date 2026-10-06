@@ -1,12 +1,13 @@
 using System;
 using UnityEngine;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
     /// <summary>
     /// Набор скинов одного тира разрешения: базовый скин (вне hover) + hover-варианты по строковому ключу.
     /// </summary>
-    [Serializable]
+    [Serializable, ClassLabel("$Label")]
     public class CursorSkinPack
     {
         [SerializeField, Tooltip("Базовый скин вне hover-зон.")]
@@ -27,5 +28,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                     return s;
             return null;
         }
+
+#if UNITY_EDITOR
+        private string Label() => "res set: " + Base.Name;
+#endif
     }
 }
