@@ -264,24 +264,47 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             SetFocusInternal(best, hideCursor, warpSystemMouse);
         }
 
-        /// <summary>Явный сброс фокуса. Если был текущий target — <c>NotifyUnfocused</c>.</summary>
+        /// <summary>
+        /// Явный сброс фокуса + выход из nav-mode. Делает две независимые работы:
+        /// <list type="bullet">
+        /// <item>Если был <c>CurrentFocus</c> — сохраняет его в <c>RememberedFocus</c>
+        /// владеющей группы, снимает (<c>SetCurrent(null)</c>), зовёт <c>NotifyUnfocused</c>.</item>
+        /// <item>Независимо от этого — если установлен <see cref="_focusAnchor"/>, обнуляет его
+        /// и зовёт <c>ShowCursor()</c>, чтобы снять внешний канал скрытия (`_externalHidden`).</item>
+        /// </list>
+        ///
+        /// Это важно для патового состояния: PushGroup с пустой новой группой (Unity вызывает
+        /// OnEnable родителя ДО детей, поэтому <c>Group.Targets</c> пуст в момент push'а → auto-focus
+        /// не находит таргета → <c>CurrentFocus=null</c> из <c>TransferCurrentToRemembered</c>, но
+        /// <see cref="_focusAnchor"/> и <c>_externalHidden</c> остаются «висеть». Без второй ветки
+        /// `ClearFocus` в такой момент выходил бы по `current==null` раньше, чем снимал курсор, —
+        /// и пользователь оказывался в заклиненном nav-mode без видимого курсора.
+        /// </summary>
         public static void ClearFocus()
         {
             if (_model == null) return;
+
             var current = _model.CurrentFocus.Value;
-            if (current == null) return;
+            if (current != null)
+            {
+                // Remembered пишем в ВЛАДЕЮЩУЮ группу target'а, не в ActiveGroup. Иначе если
+                // current принадлежит теперь-Ignored или stale-группе (пользователь выставил
+                // Ignore в рантайме), запись в ActiveGroup засорила бы её Remembered чужим
+                // элементом из другой контекстной группы.
+                var owning = FindOwningGroup(current);
+                if (owning != null) owning.RememberedFocus = current;
 
-            // Remembered пишем в ВЛАДЕЮЩУЮ группу target'а, не в ActiveGroup. Иначе если
-            // current принадлежит теперь-Ignored или stale-группе (пользователь выставил
-            // Ignore в рантайме), запись в ActiveGroup засорила бы её Remembered чужим
-            // элементом из другой контекстной группы.
-            var owning = FindOwningGroup(current);
-            if (owning != null) owning.RememberedFocus = current;
+                _model.SetCurrent(null, Key);
+                current.NotifyUnfocused();
+            }
 
-            _model.SetCurrent(null, Key);
-            _focusAnchor = null;
-            VirtualCursorController.ShowCursor();
-            current.NotifyUnfocused();
+            // Nav-mode state чистится всегда, даже когда current был уже null, — иначе
+            // «застрявший» _focusAnchor + _externalHidden никак не снимаются с внешней стороны.
+            if (_focusAnchor.HasValue)
+            {
+                _focusAnchor = null;
+                VirtualCursorController.ShowCursor();
+            }
         }
 
         /// <summary>
