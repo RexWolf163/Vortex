@@ -3,7 +3,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.DatabaseSystem.Bus;
-using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.LoaderSystem.Bus;
 using Vortex.Core.System.ProcessInfo;
 using Vortex.Unity.DatabaseSystem.Presets;
