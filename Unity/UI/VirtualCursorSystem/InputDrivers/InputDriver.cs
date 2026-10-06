@@ -1,4 +1,3 @@
-#if USING_VORTEX_CURSOR
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -90,4 +89,3 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 #endif
     }
 }
-#endif

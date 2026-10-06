@@ -139,6 +139,23 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             Recompute();
         }
 
+        /// <summary>
+        /// Переключить активный источник + hide-флаг БЕЗ изменения <c>ScreenPosition</c>. Нужен для
+        /// драйверов, которые должны отметиться как «активный источник» (и, например, скрыть курсор),
+        /// но не двигать виртуальный pointer — чтобы не триггерить <c>VirtualPointerDispatcher</c>
+        /// лишним raycast'ом и не конфликтовать с нативным обработчиком того же устройства
+        /// (сценарий: Android + <c>InputSystemUIInputModule</c> на touchscreen — клик по кнопке
+        /// отрабатывает нативным путём, нам достаточно только спрятать визуал курсора).
+        /// </summary>
+        internal static void SetActiveSource(PointerSourceKind source, bool hidesCursor)
+        {
+            if (_model == null) return;
+            _model.ActiveSource.Set(source, Key);
+            if (_pointerHidden == hidesCursor) return;
+            _pointerHidden = hidesCursor;
+            Recompute();
+        }
+
         internal static void SetAction(PointerAction action, bool active)
         {
             if (_model == null) return;

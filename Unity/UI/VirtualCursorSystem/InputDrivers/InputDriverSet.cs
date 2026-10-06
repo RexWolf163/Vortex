@@ -1,4 +1,3 @@
-#if USING_VORTEX_CURSOR
 using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
@@ -24,4 +23,3 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         public InputDriver[] Drivers => drivers;
     }
 }
-#endif

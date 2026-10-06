@@ -22,10 +22,23 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
         private bool _subscribed;
 
+        // Гейт первой отрисовки. До первого РЕАЛЬНОГО репорта позиции (от любого InputDriver'а)
+        // визуал держим скрытым: иначе дефолтный спрайт темы мигнул бы в (0, 0) — на тач-платформах
+        // это флэш в углу экрана до первого касания. Сбрасывается в OnEnable (повторный Enable →
+        // снова ждём первого репорта), выставляется только из OnPosition.
+        private bool _firstReportReceived;
+
         private void OnEnable()
         {
             if (hideSystemCursor)
                 Cursor.visible = false;
+
+            // Стартуем явно скрытым — независимо от того, когда подоспеет Bus.IsReady и первый репорт.
+            // Image до этого момента не отрисуется, даже если ApplyCurrent где-то спровоцируется.
+            _firstReportReceived = false;
+            if (image != null)
+                image.enabled = false;
+
             TrySubscribe();
             VirtualCursorBus.OnReady += TrySubscribe;
         }
@@ -48,11 +61,23 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             VirtualCursorBus.Visual.OnUpdate += OnVisual;
             VirtualCursorBus.Data.ScreenPosition.OnUpdate += OnPosition;
             _subscribed = true;
-            ApplyCurrent();
+            // НЕ зовём ApplyCurrent на подписке: модель ещё в стартовом состоянии ((0,0) + дефолтный
+            // скин), ранняя отрисовка = тот же initial-flash, от которого защищает _firstReportReceived.
+            // Первый OnPosition от драйвера снимет гейт и позовёт ApplyCurrent.
         }
 
-        private void OnVisual(CursorVisual _) => ApplyCurrent();
-        private void OnPosition(Vector2 _) => ApplyCurrent();
+        private void OnVisual(CursorVisual _)
+        {
+            // До первого репорта позиции не рисуем вообще — чтобы смена темы/действия в стартовом
+            // (0,0) не открывала визуал. После — обычный путь.
+            if (_firstReportReceived) ApplyCurrent();
+        }
+
+        private void OnPosition(Vector2 _)
+        {
+            _firstReportReceived = true;
+            ApplyCurrent();
+        }
 
         private void ApplyCurrent() =>
             Apply(VirtualCursorBus.Visual.Value, VirtualCursorBus.Data.ScreenPosition.Value);
@@ -62,13 +87,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             if (image == null || cursor == null)
                 return;
 
-            // TODO(android-cursor): show НЕ учитывает источник ввода. На тач-платформах (Android) UGUI-Image
-            // рисуется в точке касания (TouchPointerDriver репортит PointerSourceKind.Point), а между касаниями
-            // залипает в последней точке; до первого касания вообще виден в (0,0) на дефолтном спрайте.
-            // В отличие от старой CursorSystem (ОС-курсор через Cursor.SetCursor — на Android no-op, невидим),
-            // здесь курсор БУДЕТ виден. Нужно: (1) прятать при ActiveSource == Point (подписка на
-            // PointerModel.ActiveSource.OnUpdate), (2) стартовать скрытым, пока не пришёл репорт от устройства,
-            // которому курсор положен (мышь/геймпад), а не показывать дефолт в (0,0).
+            // visual.Hide = скин.Hide || _pointerHidden (источник) || _externalHidden (API)
+            // — OR-композиция собирается в VirtualCursorController.Recompute. Initial-flash
+            // (дефолтный спрайт в (0,0) до первого ввода) гасится на уровне OnEnable/OnPosition
+            // через _firstReportReceived — Apply сюда просто не вызывается до первого репорта.
             var show = !visual.Hide && visual.HasSprite;
             image.enabled = show;
 

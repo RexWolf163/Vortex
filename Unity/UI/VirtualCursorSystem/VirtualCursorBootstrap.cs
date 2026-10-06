@@ -18,20 +18,29 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         [SerializeField, Tooltip("Дистанция raycast проекции.")]
         private float projectionDistance = 1000f;
 
-        // TODO(android-cursor): нет платформенного гейта. На Android новая система (в отличие от старой,
-        // где рендер через ОС-курсор и на тач-экране невидим) поднимет UGUI-Image-курсор — он будет виден.
-        // При доработке решить: (а) прятать визуал по источнику Point на уровне рендера (предпочтительно —
-        // работает и для десктоп-тачскрина, и для Android + BT-мышь), либо (б) не поднимать бутстрап/рендерер
-        // на чисто тач-платформах. См. пометки в UiImageCursorRenderer и TouchPointerDriver.
+        // Android + сценарии ввода (базовый вариант закрыт TouchInputDriver + hide-by-source;
+        // осталось доработать первичное состояние и переключение источников):
+        //   • Android + ТАЧ: TouchInputDriver в режиме HideOnly (дефолтный). На касание выставляет
+        //     source=Point + hide, но ScreenPosition НЕ трогает — VirtualPointerDispatcher не делает
+        //     raycast, UGUI обрабатывает клик нативным путём (InputSystemUIInputModule на <Touchscreen>).
+        //     Двойных кликов и фантомных позиций нет. Initial-flash (дефолтный спрайт в (0,0) до
+        //     первого ввода) закрыт в UiImageCursorRenderer через гейт _firstReportReceived — визуал
+        //     стартует скрытым. На пустом тач-девайсе визуал так и остаётся скрытым: HideOnly
+        //     репортит только source, OnPosition у рендерера не вызывается — гейт не снимается.
+        //   • Desktop + тач-экран (ноутбуки, Surface): TouchInputDriver в режиме Delta — палец
+        //     работает как трекпад (относительное смещение), курсор остаётся видимым. Абсолютный
+        //     прыжок в точку касания отключён, конфликта с одновременной мышью нет.
+        //   • Android + МЫШЬ (BT/USB): MouseInputDriver — через last-source-wins курсор снова виден,
+        //     рендер UGUI-Image работает независимо от ОС-указателя (на Android Cursor.SetCursor —
+        //     no-op, поэтому собственный Image это единственный способ показать курсор).
+        //   • Android + ГЕЙМПАД: DirectInputDriver — двигает виртуальный курсор напрямую через
+        //     ReportPointer, не завязан на наличие ОС-мыши. UINavigationDriver — альтернативное
+        //     управление через фокус-навигацию (без курсора).
         //
-        // TODO(android-cursor): преимущество новой системы — заложить поддержку подключённых устройств на Android,
-        // чего старая система не умеет (она завязана на ОС-курсор: Cursor.SetCursor на Android не работает, а
-        // GamepadCursorDriver старой системы требует ОС-мышь, которой на Android нет).
-        //   • Android + МЫШЬ: рисовать СВОЙ UGUI-Image-курсор (независим от ОС-указателя), т.е. курсор можно
-        //     показать/скрыть/стилизовать самим — MousePointerDriver + скрытие по источнику Point для касаний.
-        //   • Android + ГЕЙМПАД: включать GamepadCursorDriver новой системы БЕЗ зависимости от ОС-мыши
-        //     (двигает виртуальный курсор напрямую через ReportPointer), чтобы меню было навигабельно падом.
-        //   Т.е. на тач-платформе визуал по умолчанию скрыт, но «оживает» при появлении мыши/геймпада.
+        // TODO(android-cursor): платформенного гейта на бутстрап нет — на чисто-тач устройстве
+        // VirtualCursorBootstrap/Dispatcher/Renderer поднимаются всегда. HidesCursor скрывает визуал,
+        // но объекты всё равно висят. Это ок (нет overhead), но при желании можно гейтить
+        // через `SupportsPlatform` на InputDriver-уровне (уже есть) и/или добавить флаг на Bootstrap.
         private void Awake()
         {
             VirtualCursorController.Init(settings);

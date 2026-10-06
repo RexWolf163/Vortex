@@ -13,7 +13,7 @@ Native UGUI (`Button`, `Toggle`, `ScrollRect`, hover, `IPointerXxx`) works witho
 
 Cursor appearance is a **render-agnostic skin system**: swappable theme sets (by key at runtime), resolution scaling (global tiers), sprite by action state, with upward fallback. Rendering goes through `ICursorRenderer` (default: a UGUI `Image` at the cursor position; optional: the OS cursor via `Cursor.SetCursor`).
 
-**Input is a pluggable module.** Sources are implemented as drivers (`InputDriver`) listed in the `InputDriverSet` config asset and connected at startup by the loader `CursorInputLoader`. The input module is switched on via a toggle in `SdkSettings` (`USING_VORTEX_CURSOR`). The cursor is a **supra-system entity**: there is no situational input gate — a connected driver is always active.
+**The whole package is gated by an SDK Settings toggle.** Sources are implemented as drivers (`InputDriver`) listed in the `InputDriverSet` config asset and connected at startup by the loader `CursorInputLoader`. The whole system is switched on via the `cursorInputSdk` toggle in `SdkSettings` (define `USING_VORTEX_CURSOR`): `defineConstraints` on the package asmdef. The only exception is the partial-file carrying the toggle itself (`DefineSettings/SdkSettings.CursorInput.cs`), which via `.asmref` lives in the `SdkSettings` assembly and is always visible. The cursor is a **supra-system entity**: there is no situational input gate — a connected driver is always active.
 
 **Focus navigation** (`Focus/` subsystem): a `FocusGroup` on any parent gathers child `FocusTargetComponent`-s into a navigation context; groups live in a LIFO stack (push/pop on `OnEnable`/`OnDisable` — the standard SetActive-menu pattern). `UINavigationDriver` listens to 4 directional actions (D-pad / arrows); on press — the nearest target inside the semi-open ±45° cone **from the active (top) group** becomes active. The cursor is hidden via the external channel (`HideCursor`) and warped onto the target's point — hover and click go through the native UGUI path. Any cursor movement (mouse/stick) automatically clears the focus. When the active group changes (as long as the cursor stays in nav mode) focus is handed over automatically to the new group's `RememberedFocus` or to the nearest target.
 
@@ -77,12 +77,12 @@ Theme persistence (`IGameData`) is implemented at the **project layer** (example
 [VirtualCursorBus] (static)  → Data / Visual / IsReady / OnReady            (read-only facade)
 [CursorSkinSelector] (static) → Selected(StringData) / Select(key)          (save-agnostic)
 
-Input layer (pluggable SDK module, #if USING_VORTEX_CURSOR):
+Input layer (part of the package, gated with the whole assembly):
   [InputDriverSet] (SO, ICoreAsset)  → [SerializeReference] InputDriver[]      (Resources/Settings)
   [CursorInputLoader] (IProcess)     → Register in Loader · Resources.Load + failfast
                                         · connect per platform · tick via Accumulate (+anti-spam)
   [InputDriver] (POCO, abstract): Connect/Disconnect · NeedsTick/Tick · HidesCursor · SupportsPlatform
-     ├─ MouseInputDriver (Analog)     · TouchInputDriver (Point, HidesCursor=true)
+     ├─ MouseInputDriver (Analog)     · TouchInputDriver (Point; modes HideOnly/AbsolutePosition/Delta + platform filter)
      ├─ DirectInputDriver (Direct, NeedsTick; speedCurve + accelerationTime) · ActionInputDriver (buttons→mask)
      └─ UINavigationDriver (4 actions → VirtualCursorFocusController.Navigate)
 
@@ -127,14 +127,31 @@ Source (mouse/stick/touch/keys)
 - `InputDriver` — an abstract **POCO** (not a MonoBehaviour): `Connect()`/`Disconnect()`, `NeedsTick`/`Tick(dt)`, `HidesCursor`, `SupportsPlatform(platform)`. Actions are resolved by string id "Map/Action" via `InputController` (a `[ValueSelector]` dropdown in the inspector).
 - `InputDriverSet` — an SO list of drivers (`[SerializeReference]`), `ICoreAsset` → auto-created at `Resources/Settings/InputDriverSet.asset`.
 - `CursorInputLoader` — an `IProcess`: registers in `Loader`, in `RunAsync` loads the set from `Resources`, connects drivers for the current platform, starts the per-frame tick. **Failfast**: the module is on (`USING_VORTEX_CURSOR`) but the asset is missing or the list is empty → exception (no silent no-op).
-- Switched on via the `cursorInputSdk` toggle in `SdkSettings` (define `USING_VORTEX_CURSOR`). The cursor core (controller/render/skins/UGUI bridge) always compiles; it is the **input layer** that is pluggable.
+- Switched on via the `cursorInputSdk` toggle in `SdkSettings` (define `USING_VORTEX_CURSOR`). With the define off, **the entire package assembly** does not compile (`defineConstraints` on the asmdef); the only exception is the partial-file carrying the toggle itself (`DefineSettings/SdkSettings.CursorInput.cs`), which via `.asmref` lives in the `SdkSettings` assembly and is always visible — otherwise it would be a chicken-and-egg (nothing to switch it on with). With the define off the package's components in scenes/prefabs become Missing Scripts — the expected Unity behavior, scenes/prefabs are not broken.
 - **No input gate** — the cursor is supra-system: a connected driver is always active (no situational cut-off).
 
 ### Source arbitration (last-source-wins)
 `ReportPointer(pos, source)` makes the reporting source active (last-source-wins). `PointerSourceKind`: `Analog` (mouse), `Point` (touch), `Direct` (gamepad/keys — velocity×dt integration, clamped to screen). The mouse jitter threshold from the old implementation is not carried into the new drivers (arbitration is pure last-source-wins).
 
 ### Hide cursor by source
-A driver declares `HidesCursor` (`TouchInputDriver` = true: touch is a direct contact, no cursor needed). The flag is passed through `ReportPointer(pos, source, hidesCursor)` and set on the controller by last-source-wins; `Recompute` mixes it over the resolver (`Hide = resolved.Hide || pointerHidden`). Switching sources returns the cursor correctly (mouse → visible again).
+A driver declares `HidesCursor` (on `TouchInputDriver` it depends on the mode: HideOnly/AbsolutePosition → true, Delta → false). The flag is passed through `ReportPointer(pos, source, hidesCursor)` and set on the controller by last-source-wins; `Recompute` mixes it over the resolver (`Hide = resolved.Hide || pointerHidden`). Switching sources returns the cursor correctly (mouse → visible again).
+
+For "flag the source but don't touch the position" scenarios there is a dedicated intake `VirtualCursorController.SetActiveSource(source, hidesCursor)` — it updates `ActiveSource` + the hide channel without `ScreenPosition.Set`. Used by `TouchInputDriver` in **HideOnly** mode (we only need to hide the visual; UGUI clicks natively) — this avoids triggering `VirtualPointerDispatcher` with an extra raycast and conflicting with the native handler of the same device.
+
+### TouchInputDriver: modes and platform filter
+Touch has to be handled differently on different platforms. `TouchInputDriver` is a universal component with three modes and an explicit platform filter; the typical pattern is **two instances in one `InputDriverSet`**, split by platform.
+
+**Modes (`TouchDriverMode`):**
+- **HideOnly** (default). On touch sets `ActiveSource=Point` + `_pointerHidden=true` via `SetActiveSource`. `ScreenPosition` is NOT changed, `VirtualPointerDispatcher` is not triggered. The click is handled by the native `InputSystemUIInputModule` on `<Touchscreen>/primaryTouch`. Binding — any (Button `primaryTouch` or Value); the value is not read. **Needed on Android**.
+- **AbsolutePosition**. The cursor jumps to the touch point — the original behavior. Binding — Value/Vector2 (`Touchscreen/primaryTouch/position`). Useful only where the native UGUI touch pipeline is disabled (kiosk).
+- **Delta**. Trackpad — a finger shifts the cursor relatively; the cursor stays visible (`HidesCursor=false`). Binding — Value/Vector2 **delta** (`Touchscreen/delta`). The InputSystem zeroes the delta between touches by itself; the driver keeps no history. **Needed on desktop touchscreens**.
+
+**Platform filter (`TouchPlatformFilter`):**
+- **All** — any platform (default, backward compat; **not recommended for a paired set**).
+- **MobileOnly** — Android/iOS runtime; does NOT connect in the editor (test on device).
+- **DesktopOnly** — Standalone Windows/Mac/Linux + all editors.
+
+**Why the filter.** In a paired set (HideOnly + Delta) on one platform there would be a last-source-wins conflict: Delta fires every frame of finger movement with `HidesCursor=false`, while HideOnly fires only once on tap-down with `HidesCursor=true`. During a swipe Delta would always overwrite hide to `false` — the cursor would be visible on Android too (undesired). The filter separates the instances: HideOnly → MobileOnly, Delta → DesktopOnly, no conflict.
 
 ### Driver tick (TimeController.Accumulate + anti-spam)
 Drivers with `NeedsTick` (Direct) are ticked by a self-rescheduling loop via `TimeController.Accumulate` (no hidden runner). The loop is wrapped in `try/catch/finally`: the inner `catch` isolates a failing driver, `finally` guarantees continuation. Anti-spam: a driver exception is logged only on the **first** in a streak; the counter resets on the first clean frame. `Tick` runs on `unscaledDeltaTime` — it works during pause (menus) too.
@@ -189,6 +206,11 @@ Final cursor speed: `speed × speedCurve.Evaluate(stickMagnitude) × accelFactor
 ### Global resolution tiers
 Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings`; each theme provides one pack per tier (`OnValidate` warns on mismatch). On a resolution change → `VirtualCursorController.RefreshResolution()`.
 
+### Initial-flash: first-report gate in the UGUI renderer
+`UiImageCursorRenderer` keeps `image.enabled = false` until the first real position report from any driver (the `_firstReportReceived` gate). Otherwise the theme's default sprite would flash at `(0, 0)` on scene load — on touch platforms this is a flash in the corner of the screen until the first touch. The gate is released inside `OnPosition`; `OnVisual` with the gate still closed does not draw either (theme/action changes while in the initial state don't open the visual). On `OnEnable` the gate is reset — a re-enable of the renderer starts clean.
+
+Important consequence for Android: if the device has no mouse/gamepad and the only input source is `TouchInputDriver` in HideOnly mode, `ScreenPosition` never changes (the mode uses `SetActiveSource` without `Set` on the position). The gate is never released and the visual stays hidden **forever** — exactly what you want on a pure touch device.
+
 ### Virtual pointer and native UGUI (`VirtualPointerDispatcher`)
 `VirtualPointerDispatcher` subscribes to `ScreenPosition.OnUpdate` and `Actions.OnUpdate` on the `Bus`; an event sets `_dirty` — `LateUpdate` runs the cycle **only** on changes (idle cost — one boolean check). In one pass: `EventSystem.RaycastAll` at the position → Enter/Exit diff → Action1/2/3 (LMB/RMB/MMB) transitions via `pointerDownHandler`/`pointerUpHandler`/`pointerClickHandler` through `ExecuteEvents` on the found target. Standard UGUI click canon (Up on the same `IPointerClickHandler` target as Down) is preserved.
 
@@ -238,7 +260,7 @@ Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings`; ea
 - Ownership of reactive fields is bound to the controller — not writable from outside.
 
 ### Limitations
-- The input layer requires the `USING_VORTEX_CURSOR` define; otherwise the drivers don't compile and nothing feeds the position.
+- The package requires the `USING_VORTEX_CURSOR` define (`defineConstraints` on the asmdef); with it off no type of the package compiles — external code that references `VirtualCursorBus`/`FocusGroup`/etc. also fails to compile unless it gates its own call.
 - `InputDriverSet` must exist and be non-empty — otherwise `CursorInputLoader` throws (failfast).
 - `VirtualPointerDispatcher` must be **in an active scene** (persistent scene next to Bootstrap/Renderer is ideal); without it UGUI handlers get no events from the virtual cursor. The `EventSystem` can live on any other scene — the dispatcher attaches to it lazily.
 - Only `Action1`/`Action2`/`Action3` (LMB/RMB/MMB) reach UGUI handlers. For `Action4..Action10` a direct binding on `VirtualCursorBus.Data.Actions.OnUpdate` with a manual hover check is required.
@@ -275,6 +297,7 @@ static void ShowCursor();                 // _externalHidden = false; the skin/s
 static bool IsCursorHiddenExternally;     // query
 
 // intake (internal): ReportPointer(pos,src) / ReportPointer(pos,src,hidesCursor)
+//                    / SetActiveSource(src, hidesCursor)    ← source+hide WITHOUT ScreenPosition.Set
 //                    / SetAction / ClearActions / SetHover / SetOverUI / Register/UnregisterCamera
 ```
 
@@ -317,7 +340,7 @@ static void Select(string setKey);
 static bool IsSelected(string setKey);
 ```
 
-### InputDriver (abstract, POCO)  [#if USING_VORTEX_CURSOR]
+### InputDriver (abstract, POCO)
 ```csharp
 abstract void Connect();
 abstract void Disconnect();
@@ -328,7 +351,7 @@ virtual  bool SupportsPlatform(RuntimePlatform platform);
 // helpers: ResolveAction / EnableMap / DisableMap / SubscribeAction / UnsubscribeAction / Report
 ```
 
-### InputDriverSet (SO, ICoreAsset) / CursorInputLoader (IProcess)  [#if USING_VORTEX_CURSOR]
+### InputDriverSet (SO, ICoreAsset) / CursorInputLoader (IProcess)
 ```csharp
 InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet.asset
 // CursorInputLoader: Register→Loader, RunAsync(load+failfast+connect+tick), WaitingFor()=empty
@@ -343,6 +366,12 @@ In the `SdkSettings` asset toggle `cursorInputSdk` → **ApplyChanges** (adds th
 
 ### 2. Configure the InputDriverSet
 `CoreAssetsController` auto-creates `Resources/Settings/InputDriverSet.asset` (or `Tools/Vortex/Debug/Check Core Assets`). Add drivers (`MouseInputDriver`/`TouchInputDriver`/`DirectInputDriver`/`ActionInputDriver`), assign action ids from the dropdown. An empty set → failfast on Play.
+
+For a multi-platform build (Android + Desktop) — **two instances of `TouchInputDriver`**:
+1. `mode=HideOnly`, `platformFilter=MobileOnly`, binding — Button `<Touchscreen>/primaryTouch`.
+2. `mode=Delta`, `platformFilter=DesktopOnly`, binding — Value `<Touchscreen>/delta`.
+
+On Android the first one is picked (cursor is hidden, native UGUI handles the click). On Desktop/in the editor — the second one (the finger acts like a trackpad). See the "TouchInputDriver: modes and platform filter" section.
 
 ### 3. Skin config
 `Create → Vortex/UI/Cursor Skin Settings`. Fill `resolutionTiers` (ascending), `defaultSetKey`, `sets` — themes; in each theme — packs per tier, base/hover skins, `defaultSprite` + sparse `overrides` (action→sprite).
@@ -376,10 +405,15 @@ Actions for the drivers (mouse position, stick move, touch, buttons Action1…Ac
 
 | Situation | Behavior |
 |-----------|----------|
-| Module off (`USING_VORTEX_CURSOR` off) | Drivers don't compile; nothing feeds the position |
+| Module off (`USING_VORTEX_CURSOR` off) | The entire package assembly does not compile (`defineConstraints`); types are unavailable, components in scenes/prefabs become Missing Scripts (scenes/prefabs are not broken) |
 | `InputDriverSet` missing / empty | `CursorInputLoader` throws (failfast on load) |
 | Driver doesn't support the platform | Skipped at connect (`SupportsPlatform`) |
-| Active source is touch (`Point`) | Cursor hidden (`HidesCursor`); mouse/gamepad show it again |
+| Active source is touch (`Point`), `TouchInputDriver` in HideOnly/AbsolutePosition | Cursor hidden (`HidesCursor=true`); mouse/gamepad show it again |
+| `TouchInputDriver` in Delta on Desktop + swipe | `Report(cursor+delta, Point, HidesCursor=false)`; cursor VISIBLE, follows the finger proportionally (trackpad) |
+| `TouchInputDriver` in HideOnly on Android + button tap | `SetActiveSource(Point, true)` → cursor hidden, `ScreenPosition` unchanged → `VirtualPointerDispatcher` not triggered → the native `InputSystemUIInputModule` handles the click, no double |
+| HideOnly+Delta pair with `platformFilter=All` | last-source-wins conflict: Delta fires every swipe frame with `HidesCursor=false` and overwrites HideOnly → cursor visible everywhere. Separate by MobileOnly/DesktopOnly |
+| `TouchPlatformFilter=MobileOnly` in the editor | Does NOT connect (`Application.platform` in the editor is always `*Editor`); test on device |
+| Pure touch device (no mouse/gamepad), HideOnly only | `ScreenPosition` never changes (mode uses `SetActiveSource`) → `_firstReportReceived` in the renderer is never released → the visual stays hidden permanently (expected for pure touch) |
 | Exception in a driver's `Tick` | Logged only on the first in a streak; the loop lives, other drivers tick |
 | `CursorSkinSettings` not passed to `Init` | `Visual` = None; cursor not drawn |
 | Theme key not found | Default (`defaultSetKey`), else the first |
@@ -429,7 +463,7 @@ VirtualCursorSystem/
 │   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs  IsOverUiHandler.cs
 ├── Focus/
 │   ├── FocusModel.cs  FocusGroup.cs  FocusTargetData.cs  IFocusTarget.cs  VirtualCursorFocusController.cs
-├── InputDrivers/                         # #if USING_VORTEX_CURSOR — pluggable input layer
+├── InputDrivers/                         # input driver layer (gated with the whole assembly)
 │   ├── InputDriver.cs  InputDriverSet.cs  CursorInputLoader.cs
 │   ├── MouseInputDriver.cs  TouchInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs  UINavigationDriver.cs
 ├── Drivers/                              # MonoBehaviour, scene-bound (not input drivers)
@@ -441,7 +475,7 @@ VirtualCursorSystem/
 ├── Editor/                               # editor-only (standard Unity folder, no own asmdef)
 │   ├── FocusStackWindow.cs               # Tools/Vortex/Virtual Cursor/Focus Stack — LIFO dump + Ping
 │   ├── MenuController.cs                 # Tools/Vortex/Configs/Virtual Cursor Skin Settings + Input Driver Set
-└── ru.vortex.unity.virtualcursorsystem.asmdef
+└── ru.vortex.unity.virtualcursorsystem.asmdef  # defineConstraints: ["USING_VORTEX_CURSOR"]
 ```
 
 Theme persistence (`CursorSkinData : IGameData` + mirror) lives at the project layer, outside the package.

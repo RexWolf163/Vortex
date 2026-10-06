@@ -13,7 +13,7 @@
 
 Внешний вид курсора — **render-агностичная система скинов**: сменные наборы-темы (по ключу в рантайме), масштаб от разрешения (глобальные тиры), спрайт по состоянию действий, с фолбэком вверх. Рендер — через `ICursorRenderer` (по умолчанию UGUI-`Image` в позиции курсора; опционально ОС-курсор через `Cursor.SetCursor`).
 
-**Ввод — подключаемый модуль.** Источники реализованы как драйверы (`InputDriver`), которые перечисляются в настроечном ассете `InputDriverSet` и подключаются на старте контроллером-загрузчиком `CursorInputLoader`. Сам модуль ввода включается тогглом в `SdkSettings` (`USING_VORTEX_CURSOR`). Курсор — **надсистемная сущность**: ситуативного гейта ввода нет, подключённый драйвер активен всегда.
+**Весь пакет гейтится тогглом в SDK Settings.** Источники реализованы как драйверы (`InputDriver`), которые перечисляются в настроечном ассете `InputDriverSet` и подключаются на старте контроллером-загрузчиком `CursorInputLoader`. Включение всей системы — тогглом `cursorInputSdk` в `SdkSettings` (дефайн `USING_VORTEX_CURSOR`): `defineConstraints` в asmdef пакета. Единственное исключение — файл-partial с самим тогглом (`DefineSettings/SdkSettings.CursorInput.cs`), который через `.asmref` входит в сборку `SdkSettings` и виден всегда. Курсор — **надсистемная сущность**: ситуативного гейта ввода нет, подключённый драйвер активен всегда.
 
 **Фокус-навигация** (подсистема `Focus/`): `FocusGroup` на любом родителе собирает дочерние `FocusTargetComponent`-ы в контекст навигации; группы живут в LIFO-стеке (push/pop на `OnEnable`/`OnDisable` — стандартный паттерн SetActive меню). `UINavigationDriver` слушает 4 action'а на D-pad/стрелки; на нажатие — ближайший target в полуоткрытом конусе ±45° **из активной (топовой) группы** становится активным. Курсор прячется через внешний канал (`HideCursor`) и варпается на точку target'а — hover и клик проходят естественным UGUI-путём. Движение курсора мышью/стиком автоматически сбрасывает фокус. При переключении активной группы (пока курсор в nav mode) фокус автоматически передаётся на `RememberedFocus` новой группы или ближайший к курсору target.
 
@@ -77,12 +77,12 @@
 [VirtualCursorBus] (static)  → Data / Visual / IsReady / OnReady            (read-only фасад)
 [CursorSkinSelector] (static) → Selected(StringData) / Select(key)          (save-агностично)
 
-Слой ввода (подключаемый SDK-модуль, #if USING_VORTEX_CURSOR):
+Слой ввода (часть пакета, гейтится вместе со всей сборкой):
   [InputDriverSet] (SO, ICoreAsset)  → [SerializeReference] InputDriver[]      (Resources/Settings)
   [CursorInputLoader] (IProcess)     → Register в Loader · Resources.Load + failfast
                                         · connect по платформе · тик через Accumulate (+анти-спам)
   [InputDriver] (POCO, abstract): Connect/Disconnect · NeedsTick/Tick · HidesCursor · SupportsPlatform
-     ├─ MouseInputDriver (Analog)     · TouchInputDriver (Point, HidesCursor=true)
+     ├─ MouseInputDriver (Analog)     · TouchInputDriver (Point; режимы HideOnly/AbsolutePosition/Delta + платформенный фильтр)
      ├─ DirectInputDriver (Direct, NeedsTick; speedCurve + accelerationTime) · ActionInputDriver (кнопки→маска)
      └─ UINavigationDriver (4 action'а → VirtualCursorFocusController.Navigate)
 
@@ -127,14 +127,31 @@ UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPositio
 - `InputDriver` — абстрактный **POCO** (не MonoBehaviour): `Connect()`/`Disconnect()`, `NeedsTick`/`Tick(dt)`, `HidesCursor`, `SupportsPlatform(platform)`. Экшены резолвятся по строковому id «Карта/Экшен» через `InputController` (`[ValueSelector]`-дропдаун в инспекторе).
 - `InputDriverSet` — SO-список драйверов (`[SerializeReference]`), `ICoreAsset` → авто-создаётся в `Resources/Settings/InputDriverSet.asset`.
 - `CursorInputLoader` — `IProcess`: регистрируется в `Loader`, в `RunAsync` грузит сет из `Resources`, подключает драйверы под текущую платформу, заводит покадровый тик. **Failfast**: модуль включён (`USING_VORTEX_CURSOR`), а ассета нет или список пуст → исключение (не тихий отказ).
-- Включается тогглом `cursorInputSdk` в `SdkSettings` (дефайн `USING_VORTEX_CURSOR`). Ядро курсора (контроллер/рендер/скины/UGUI-мост) компилируется всегда; подключаемым является именно **слой ввода**.
+- Включается тогглом `cursorInputSdk` в `SdkSettings` (дефайн `USING_VORTEX_CURSOR`). При выключенном дефайне **вся сборка пакета** не компилируется (`defineConstraints` в asmdef); единственное исключение — файл-partial с тогглом (`DefineSettings/SdkSettings.CursorInput.cs`), который через `.asmref` входит в сборку `SdkSettings` и виден в инспекторе всегда — иначе было бы «курица–яйцо» (нечем включить). При выключенном дефайне компоненты пакета в сценах/префабах становятся Missing Script — ожидаемое поведение Unity, сцены/префабы при этом не ломаются.
 - **Гейта ввода нет** — курсор надсистемный: драйвер, будучи подключённым, активен всегда (без ситуативного отсечения).
 
 ### Арбитраж источников (last-source-wins)
 `ReportPointer(pos, source)` делает репортящий источник активным (last-source-wins). `PointerSourceKind`: `Analog` (мышь), `Point` (тач), `Direct` (геймпад/клавиши — интеграция скорость×dt, кламп к экрану). Порог антидребезга у мыши из старой реализации в новые драйверы не перенесён (арбитраж — чистый last-source-wins).
 
 ### Скрытие курсора по источнику
-Драйвер объявляет `HidesCursor` (у `TouchInputDriver` = true: касание — прямой контакт, курсор не нужен). Флаг прокидывается в `ReportPointer(pos, source, hidesCursor)` и по last-source-wins кладётся в контроллер; `Recompute` подмешивает его поверх резолвера (`Hide = resolved.Hide || pointerHidden`). Смена источника корректно возвращает курсор (мышь → снова виден).
+Драйвер объявляет `HidesCursor` (у `TouchInputDriver` зависит от режима: HideOnly/AbsolutePosition → true, Delta → false). Флаг прокидывается в `ReportPointer(pos, source, hidesCursor)` и по last-source-wins кладётся в контроллер; `Recompute` подмешивает его поверх резолвера (`Hide = resolved.Hide || pointerHidden`). Смена источника корректно возвращает курсор (мышь → снова виден).
+
+Для сценариев «пометить источник, но позицию не трогать» есть отдельный intake `VirtualCursorController.SetActiveSource(source, hidesCursor)` — обновляет `ActiveSource` + hide-канал без `ScreenPosition.Set`. Используется в `TouchInputDriver` режима **HideOnly** (нужно только спрятать визуал, UGUI сам кликает нативно) — чтобы не триггерить `VirtualPointerDispatcher` лишним raycast'ом и не конфликтовать с нативным обработчиком того же устройства.
+
+### TouchInputDriver: режимы и платформенный фильтр
+Касание на разных платформах нужно обрабатывать по-разному. Поэтому `TouchInputDriver` — универсальный компонент с тремя режимами и явным платформенным фильтром; типовой паттерн — **два экземпляра в одном `InputDriverSet`**, разведённые по платформам.
+
+**Режимы (`TouchDriverMode`):**
+- **HideOnly** (дефолт). На касание выставляет `ActiveSource=Point` + `_pointerHidden=true` через `SetActiveSource`. `ScreenPosition` НЕ меняется, `VirtualPointerDispatcher` не триггерится. Клик обрабатывается нативным `InputSystemUIInputModule` на `<Touchscreen>/primaryTouch`. Биндинг — любой (Button `primaryTouch` или Value); значение не читается. **Нужен на Android**.
+- **AbsolutePosition**. Курсор прыгает в точку касания — старое поведение. Биндинг — Value/Vector2 (`Touchscreen/primaryTouch/position`). Полезно только там, где нативный UGUI-тач-пайплайн выключен (киоск).
+- **Delta**. Трекпад — палец сдвигает курсор относительно; курсор остаётся видим (`HidesCursor=false`). Биндинг — Value/Vector2 **дельты** (`Touchscreen/delta`). InputSystem сам обнуляет дельту между касаниями, никакой истории драйвер не ведёт. **Нужен на десктоп-тачскринах**.
+
+**Платформенный фильтр (`TouchPlatformFilter`):**
+- **All** — любая платформа (дефолт, обратная совместимость; **не рекомендуется для парного сета**).
+- **MobileOnly** — Android/iOS runtime; в редакторе НЕ подключается (тестировать на устройстве).
+- **DesktopOnly** — Standalone Windows/Mac/Linux + все редакторы.
+
+**Зачем фильтр.** В парном сете (HideOnly + Delta) на одной платформе возник бы конфликт на last-source-wins: Delta фаерит каждый кадр движения пальца с `HidesCursor=false`, а HideOnly — только единожды на tap-down с `HidesCursor=true`. При свайпе Delta всегда перезапишет hide в `false` — курсор был бы виден и на Android (нежелательно). Фильтр разводит экземпляры: HideOnly → MobileOnly, Delta → DesktopOnly, конфликта нет.
 
 ### Тик драйверов (TimeController.Accumulate + анти-спам)
 Драйверы с `NeedsTick` (Direct) тикаются самоперепланирующейся петлёй через `TimeController.Accumulate` (без скрытого раннера). Петля обёрнута в `try/catch/finally`: внутренний `catch` изолирует сбойный драйвер, `finally` гарантирует продолжение. Анти-спам: исключение драйвера логируется только на **первое** в серии, счётчик сбрасывается на первом успешном кадре. `Tick` работает на `unscaledDeltaTime` — действует и на паузе (меню).
@@ -189,6 +206,11 @@ UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPositio
 ### Глобальные тиры разрешения
 Брейкпоинты (`resolutionTiers`) заданы **один раз** в `CursorSkinSettings`; каждая тема даёт по одному паку на тир (`OnValidate` предупреждает о рассогласовании). Смена разрешения → `VirtualCursorController.RefreshResolution()`.
 
+### Initial-flash: гейт первого репорта в UGUI-рендерере
+`UiImageCursorRenderer` держит `image.enabled = false` до первого реального репорта позиции от любого драйвера (`_firstReportReceived`-гейт). Иначе дефолтный спрайт темы мигнул бы в `(0, 0)` при загрузке сцены — на тач-платформах это флэш в углу экрана до первого касания. Гейт снимается в `OnPosition`; `OnVisual` при незакрытом гейте тоже не рисует (смена темы/действия в стартовом состоянии не открывает визуал). На `OnEnable` гейт сбрасывается — повторная активация рендерера начинает с чистого состояния.
+
+Важное следствие для Android: если на устройстве нет мыши/геймпада и единственный источник ввода — `TouchInputDriver` в режиме HideOnly, `ScreenPosition` не меняется никогда (режим использует `SetActiveSource` без `Set` на позицию). Гейт не снимается, визуал остаётся скрытым **навсегда** — именно то, что нужно на чисто тач-устройстве.
+
 ### Виртуальный pointer и родной UGUI (`VirtualPointerDispatcher`)
 `VirtualPointerDispatcher` подписан на `ScreenPosition.OnUpdate` и `Actions.OnUpdate` в `Bus`; событие ставит `_dirty` — `LateUpdate` обсчитывает цикл **только** на изменениях (в простое — одна проверка булева). За один проход: `EventSystem.RaycastAll` в точке позиции → Enter/Exit diff → переходы Action1/2/3 (LMB/RMB/MMB) с `pointerDownHandler`/`pointerUpHandler`/`pointerClickHandler` через `ExecuteEvents` на найденный target. Поддерживается стандартный UGUI-канон клика (Up на том же `IPointerClickHandler`-таргете, что и Down).
 
@@ -238,7 +260,7 @@ UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPositio
 - Владение реактивными полями закреплено за контроллером — извне не пишутся.
 
 ### Ограничения
-- Слой ввода требует включённого дефайна `USING_VORTEX_CURSOR`; иначе драйверы не компилируются и позицию никто не подаёт.
+- Пакет требует включённого дефайна `USING_VORTEX_CURSOR` (`defineConstraints` в asmdef); при выключенном не компилируется ни один тип пакета — внешний код, ссылающийся на `VirtualCursorBus`/`FocusGroup`/etc., также падает, если не гейтит своё обращение.
 - `InputDriverSet` обязан существовать и быть непустым — иначе `CursorInputLoader` кидает исключение (failfast).
 - `VirtualPointerDispatcher` должен быть **в активной сцене** (persistent-сцена рядом с Bootstrap/Renderer — идеально); без него UGUI-handler'ы не получат события от виртуального курсора. `EventSystem` может быть на любой другой сцене — диспетчер подхватится лениво.
 - Через UGUI-пайплайн доступны только `Action1`/`Action2`/`Action3` (LMB/RMB/MMB). Для `Action4..Action10` нужен прямой биндинг на `VirtualCursorBus.Data.Actions.OnUpdate` с ручной проверкой hover-зоны.
@@ -275,6 +297,7 @@ static void ShowCursor();                 // _externalHidden = false; скин/�
 static bool IsCursorHiddenExternally;     // query
 
 // intake (internal): ReportPointer(pos,src) / ReportPointer(pos,src,hidesCursor)
+//                    / SetActiveSource(src, hidesCursor)    ← source+hide БЕЗ ScreenPosition.Set
 //                    / SetAction / ClearActions / SetHover / SetOverUI / Register/UnregisterCamera
 ```
 
@@ -317,7 +340,7 @@ static void Select(string setKey);
 static bool IsSelected(string setKey);
 ```
 
-### InputDriver (abstract, POCO)  [#if USING_VORTEX_CURSOR]
+### InputDriver (abstract, POCO)
 ```csharp
 abstract void Connect();
 abstract void Disconnect();
@@ -328,7 +351,7 @@ virtual  bool SupportsPlatform(RuntimePlatform platform);
 // helpers: ResolveAction / EnableMap / DisableMap / SubscribeAction / UnsubscribeAction / Report
 ```
 
-### InputDriverSet (SO, ICoreAsset) / CursorInputLoader (IProcess)  [#if USING_VORTEX_CURSOR]
+### InputDriverSet (SO, ICoreAsset) / CursorInputLoader (IProcess)
 ```csharp
 InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet.asset
 // CursorInputLoader: Register→Loader, RunAsync(load+failfast+connect+tick), WaitingFor()=пусто
@@ -343,6 +366,12 @@ InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet
 
 ### 2. Настроить InputDriverSet
 `CoreAssetsController` авто-создаст `Resources/Settings/InputDriverSet.asset` (или `Tools/Vortex/Debug/Check Core Assets`). Добавить драйверы (`MouseInputDriver`/`TouchInputDriver`/`DirectInputDriver`/`ActionInputDriver`), назначить id экшенов из дропдауна. Пустой сет → failfast на Play.
+
+Для мульти-платформенной сборки (Android + Desktop) — **два экземпляра `TouchInputDriver`**:
+1. `mode=HideOnly`, `platformFilter=MobileOnly`, биндинг — Button `<Touchscreen>/primaryTouch`.
+2. `mode=Delta`, `platformFilter=DesktopOnly`, биндинг — Value `<Touchscreen>/delta`.
+
+На Android подключится первый (курсор скрывается, клик обрабатывает нативный UGUI). На Desktop/в редакторе — второй (палец работает как трекпад). См. раздел «TouchInputDriver: режимы и платформенный фильтр».
 
 ### 3. Конфиг скинов
 `Create → Vortex/UI/Cursor Skin Settings`. Заполнить `resolutionTiers` (по возрастанию), `defaultSetKey`, `sets` — темы; в каждой теме — паки по тирам, base/hover-скины, `defaultSprite` + разреженные `overrides` (действие→спрайт).
@@ -376,10 +405,15 @@ InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet
 
 | Ситуация | Поведение |
 |----------|-----------|
-| Модуль выключен (`USING_VORTEX_CURSOR` off) | Драйверы не компилируются; позицию никто не подаёт |
+| Модуль выключен (`USING_VORTEX_CURSOR` off) | Вся сборка пакета не компилируется (`defineConstraints`); типы недоступны, компоненты в сценах/префабах становятся Missing Script (сцены/префабы не ломаются) |
 | `InputDriverSet` отсутствует / пуст | `CursorInputLoader` кидает исключение (failfast на загрузке) |
 | Драйвер не поддерживает платформу | Пропускается при коннекте (`SupportsPlatform`) |
-| Активный источник — касание (`Point`) | Курсор скрыт (`HidesCursor`); мышь/геймпад снова показывают |
+| Активный источник — касание (`Point`), `TouchInputDriver` в HideOnly/AbsolutePosition | Курсор скрыт (`HidesCursor=true`); мышь/геймпад снова показывают |
+| `TouchInputDriver` в Delta на Desktop + свайп | `Report(cursor+delta, Point, HidesCursor=false)`; курсор ВИДИМ, едет пропорционально пальцу (трекпад) |
+| `TouchInputDriver` в HideOnly на Android + тап кнопки | `SetActiveSource(Point, true)` → курсор скрыт, `ScreenPosition` не меняется → `VirtualPointerDispatcher` не триггерится → клик обрабатывает нативный `InputSystemUIInputModule` без дубля |
+| Пара HideOnly+Delta с `platformFilter=All` | Конфликт last-source-wins: Delta фаерит каждый кадр свайпа с `HidesCursor=false` и перебивает HideOnly → курсор виден везде. Разводить по MobileOnly/DesktopOnly |
+| `TouchPlatformFilter=MobileOnly` в редакторе | НЕ подключается (`Application.platform` в редакторе — всегда `*Editor`); тестить на устройстве |
+| Чисто тач-устройство (нет мыши/геймпада), HideOnly только | `ScreenPosition` никогда не меняется (режим использует `SetActiveSource`) → `_firstReportReceived` в рендерере не снимается → визуал скрыт перманентно (ожидаемо для чистого тача) |
 | Исключение в `Tick` драйвера | Лог только на первое в серии; петля живёт, остальные драйверы тикаются |
 | `CursorSkinSettings` не передан в `Init` | `Visual` = None; курсор не рисуется |
 | Тема по ключу не найдена | Дефолтная (`defaultSetKey`), иначе первая |
@@ -429,7 +463,7 @@ VirtualCursorSystem/
 │   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs  IsOverUiHandler.cs
 ├── Focus/
 │   ├── FocusModel.cs  FocusGroup.cs  FocusTargetData.cs  IFocusTarget.cs  VirtualCursorFocusController.cs
-├── InputDrivers/                         # #if USING_VORTEX_CURSOR — подключаемый слой ввода
+├── InputDrivers/                         # слой драйверов ввода (гейтится вместе со всей сборкой)
 │   ├── InputDriver.cs  InputDriverSet.cs  CursorInputLoader.cs
 │   ├── MouseInputDriver.cs  TouchInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs  UINavigationDriver.cs
 ├── Drivers/                              # MonoBehaviour, сценово-привязанные (не драйверы ввода)
@@ -441,7 +475,7 @@ VirtualCursorSystem/
 ├── Editor/                               # editor-only (стандартная папка Unity, без своего asmdef)
 │   ├── FocusStackWindow.cs               # Tools/Vortex/Virtual Cursor/Focus Stack — LIFO-дамп + Ping
 │   ├── MenuController.cs                 # Tools/Vortex/Configs/Virtual Cursor Skin Settings + Input Driver Set
-└── ru.vortex.unity.virtualcursorsystem.asmdef
+└── ru.vortex.unity.virtualcursorsystem.asmdef   # defineConstraints: ["USING_VORTEX_CURSOR"]
 ```
 
 Персист темы (`CursorSkinData : IGameData` + мост) живёт на проектном слое, вне пакета.

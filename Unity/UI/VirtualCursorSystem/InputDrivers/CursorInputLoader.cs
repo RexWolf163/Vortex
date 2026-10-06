@@ -1,4 +1,3 @@
-#if USING_VORTEX_CURSOR
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -119,4 +118,3 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         }
     }
 }
-#endif

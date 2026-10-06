@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddcd2a4600b26d1429b017818632895b, type: 3}
+  m_Name: InputDriverSet
+  m_EditorClassIdentifier: ru.vortex.unity.virtualcursorsystem::Vortex.Unity.UI.VirtualCursorSystem.InputDriverSet
+  drivers:
+  - rid: 2241965923318366310
+  - rid: 2241965923318366312
+  - rid: 2241965923318366314
+  - rid: 2241965924504830253
+  - rid: 2241965930616979536
+  - rid: 2241965930616979539
+  references:
+    version: 2
+    RefIds:
+    - rid: 2241965923318366310
+      type: {class: MouseInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        positionActionId: VirtualCursor/CursorMouse
+    - rid: 2241965923318366312
+      type: {class: ActionInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        bindings:
+        - action: 1
+          actionId: VirtualCursor/Click
+        - action: 2
+          actionId: VirtualCursor/AltClick
+    - rid: 2241965923318366314
+      type: {class: DirectInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        moveActionId: VirtualCursor/CursorGamePad
+        speed: 2200
+        deadzone: 0.2
+        speedCurve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0.5
+            inSlope: 0.22574963
+            outSlope: 0.22574963
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0.09850374
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        accelerationTime: 0.6
+        warpSystemMouse: 1
+    - rid: 2241965924504830253
+      type: {class: UINavigationDriver, ns: Vortex.Unity.UI.VirtualCursorSystem, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        upActionId: VirtualCursor/NavigationUp
+        downActionId: VirtualCursor/NavigationDown
+        leftActionId: VirtualCursor/NavigationLeft
+        rightActionId: VirtualCursor/NavigationRight
+        coneAngleDeg: 45
+        hideCursorOnFocus: 1
+        warpSystemMouse: 1
+        captureFocusIfFree: 1
+    - rid: 2241965930616979536
+      type: {class: TouchInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        mode: 2
+        platformFilter: 2
+        pointActionId: VirtualCursor/CursorDesktopTouchswipe
+        warpSystemMouse: 1
+        deltaSpeedMultiplier: 1
+    - rid: 2241965930616979539
+      type: {class: TouchInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        mode: 0
+        platformFilter: 1
+        pointActionId: VirtualCursor/CursorHide
+        warpSystemMouse: 1
+        deltaSpeedMultiplier: 1
