@@ -36,7 +36,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         {
             foreach (var b in bindings)
             {
-                if (ResolveAction(b.actionId) == null) continue;
+                if (ResolveAction(b.actionId) == null)
+                {
+                    if (!string.IsNullOrEmpty(b.actionId))
+                        Debug.LogError($"[ActionInputDriver] Экшен '{b.actionId}' не разрезолвился — " +
+                                       $"привязка '{b.action}' работать не будет. Проверь id в InputDriverSet.");
+                    continue;
+                }
                 EnableMap(b.actionId);
                 var action = b.action; // фиксируем на итерацию
                 SubscribeAction(b.actionId,

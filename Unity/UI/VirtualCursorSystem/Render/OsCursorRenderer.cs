@@ -26,6 +26,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             if (!_subscribed) return;
             VirtualCursorBus.Visual.OnUpdate -= OnVisual;
             _subscribed = false;
+            // Симметрия с Apply: вернуть ОС-курсор в дефолт, иначе после Hide он остаётся невидим,
+            // а кастомная текстура — установленной (рассинхрон с UiImageCursorRenderer).
+            Cursor.visible = true;
+            Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
         }
 
         private void TrySubscribe()

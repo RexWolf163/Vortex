@@ -47,6 +47,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             if (IsReady)
                 return;
 
+            if (settings == null)
+                Debug.LogError("[VirtualCursor] Init: settings=null — CursorSkinSettings не передан, " +
+                               "курсор не будет отрисован (Resolve→None). Проверь VirtualCursorBootstrap.");
+
             _settings = settings;
             _model = new PointerModel();
             _model.SetOwner(Key);

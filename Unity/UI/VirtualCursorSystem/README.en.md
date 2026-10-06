@@ -99,7 +99,6 @@ Focus navigation (Focus/):
 
 Scene MonoBehaviours (not input drivers):
   CursorHoverZone (UGUI→HoverKey) · CameraProvider (projection camera, LIFO)
-  IsOverUiHandler (EventSystem→IsOverUI)
   PointerActionHandler (UGUI binding Action1/2/3 → UnityEvent — optional, on buttons)
   FocusGroup (on a parent; LIFO navigation context)
   FocusTargetComponent (on a button/object; UGUI/World → registers in the parent FocusGroup + UnityEvent onFocused/onUnfocused)
@@ -227,7 +226,7 @@ Important consequence for Android: if the device has no mouse/gamepad and the on
 **On buttons**: for the **right/middle** button — `PointerActionHandler` on a UGUI element (`PointerAction` dropdown + `onPressed`/`onReleased`/`onClick`). For the **left** — the regular `Button.onClick`. Action4..Action10 don't pass through UGUI pipeline (`PointerEventData.InputButton` knows only Left/Right/Middle).
 
 ### IsOverUI
-`IsOverUiHandler` writes `PointerModel.IsOverUI` from `EventSystem.IsPointerOverGameObject()` — world-projection consumers gate the click on this flag.
+`VirtualPointerDispatcher` writes `PointerModel.IsOverUI` from its own `RaycastAll` at the virtual cursor position (whether the raycast hit UI) — world-projection consumers gate the click on this flag. The source is the virtual cursor itself, not `EventSystem.IsPointerOverGameObject()` (which would reflect the physical mouse). No separate component is needed.
 
 ### Screen→world projection
 `VirtualCursorController` keeps a LIFO camera registry (`CameraProvider`); `TryGetWorldHit`/`GetWorldProjection` — a lazy `Physics.Raycast` cached per frame. The package returns the raw hit.
@@ -392,7 +391,7 @@ Actions for the drivers (mouse position, stick move, touch, buttons Action1…Ac
 - `VirtualCursorBootstrap` (+ `CursorSkinSettings`, projection params) — on a persistent scene (`Preload`/boot). `VirtualCursorFocusController.Init` is called automatically from `Awake`.
 - `VirtualPointerDispatcher` — there too, next to the Bootstrap. **Input drivers are not placed on the scene** — they live in the `InputDriverSet`.
 - An overlay `Canvas` (Screen Space - Overlay, above all UI) + a cursor `Image` (Raycast Target off) + `UiImageCursorRenderer`.
-- Optional: `IsOverUiHandler`, `CameraProvider` (on the camera), `CursorHoverZone` (on interactive UGUI elements, hover-skin key), `PointerActionHandler` (on UI buttons for RMB/MMB), `FocusTargetComponent` (on UI buttons or world objects for gamepad navigation).
+- Optional: `CameraProvider` (on the camera), `CursorHoverZone` (on interactive UGUI elements, hover-skin key), `PointerActionHandler` (on UI buttons for RMB/MMB), `FocusTargetComponent` (on UI buttons or world objects for gamepad navigation).
 - For 2D/3D objects — `Physics2DRaycaster`/`PhysicsRaycaster` on the camera + a MonoBehaviour with `IPointerClickHandler`/`IPointerEnterHandler` on the object. The dispatcher works uniformly for UGUI and world colliders.
 
 ### 7. Focus navigation (optional)
@@ -475,7 +474,7 @@ VirtualCursorSystem/
 │   ├── CursorSpriteEntry.cs  CursorSkin.cs  CursorSkinPack.cs
 │   ├── CursorSkinSet.cs  CursorSkinSettings.cs
 ├── Input/
-│   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs  IsOverUiHandler.cs
+│   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs
 ├── Focus/
 │   ├── FocusModel.cs  FocusGroup.cs  FocusTargetData.cs  IFocusTarget.cs  VirtualCursorFocusController.cs
 ├── InputDrivers/                         # input driver layer (gated with the whole assembly)

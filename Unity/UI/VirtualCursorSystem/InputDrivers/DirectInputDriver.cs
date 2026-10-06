@@ -72,6 +72,11 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             _action = ResolveAction(moveActionId);
             EnableMap(moveActionId);
 
+            // Fail-loud: непустой id, который не резолвится, оставил бы Tick молча бездействующим.
+            if (_action == null && !string.IsNullOrEmpty(moveActionId))
+                Debug.LogError($"[DirectInputDriver] moveActionId='{moveActionId}' не разрезолвился — " +
+                               "курсор не будет двигаться. Проверь id в InputDriverSet.");
+
             // Curve, оканчивающаяся на 0 при полном отклонении стика (Evaluate(1) ≈ 0) —
             // почти всегда ошибка конфигурации: курсор не будет двигаться даже на максимуме.
             // Явно предупреждаем на подключении, не ждём «курсор не работает» в тестах.

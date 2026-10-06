@@ -58,7 +58,15 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// <summary>Подписка на сигналы экшена через LIFO-шину <see cref="InputController"/>.</summary>
         protected void SubscribeAction(string actionId, Action performed, Action canceled)
         {
-            if (ResolveAction(actionId) == null) return;
+            if (ResolveAction(actionId) == null)
+            {
+                // Непустой, но неразрезолвленный id — misconfig (нет в Input Actions / опечатка):
+                // драйвер молча бы бездействовал. Fail-loud вместо тихого no-op.
+                if (!string.IsNullOrEmpty(actionId))
+                    Debug.LogError($"[{GetType().Name}] Экшен '{actionId}' не разрезолвился — драйвер не " +
+                                   "подпишется и будет бездействовать. Проверь id в InputDriverSet.");
+                return;
+            }
             InputController.AddActionUser(actionId, this, performed, canceled);
         }
 

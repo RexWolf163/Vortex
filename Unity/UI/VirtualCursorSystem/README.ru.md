@@ -99,7 +99,6 @@
 
 Сценовые MonoBehaviour (не драйверы ввода):
   CursorHoverZone (UGUI→HoverKey) · CameraProvider (камера проекции, LIFO)
-  IsOverUiHandler (EventSystem→IsOverUI)
   PointerActionHandler (UGUI-биндинг Action1/2/3 → UnityEvent — опционально, на кнопках)
   FocusGroup (на родителе; LIFO контекст навигации)
   FocusTargetComponent (на кнопке/объекте; UGUI/World → регистрация в родительской FocusGroup + UnityEvent onFocused/onUnfocused)
@@ -227,7 +226,7 @@ UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPositio
 **На кнопках**: для **правой/средней** кнопки — `PointerActionHandler` на UGUI-элементе (dropdown `PointerAction` + `onPressed`/`onReleased`/`onClick`). Для **левой** — обычный `Button.onClick`. Action4..Action10 через UGUI-пайплайн не проходят (`PointerEventData.InputButton` знает только Left/Right/Middle).
 
 ### IsOverUI
-`IsOverUiHandler` пишет `PointerModel.IsOverUI` из `EventSystem.IsPointerOverGameObject()` — потребители мировой проекции гейтят клик по флагу.
+`VirtualPointerDispatcher` пишет `PointerModel.IsOverUI` по своему `RaycastAll` в позиции виртуального курсора (попал ли raycast в UI) — потребители мировой проекции гейтят клик по флагу. Источник — сам виртуальный курсор, а не `EventSystem.IsPointerOverGameObject()` (тот отражал бы физическую мышь). Отдельный компонент для этого не нужен.
 
 ### Screen→world проекция
 `VirtualCursorController` ведёт LIFO-реестр камер (`CameraProvider`); `TryGetWorldHit`/`GetWorldProjection` — ленивый `Physics.Raycast` с кэшем на кадр. Пакет отдаёт сырой хит.
@@ -392,7 +391,7 @@ InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet
 - `VirtualCursorBootstrap` (+ `CursorSkinSettings`, параметры проекции) — на persistent-сцене (`Preload`/boot). `VirtualCursorFocusController.Init` вызывается автоматически в `Awake`.
 - `VirtualPointerDispatcher` — там же, рядом с Bootstrap. **Драйверы ввода на сцену не ставятся** — они в `InputDriverSet`.
 - Оверлей `Canvas` (Screen Space - Overlay, поверх всего UI) + cursor `Image` (Raycast Target off) + `UiImageCursorRenderer`.
-- Опц.: `IsOverUiHandler`, `CameraProvider` (на камере), `CursorHoverZone` (на интерактивных UGUI-элементах, ключ hover-скина), `PointerActionHandler` (на UI-кнопках для RMB/MMB), `FocusTargetComponent` (на UI-кнопках или world-объектах для gamepad-навигации).
+- Опц.: `CameraProvider` (на камере), `CursorHoverZone` (на интерактивных UGUI-элементах, ключ hover-скина), `PointerActionHandler` (на UI-кнопках для RMB/MMB), `FocusTargetComponent` (на UI-кнопках или world-объектах для gamepad-навигации).
 - Для 2D/3D-объектов — `Physics2DRaycaster`/`PhysicsRaycaster` на камере + MonoBehaviour c `IPointerClickHandler`/`IPointerEnterHandler` на объекте. Диспетчер работает одинаково для UGUI и world-коллайдеров.
 
 ### 7. Фокус-навигация (опционально)
@@ -475,7 +474,7 @@ VirtualCursorSystem/
 │   ├── CursorSpriteEntry.cs  CursorSkin.cs  CursorSkinPack.cs
 │   ├── CursorSkinSet.cs  CursorSkinSettings.cs
 ├── Input/
-│   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs  IsOverUiHandler.cs
+│   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs
 ├── Focus/
 │   ├── FocusModel.cs  FocusGroup.cs  FocusTargetData.cs  IFocusTarget.cs  VirtualCursorFocusController.cs
 ├── InputDrivers/                         # слой драйверов ввода (гейтится вместе со всей сборкой)

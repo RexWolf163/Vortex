@@ -168,6 +168,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             _ped.pointerCurrentRaycast = topRaycast;
             var current = topRaycast.gameObject;
 
+            // Над UI — из НАШЕГО raycast'а виртуального курсора (а не EventSystem.IsPointerOverGameObject(),
+            // который отражает физический указатель). Заменяет отдельный IsOverUiHandler.
+            VirtualCursorController.SetOverUI(current != null);
+
             // Enter/Exit — пройти ExecuteHierarchy по target'у и его предкам, чтобы Button-highlight
             // и прочие IPointerEnterHandler-ы на дочерних элементах срабатывали корректно.
             if (current != _lastHover)
@@ -233,6 +237,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// </summary>
         private void ClearPointerState()
         {
+            // Курсор больше не диспатчит — сбрасываем «над UI».
+            VirtualCursorController.SetOverUI(false);
             if (_ped == null) return;
 
             if (_lastHover != null)
