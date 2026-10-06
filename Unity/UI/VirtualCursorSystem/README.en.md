@@ -87,8 +87,9 @@ Input layer (part of the package, gated with the whole assembly):
      └─ UINavigationDriver (4 actions → VirtualCursorFocusController.Navigate)
 
 Focus navigation (Focus/):
-  [FocusModel] (IReactiveData)       → LIFO Groups[] + ActiveGroup + ReactiveValue<IFocusTarget> CurrentFocus
-  [FocusGroup] (MonoBehaviour)        → OnEnable push LIFO · OnDisable pop · OnDestroy cleanup
+  [FocusModel] (IReactiveData)       → priority-ordered Groups[] + ActiveGroup (skips Ignored) + ReactiveValue<IFocusTarget> CurrentFocus
+  [FocusGroup] (MonoBehaviour)        → OnEnable push with Priority bubble-insert · OnDisable pop · OnDestroy cleanup
+                                        · Priority (0..10) · Ignore (reactive, notifies the controller)
                                         · Targets[] (children register) · RememberedFocus · FindNearestEuclidean
   [VirtualCursorFocusController] (static) → Init/Cleanup · PushGroup/RemoveGroup · Navigate(dir)/ClearFocus
                                             · auto focus transfer on push/pop if _focusAnchor != null
@@ -159,14 +160,19 @@ Drivers with `NeedsTick` (Direct) are ticked by a self-rescheduling loop via `Ti
 ### Focus navigation (Focus/)
 Directional switching of the active element (D-pad / arrows) — an alternative to cursor control for gamepad / keyboard in UI scenes.
 
-**LIFO group stack (navigation contexts).**
-- `FocusGroup` — a MonoBehaviour on any parent of interactive elements. On `OnEnable` it pushes onto the LIFO; on `OnDisable` it pops; on `OnDestroy` — final cleanup. The active group (`ActiveGroup`) is the top of the stack; only its `Targets` participate in `Navigate`.
+**Group stack (navigation contexts) — Priority + LIFO within a tier.**
+- `FocusGroup` — a MonoBehaviour on any parent of interactive elements. On `OnEnable` it pushes onto the stack with bubble-insert by `Priority` (see below); on `OnDisable` it pops; on `OnDestroy` — final cleanup. The active group (`ActiveGroup`) is the nearest non-`Ignore` to the top; only its `Targets` participate in `Navigate`.
 - The standard pattern is a SetActive menu: the HUD group is always active, when the pause menu opens it is pushed on top → navigation walks its buttons; close the menu and the HUD group becomes active again.
 - Nested groups — nested `FocusGroup`s are allowed; a target binds to the nearest parent via `GetComponentInParent`.
 
+**Priority (0..10).** On push the group bubbles toward the top past groups with **strictly lower** priority, stopping before the first equal-or-higher one. Within equal priorities — regular LIFO (later push on top). Example: `HUD(0)` + `Pause(5)` + `Toast(3)` yields order `[HUD, Toast, Pause]`, Pause remains active. `Priority=0` for all — behavior collapses to plain LIFO. Changing `Priority` at runtime does NOT re-order already-registered groups — it applies on this group's next `OnEnable`.
+
+**Ignore (reactive).** A `bool` toggle on the group: when `true` the group **stays in the stack** (targets live, `RememberedFocus` is kept) but `ActiveGroup` skips it. The setter is idempotent and notifies the controller (`VirtualCursorFocusController.OnGroupIgnoreChanged`): if, after the Ignore change, `CurrentFocus` ends up outside the active group — an immediate transfer kicks in (saved to the owning group's `RememberedFocus` + `NotifyUnfocused` + auto-focus in the new active in nav-mode). If the flag was flipped on a group deep in the stack and `ActiveGroup` did not change — no-op, no focus flicker.
+
 **Target registration.**
-- `FocusTargetComponent` on a UGUI button (`TargetKind=UGUI`, reference to a `RectTransform`) or world object (`TargetKind=World`, `Transform` + an active camera from `CameraProvider`). `OnEnable` → `GetComponentInParent<FocusGroup>` (lazy-cached) → `Register`; `OnDisable` → `Unregister`.
-- **Fail-loud:** a target with no `FocusGroup` in its parents → `LogError` on the first Enable, the component is not registered. That is a scene setup error.
+- `FocusTargetComponent` on a UGUI button (`TargetKind=UGUI`, reference to a `RectTransform`) or world object (`TargetKind=World`, `Transform` + an active camera from `CameraProvider`). `OnEnable` → `GetComponentInParent<FocusGroup>` + re-resolve of the parent canvas → `Register`; `OnDisable` → `Unregister` from the same group it was registered in.
+- **Re-resolve on every OnEnable, not lazy.** Reparenting the target between OnDisable and OnEnable (UI pooling, dynamic menu composition, `DontDestroyOnLoad move`) is handled correctly — the old registration is removed in OnDisable, the new one is attached to the actual current parent group. The cost of `GetComponentInParent` on rare OnEnables is negligible.
+- **Fail-loud:** a target with no `FocusGroup` in its parents → `LogError` (anti-spam: successive null-resolves stay silent, the flag is cleared on the first resolve that finds one). That is a scene setup error.
 
 **Navigate algorithm.** Semi-open cone `[-45°..+45°)` relative to the direction (4 directions × 90° = 360° coverage without overlap, each target lands in exactly one zone). Among candidates — **minimum Euclidean distance**. Origin is the **exact `ScreenPoint` of the current focus** (not the cursor position — after `WarpCursorPosition` the OS rounds the mouse to an int pixel, giving a ≈0.5 px drift that breaks cone selection at short distances); if there is no focus, fallback to the cursor's `ScreenPosition`. The current `CurrentFocus` is excluded from candidates (a defensive `ReferenceEquals` on top of the distance filter).
 
@@ -230,7 +236,7 @@ Important consequence for Android: if the device has no mouse/gamepad and the on
 `CursorSkinSelector` holds the reactive theme key (`Selected`) and `Select(key)`. Persistence (`IGameData`) is at the **project layer**. The package (L2) does not depend on GameCore (L3).
 
 ### Editor tooling
-- **`Tools/Vortex/Virtual Cursor/Focus Stack`** — diagnostic window: the LIFO `FocusGroup` stack top-to-bottom (top = `ActiveGroup`), per-group list of `Targets`, `●` marker on the current `CurrentFocus`, `◉` on `RememberedFocus`, `[inactive]` tag. Click a group or target row — Ping + Select in Hierarchy. Data appears only in Play Mode after `VirtualCursorBootstrap.Init`; auto-repaint via `EditorApplication.update`. Style palette switches by `EditorGUIUtility.isProSkin`.
+- **`Tools/Vortex/Virtual Cursor/Focus Stack`** — diagnostic window: the `FocusGroup` stack top-to-bottom (top = top of stack, `▶ ACTIVE` — the nearest non-Ignored to the top), per-group priority chip on the left (`P<n>`), `⊘ IGNORED` marker on Ignored groups (grey italic), list of `Targets`, `●` marker on `CurrentFocus`, `◉` on `RememberedFocus`, `[inactive]` tag. Click a group or target row — Ping + Select in Hierarchy. Data appears only in Play Mode after `VirtualCursorBootstrap.Init`; auto-repaint via `EditorApplication.update`. Style palette switches by `EditorGUIUtility.isProSkin`.
 - **`Tools/Vortex/Configs/Virtual Cursor Skin Settings`** — ping the `CursorSkinSettings` asset in the Project window.
 - **`Tools/Vortex/Configs/Input Driver Set`** — ping the `InputDriverSet` asset in the Project window.
 - The legacy `Tools/Vortex/Configs/Cursor Settings` entry (from the `CursorSystem` package) is wrapped in `#if !USING_VORTEX_CURSOR` — hidden from the menu when the new cursor is on.
@@ -308,17 +314,20 @@ static bool IsReady;
 
 static void Init();                                              // called by VirtualCursorBootstrap
 static void Cleanup();
-static void PushGroup(FocusGroup group);                         // from FocusGroup.OnEnable
+static void PushGroup(FocusGroup group);                         // from FocusGroup.OnEnable; bubble-insert by Priority
 static void RemoveGroup(FocusGroup group);                       // from OnDisable/OnDestroy
 static void Navigate(Vector2 direction, float coneAngleDeg,
                      bool hideCursor, bool warpSystemMouse,
                      bool captureNearestIfFree);                 // from UINavigationDriver
 static void ClearFocus();                                        // + ShowCursor() + NotifyUnfocused
+internal static void OnGroupIgnoreChanged(FocusGroup group);     // from FocusGroup.Ignore setter
 ```
 
 ### FocusGroup (MonoBehaviour)
 ```csharp
 IReadOnlyList<IFocusTarget> Targets;                             // registered by children
+int  Priority;                                                   // 0..10 Range slider; bubble-insert on PushGroup
+bool Ignore { get; set; }                                        // reactive: setter triggers OnGroupIgnoreChanged
 IFocusTarget RememberedFocus;                                    // persists between activations
 void Register(IFocusTarget target);                              // from FocusTargetComponent.OnEnable
 void Unregister(IFocusTarget target);                            // from OnDisable
@@ -434,7 +443,13 @@ Actions for the drivers (mouse position, stick move, touch, buttons Action1…Ac
 | Nobody in the cone, `CurrentFocus == null`, `captureFocusIfFree = true` | Focus capture fallback: the nearest active target of the group by Euclidean distance, direction ignored |
 | Nobody in the cone, `CurrentFocus != null` (focus active, edge of the list) | Stays silent — the capture fallback is intentionally skipped (so navigation doesn't jump to the opposite end) |
 | `HideCursor` + skin with `HideCursor=false` + `ShowCursor` | `_externalHidden` cleared, the skin shows the cursor again (if `_pointerHidden` is also false) |
-| Nested `FocusGroup` | A target binds to the nearest parent via `GetComponentInParent`; LIFO works naturally: nested on top of its parent |
+| Nested `FocusGroup` | A target binds to the nearest parent via `GetComponentInParent`; the stack works naturally: nested on top of its parent |
+| `FocusGroup.Priority` = 10, no other high priorities | On `PushGroup` the group bubbles to the top, becomes `ActiveGroup` regardless of its push position in LIFO |
+| `FocusGroup.Priority` changed at runtime on an already-registered group | The stack is NOT re-ordered — ordering applies on this group's next OnEnable (SetActive false→true re-pushes it with the new priority) |
+| `FocusGroup.Ignore = true` at runtime on the active group | Setter triggers `OnGroupIgnoreChanged` → `CurrentFocus` is moved into its `RememberedFocus`, `NotifyUnfocused` → highlight goes down, auto-focus into the new `ActiveGroup` in nav-mode |
+| `FocusGroup.Ignore = true` on a group deep in the stack (not active) | `ActiveGroup` did not change — `OnGroupIgnoreChanged` detects this and no-ops, no focus flicker |
+| `FocusGroup.Ignore = false` on a group whose priority will shadow the current active | `OnGroupIgnoreChanged` detects the ActiveGroup change → focus transfer into it (RememberedFocus or nearest) |
+| Reparenting of `FocusTargetComponent` between OnDisable and OnEnable | On the next OnEnable `_group` is re-resolved via `GetComponentInParent` → correctly registered in the new parent group (lazy cache removed, re-resolve on every Enable) |
 | `EventSystem` not yet loaded on start | The dispatcher attaches lazily when the EventSystem appears; events before that are lost (the cursor isn't over UI yet) |
 | Alt-tab with a button held | `canceled` clears the bit — no stuck state |
 | Dispatcher disabled (`OnDisable`) | All lingering Enter/Press are released; the next Enable starts clean |

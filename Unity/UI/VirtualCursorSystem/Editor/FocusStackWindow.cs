@@ -36,6 +36,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
         private static GUIStyle _rememberedStyle;
         private static GUIStyle _activeGroupStyle;
         private static GUIStyle _missingStyle;
+        private static GUIStyle _ignoredGroupStyle;
+        private static GUIStyle _priorityChipStyle;
 
         private static Color CurrentColor => EditorGUIUtility.isProSkin
             ? new Color(0.55f, 1f, 0.55f)       // ярко-зелёный на тёмном
@@ -52,6 +54,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
         private static Color MissingColor => EditorGUIUtility.isProSkin
             ? new Color(1f, 0.5f, 0.5f)
             : new Color(0.65f, 0.15f, 0.15f);
+
+        private static Color IgnoredColor => EditorGUIUtility.isProSkin
+            ? new Color(0.55f, 0.55f, 0.55f)
+            : new Color(0.45f, 0.45f, 0.45f);
+
+        private static Color PriorityChipColor => EditorGUIUtility.isProSkin
+            ? new Color(1f, 0.6f, 0.9f)
+            : new Color(0.65f, 0.15f, 0.5f);
 
         private static GUIStyle CurrentStyle =>
             _currentStyle ??= new GUIStyle(EditorStyles.boldLabel)
@@ -76,6 +86,20 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             {
                 normal = { textColor = MissingColor },
                 fontStyle = FontStyle.Italic
+            };
+
+        private static GUIStyle IgnoredGroupStyle =>
+            _ignoredGroupStyle ??= new GUIStyle(EditorStyles.boldLabel)
+            {
+                normal = { textColor = IgnoredColor },
+                fontStyle = FontStyle.Italic
+            };
+
+        private static GUIStyle PriorityChipStyle =>
+            _priorityChipStyle ??= new GUIStyle(EditorStyles.miniBoldLabel)
+            {
+                normal = { textColor = PriorityChipColor },
+                alignment = TextAnchor.MiddleCenter,
             };
 
         private void OnEnable() => EditorApplication.update += Repaint;
@@ -138,13 +162,17 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             }
 
             var current = focus.CurrentFocus.Value;
+            // ActiveGroup вычисляется моделью с учётом Ignore (пропускает скрытые сверху вниз).
+            // Нельзя считать «активная = [^1]»: топовая может быть Ignored, тогда активна
+            // следующая не-Ignored под ней.
+            var activeGroup = focus.ActiveGroup;
 
-            // Отрисовка сверху вниз: верх окна = верх стека (ActiveGroup). Естественное
-            // представление LIFO — что видим сейчас, то сверху.
+            // Отрисовка сверху вниз: верх окна = верх стека. Естественное представление —
+            // что видим сейчас, то сверху.
             for (var i = groups.Count - 1; i >= 0; i--)
             {
                 var group = groups[i];
-                var isActive = i == groups.Count - 1;
+                var isActive = ReferenceEquals(group, activeGroup);
                 var depth = groups.Count - 1 - i;
                 DrawGroup(group, isActive, depth, current);
                 EditorGUILayout.Space(2f);
@@ -157,10 +185,31 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    var prefix = isActive ? "▶ ACTIVE" : $"  depth +{depth}";
-                    var label = group == null ? "(null)" : group.name;
-                    var style = isActive ? ActiveGroupStyle : EditorStyles.boldLabel;
+                    // Priority-chip слева — отдельная «метка» фиксированной ширины, чтобы
+                    // приоритеты визуально выстраивались в колонку между группами.
+                    var priority = group != null ? group.Priority : 0;
+                    GUILayout.Label($"P{priority}", PriorityChipStyle, GUILayout.Width(28f));
 
+                    var ignored = group != null && group.Ignore;
+                    string prefix;
+                    GUIStyle style;
+                    if (ignored)
+                    {
+                        prefix = "⊘ IGNORED";
+                        style = IgnoredGroupStyle;
+                    }
+                    else if (isActive)
+                    {
+                        prefix = "▶ ACTIVE";
+                        style = ActiveGroupStyle;
+                    }
+                    else
+                    {
+                        prefix = $"  depth +{depth}";
+                        style = EditorStyles.boldLabel;
+                    }
+
+                    var label = group == null ? "(null)" : group.name;
                     if (GUILayout.Button($"{prefix}   {label}", style,
                             GUILayout.ExpandWidth(true)))
                     {

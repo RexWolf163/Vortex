@@ -129,6 +129,39 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         }
 
         /// <summary>
+        /// Реакция на runtime-смену <see cref="FocusGroup.Ignore"/>. Зовётся из setter'а
+        /// свойства самой группы. Если смена Ignore повлияла на <see cref="FocusModel.ActiveGroup"/>
+        /// (её либо скрыло, либо наоборот — вернуло более высокоприоритетную в игру),
+        /// корректно переносит фокус: NotifyUnfocused на старом target'е, запись в
+        /// RememberedFocus владеющей группы, auto-focus в новой активной (при nav mode).
+        ///
+        /// Если смена Ignore на ActiveGroup не влияет (например, Ignore'нули группу
+        /// в глубине стека, которая и так не была активной) — ничего не делаем, фликера
+        /// фокуса нет.
+        /// </summary>
+        internal static void OnGroupIgnoreChanged(FocusGroup group)
+        {
+            if (_model == null || group == null) return;
+
+            var current = _model.CurrentFocus.Value;
+            if (current == null) return;
+
+            // Если текущий фокус всё ещё принадлежит активной группе — ничего не менялось
+            // для него (Ignore затронул чужой слой стека). Пропускаем, чтобы не было фликера.
+            var activeGroup = _model.ActiveGroup;
+            if (activeGroup != null && ContainsTarget(activeGroup, current)) return;
+
+            // CurrentFocus теперь вне активной группы: либо его группа только что стала
+            // Ignored, либо выше в стеке unIgnored'нулась другая, которая его перекрыла.
+            // Переносим: Remembered в владеющую группу (сохраняется для будущего возврата)
+            // + NotifyUnfocused (визуал снимается немедленно). Затем auto-focus в новой
+            // активной — только если юзер в nav mode (_focusAnchor != null); иначе остаёмся
+            // без фокуса, пока пользователь не нажмёт направление.
+            TransferCurrentToRemembered();
+            TryAutoFocusNewActiveGroup();
+        }
+
+        /// <summary>
         /// Переместить фокус в направлении <paramref name="direction"/> в активной группе.
         /// Критерии кандидата: активен, не текущий фокус, угол к нему от направления
         /// ∈ <c>[-cone..+cone)</c>. Среди кандидатов — минимум евклидовой дистанции.
@@ -141,6 +174,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// к ближайшей кнопке. При уже активном фокусе fallback не срабатывает —
         /// иначе навигация у края группы (нет соседей в этом направлении) молча
         /// бы перескакивала на произвольный элемент, что путает пользователя.
+        ///
+        /// Stale-current (принадлежит Ignored/не-ActiveGroup группе): трактуется как
+        /// null для целей ЭТОГО Navigate — origin от курсора, исключение не нужно
+        /// (его всё равно нет в активной Targets), captureIfFree может сработать.
+        /// Группа-владелец stale-current свой RememberedFocus не теряет (мы его тут
+        /// не трогаем). Это необходимо для сценария «пользователь выставил Ignore
+        /// на фокусной группе в рантайме» — иначе Navigate в соседних группах
+        /// работал бы странно из-за «залипшего» CurrentFocus.
         /// </summary>
         public static void Navigate(Vector2 direction, float coneAngleDeg,
             bool hideCursor, bool warpSystemMouse, bool captureNearestIfFree)
@@ -153,6 +194,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             if (activeGroup == null) return;
 
             var current = _model.CurrentFocus.Value;
+            // Если current принадлежит не activeGroup (Ignored соседка или stale после
+            // ручной мутации стека) — для текущего Navigate это шум. Обнуляем локально:
+            // origin съедет на cursorPos, captureIfFree сможет сработать, exclusion не нужен
+            // (current в activeGroup.Targets отсутствует и так).
+            if (current != null && !ContainsTarget(activeGroup, current))
+                current = null;
+
             // Origin — точная ScreenPoint текущего фокуса, а НЕ позиция курсора. Курсор
             // после WarpCursorPosition округляется ОС-мышью до целого пикселя (API принимает
             // int), а потом его позиция приходит обратно в ScreenPosition с echo-поправкой.
@@ -223,10 +271,12 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             var current = _model.CurrentFocus.Value;
             if (current == null) return;
 
-            // Запомнить фокус в активной группе перед сбросом — чтобы при возврате
-            // в nav mode (например, pop родительской группы над ней) можно было вернуться.
-            var activeGroup = _model.ActiveGroup;
-            if (activeGroup != null) activeGroup.RememberedFocus = current;
+            // Remembered пишем в ВЛАДЕЮЩУЮ группу target'а, не в ActiveGroup. Иначе если
+            // current принадлежит теперь-Ignored или stale-группе (пользователь выставил
+            // Ignore в рантайме), запись в ActiveGroup засорила бы её Remembered чужим
+            // элементом из другой контекстной группы.
+            var owning = FindOwningGroup(current);
+            if (owning != null) owning.RememberedFocus = current;
 
             _model.SetCurrent(null, Key);
             _focusAnchor = null;
@@ -235,10 +285,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         }
 
         /// <summary>
-        /// Снять текущий фокус (если был) и запомнить его в активной группе как
-        /// RememberedFocus — для последующего auto-restore. Не трогает _focusAnchor
-        /// (nav mode state), ShowCursor, _lastHide/Warp — чтобы следующий
-        /// auto-focus мог продолжить в том же режиме.
+        /// Снять текущий фокус (если был) и запомнить его в его ВЛАДЕЮЩЕЙ группе как
+        /// RememberedFocus (не обязательно ActiveGroup — current может быть stale, см.
+        /// <see cref="ClearFocus"/>). Не трогает <see cref="_focusAnchor"/> (nav-mode state),
+        /// ShowCursor, _lastHide/Warp — следующий auto-focus продолжит в том же режиме.
         /// </summary>
         private static void TransferCurrentToRemembered()
         {
@@ -246,8 +296,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             var current = _model.CurrentFocus.Value;
             if (current == null) return;
 
-            var activeGroup = _model.ActiveGroup;
-            if (activeGroup != null) activeGroup.RememberedFocus = current;
+            var owning = FindOwningGroup(current);
+            if (owning != null) owning.RememberedFocus = current;
 
             _model.SetCurrent(null, Key);
             current.NotifyUnfocused();
@@ -301,20 +351,21 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
             _model.SetCurrent(target, Key);
             // old здесь обычно null (TransferCurrentToRemembered уже снял) — но для Navigate
-            // старый target остаётся и его нужно уведомить + запомнить в активной группе.
+            // старый target остаётся и его нужно уведомить + запомнить в его ВЛАДЕЮЩЕЙ
+            // группе (не обязательно ActiveGroup — old мог прийти из stale/Ignored группы).
             if (old != null)
             {
-                var activeGroup = _model.ActiveGroup;
-                if (activeGroup != null) activeGroup.RememberedFocus = old;
+                var oldOwning = FindOwningGroup(old);
+                if (oldOwning != null) oldOwning.RememberedFocus = old;
                 old.NotifyUnfocused();
             }
             target.NotifyFocused();
 
-            // Запомним и в активной группе — на случай переключения группы без Navigate.
-            {
-                var activeGroup = _model.ActiveGroup;
-                if (activeGroup != null) activeGroup.RememberedFocus = target;
-            }
+            // Запомним в владеющей группе target'а. В штатном сценарии target приходит из
+            // activeGroup.Targets, значит owning == activeGroup; но FindOwningGroup даёт
+            // устойчивость к любому сценарию.
+            var targetOwning = FindOwningGroup(target);
+            if (targetOwning != null) targetOwning.RememberedFocus = target;
 
             if (hideCursor)
                 VirtualCursorController.HideCursor();
@@ -323,6 +374,38 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
             if (warpSystemMouse)
                 Mouse.current?.WarpCursorPosition(pos);
+        }
+
+        /// <summary>
+        /// Найти группу, в <c>Targets</c> которой зарегистрирован этот target. Нужно, чтобы
+        /// корректно писать <c>RememberedFocus</c> в его ВЛАДЕЮЩУЮ группу (а не в ActiveGroup,
+        /// которая может быть другой при stale/Ignored раскладе). O(groups × targets_per_group)
+        /// линейный поиск — для типичных сцен (≤5 групп × ≤20 target'ов) незаметно.
+        /// Возвращает <c>null</c>, если target не найден ни в одной группе (например, был
+        /// Unregister'ен после попадания в <c>CurrentFocus</c>).
+        /// </summary>
+        private static FocusGroup FindOwningGroup(IFocusTarget target)
+        {
+            if (_model == null || target == null) return null;
+            var groups = _model.Groups;
+            for (var i = 0; i < groups.Count; i++)
+            {
+                var g = groups[i];
+                if (g != null && ContainsTarget(g, target)) return g;
+            }
+            return null;
+        }
+
+        /// <summary>Содержит ли группа этот target в своём списке <c>Targets</c>.</summary>
+        private static bool ContainsTarget(FocusGroup group, IFocusTarget target)
+        {
+            if (group == null || target == null) return false;
+            var ts = group.Targets;
+            for (var i = 0; i < ts.Count; i++)
+            {
+                if (ReferenceEquals(ts[i], target)) return true;
+            }
+            return false;
         }
 
         private static void OnScreenPositionChanged(Vector2 newPos)

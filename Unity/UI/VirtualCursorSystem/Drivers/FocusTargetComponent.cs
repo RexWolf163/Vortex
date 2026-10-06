@@ -6,14 +6,19 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 {
     /// <summary>
     /// Регистрирует себя как цель фокус-навигации виртуального курсора в ближайшей
-    /// родительской <see cref="FocusGroup"/>. На <c>OnEnable</c> — <c>Register</c> в группе,
-    /// на <c>OnDisable</c> — <c>Unregister</c>. <see cref="FocusGroup"/>-ссылка кэшируется
-    /// на первом Enable (lazy): <c>GetComponentInParent</c> дорогой, повторять не нужно.
+    /// родительской <see cref="FocusGroup"/>. На <c>OnEnable</c> — резолв группы +
+    /// <c>Register</c>, на <c>OnDisable</c> — <c>Unregister</c> из последней известной
+    /// группы. Резолв делается на КАЖДОМ OnEnable (а не только на первом), иначе
+    /// переподвешивание target'а в другую иерархию (reparenting при UI-пулинге,
+    /// динамическая компоновка меню, DontDestroyOnLoad move) оставляло бы его
+    /// зарегистрированным в прежней группе → фантомная регистрация + отсутствие в
+    /// новой. Стоимость <c>GetComponentInParent</c> на редких OnEnable незначима.
     ///
     /// <b>Fail-loud при отсутствии группы.</b> Если в родительской иерархии нет
     /// <see cref="FocusGroup"/> — <c>Debug.LogError</c> и target в систему не регистрируется.
     /// Это ошибка настройки сцены (архитектурно: любой фокусируемый элемент должен
-    /// принадлежать какому-то контексту навигации).
+    /// принадлежать какому-то контексту навигации). Лог стрельнёт один раз подряд —
+    /// повторные OnEnable с теми же null-результатом молчат (анти-спам).
     ///
     /// <see cref="ScreenPoint"/> пересчитывается при каждом запросе — UGUI через
     /// <see cref="RectTransformUtility"/> (учитывает render mode канваса), world через
@@ -52,17 +57,20 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         [Tooltip("Вызывается, когда фокус ушёл с этой цели (на другую или ClearFocus).")]
         public UnityEvent onUnfocused;
 
-        // Канвас кэшируем один раз — RectTransform.GetComponentInParent на каждый ScreenPoint
-        // был бы заметно дорогим (может вызываться N раз за Navigate по всем targets).
-        // Если канвас пересобирается / target перевешивается — соответствующие OnEnable/OnDisable
-        // перерегистрируют компонент, и Awake вычислит кэш заново.
+        // Канвас кэшируется per-OnEnable (как и _group) — RectTransform.GetComponentInParent
+        // на каждый ScreenPoint был бы заметно дорогим (может вызываться N раз за Navigate
+        // по всем targets). Reparenting в другую канвас-иерархию между OnDisable/OnEnable
+        // корректно подхватывается ре-резолвом.
         private Canvas _canvas;
 
-        // FocusGroup резолвится lazy на первом OnEnable и кэшируется навсегда (пока жив
-        // компонент). _groupResolved различает «ещё не искали» и «искали, но не нашли» —
-        // чтобы LogError стрельнул ровно один раз, а не на каждой активации.
+        // FocusGroup резолвится на КАЖДОМ OnEnable (не lazy): parent мог измениться между
+        // OnDisable и следующим OnEnable (UI-пулинг, динамическая компоновка). Кэш держится
+        // до следующего OnEnable; OnDisable снимает из той же группы, в которую регистрировали.
         private FocusGroup _group;
-        private bool _groupResolved;
+
+        // Анти-спам LogError: сбрасывается, когда группа найдена; взводится после лога,
+        // чтобы повторные OnEnable с тем же null-результатом молчали.
+        private bool _missingGroupLogged;
 
         public Vector2 ScreenPoint
         {
@@ -109,31 +117,34 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         public void NotifyFocused() => onFocused?.Invoke();
         public void NotifyUnfocused() => onUnfocused?.Invoke();
 
-        private void Awake()
-        {
-            if (kind == TargetKind.UGUI && rectTarget != null)
-                _canvas = rectTarget.GetComponentInParent<Canvas>();
-        }
-
         private void OnEnable()
         {
-            if (!_groupResolved)
+            // Ре-резолв group и canvas на каждом OnEnable: parent мог измениться после
+            // предыдущего OnDisable (reparenting, UI-пулинг, DontDestroyOnLoad move).
+            // includeInactive: true — родительская группа может быть ещё не активна в этом
+            // кадре (порядок OnEnable при загрузке сцены не гарантирован). Нам важна
+            // сама иерархическая принадлежность, а не её текущее активное состояние.
+            _group = GetComponentInParent<FocusGroup>(includeInactive: true);
+
+            if (_group == null)
             {
-                // includeInactive: true — родительская группа может быть ещё не активна
-                // (например, в этом же кадре загружается сцена и порядок OnEnable не
-                // гарантирован). Нам важна сама иерархическая принадлежность.
-                _group = GetComponentInParent<FocusGroup>(includeInactive: true);
-                _groupResolved = true;
-                if (_group == null)
+                if (!_missingGroupLogged)
                 {
                     Debug.LogError(
                         "[FocusTarget] Нет FocusGroup в родительской иерархии. " +
                         "Этот target не будет участвовать в фокус-навигации. " +
                         "Добавь FocusGroup на любого предка этого объекта.",
                         this);
+                    _missingGroupLogged = true;
                 }
+                return;
             }
-            _group?.Register(this);
+            _missingGroupLogged = false;
+
+            if (kind == TargetKind.UGUI && rectTarget != null)
+                _canvas = rectTarget.GetComponentInParent<Canvas>();
+
+            _group.Register(this);
         }
 
         private void OnDisable() => _group?.Unregister(this);

@@ -26,10 +26,56 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// </summary>
     public class FocusGroup : MonoBehaviour
     {
+        [SerializeField, Tooltip("Исключить группу из поиска активной. При Ignore=true группа " +
+                                 "остаётся зарегистрированной (target'ы в ней живут, RememberedFocus " +
+                                 "сохраняется), но ActiveGroup её пропускает — Navigate её Targets " +
+                                 "не видит. Используй для временного «паркинга» контекста (модалка " +
+                                 "на экране, но навигация её не трогает). Проверяется live-геттером " +
+                                 "ActiveGroup — тоггл в рантайме применяется со следующего Navigate.")]
+        private bool ignore;
+
+        [SerializeField, Range(0, 10),
+         Tooltip("Приоритет группы (0..10). На PushGroup группа безусловно смещается к ВЕРХУ " +
+                 "стека, минуя группы с СТРОГО МЕНЬШИМ приоритетом, и останавливается перед первой " +
+                 "равной или большей (пузырёк). Между равными приоритетами действует обычный LIFO " +
+                 "(позже push'нутый — выше). Пример: HUD(0) + Pause(5) + Toast(3) → порядок " +
+                 "[HUD, Toast, Pause]; активной остаётся Pause. 0 = обычный LIFO без «подпора».")]
+        private int priority;
+
         private readonly List<IFocusTarget> _targets = new();
 
         /// <summary>Target'ы этой группы (read-only). Порядок — по регистрации (OnEnable).</summary>
         public IReadOnlyList<IFocusTarget> Targets => _targets;
+
+        /// <summary>
+        /// Исключение из поиска активной группы. Live-свойство: тоггл в рантайме применяется
+        /// немедленно — setter уведомляет <see cref="VirtualCursorFocusController"/>, который
+        /// при смене <c>ActiveGroup</c> (например, из-за Ignore ЭТОЙ группы или наоборот —
+        /// возврата её в игру) корректно переносит фокус (NotifyUnfocused на старом + auto-focus
+        /// на новом в nav-mode). Группа остаётся в стеке — target'ы не теряются, RememberedFocus
+        /// не сбрасывается. Setter idempotent: присвоение того же значения — no-op.
+        /// </summary>
+        public bool Ignore
+        {
+            get => ignore;
+            set
+            {
+                if (ignore == value) return;
+                ignore = value;
+                // Передаём себя в контроллер — он решит, нужен ли перенос фокуса
+                // (сравнит, в активной группе ли current). Проверка на initialized и null
+                // внутри контроллера.
+                VirtualCursorFocusController.OnGroupIgnoreChanged(this);
+            }
+        }
+
+        /// <summary>
+        /// Приоритет (0..10). Определяет позицию группы в стеке на <c>PushGroup</c>: группа
+        /// бабблится к топу, минуя все с СТРОГО меньшим приоритетом. Изменение в рантайме НЕ
+        /// переупорядочивает уже-зарегистрированные группы — применяется только на следующий
+        /// push этой группы (OnDisable → OnEnable переподнимет её с новым приоритетом).
+        /// </summary>
+        public int Priority => priority;
 
         /// <summary>
         /// Последний <c>CurrentFocus</c> этой группы — сохраняется между активациями

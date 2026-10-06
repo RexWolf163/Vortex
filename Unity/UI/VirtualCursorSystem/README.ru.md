@@ -87,8 +87,9 @@
      └─ UINavigationDriver (4 action'а → VirtualCursorFocusController.Navigate)
 
 Фокус-навигация (Focus/):
-  [FocusModel] (IReactiveData)       → LIFO Groups[] + ActiveGroup + ReactiveValue<IFocusTarget> CurrentFocus
-  [FocusGroup] (MonoBehaviour)        → OnEnable push LIFO · OnDisable pop · OnDestroy cleanup
+  [FocusModel] (IReactiveData)       → приоритет-ориентированный стек Groups[] + ActiveGroup (пропускает Ignored) + ReactiveValue<IFocusTarget> CurrentFocus
+  [FocusGroup] (MonoBehaviour)        → OnEnable push с bubble-insert по Priority · OnDisable pop · OnDestroy cleanup
+                                        · Priority (0..10) · Ignore (reactive, уведомляет контроллер)
                                         · Targets[] (регистрация детей) · RememberedFocus · FindNearestEuclidean
   [VirtualCursorFocusController] (static) → Init/Cleanup · PushGroup/RemoveGroup · Navigate(dir)/ClearFocus
                                             · авто-передача фокуса на push/pop если _focusAnchor != null
@@ -159,14 +160,19 @@ UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPositio
 ### Фокус-навигация (Focus/)
 Переключение активного элемента нажатием направлений (D-pad/стрелки) — альтернатива курсорному управлению для гейпада/клавиатуры в UI-сценах.
 
-**LIFO-стек групп (контексты навигации).**
-- `FocusGroup` — MonoBehaviour на любом родителе интерактивных элементов. На `OnEnable` push'ится в LIFO; на `OnDisable` — pop; на `OnDestroy` — финальный cleanup. Активная группа (`ActiveGroup`) — верхняя в стеке; только её `Targets` участвуют в `Navigate`.
+**Стек групп (контексты навигации) — приоритет + LIFO внутри тира.**
+- `FocusGroup` — MonoBehaviour на любом родителе интерактивных элементов. На `OnEnable` push'ится в стек с bubble-insert по `Priority` (см. ниже); на `OnDisable` — pop; на `OnDestroy` — финальный cleanup. Активная группа (`ActiveGroup`) — ближайшая к топу не-`Ignore`-группа; только её `Targets` участвуют в `Navigate`.
 - Стандартный паттерн — SetActive меню: HUD-группа всегда активна, при открытии меню паузы оно пушится поверх → навигация идёт по его кнопкам; закрыл меню → активной снова становится HUD-группа.
 - Nested-группы — вложенные `FocusGroup` допустимы; target цепляется к ближайшей родительской через `GetComponentInParent`.
 
+**Priority (0..10).** На push группа bubble'ится к топу, минуя группы со **строго меньшим** приоритетом, и останавливается перед первой равной или большей. Между равными — обычный LIFO (позже push'нутый — выше). Пример: `HUD(0)` + `Pause(5)` + `Toast(3)` даст порядок `[HUD, Toast, Pause]`, активной останется `Pause`. `Priority=0` у всех — поведение сводится к чистому LIFO. Изменение в рантайме НЕ переупорядочивает уже-зарегистрированные группы — применяется на следующий `OnEnable` этой группы.
+
+**Ignore (reactive).** `bool`-тоггл на группе: при `true` группа **остаётся в стеке** (target'ы живут, `RememberedFocus` сохраняется), но `ActiveGroup` её пропускает. Setter idempotent + уведомляет контроллер (`VirtualCursorFocusController.OnGroupIgnoreChanged`): если `CurrentFocus` после смены Ignore оказался вне активной группы — срабатывает немедленный перенос (сохранение в `RememberedFocus` владеющей группы + `NotifyUnfocused` + auto-focus в новой активной при nav-mode). Если флаг флипнули на группе глубоко в стеке и `ActiveGroup` не поменялась — no-op, фликера нет.
+
 **Регистрация target'ов.**
-- `FocusTargetComponent` на UGUI-кнопке (`TargetKind=UGUI`, ссылка на `RectTransform`) или world-объекте (`TargetKind=World`, `Transform` + активная камера из `CameraProvider`). `OnEnable` → `GetComponentInParent<FocusGroup>` (lazy-cached) → `Register`; `OnDisable` → `Unregister`.
-- **Fail-loud:** target без `FocusGroup` в родителях → `LogError` на первом Enable, компонент в систему не регистрируется. Это ошибка настройки сцены.
+- `FocusTargetComponent` на UGUI-кнопке (`TargetKind=UGUI`, ссылка на `RectTransform`) или world-объекте (`TargetKind=World`, `Transform` + активная камера из `CameraProvider`). `OnEnable` → `GetComponentInParent<FocusGroup>` + ре-резолв родительского канваса → `Register`; `OnDisable` → `Unregister` из той же группы, в которой был зарегистрирован.
+- **Re-resolve на каждом OnEnable, не lazy.** Reparenting target'а между OnDisable и OnEnable (UI-пулинг, динамическая компоновка меню, `DontDestroyOnLoad move`) корректно подхватывается — старая регистрация снята в OnDisable, новая делается в фактически текущую родительскую группу. Стоимость `GetComponentInParent` на редких OnEnable незначима.
+- **Fail-loud:** target без `FocusGroup` в родителях → `LogError` (с анти-спамом: подряд повторяющиеся null-резолвы молчат, флаг сбрасывается на первом найденном). Это ошибка настройки сцены.
 
 **Алгоритм Navigate.** Полуоткрытый конус `[-45°..+45°)` относительно направления (4 направления × 90° = покрытие 360° без пересечений, target попадает ровно в одну зону). Среди попавших — **минимум евклидовой дистанции**. Отсчёт от **точной `ScreenPoint` текущего фокуса** (не от позиции курсора — она после `WarpCursorPosition` округляется ОС-мышью до int-пикселя и даёт сдвиг ≈0.5 px, что на коротких дистанциях путает конусную выборку); если фокуса нет — fallback на `ScreenPosition` курсора. Текущий `CurrentFocus` исключается из кандидатов (defensive `ReferenceEquals` поверх дистанции).
 
@@ -230,7 +236,7 @@ UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPositio
 `CursorSkinSelector` держит реактивный ключ темы (`Selected`) и `Select(key)`. Персист (`IGameData`) — на **проектном слое**. Пакет (L2) не зависит от GameCore (L3).
 
 ### Editor-инструментарий
-- **`Tools/Vortex/Virtual Cursor/Focus Stack`** — диагностическое окно: LIFO-стек `FocusGroup` сверху-вниз (топ = `ActiveGroup`), для каждой группы список `Targets`, маркер `●` на текущем `CurrentFocus`, маркер `◉` на `RememberedFocus`, пометка `[inactive]`. Клик по строке группы или target'а — Ping + Select в Hierarchy. Данные только в Play Mode после `VirtualCursorBootstrap.Init`; авто-repaint через `EditorApplication.update`. Палитра стилей переключается по `EditorGUIUtility.isProSkin`.
+- **`Tools/Vortex/Virtual Cursor/Focus Stack`** — диагностическое окно: стек `FocusGroup` сверху-вниз (топ = верх стека, `▶ ACTIVE` — ближайшая не-Ignored к топу), для каждой группы приоритет-chip слева (`P<n>`), маркер `⊘ IGNORED` на Ignored-группах (серый курсив), список `Targets`, маркер `●` на `CurrentFocus`, `◉` на `RememberedFocus`, пометка `[inactive]`. Клик по строке группы или target'а — Ping + Select в Hierarchy. Данные только в Play Mode после `VirtualCursorBootstrap.Init`; авто-repaint через `EditorApplication.update`. Палитра стилей переключается по `EditorGUIUtility.isProSkin`.
 - **`Tools/Vortex/Configs/Virtual Cursor Skin Settings`** — подсветить ассет `CursorSkinSettings` в Project window.
 - **`Tools/Vortex/Configs/Input Driver Set`** — подсветить ассет `InputDriverSet` в Project window.
 - Легаси-пункт `Tools/Vortex/Configs/Cursor Settings` (из пакета `CursorSystem`) обёрнут в `#if !USING_VORTEX_CURSOR` — при включённом новом курсоре в меню не показывается.
@@ -308,17 +314,20 @@ static bool IsReady;
 
 static void Init();                                              // зовётся из VirtualCursorBootstrap
 static void Cleanup();
-static void PushGroup(FocusGroup group);                         // из FocusGroup.OnEnable
+static void PushGroup(FocusGroup group);                         // из FocusGroup.OnEnable; bubble-insert по Priority
 static void RemoveGroup(FocusGroup group);                       // из OnDisable/OnDestroy
 static void Navigate(Vector2 direction, float coneAngleDeg,
                      bool hideCursor, bool warpSystemMouse,
                      bool captureNearestIfFree);                 // из UINavigationDriver
 static void ClearFocus();                                        // + ShowCursor() + NotifyUnfocused
+internal static void OnGroupIgnoreChanged(FocusGroup group);     // из FocusGroup.Ignore setter
 ```
 
 ### FocusGroup (MonoBehaviour)
 ```csharp
 IReadOnlyList<IFocusTarget> Targets;                             // регистрируются детьми
+int  Priority;                                                   // 0..10 Range-слайдер; bubble-insert на PushGroup
+bool Ignore { get; set; }                                        // reactive: setter триггерит OnGroupIgnoreChanged
 IFocusTarget RememberedFocus;                                    // сохраняется между активациями
 void Register(IFocusTarget target);                              // из FocusTargetComponent.OnEnable
 void Unregister(IFocusTarget target);                            // из OnDisable
@@ -434,7 +443,13 @@ InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet
 | В конусе нет кандидатов, `CurrentFocus == null`, `captureFocusIfFree = true` | Fallback «захват фокуса»: ближайший активный target группы по евклидовой дистанции, без учёта направления |
 | В конусе нет кандидатов, `CurrentFocus != null` (фокус активен, край списка) | Молчит — fallback-«захват» намеренно не срабатывает (чтобы не прыгать на противоположный конец) |
 | `HideCursor` + скин с `HideCursor=false` + `ShowCursor` | `_externalHidden` обнулён, курсор снова показан скином (если `_pointerHidden` тоже false) |
-| Nested `FocusGroup` | Target цепляется к ближайшей родительской через `GetComponentInParent`; LIFO работает естественно: вложенная поверх родительской |
+| Nested `FocusGroup` | Target цепляется к ближайшей родительской через `GetComponentInParent`; стек работает естественно: вложенная push'ится поверх родительской |
+| `FocusGroup.Priority` = 10, других высоких нет | На `PushGroup` группа bubble'ится к топу, становится `ActiveGroup` независимо от позиции push'а в LIFO |
+| `FocusGroup.Priority` изменён в рантайме у уже-зарегистрированной группы | Стек НЕ переупорядочивается — порядок применится на следующем OnEnable этой группы (SetActive false→true переподнимет с новым приоритетом) |
+| `FocusGroup.Ignore = true` в рантайме на активной группе | Setter триггерит `OnGroupIgnoreChanged` → `CurrentFocus` переносится в её `RememberedFocus`, `NotifyUnfocused` → подсветка гаснет, auto-focus в новой `ActiveGroup` при nav-mode |
+| `FocusGroup.Ignore = true` на группе глубоко в стеке (не активной) | `ActiveGroup` не поменялась — `OnGroupIgnoreChanged` detect'ит это и выходит no-op, фликера фокуса нет |
+| `FocusGroup.Ignore = false` на группе, что по priority перекроет текущую активную | `OnGroupIgnoreChanged` обнаружит смену ActiveGroup → перенос фокуса в неё (RememberedFocus или ближайший) |
+| Reparenting `FocusTargetComponent` между OnDisable и OnEnable | На повторном OnEnable `_group` ре-резолвится через `GetComponentInParent` → корректно регистрируется в новой родительской группе (lazy-cache убран, re-resolve на каждом Enable) |
 | `EventSystem` ещё не загружен при старте | Диспетчер подхватится лениво при появлении EventSystem; события до этого момента теряются (курсор ещё не над UI) |
 | Alt-tab с зажатой кнопкой | `canceled` снимает бит — залипания нет |
 | Диспетчер отключён (`OnDisable`) | Все подвисшие Enter/Press сняты принудительно — повторный Enable начнёт с чистого листа |
