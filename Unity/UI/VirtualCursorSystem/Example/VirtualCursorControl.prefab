@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &8646395444078042013
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1471761357589915436}
+  - component: {fileID: 3991705735534954869}
+  - component: {fileID: 6852005196475468005}
+  - component: {fileID: 3165372929691182337}
+  m_Layer: 0
+  m_Name: VirtualCursorControl
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1471761357589915436
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646395444078042013}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3991705735534954869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646395444078042013}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 05d4cb5b90f9429c8de940c8763ae454, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.inputbussystem::Vortex.Unity.InputBusSystem.Handlers.InputMapHandler
+  inputMap: VirtualCursor
+--- !u!114 &6852005196475468005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646395444078042013}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 766956e7943c00e4a94e6b44cb1daf51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.virtualcursorsystem::Vortex.Unity.UI.VirtualCursorSystem.VirtualCursorBootstrap
+  settings: {fileID: 11400000, guid: f89ba52afd8b6334ea8e6b50209cc442, type: 2}
+  projectionMask:
+    serializedVersion: 2
+    m_Bits: 55
+  projectionDistance: 1000
+--- !u!114 &3165372929691182337
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646395444078042013}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5ff766fbef05d3429790bc88512b3c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.virtualcursorsystem::Vortex.Unity.UI.VirtualCursorSystem.VirtualPointerDispatcher
