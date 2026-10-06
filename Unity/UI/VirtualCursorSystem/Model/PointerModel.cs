@@ -7,8 +7,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 {
     /// <summary>
     /// Runtime-состояние виртуального курсора: экранная позиция (истина), активный источник,
-    /// маска активных действий (одновременность), hover-ключ скина, флаг «над UI».
-    /// Реактивно, НЕ сохраняется. Владение реактивными полями — внутри модели (<see cref="SetOwner"/>).
+    /// маска активных действий (одновременность), hover-ключ скина, флаг «над UI»,
+    /// импульс скролла. Реактивно, НЕ сохраняется. Владение реактивными полями —
+    /// внутри модели (<see cref="SetOwner"/>).
     /// </summary>
     public class PointerModel : IReactiveData
     {
@@ -29,6 +30,16 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// <summary>Курсор над интерактивным UGUI-элементом (из EventSystem).</summary>
         public BoolData IsOverUI { get; } = new(false);
 
+        /// <summary>
+        /// Импульс скролла на этот тик (пикс/тик, Vector2: X — горизонталь, Y — вертикаль;
+        /// соглашение совпадает с UGUI <c>PointerEventData.scrollDelta</c>). Это НЕ состояние,
+        /// а однокадровый импульс: драйвер пушит значение, диспетчер подписан на
+        /// <c>OnUpdate</c> и один раз на событие делает raycast + <c>ExecuteEvents.scrollHandler</c>.
+        /// Между тиками значение «висит» (ReactiveValue не обнуляет сам), но повторная подписка —
+        /// это новое событие от нового Set'а, не чтение value'а между ними.
+        /// </summary>
+        public Vector2Data ScrollDelta { get; } = new(Vector2.zero);
+
         public PointerModel()
         {
             ScreenPosition.OnUpdateData += Raise;
@@ -36,6 +47,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             Actions.OnUpdateData += Raise;
             HoverKey.OnUpdateData += Raise;
             IsOverUI.OnUpdateData += Raise;
+            ScrollDelta.OnUpdateData += Raise;
         }
 
         private void Raise() => OnUpdateData?.Invoke();
@@ -48,6 +60,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             Actions.SetOwner(owner);
             HoverKey.SetOwner(owner);
             IsOverUI.SetOwner(owner);
+            ScrollDelta.SetOwner(owner);
         }
     }
 }

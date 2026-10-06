@@ -181,6 +181,19 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             _model.IsOverUI.Set(overUI, Key);
         }
 
+        /// <summary>
+        /// Репорт импульса скролла (пикс/тик, X — горизонталь, Y — вертикаль, соглашение UGUI).
+        /// Пушится драйвером (<c>ScrollInputDriver</c>) на каждый тик колеса/клавиши направления;
+        /// <c>VirtualPointerDispatcher</c> подписан на <c>ScrollDelta.OnUpdate</c> и за одно событие
+        /// делает raycast + <c>ExecuteEvents.scrollHandler</c>. Нулевая дельта в тик — обычно без
+        /// смысла, драйвер отбрасывает сам; тут гарда не делаем, чтобы не прятать осознанный Set(0).
+        /// </summary>
+        internal static void ReportScroll(Vector2 delta)
+        {
+            if (_model == null) return;
+            _model.ScrollDelta.Set(delta, Key);
+        }
+
         private static void Recompute()
         {
             if (_model == null) return;

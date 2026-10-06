@@ -42,12 +42,12 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                                  "(точка — Transform в сцене, проектируется камерой).")]
         private TargetKind kind = TargetKind.UGUI;
 
-        [SerializeField, ShowIf(nameof(kind), TargetKind.UGUI),
+        [SerializeField, ShowIf(nameof(kind), TargetKind.UGUI), AutoLink,
          Tooltip("Для UGUI: RectTransform цели (центр считается в экранные координаты " +
                  "по render mode канваса).")]
         private RectTransform rectTarget;
 
-        [SerializeField, ShowIf(nameof(kind), TargetKind.World),
+        [SerializeField, ShowIf(nameof(kind), TargetKind.World), AutoLink,
          Tooltip("Для World: Transform цели (проектируется активной камерой из CameraProvider).")]
         private Transform worldTarget;
 

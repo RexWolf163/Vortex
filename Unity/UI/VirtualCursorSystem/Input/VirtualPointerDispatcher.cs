@@ -79,6 +79,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
             data.ScreenPosition.OnUpdate += OnPositionChanged;
             data.Actions.OnUpdate += OnActionsChanged;
+            // ScrollDelta — one-shot импульс; обрабатываем немедленно (а не через _dirty),
+            // чтобы scroll-тик дошёл до ScrollRect в тот же кадр, когда прилетел.
+            data.ScrollDelta.OnUpdate += OnScrollDelta;
             _subscribed = true;
             // Первая отрисовка: позиция/маска уже лежат в Bus, но событий ещё не было
             // с момента нашей подписки — помечаем dirty, чтобы ближайший LateUpdate
@@ -94,12 +97,46 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             {
                 data.ScreenPosition.OnUpdate -= OnPositionChanged;
                 data.Actions.OnUpdate -= OnActionsChanged;
+                data.ScrollDelta.OnUpdate -= OnScrollDelta;
             }
             _subscribed = false;
         }
 
         private void OnPositionChanged(Vector2 _) => _dirty = true;
         private void OnActionsChanged(PointerActionMask _) => _dirty = true;
+
+        /// <summary>
+        /// Обработчик импульса скролла. Делает one-shot raycast по текущей <c>ScreenPosition</c>
+        /// и шлёт <c>ExecuteEvents.scrollHandler</c> target'у (ScrollRect и т.п.). После —
+        /// обнуляет <c>_ped.scrollDelta</c> (чтобы не утечь в последующий click-flow через
+        /// переиспользуемый PointerEventData) и просит <c>_dirty=true</c>, т.к. прокрутка
+        /// содержимого ScrollRect могла сместить target под курсором (Enter/Exit пересчитаются
+        /// в ближайшем LateUpdate).
+        /// </summary>
+        private void OnScrollDelta(Vector2 delta)
+        {
+            if (delta.sqrMagnitude < 0.0001f) return;
+            var es = EventSystem.current;
+            var data = VirtualCursorBus.Data;
+            if (es == null || data == null) return;
+            _ped ??= new PointerEventData(es);
+
+            _ped.position = data.ScreenPosition.Value;
+            _ped.scrollDelta = delta;
+            _raycastBuffer.Clear();
+            es.RaycastAll(_ped, _raycastBuffer);
+            var topRaycast = _raycastBuffer.Count > 0 ? _raycastBuffer[0] : default;
+            _ped.pointerCurrentRaycast = topRaycast;
+            var target = topRaycast.gameObject;
+            if (target != null)
+                ExecuteEvents.ExecuteHierarchy(target, _ped, ExecuteEvents.scrollHandler);
+
+            // Сброс scrollDelta: _ped переиспользуется для click-пути, где scrollDelta не должен
+            // «висеть» от предыдущего скролла (многие UI-handler'ы читают его опционально).
+            _ped.scrollDelta = Vector2.zero;
+            // После прокрутки содержимого target под курсором мог измениться — пере-raycast в LateUpdate.
+            _dirty = true;
+        }
 
         private void LateUpdate()
         {

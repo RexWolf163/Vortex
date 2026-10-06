@@ -19,6 +19,7 @@ MonoBehaviour:
   - rid: 2241965924504830253
   - rid: 2241965930616979536
   - rid: 2241965930616979539
+  - rid: 2241965930616979546
   references:
     version: 2
     RefIds:
@@ -93,3 +94,11 @@ MonoBehaviour:
         pointActionId: VirtualCursor/CursorHide
         warpSystemMouse: 1
         deltaSpeedMultiplier: 1
+    - rid: 2241965930616979546
+      type: {class: ScrollInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        scrollUpActionId: VirtualCursor/ScrollUp
+        scrollDownActionId: VirtualCursor/ScrollDown
+        scrollLeftActionId: VirtualCursor/ScrollLeft
+        scrollRightActionId: VirtualCursor/ScrollRight
+        scrollStep: 1
