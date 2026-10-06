@@ -103,12 +103,18 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         {
             if (_model == null || group == null) return;
 
-            // Старая активная группа — её фокус (если был) переносится в её RememberedFocus
-            // и получает NotifyUnfocused: группа теряет top-статус, визуально фокус с её
-            // target'а должен сняться.
-            TransferCurrentToRemembered();
-
+            // Гард фликера: двигаем фокус только если push реально сменил активную группу.
+            // Push группы с меньшим приоритетом / Ignored оставляет ActiveGroup прежней — тогда
+            // Transfer+auto-focus сняли бы и тут же вернули фокус на ТОТ ЖЕ target (лишние
+            // NotifyUnfocused/NotifyFocused + повторный Warp). Симметрично гарду OnGroupIgnoreChanged.
+            var before = _model.ActiveGroup;
             _model.PushGroup(group);
+            if (ReferenceEquals(_model.ActiveGroup, before)) return;
+
+            // Активная группа сменилась: фокус старой (если был) уходит в её RememberedFocus +
+            // NotifyUnfocused (старая группа ещё в стеке — FindOwningGroup её найдёт), новая
+            // активная получает фокус.
+            TransferCurrentToRemembered();
             TryAutoFocusNewActiveGroup();
         }
 
@@ -122,10 +128,38 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         {
             if (_model == null || group == null) return;
 
-            TransferCurrentToRemembered();
+            // Гард фликера: если снимаемая группа не активна, ActiveGroup не изменится —
+            // перефокусировать не нужно (неактивная группа свой фокус уже отдала в Remembered
+            // при потере top-статуса).
+            var wasActive = ReferenceEquals(_model.ActiveGroup, group);
+
+            // Transfer ДО удаления: фокус активной группы сохраняется в её же RememberedFocus
+            // (FindOwningGroup найдёт её, пока она ещё в стеке).
+            if (wasActive)
+                TransferCurrentToRemembered();
 
             _model.RemoveGroup(group);
-            TryAutoFocusNewActiveGroup();
+
+            if (wasActive)
+                TryAutoFocusNewActiveGroup();
+        }
+
+        /// <summary>
+        /// Реакция на уход target'а из системы (его <see cref="FocusGroup.Unregister"/> — обычно
+        /// <c>FocusTargetComponent.OnDisable</c>). Если уходящий target был текущим фокусом, снимаем
+        /// висящий <c>CurrentFocus</c> (он теперь указывает на выбывший элемент) + <c>NotifyUnfocused</c>.
+        /// <b>Nav-mode НЕ трогаем</b> (не сбрасываем <see cref="_focusAnchor"/>, не зовём ShowCursor):
+        /// если следом идёт teardown группы (закрытие меню), <see cref="TryAutoFocusNewActiveGroup"/>
+        /// перенесёт фокус на группу под ней; если ничего не следует — ближайшее движение курсора
+        /// (<see cref="ClearFocus"/>) или <see cref="Navigate"/> разрулят. Без этого модель до
+        /// следующего Navigate держала бы ссылку на отключённый target.
+        /// </summary>
+        internal static void OnTargetUnregistered(IFocusTarget target)
+        {
+            if (_model == null || target == null) return;
+            if (!ReferenceEquals(_model.CurrentFocus.Value, target)) return;
+            _model.SetCurrent(null, Key);
+            target.NotifyUnfocused();
         }
 
         /// <summary>

@@ -51,9 +51,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             {
                 UnsubscribeAction(b.actionId);
                 DisableMap(b.actionId);
+                // Снимаем ТОЛЬКО свои биты, а не глобальный ClearActions: иначе отключение одного
+                // ActionInputDriver стирало бы маску действий, выставленную другими экземплярами.
+                VirtualCursorController.SetAction(b.action, false);
             }
-
-            VirtualCursorController.ClearActions();
         }
     }
 }

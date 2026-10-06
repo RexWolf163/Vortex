@@ -117,13 +117,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
         // --- Интейк источников (internal — зовут драйверы/зоны пакета) ---
 
-        /// <summary>Репорт позиции от источника. Last-source-wins: репортящий становится активным.</summary>
-        internal static void ReportPointer(Vector2 screen, PointerSourceKind source)
-        {
-            if (_model == null) return;
-            _model.ScreenPosition.Set(screen, Key);
-            _model.ActiveSource.Set(source, Key);
-        }
+        /// <summary>
+        /// Репорт позиции от источника. Last-source-wins: репортящий становится активным.
+        /// Делегирует в 3-арг с <c>hidesCursor:false</c> — источник без явного hide считается
+        /// показывающим курсор, поэтому смена источника через эту перегрузку корректно снимает
+        /// устаревший source-hide (напр. после касания в HideOnly), как обещает контракт 3-арг.
+        /// </summary>
+        internal static void ReportPointer(Vector2 screen, PointerSourceKind source) =>
+            ReportPointer(screen, source, false);
 
         /// <summary>
         /// Репорт позиции с флагом скрытия курсора для этого источника (касание → true). Last-source-wins:

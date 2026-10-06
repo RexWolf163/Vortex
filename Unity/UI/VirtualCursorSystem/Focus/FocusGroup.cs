@@ -116,6 +116,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             _targets.Remove(target);
             if (ReferenceEquals(RememberedFocus, target))
                 RememberedFocus = null;
+            // Если этот target был текущим фокусом — контроллер снимет висящую ссылку
+            // (модель не должна указывать на выбывший target до следующего Navigate).
+            VirtualCursorFocusController.OnTargetUnregistered(target);
         }
 
         /// <summary>Явный сброс запомненного фокуса (например, по дизайн-решению «начинаем с нуля»).</summary>
