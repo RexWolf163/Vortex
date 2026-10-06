@@ -1,6 +1,7 @@
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.Events;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
