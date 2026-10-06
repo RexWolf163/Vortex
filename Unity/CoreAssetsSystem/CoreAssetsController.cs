@@ -51,8 +51,22 @@ namespace Vortex.Unity.CoreAssetsSystem
             {
                 if (resources.Contains(type))
                     continue;
+
+                // Guard от затирания настроенных ассетов. Resources.LoadAll видит тип
+                // ассета ТОЛЬКО если класс сейчас скомпилирован и загружен в домен:
+                // при compile-error в смежной сборке, тогглинге #if-дефайна (SDK on/off)
+                // или гонке InitializeOnLoad vs индексация Resources файл на диске есть,
+                // но Contains возвращает false — и без этого guard AssetDatabase.CreateAsset
+                // перезапишет его пустым ScriptableObject, потеряв все SerializeReference-
+                // ссылки, биндинги и т.п. Файловая проверка надёжнее: если ассет уже лежит,
+                // не трогаем его в любом случае — настроит пользователь, пересоздадим только
+                // когда диск реально пуст.
+                var assetPath = $"Assets/{Path}/{type.Name}.asset";
+                if (System.IO.File.Exists(assetPath))
+                    continue;
+
                 var so = ScriptableObject.CreateInstance(type);
-                AssetDatabase.CreateAsset(so, $"Assets/{Path}/{type.Name}.asset");
+                AssetDatabase.CreateAsset(so, assetPath);
                 Debug.Log($"Create new settings preset {Path}/{type.Name}");
                 AssetDatabase.Refresh();
             }

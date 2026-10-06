@@ -23,6 +23,14 @@ namespace Vortex.Unity.UI.CursorSystem
     {
         [BoxGroup("Cursor Settings")]
         [SerializeField]
+#if USING_VORTEX_CURSOR
+        [InfoBox("Включена система виртуального курсора (USING_VORTEX_CURSOR). " +
+                 "Этот конфиг игнорируется — CursorController.Init() выходит рано, " +
+                 "скины курсора настраиваются в CursorSkinSettings (ScriptableObject, " +
+                 "Resources/Settings/). Выключи toggle cursorInputSdk в SdkSettings " +
+                 "и перекомпилируй, чтобы вернуться на этот конфиг.",
+            InfoMessageType.Warning)]
+#endif
         [InfoBox("Наборы курсоров по диапазонам разрешения. Пустой список = аппаратный курсор.\n" +
                  "Наборы — по возрастанию MaxScreenHeight (первый = низкое разрешение). Hover-ключи " +
                  "(CursorHoverEntry.Name) общие; отсутствующий в выбранном пакете ключ наследуется " +

@@ -13,7 +13,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         private CursorSkin baseSkin = new();
 
         [SerializeField, Tooltip("Hover-варианты по ключу (CursorSkin.Name).")]
-        private CursorSkin[] hoverSkins = Array.Empty<CursorSkin>();
+        private CursorSkin[] hoverSkins = new CursorSkin[0];
 
         public CursorSkin Base => baseSkin;
 

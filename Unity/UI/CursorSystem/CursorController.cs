@@ -69,6 +69,13 @@ namespace Vortex.Unity.UI.CursorSystem
         /// </summary>
         private static void Init()
         {
+#if USING_VORTEX_CURSOR
+            // Включена система VirtualCursorSystem (новый пакет курсора через UGUI-Image).
+            // Старый CursorController боролся бы с ней за Cursor.visible и Cursor.SetCursor
+            // (две системы одновременно = мигание ОС-курсора + двойная работа над скинами).
+            // CursorSettings при этом конфиге игнорируется — скины в CursorSkinSettings.
+            return;
+#endif
             var packs = Settings.Data().CursorPacks;
             if (packs == null || packs.Length == 0)
                 return; //Аппаратный курсор

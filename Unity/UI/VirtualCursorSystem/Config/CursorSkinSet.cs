@@ -15,7 +15,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         private string key;
 
         [SerializeField, Tooltip("Паки по тирам разрешения (по одному на ResolutionTiers[i]).")]
-        private CursorSkinPack[] tiers = Array.Empty<CursorSkinPack>();
+        private CursorSkinPack[] tiers = new CursorSkinPack[0];
 
         public string Key => key;
         public CursorSkinPack[] Tiers => tiers;

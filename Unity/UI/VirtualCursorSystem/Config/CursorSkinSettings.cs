@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
@@ -19,7 +18,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         private string defaultSetKey;
 
         [SerializeField, Tooltip("Каталог тем курсора.")]
-        private CursorSkinSet[] sets = Array.Empty<CursorSkinSet>();
+        private CursorSkinSet[] sets = new CursorSkinSet[0];
 
         public string DefaultSetKey => defaultSetKey;
         public int[] ResolutionTiers => resolutionTiers;

@@ -2,6 +2,7 @@
 using System;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.InputBusSystem;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
@@ -18,8 +19,16 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             [Tooltip("Какое действие активирует привязка.")]
             public PointerAction action;
 
-            [ValueSelector("GetInputActions"), Tooltip("Экшен-кнопка (Button), id «Карта/Экшен».")]
+            [ValueSelector(nameof(GetInputActions)), Tooltip("Экшен-кнопка (Button), id «Карта/Экшен».")]
             public string actionId;
+
+#if UNITY_EDITOR
+            // ValueResolver резолвит имя метода относительно типа ВЛАДЕЛЬЦА поля — то есть
+            // Binding, а не ActionInputDriver. Протащить сюда protected InputDriver.GetInputActions
+            // наследованием нельзя (struct не наследует класс). Локальный static-прокси —
+            // минимальный фикс, иерархию обходить вручную через @root/@# не надо.
+            private static string[] GetInputActions() => InputController.GetActions();
+#endif
         }
 
         [SerializeField] private Binding[] bindings = Array.Empty<Binding>();

@@ -1,4 +1,8 @@
 #if UNITY_EDITOR
+// Легаси-курсор отключён, когда стоит USING_VORTEX_CURSOR (см. CursorController.Init
+// под тем же гвардом). Пункт меню убираем целиком, чтобы в Tools/Vortex/Configs
+// не было двух похожих записей (есть Virtual Cursor Skin Settings из нового пакета).
+#if !USING_VORTEX_CURSOR
 
 using UnityEditor;
 using UnityEngine;
@@ -23,4 +27,5 @@ namespace Vortex.Unity.UI.CursorSystem.Editor
         }
     }
 }
+#endif
 #endif

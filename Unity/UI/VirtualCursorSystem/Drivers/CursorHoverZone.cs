@@ -5,7 +5,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 {
     /// <summary>
     /// UGUI-зона hover: по входу/выходу указателя ставит/снимает hover-ключ скина (аналог MouseHoverListener).
-    /// Работает, т.к. UGUI-указатель ведётся виртуальным курсором (см. <see cref="UiPointerFeeder"/>).
+    /// Работает, т.к. UGUI-указатель ведётся виртуальным курсором — события
+    /// <c>IPointerEnterHandler</c>/<c>IPointerExitHandler</c> шлёт
+    /// <see cref="VirtualPointerDispatcher"/> напрямую через <c>ExecuteEvents</c>.
     /// Защита от гонки вложенных зон: снимаем ключ, только если он всё ещё наш.
     /// </summary>
     public class CursorHoverZone : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler

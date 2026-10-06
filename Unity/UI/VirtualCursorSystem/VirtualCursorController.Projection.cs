@@ -18,7 +18,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         private static bool _hasHit;
         private static RaycastHit _hit;
 
-        private static Camera ActiveCamera => _cameras.Count > 0 ? _cameras[^1] : null;
+        /// <summary>
+        /// Активная камера LIFO-реестра (последняя зарегистрированная через
+        /// <c>CameraProvider</c>). Используется для <c>Projection</c> И для
+        /// world-целей фокус-навигации (<see cref="FocusTargetComponent"/>
+        /// с <c>TargetKind.World</c> проектирует Transform через эту камеру).
+        /// </summary>
+        internal static Camera ActiveCamera => _cameras.Count > 0 ? _cameras[^1] : null;
 
         /// <summary>Параметры проекции (маска слоёв, дистанция). Зовётся бутстрапом/провайдером.</summary>
         public static void ConfigureProjection(LayerMask mask, float distance)

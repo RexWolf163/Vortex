@@ -7,13 +7,15 @@
 
 ## Purpose
 
-A multi-source virtual cursor for UGUI projects. A single screen position (`ScreenPosition`) is fed by any source — mouse, gamepad, keys, touch — and is the single source of truth. The position is **decoupled from the OS mouse**: it lives in the model, not in the Mouse device, so there are no warp hacks and no two-device desync.
+A multi-source virtual cursor for UGUI projects. A single screen position (`ScreenPosition`) is fed by any source — mouse, gamepad, keys, touch — and is the single source of truth. The position **lives in the model** (optionally the OS mouse is warped synchronously — `warpSystemMouse` toggle in `DirectInputDriver`).
 
-Native UGUI (`Button`, `Toggle`, `ScrollRect`, drag, hover, `IPointerXxx`) works without per-widget code: the package presents `InputSystemUIInputModule` a virtual pointer device (`VirtualUiPointer`) driven by `ScreenPosition`/actions.
+Native UGUI (`Button`, `Toggle`, `ScrollRect`, hover, `IPointerXxx`) works without per-widget code: `VirtualPointerDispatcher`, on every cursor event, runs `EventSystem.RaycastAll` under `ScreenPosition` and sends standard `PointerDown`/`PointerUp`/`PointerClick`/`PointerEnter`/`PointerExit` via `ExecuteEvents`. There is no phantom `InputDevice`; UI Actions-asset bindings stay on `<Mouse>` — the physical mouse and the virtual cursor independently dispatch events to the same UGUI handlers.
 
 Cursor appearance is a **render-agnostic skin system**: swappable theme sets (by key at runtime), resolution scaling (global tiers), sprite by action state, with upward fallback. Rendering goes through `ICursorRenderer` (default: a UGUI `Image` at the cursor position; optional: the OS cursor via `Cursor.SetCursor`).
 
 **Input is a pluggable module.** Sources are implemented as drivers (`InputDriver`) listed in the `InputDriverSet` config asset and connected at startup by the loader `CursorInputLoader`. The input module is switched on via a toggle in `SdkSettings` (`USING_VORTEX_CURSOR`). The cursor is a **supra-system entity**: there is no situational input gate — a connected driver is always active.
+
+**Focus navigation** (`Focus/` subsystem): a `FocusGroup` on any parent gathers child `FocusTargetComponent`-s into a navigation context; groups live in a LIFO stack (push/pop on `OnEnable`/`OnDisable` — the standard SetActive-menu pattern). `UINavigationDriver` listens to 4 directional actions (D-pad / arrows); on press — the nearest target inside the semi-open ±45° cone **from the active (top) group** becomes active. The cursor is hidden via the external channel (`HideCursor`) and warped onto the target's point — hover and click go through the native UGUI path. Any cursor movement (mouse/stick) automatically clears the focus. When the active group changes (as long as the cursor stays in nav mode) focus is handed over automatically to the new group's `RememberedFocus` or to the nearest target.
 
 **Contrast with `CursorSystem`:** `CursorSystem` — OS cursor + UGUI hover, mouse-only, the simplified alternative. `VirtualCursorSystem` — virtual cursor + source arbitration + render-agnostic swappable skins + a pluggable driver-based input layer.
 
@@ -28,8 +30,9 @@ Out of scope:
 
 | Dependency | Purpose |
 |------------|---------|
-| `Unity.InputSystem` | `InputAction`, `Mouse`/`MouseState`, `InputState`, custom device |
-| `UnityEngine.UI` | `Image`/`Canvas` (UI render), `IPointerEnter/Exit`, `EventSystem` (IsOverUI/hover) |
+| `Unity.InputSystem` | `InputAction`, `Mouse` (warps the system mouse in `DirectInputDriver`) |
+| `UnityEngine.UI` | `Image`/`Canvas` (UI render) |
+| `UnityEngine.EventSystems` | `EventSystem.RaycastAll`, `ExecuteEvents`, `PointerEventData`, `IPointerXxx` interfaces |
 | `Vortex.Unity.InputBusSystem` | `InputController` — resolves actions by string id "Map/Action", maps/subscription (LIFO) |
 | `Vortex.Core.LoaderSystem` (apploader) | `IProcess`/`Loader` — connects drivers within the load pipeline |
 | `Vortex.Unity.CoreAssetsSystem` | `ICoreAsset` — auto-provisions the `InputDriverSet` asset in `Resources/Settings` |
@@ -80,12 +83,27 @@ Input layer (pluggable SDK module, #if USING_VORTEX_CURSOR):
                                         · connect per platform · tick via Accumulate (+anti-spam)
   [InputDriver] (POCO, abstract): Connect/Disconnect · NeedsTick/Tick · HidesCursor · SupportsPlatform
      ├─ MouseInputDriver (Analog)     · TouchInputDriver (Point, HidesCursor=true)
-     └─ DirectInputDriver (Direct, NeedsTick) · ActionInputDriver (buttons→mask)
+     ├─ DirectInputDriver (Direct, NeedsTick; speedCurve + accelerationTime) · ActionInputDriver (buttons→mask)
+     └─ UINavigationDriver (4 actions → VirtualCursorFocusController.Navigate)
+
+Focus navigation (Focus/):
+  [FocusModel] (IReactiveData)       → LIFO Groups[] + ActiveGroup + ReactiveValue<IFocusTarget> CurrentFocus
+  [FocusGroup] (MonoBehaviour)        → OnEnable push LIFO · OnDisable pop · OnDestroy cleanup
+                                        · Targets[] (children register) · RememberedFocus · FindNearestEuclidean
+  [VirtualCursorFocusController] (static) → Init/Cleanup · PushGroup/RemoveGroup · Navigate(dir)/ClearFocus
+                                            · auto focus transfer on push/pop if _focusAnchor != null
+                                            · subscribes to ScreenPosition → auto-ClearFocus on movement
+                                            · _focusAnchor absorbs sub-threshold drift (per-frame 3 px)
+  [IFocusTarget] (contract)          → ScreenPoint · IsActive · NotifyFocused/NotifyUnfocused
 
 Scene MonoBehaviours (not input drivers):
   CursorHoverZone (UGUI→HoverKey) · CameraProvider (projection camera, LIFO)
+  IsOverUiHandler (EventSystem→IsOverUI)
+  PointerActionHandler (UGUI binding Action1/2/3 → UnityEvent — optional, on buttons)
+  FocusGroup (on a parent; LIFO navigation context)
+  FocusTargetComponent (on a button/object; UGUI/World → registers in the parent FocusGroup + UnityEvent onFocused/onUnfocused)
 
-UGUI bridge:  VirtualUiPointer (: Mouse, separate layout)  ← UiPointerFeeder (LateUpdate: model→device)
+UGUI bridge:  VirtualPointerDispatcher — subscribes to ScreenPosition/Actions, RaycastAll, ExecuteEvents
 Render:       ICursorRenderer → UiImageCursorRenderer (default) | OsCursorRenderer (opt.)
 ```
 
@@ -96,7 +114,8 @@ Source (mouse/stick/touch/keys)
    → InputDriver (resolves the action by id via InputController) → VirtualCursorController.ReportPointer/SetAction
         → PointerModel (ScreenPosition/Actions/HoverKey; hidesCursor by source)
              ├→ CursorSkinResolver → Visual → ICursorRenderer (draws the cursor)
-             ├→ UiPointerFeeder → VirtualUiPointer → InputSystemUIInputModule → native UGUI
+             ├→ VirtualPointerDispatcher (OnUpdate→dirty; LateUpdate if dirty)
+             │     → EventSystem.RaycastAll → ExecuteEvents(Enter/Exit/Down/Up/Click) → UGUI handlers
              └→ Projection (on demand) → RaycastHit
 ```
 
@@ -120,6 +139,42 @@ A driver declares `HidesCursor` (`TouchInputDriver` = true: touch is a direct co
 ### Driver tick (TimeController.Accumulate + anti-spam)
 Drivers with `NeedsTick` (Direct) are ticked by a self-rescheduling loop via `TimeController.Accumulate` (no hidden runner). The loop is wrapped in `try/catch/finally`: the inner `catch` isolates a failing driver, `finally` guarantees continuation. Anti-spam: a driver exception is logged only on the **first** in a streak; the counter resets on the first clean frame. `Tick` runs on `unscaledDeltaTime` — it works during pause (menus) too.
 
+### Focus navigation (Focus/)
+Directional switching of the active element (D-pad / arrows) — an alternative to cursor control for gamepad / keyboard in UI scenes.
+
+**LIFO group stack (navigation contexts).**
+- `FocusGroup` — a MonoBehaviour on any parent of interactive elements. On `OnEnable` it pushes onto the LIFO; on `OnDisable` it pops; on `OnDestroy` — final cleanup. The active group (`ActiveGroup`) is the top of the stack; only its `Targets` participate in `Navigate`.
+- The standard pattern is a SetActive menu: the HUD group is always active, when the pause menu opens it is pushed on top → navigation walks its buttons; close the menu and the HUD group becomes active again.
+- Nested groups — nested `FocusGroup`s are allowed; a target binds to the nearest parent via `GetComponentInParent`.
+
+**Target registration.**
+- `FocusTargetComponent` on a UGUI button (`TargetKind=UGUI`, reference to a `RectTransform`) or world object (`TargetKind=World`, `Transform` + an active camera from `CameraProvider`). `OnEnable` → `GetComponentInParent<FocusGroup>` (lazy-cached) → `Register`; `OnDisable` → `Unregister`.
+- **Fail-loud:** a target with no `FocusGroup` in its parents → `LogError` on the first Enable, the component is not registered. That is a scene setup error.
+
+**Navigate algorithm.** Semi-open cone `[-45°..+45°)` relative to the direction (4 directions × 90° = 360° coverage without overlap, each target lands in exactly one zone). Among candidates — **minimum Euclidean distance**. Origin is the **exact `ScreenPoint` of the current focus** (not the cursor position — after `WarpCursorPosition` the OS rounds the mouse to an int pixel, giving a ≈0.5 px drift that breaks cone selection at short distances); if there is no focus, fallback to the cursor's `ScreenPosition`. The current `CurrentFocus` is excluded from candidates (a defensive `ReferenceEquals` on top of the distance filter).
+
+**Focus capture (`captureFocusIfFree`).** An optional fallback mode in `UINavigationDriver` (default `true`): if there is nobody in the cone **and** `CurrentFocus == null` — pick the nearest active target of the group by Euclidean distance, ignoring direction. Any directional key becomes an entry point into nav mode: the cursor "snaps" to the nearest button. When focus is already active this fallback is **not** applied — otherwise navigation at the edge of a list (no neighbors in that direction) would silently jump to the opposite end.
+
+**Auto focus transfer on push/pop.** Triggered **only** when `_focusAnchor != null` (the cursor was "pinned" by navigation and has not been moved by the mouse since):
+- Push: the old focus is saved as the old group's `RememberedFocus` + `NotifyUnfocused`; in the new top group the focus becomes `RememberedFocus` (if still active) or the nearest target by Euclidean distance → `NotifyFocused` + warp.
+- Pop: symmetric — the old group loses its current (saved into its Remembered), the new top group restores its own.
+- When `_focusAnchor == null` (the user moved the mouse and left nav mode) — the automation is disabled, the stack just rearranges, the cursor stays free.
+
+**Focus effects:** `IFocusTarget.NotifyFocused`/`NotifyUnfocused` → UnityEvents on the component (highlight / SFX); the cursor is hidden via `VirtualCursorController.HideCursor()` (external channel — independent of driver Reports); `Mouse.WarpCursorPosition` syncs the OS mouse with the target point.
+
+**Auto-ClearFocus on cursor movement:** `_focusAnchor` + `AnchorToleranceSqr=9` (3 px) — a **per-frame** threshold, not cumulative. A sub-threshold delta is **absorbed into the anchor** on every `ScreenPosition` update: OS mouse hardware noise (~1 px/frame at rest), int rounding of `WarpCursorPosition`, and warp echoes do not accumulate frame after frame against the original anchor — otherwise a random spike would cross the tolerance within a second or two without any user action (symptom: "periodic drops into free cursor"). A deliberate mouse gesture (5+ px/frame even on the slowest deliberate motion at 60 Hz) crosses the threshold in one frame → `ClearFocus` + `ShowCursor()` + nav mode exits.
+
+### External cursor-hide channel (`HideCursor`/`ShowCursor`)
+Independent API on top of sources: `VirtualCursorController.HideCursor()` / `ShowCursor()`. `_externalHidden` participates in the OR composition of `visual.Hide` inside `Recompute` (three channels: skin → `_pointerHidden` from the source → `_externalHidden` from external code). It is **not** reset by driver `ReportPointer`s — critical for focus navigation, where otherwise the mouse echo after a warp would overwrite hide back to false.
+
+`ShowCursor` clears **only** its own channel: if the skin was authored with `HideCursor=true` or the active source (`TouchInputDriver`) hides the cursor — it stays hidden.
+
+### Speed profile in DirectInputDriver (curve + acceleration)
+Final cursor speed: `speed × speedCurve.Evaluate(stickMagnitude) × accelFactor`.
+- **`speedCurve`** (AnimationCurve) — nonlinear response to stick deflection. X ∈ [0..1] = stick magnitude, Y = multiplier to `speed`. Default — constant 1 (curve has no effect). For precision control at small deflections — `Pow(x, 2)` or similar.
+- **`accelerationTime`** (seconds) — smooth ramp from 0 to maximum speed when the stick leaves the deadzone. `0` = instant ramp (bang-bang, previous behavior). Braking inside the deadzone is **instant** (`_accelFactor` resets to 0) — the cursor follows the designer with no stop inertia; the next start begins from 0.
+- **Validation**: on `Connect` checks `speedCurve.Evaluate(1) ≈ 0` → `LogWarning` with the `moveActionId`. Catches the common misconfiguration "cursor doesn't move at full stick deflection".
+
 ### Action mask (simultaneity + dominant)
 `PointerAction` — a sequential index enum (`None` + `Action1…Action10`; convention: 1=LMB, 2=RMB, 3=MMB, 4=Back, 5=Forward, 6=Scroll↑, 7=Scroll↓, 8–10=reserve). `PointerActionMask` — a `readonly struct` over `int`: bits = simultaneously active actions; `Dominant()` — the lowest active bit by priority (for the sprite). `ActionInputDriver` sets/clears bits on `started`/`canceled`; `canceled` on alt-tab clears them by itself.
 
@@ -134,8 +189,14 @@ Drivers with `NeedsTick` (Direct) are ticked by a self-rescheduling loop via `Ti
 ### Global resolution tiers
 Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings`; each theme provides one pack per tier (`OnValidate` warns on mismatch). On a resolution change → `VirtualCursorController.RefreshResolution()`.
 
-### Virtual UI pointer and native UGUI
-`VirtualUiPointer` — a `Mouse` subclass with a **separate layout** (`<VirtualUiPointer>`): `InputSystemUIInputModule` binds to it and generates all native events. `UiPointerFeeder` writes the device from the model in `LateUpdate`: `position ← ScreenPosition`, buttons ← mask bits (Action1→left…Action5→forward), scroll ← Action6/7. The real mouse feeds a driver (Analog); the UI module reads only the virtual pointer.
+### Virtual pointer and native UGUI (`VirtualPointerDispatcher`)
+`VirtualPointerDispatcher` subscribes to `ScreenPosition.OnUpdate` and `Actions.OnUpdate` on the `Bus`; an event sets `_dirty` — `LateUpdate` runs the cycle **only** on changes (idle cost — one boolean check). In one pass: `EventSystem.RaycastAll` at the position → Enter/Exit diff → Action1/2/3 (LMB/RMB/MMB) transitions via `pointerDownHandler`/`pointerUpHandler`/`pointerClickHandler` through `ExecuteEvents` on the found target. Standard UGUI click canon (Up on the same `IPointerClickHandler` target as Down) is preserved.
+
+**No phantom `InputDevice`**: UI Actions-asset bindings stay on `<Mouse>` for the physical mouse. The virtual pointer and the physical mouse dispatch events to the same UGUI handlers independently — no loops. Works with UGUI, 2D-/3D-colliders (via standard `Physics2DRaycaster`/`PhysicsRaycaster` on the camera — `RaycastAll` returns those as well).
+
+**Lazy initialization**: `PointerEventData` is created inside `LateUpdate` on the first appearance of `EventSystem.current`. The dispatcher works correctly on a `Preload` scene when the EventSystem lives in a UI scene that loads later.
+
+**On buttons**: for the **right/middle** button — `PointerActionHandler` on a UGUI element (`PointerAction` dropdown + `onPressed`/`onReleased`/`onClick`). For the **left** — the regular `Button.onClick`. Action4..Action10 don't pass through UGUI pipeline (`PointerEventData.InputButton` knows only Left/Right/Middle).
 
 ### IsOverUI
 `IsOverUiHandler` writes `PointerModel.IsOverUI` from `EventSystem.IsPointerOverGameObject()` — world-projection consumers gate the click on this flag.
@@ -146,6 +207,12 @@ Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings`; ea
 ### Theme selection (save-agnostic)
 `CursorSkinSelector` holds the reactive theme key (`Selected`) and `Select(key)`. Persistence (`IGameData`) is at the **project layer**. The package (L2) does not depend on GameCore (L3).
 
+### Editor tooling
+- **`Tools/Vortex/Virtual Cursor/Focus Stack`** — diagnostic window: the LIFO `FocusGroup` stack top-to-bottom (top = `ActiveGroup`), per-group list of `Targets`, `●` marker on the current `CurrentFocus`, `◉` on `RememberedFocus`, `[inactive]` tag. Click a group or target row — Ping + Select in Hierarchy. Data appears only in Play Mode after `VirtualCursorBootstrap.Init`; auto-repaint via `EditorApplication.update`. Style palette switches by `EditorGUIUtility.isProSkin`.
+- **`Tools/Vortex/Configs/Virtual Cursor Skin Settings`** — ping the `CursorSkinSettings` asset in the Project window.
+- **`Tools/Vortex/Configs/Input Driver Set`** — ping the `InputDriverSet` asset in the Project window.
+- The legacy `Tools/Vortex/Configs/Cursor Settings` entry (from the `CursorSystem` package) is wrapped in `#if !USING_VORTEX_CURSOR` — hidden from the menu when the new cursor is on.
+
 ---
 
 ## Contract
@@ -153,13 +220,14 @@ Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings`; ea
 ### Input
 - `SdkSettings`: the `cursorInputSdk` toggle is on (define `USING_VORTEX_CURSOR`).
 - `InputDriverSet` (SO in `Resources/Settings`): a non-empty list of drivers with assigned action ids.
-- Input Actions: actions for the drivers (mouse position, touch position, move vector, buttons Action1…Action10); the module's UI map bound to `<VirtualUiPointer>`.
+- Input Actions: actions for the drivers (mouse position, touch position, move vector, buttons Action1…Action10); the UI Actions-asset (`InputSystemUIInputModule`) stays standard — binds to `<Mouse>`.
 - `CursorSkinSettings` (SO) passed to `Init` (via `VirtualCursorBootstrap`).
+- `EventSystem` in the active scenes (standard UGUI object, required by the dispatcher).
 
 ### Output
 - `PointerModel` (position/source/mask/hover/over-UI) — reactive.
 - `CursorVisual` — the current cursor look (sprite+hotspot+hide) for renderers.
-- A virtual device driving native UGUI.
+- Standard UGUI events on targets under the cursor (Enter/Exit/Down/Up/Click) via `VirtualPointerDispatcher`.
 - `RaycastHit`/projection point on demand.
 
 ### Guarantees
@@ -172,7 +240,8 @@ Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings`; ea
 ### Limitations
 - The input layer requires the `USING_VORTEX_CURSOR` define; otherwise the drivers don't compile and nothing feeds the position.
 - `InputDriverSet` must exist and be non-empty — otherwise `CursorInputLoader` throws (failfast).
-- The UGUI module **must** bind to `<VirtualUiPointer>`, otherwise UI won't follow the cursor.
+- `VirtualPointerDispatcher` must be **in an active scene** (persistent scene next to Bootstrap/Renderer is ideal); without it UGUI handlers get no events from the virtual cursor. The `EventSystem` can live on any other scene — the dispatcher attaches to it lazily.
+- Only `Action1`/`Action2`/`Action3` (LMB/RMB/MMB) reach UGUI handlers. For `Action4..Action10` a direct binding on `VirtualCursorBus.Data.Actions.OnUpdate` with a manual hover check is required.
 - Projection requires a registered camera; without one — a miss.
 - `OsCursorRenderer` requires a **standalone texture** for the sprite (`Cursor.SetCursor` takes a whole `Texture2D`). For atlased cursors use `UiImageCursorRenderer`.
 - `InputController` (the input bus) must be available at connect time — it lazily initializes on first access (`GetAction`), so no explicit wait is needed in `WaitingFor`.
@@ -185,6 +254,7 @@ Breakpoints (`resolutionTiers`) are defined **once** in `CursorSkinSettings`; ea
 ```csharp
 static PointerModel     Data;      // runtime model
 static CursorVisualData Visual;    // current cursor look
+static FocusModel       Focus;     // runtime registry of focus navigation (CurrentFocus.OnUpdate)
 static bool             IsReady;
 static event Action     OnReady;
 ```
@@ -198,8 +268,46 @@ static void ConfigureProjection(LayerMask mask, float distance);
 static bool TryGetWorldHit(out RaycastHit hit);
 static Vector3? GetWorldProjection();
 static void InvalidateProjection();
+
+// External cursor-hide channel — independent of Reports and the skin (OR composition).
+static void HideCursor();                 // _externalHidden = true, Recompute
+static void ShowCursor();                 // _externalHidden = false; the skin/source stay
+static bool IsCursorHiddenExternally;     // query
+
 // intake (internal): ReportPointer(pos,src) / ReportPointer(pos,src,hidesCursor)
 //                    / SetAction / ClearActions / SetHover / SetOverUI / Register/UnregisterCamera
+```
+
+### VirtualCursorFocusController (static)
+```csharp
+static FocusModel Model;                                         // null until Init
+static bool IsReady;
+
+static void Init();                                              // called by VirtualCursorBootstrap
+static void Cleanup();
+static void PushGroup(FocusGroup group);                         // from FocusGroup.OnEnable
+static void RemoveGroup(FocusGroup group);                       // from OnDisable/OnDestroy
+static void Navigate(Vector2 direction, float coneAngleDeg,
+                     bool hideCursor, bool warpSystemMouse,
+                     bool captureNearestIfFree);                 // from UINavigationDriver
+static void ClearFocus();                                        // + ShowCursor() + NotifyUnfocused
+```
+
+### FocusGroup (MonoBehaviour)
+```csharp
+IReadOnlyList<IFocusTarget> Targets;                             // registered by children
+IFocusTarget RememberedFocus;                                    // persists between activations
+void Register(IFocusTarget target);                              // from FocusTargetComponent.OnEnable
+void Unregister(IFocusTarget target);                            // from OnDisable
+void ClearRememberedFocus();                                     // explicit reset (optional)
+```
+
+### IFocusTarget (contract)
+```csharp
+Vector2 ScreenPoint { get; }   // recomputed on every query
+bool IsActive { get; }         // GameObject.activeInHierarchy + local gates
+void NotifyFocused();          // the controller calls when focus transitions onto this target
+void NotifyUnfocused();        // another target / ClearFocus / OnDisable
 ```
 
 ### CursorSkinSelector (static)
@@ -240,13 +348,24 @@ In the `SdkSettings` asset toggle `cursorInputSdk` → **ApplyChanges** (adds th
 `Create → Vortex/UI/Cursor Skin Settings`. Fill `resolutionTiers` (ascending), `defaultSetKey`, `sets` — themes; in each theme — packs per tier, base/hover skins, `defaultSprite` + sparse `overrides` (action→sprite).
 
 ### 4. Input Actions
-Actions for the drivers (mouse position, move, touch, buttons Action1…Action10). In the module's UI map rebind `Point → <VirtualUiPointer>/position`, `Left Click → .../leftButton`, `Right/Middle/Forward/Back`, `ScrollWheel → .../scroll`.
+Actions for the drivers (mouse position, stick move, touch, buttons Action1…Action10). **The UI Actions-asset for `InputSystemUIInputModule` stays standard** — `Point/Click/RightClick/ScrollWheel` bind to `<Mouse>` (physical mouse). No rebind to a virtual pointer is required — its events go straight through `ExecuteEvents`.
 
 ### 5. Scene
-- `VirtualCursorBootstrap` (+ `CursorSkinSettings`, projection params) — on a persistent object.
-- `UiPointerFeeder` — there too. **Input drivers are not placed on the scene** — they live in the `InputDriverSet`.
+- `VirtualCursorBootstrap` (+ `CursorSkinSettings`, projection params) — on a persistent scene (`Preload`/boot). `VirtualCursorFocusController.Init` is called automatically from `Awake`.
+- `VirtualPointerDispatcher` — there too, next to the Bootstrap. **Input drivers are not placed on the scene** — they live in the `InputDriverSet`.
 - An overlay `Canvas` (Screen Space - Overlay, above all UI) + a cursor `Image` (Raycast Target off) + `UiImageCursorRenderer`.
-- Optional: `IsOverUiHandler`, `CameraProvider` (on the camera), `CursorHoverZone` (on interactive UGUI elements, hover-skin key).
+- Optional: `IsOverUiHandler`, `CameraProvider` (on the camera), `CursorHoverZone` (on interactive UGUI elements, hover-skin key), `PointerActionHandler` (on UI buttons for RMB/MMB), `FocusTargetComponent` (on UI buttons or world objects for gamepad navigation).
+- For 2D/3D objects — `Physics2DRaycaster`/`PhysicsRaycaster` on the camera + a MonoBehaviour with `IPointerClickHandler`/`IPointerEnterHandler` on the object. The dispatcher works uniformly for UGUI and world colliders.
+
+### 7. Focus navigation (optional)
+- In the `InputDriverSet` add a `UINavigationDriver`: assign 4 action ids for the directions (Gamepad D-pad / Keyboard arrows), set `coneAngleDeg = 45`, `hideCursorOnFocus = true`, `warpSystemMouse = true`, `captureFocusIfFree = true` (when focus is empty and nothing is in the cone — capture the nearest target of the group; a convenient entry point into nav mode).
+- On the parent of interactive elements (usually the Canvas or a menu container) — a `FocusGroup`. One component per navigation context (HUD, pause menu, modal dialog — each its own).
+- On every focusable element inside that group's hierarchy — a `FocusTargetComponent`:
+  - `TargetKind=UGUI` + reference to the `RectTransform` (the `rectTarget` slot is visible in the inspector only for UGUI via the Odin `ShowIf`).
+  - `TargetKind=World` + reference to the `Transform` (the `worldTarget` slot) — requires a registered `CameraProvider` camera to compute the screen point.
+- Wire the `onFocused`/`onUnfocused` UnityEvents for highlights/SFX.
+- Context switching uses the standard Unity pattern: `SetActive(true)` on an object with a `FocusGroup` → push onto the LIFO, it becomes active. `SetActive(false)` → pop, the previous group becomes active again. In nav mode (`_focusAnchor != null`) focus is handed over automatically — to the new group's `RememberedFocus` or to the nearest target.
+- Clicking a focused element works automatically — the cursor is already at the point via the warp, `VirtualPointerDispatcher` sends `PointerClick` to native UGUI handlers.
 
 ### 6. Theme persistence (project layer)
 `CursorSkinData : IGameData` + a mirror: on load/new-game `CursorSkinSelector.Select(data.SelectedSetKey)`, on `Selected.OnUpdate` write it back.
@@ -267,8 +386,24 @@ Actions for the drivers (mouse position, move, touch, buttons Action1…Action10
 | Resolution above all tiers | Largest tier; below all — the smallest |
 | Action without a sprite in a skin | Fallback up: base skin → its `defaultSprite`; nowhere → None |
 | Skin with `HideCursor` | Cursor hidden, no sprite applied |
-| UI module not bound to `<VirtualUiPointer>` | Native UGUI doesn't follow the virtual cursor |
+| `VirtualPointerDispatcher` missing in the scene | UGUI doesn't react to the virtual cursor (physical mouse keeps working via InputSystemUIInputModule) |
+| `DirectInputDriver.speedCurve.Evaluate(1) == 0` | `LogWarning` on Connect; cursor won't move at full stick deflection — fix the curve |
+| `DirectInputDriver.accelerationTime = 0` | Instant ramp (bang-bang) — original behavior before the change |
+| No `FocusGroup` in the scene | `UINavigationDriver.Navigate` finds nothing (empty stack) — stays silent |
+| `FocusTargetComponent` with no parent `FocusGroup` | `LogError` on first Enable, the component is not registered — fix the scene |
+| `FocusTargetComponent` with `TargetKind=World` and no camera in `CameraProvider` | `IsActive = false` → target excluded from selection |
+| Deactivating the active `FocusGroup` (`SetActive(false)`) | `OnDisable` → `RemoveGroup` → in nav mode: auto-transfer focus to the new top group (RememberedFocus or nearest); otherwise the stack just rearranges |
+| Activating another `FocusGroup` on top | `OnEnable` → `PushGroup` → in nav mode: auto-transfer focus into the new group; otherwise — the old focus is dropped (NotifyUnfocused), the new group has no focus |
+| Returning to a previously active group | Its `RememberedFocus` is restored as the focus (if still active); otherwise — the nearest Euclidean target |
+| `FocusTargetComponent` deactivated while it is `CurrentFocus` | `OnDisable` → `Unregister` on the group (clears its `RememberedFocus` if it pointed here); the global `CurrentFocus` clears via ClearFocus on the next Navigate |
+| User moved mouse/stick while focus is active | Auto-`ClearFocus` on a frame whose per-frame delta exceeds `AnchorToleranceSqr` (3 px); sub-threshold deltas are absorbed into the anchor and don't accumulate. Focus removed, cursor becomes visible, nav mode is exited (auto-transfer on push/pop no longer fires) |
+| Nobody in the cone, `CurrentFocus == null`, `captureFocusIfFree = true` | Focus capture fallback: the nearest active target of the group by Euclidean distance, direction ignored |
+| Nobody in the cone, `CurrentFocus != null` (focus active, edge of the list) | Stays silent — the capture fallback is intentionally skipped (so navigation doesn't jump to the opposite end) |
+| `HideCursor` + skin with `HideCursor=false` + `ShowCursor` | `_externalHidden` cleared, the skin shows the cursor again (if `_pointerHidden` is also false) |
+| Nested `FocusGroup` | A target binds to the nearest parent via `GetComponentInParent`; LIFO works naturally: nested on top of its parent |
+| `EventSystem` not yet loaded on start | The dispatcher attaches lazily when the EventSystem appears; events before that are lost (the cursor isn't over UI yet) |
 | Alt-tab with a button held | `canceled` clears the bit — no stuck state |
+| Dispatcher disabled (`OnDisable`) | All lingering Enter/Press are released; the next Enable starts clean |
 | Projection without a registered camera | Miss (`false`/`null`) |
 | Atlased cursor sprite | `UiImageCursorRenderer` — OK; `OsCursorRenderer` — needs a standalone texture |
 
@@ -291,16 +426,21 @@ VirtualCursorSystem/
 │   ├── CursorSpriteEntry.cs  CursorSkin.cs  CursorSkinPack.cs
 │   ├── CursorSkinSet.cs  CursorSkinSettings.cs
 ├── Input/
-│   ├── VirtualUiPointer.cs  UiPointerFeeder.cs  IsOverUiHandler.cs
+│   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs  IsOverUiHandler.cs
+├── Focus/
+│   ├── FocusModel.cs  FocusGroup.cs  FocusTargetData.cs  IFocusTarget.cs  VirtualCursorFocusController.cs
 ├── InputDrivers/                         # #if USING_VORTEX_CURSOR — pluggable input layer
 │   ├── InputDriver.cs  InputDriverSet.cs  CursorInputLoader.cs
-│   ├── MouseInputDriver.cs  TouchInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs
+│   ├── MouseInputDriver.cs  TouchInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs  UINavigationDriver.cs
 ├── Drivers/                              # MonoBehaviour, scene-bound (not input drivers)
-│   ├── CursorHoverZone.cs  CameraProvider.cs
+│   ├── CursorHoverZone.cs  CameraProvider.cs  FocusTargetComponent.cs
 ├── Render/
 │   ├── ICursorRenderer.cs  UiImageCursorRenderer.cs  OsCursorRenderer.cs
 ├── DefineSettings/                       # SDK toggle (folded into the SdkSettings assembly via .asmref)
 │   ├── SdkSettings.CursorInput.cs  sdk.settings.system.ext.asmref
+├── Editor/                               # editor-only (standard Unity folder, no own asmdef)
+│   ├── FocusStackWindow.cs               # Tools/Vortex/Virtual Cursor/Focus Stack — LIFO dump + Ping
+│   ├── MenuController.cs                 # Tools/Vortex/Configs/Virtual Cursor Skin Settings + Input Driver Set
 └── ru.vortex.unity.virtualcursorsystem.asmdef
 ```
 

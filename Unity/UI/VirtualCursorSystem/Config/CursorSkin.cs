@@ -21,7 +21,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         private Sprite defaultSprite;
 
         [SerializeField, Tooltip("Разреженные переопределения: только отличающиеся от дефолта действия.")]
-        private CursorSpriteEntry[] overrides = Array.Empty<CursorSpriteEntry>();
+        private CursorSpriteEntry[] overrides = new CursorSpriteEntry[0];
 
         public string Name => name;
         public bool HideCursor => hideCursor;

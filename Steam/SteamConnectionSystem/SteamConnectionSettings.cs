@@ -22,30 +22,14 @@ namespace Vortex.Steam.SteamConnectionSystem
         public uint SteamAppId => steamAppId;
 
         /// <summary>
-        /// Активация пакетов коннектора Steam
-        /// </summary>
-        [OnValueChanged("OnSteamEnabledChanged")] [ToggleButton(isSingleButton: true)] [SerializeField]
-        private bool isEnabled;
-
-        /// <summary>
-        /// Активация пакетов коннектора Steam
+        /// Пропуск RestartAppIfNecessary — запуск вне Steam-клиента (debug из редактора).
         /// </summary>
         [ToggleButton(isSingleButton: true)] [SerializeField]
         private bool isTestBuild;
 
         public bool IsTestBuild => isTestBuild;
 
-        /// <summary>
-        /// Активация пакетов коннектора Steam
-        /// </summary>
-        public bool IsEnabled => isEnabled;
-
 #if UNITY_EDITOR
-        private void OnSteamEnabledChanged(bool isEnabled)
-        {
-            DefineSymbolManager.Refresh();
-        }
-
         internal void OnAppUdChanged()
         {
             File.WriteAllText("steam_appid.txt", SteamAppId.ToString());

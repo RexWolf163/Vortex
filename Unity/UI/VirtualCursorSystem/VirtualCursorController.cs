@@ -25,6 +25,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// </summary>
         private static bool _pointerHidden;
 
+        /// <summary>
+        /// Независимый внешний канал скрытия, управляемый <see cref="HideCursor"/>/<see cref="ShowCursor"/>.
+        /// Не сбрасывается репортами от драйверов — применяется поверх <see cref="_pointerHidden"/> и
+        /// скина через OR в <see cref="Recompute"/>. Подходит, когда внешнему коду нужно скрыть
+        /// курсор на время (меню, катсцена, фокус-навигация) без зависимости от last-source-wins.
+        /// </summary>
+        private static bool _externalHidden;
+
         public static bool IsReady { get; private set; }
 
         // internal — реактивная модель/вид доступны наружу ТОЛЬКО через read-only фасад VirtualCursorBus.
@@ -73,11 +81,39 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             _visual = null;
             _settings = null;
             _pointerHidden = false;
+            _externalHidden = false;
             IsReady = false;
         }
 
         /// <summary>Пересчитать вид после смены разрешения/режима окна (тир мог смениться).</summary>
         public static void RefreshResolution() => Recompute();
+
+        /// <summary>
+        /// Внешний запрос «скрыть курсор». Независимый канал поверх <see cref="_pointerHidden"/> и скина;
+        /// не сбрасывается репортами от драйверов. Идемпотентно: повторный вызов без эффекта.
+        /// Снимается только <see cref="ShowCursor"/>.
+        /// </summary>
+        public static void HideCursor()
+        {
+            if (_externalHidden) return;
+            _externalHidden = true;
+            Recompute();
+        }
+
+        /// <summary>
+        /// Снимает внешний запрос скрытия (<see cref="HideCursor"/>). Это обнуление ТОЛЬКО своего
+        /// канала: если курсор скрыт скином (<c>CursorSkin.HideCursor</c>) или источником
+        /// (<see cref="_pointerHidden"/>) — он останется скрыт. Идемпотентно.
+        /// </summary>
+        public static void ShowCursor()
+        {
+            if (!_externalHidden) return;
+            _externalHidden = false;
+            Recompute();
+        }
+
+        /// <summary>Текущее состояние внешнего канала скрытия (для диагностики / потребителей).</summary>
+        public static bool IsCursorHiddenExternally => _externalHidden;
 
         // --- Интейк источников (internal — зовут драйверы/зоны пакета) ---
 
@@ -136,7 +172,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 _model.HoverKey.Value,
                 _model.Actions.Value,
                 Screen.height);
-            if (_pointerHidden && !visual.Hide) // активный источник скрывает курсор — форсим Hide поверх резолва
+            // Любой из трёх каналов (скин / активный источник / внешний запрос) форсит Hide (OR-композиция):
+            // скин — "курсор по дизайну прячется в этом состоянии"; _pointerHidden — "активный источник не
+            // показывает курсор (касание/фокус)"; _externalHidden — "внешний код скрыл явно".
+            if ((_pointerHidden || _externalHidden) && !visual.Hide)
                 visual = new CursorVisual(visual.Sprite, visual.Hotspot, true);
             _visual.Set(visual, Key);
         }

@@ -6,6 +6,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// Бутстрап пакета: грузит конфиг скинов и инициализирует контроллер + параметры проекции.
     /// Вешается на объект в сцене/префабе загрузки (рядом с EventSystem/UI-корнем).
     /// </summary>
+    [RequireComponent(typeof(VirtualPointerDispatcher))]
     public class VirtualCursorBootstrap : MonoBehaviour
     {
         [SerializeField, Tooltip("Конфиг скинов курсора (SO).")]
@@ -35,6 +36,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         {
             VirtualCursorController.Init(settings);
             VirtualCursorController.ConfigureProjection(projectionMask, projectionDistance);
+            // Фокус-навигация — подсистема того же пакета. Init после основного контроллера:
+            // владеет FocusModel, подписывается на ScreenPosition (которая уже существует
+            // к этому моменту). Безопасен при повторном вызове (идемпотентен).
+            VirtualCursorFocusController.Init();
         }
     }
 }
