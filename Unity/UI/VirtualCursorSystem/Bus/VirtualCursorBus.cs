@@ -1,6 +1,7 @@
 using System;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Bus
 {
     /// <summary>
     /// Публичный фасад пакета: доступ к runtime-модели, текущему виду курсора и готовности.

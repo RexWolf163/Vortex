@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {

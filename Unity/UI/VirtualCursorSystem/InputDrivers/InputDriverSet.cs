@@ -3,7 +3,7 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Unity.CoreAssetsSystem;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Настроечный ассет пакета: список подключаемых драйверов ввода курсора. <see cref="ICoreAsset"/> —

@@ -21,7 +21,7 @@ namespace Vortex.Sdk.ContentTagsSystem.Settings
         [SerializeField, Tooltip("Издания сборки и их состав.")]
         private List<ContentBundle> bundles = new();
 
-        [SerializeField, ValueDropdown(nameof(BundleKeys))]
+        [SerializeField, ValueDropdown("$BundleKeys")]
         [Tooltip("Издание текущей сборки. Пусто или неизвестный ключ — всё размеченное выключено.")]
         private string activeBundle;
 

@@ -3,8 +3,9 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Варианты обработки касания виртуальным курсором. Разные платформы хотят разного:

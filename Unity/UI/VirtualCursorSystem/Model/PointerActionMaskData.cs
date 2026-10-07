@@ -1,4 +1,5 @@
 using Vortex.Core.Extensions.ReactiveValues;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {

@@ -335,7 +335,7 @@
                 {
                     "name": "",
                     "id": "6d047816-8e7a-40b7-8296-78e4ac2f1743",
-                    "path": "<Gamepad>/leftStick/down",
+                    "path": "<Gamepad>/rightStick/left",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -346,7 +346,7 @@
                 {
                     "name": "",
                     "id": "fdf5c6dc-2cde-4279-9787-0b1a065531fc",
-                    "path": "<Gamepad>/rightStick/down",
+                    "path": "<Gamepad>/rightStick/right",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

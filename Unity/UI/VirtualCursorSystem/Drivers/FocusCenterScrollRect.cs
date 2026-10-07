@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {

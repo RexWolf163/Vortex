@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Unity.EditorTools.Attributes;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Драйвер скролла. Четыре Button-экшена на направления (Up/Down/Left/Right) — байндятся

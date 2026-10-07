@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Unity.EditorTools.Attributes;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Драйвер мыши (источник <see cref="PointerSourceKind.Analog"/>). Событийно репортит абсолютную позицию.

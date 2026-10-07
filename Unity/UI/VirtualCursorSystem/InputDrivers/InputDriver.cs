@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Unity.InputBusSystem;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Абстрактный драйвер ввода курсора. POCO (не MonoBehaviour): список реализаций живёт в

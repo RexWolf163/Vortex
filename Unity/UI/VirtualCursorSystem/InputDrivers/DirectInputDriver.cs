@@ -2,8 +2,9 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Драйвер направленного ввода (источник <see cref="PointerSourceKind.Direct"/>): интегрирует вектор

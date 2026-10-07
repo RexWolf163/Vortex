@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
@@ -41,6 +42,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
         public static event Action OnReady;
 
+        private static bool _computeDriverReporting = false;
+
         /// <summary>Инициализация с конфигом скинов. Идемпотентна (повторный вызов игнорируется до Cleanup).</summary>
         public static void Init(CursorSkinSettings settings)
         {
@@ -54,7 +57,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             _settings = settings;
             _model = new PointerModel();
             _model.SetOwner(Key);
-            _visual = new CursorVisualData(CursorVisual.None, Key);
+            _visual = new CursorVisualData(CursorData.None, Key);
 
             // Старт темы — дефолт из конфига, если ещё ничего не выбрано (persist проекта может уже задать).
             if (string.IsNullOrEmpty(CursorSkinSelector.Selected.Value) && settings != null)
@@ -69,28 +72,6 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             IsReady = true;
             OnReady?.Invoke();
         }
-
-        /// <summary>Сброс (для рестарта без выгрузки домена).</summary>
-        public static void Cleanup()
-        {
-            if (_model != null)
-            {
-                _model.HoverKey.OnUpdateData -= Recompute;
-                _model.Actions.OnUpdateData -= Recompute;
-            }
-
-            CursorSkinSelector.Selected.OnUpdateData -= Recompute;
-            _cameras.Clear();
-            _model = null;
-            _visual = null;
-            _settings = null;
-            _pointerHidden = false;
-            _externalHidden = false;
-            IsReady = false;
-        }
-
-        /// <summary>Пересчитать вид после смены разрешения/режима окна (тир мог смениться).</summary>
-        public static void RefreshResolution() => Recompute();
 
         /// <summary>
         /// Внешний запрос «скрыть курсор». Независимый канал поверх <see cref="_pointerHidden"/> и скина;
@@ -136,12 +117,19 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// </summary>
         internal static void ReportPointer(Vector2 screen, PointerSourceKind source, bool hidesCursor)
         {
-            if (_model == null) return;
+            if (_model == null || _computeDriverReporting) return;
+            _computeDriverReporting = true;
             _model.ScreenPosition.Set(screen, Key);
             _model.ActiveSource.Set(source, Key);
-            if (_pointerHidden == hidesCursor) return;
+            if (_pointerHidden == hidesCursor)
+            {
+                _computeDriverReporting = false;
+                return;
+            }
+
             _pointerHidden = hidesCursor;
             Recompute();
+            _computeDriverReporting = false;
         }
 
         /// <summary>
@@ -210,8 +198,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             // Любой из трёх каналов (скин / активный источник / внешний запрос) форсит Hide (OR-композиция):
             // скин — "курсор по дизайну прячется в этом состоянии"; _pointerHidden — "активный источник не
             // показывает курсор (касание/фокус)"; _externalHidden — "внешний код скрыл явно".
-            if ((_pointerHidden || _externalHidden) && !visual.Hide)
-                visual = new CursorVisual(visual.Sprite, visual.Hotspot, true);
+            if (_pointerHidden || _externalHidden || visual.Hide)
+                visual = CursorData.Hidden;
             _visual.Set(visual, Key);
         }
     }

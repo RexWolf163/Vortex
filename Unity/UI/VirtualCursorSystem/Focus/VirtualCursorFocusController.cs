@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Unity.AppSystem.System.TimeSystem;
+using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {

@@ -1,6 +1,6 @@
 using System;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Model
 {
     /// <summary>
     /// Битовая маска одновременно активных <see cref="PointerAction"/> (бит N = (int)action).
@@ -31,7 +31,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// <summary>Доминанта для выбора спрайта: младший активный бит = высший приоритет (порядок enum).</summary>
         public PointerAction Dominant()
         {
-            for (var i = (int)PointerAction.Action1; i <= (int)PointerAction.Action10; i++)
+            for (var i = (int)PointerAction.BaseClick; i <= (int)PointerAction.AltClick; i++)
                 if ((_bits & (1 << i)) != 0)
                     return (PointerAction)i;
             return PointerAction.None;

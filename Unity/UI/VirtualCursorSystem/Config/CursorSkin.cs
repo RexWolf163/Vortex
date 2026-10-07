@@ -1,5 +1,8 @@
 using System;
 using UnityEngine;
+using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Unity.UI.VirtualCursorSystem.Config;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
@@ -17,24 +20,21 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         [SerializeField, Tooltip("Скрыть курсор на этом скине (под кастомный оверлей).")]
         private bool hideCursor;
 
-        [SerializeField, Tooltip("Дефолт-спрайт: для None и локального фолбэка незаданных действий.")]
-        private Sprite defaultSprite;
-
-        [SerializeField, Tooltip("Разреженные переопределения: только отличающиеся от дефолта действия.")]
+        [SerializeField,
+         Tooltip("Вариации на действия виртуального указателя: только отличающиеся от дефолта действия.")]
         private CursorSpriteEntry[] overrides = new CursorSpriteEntry[0];
 
         public string Name => name;
         public bool HideCursor => hideCursor;
-        public Sprite Default => defaultSprite;
 
         /// <summary>Спрайт под действие в пределах ЭТОГО скина: override → defaultSprite. null, если ничего не задано.</summary>
-        public Sprite Resolve(PointerAction action)
+        public string Resolve(PointerAction action)
         {
             if (action != PointerAction.None && overrides != null)
                 foreach (var e in overrides)
-                    if (e.action == action && e.sprite != null)
-                        return e.sprite;
-            return defaultSprite;
+                    if (e.action == action && !e.name.IsNullOrWhitespace())
+                        return e.name;
+            return Name;
         }
     }
 }

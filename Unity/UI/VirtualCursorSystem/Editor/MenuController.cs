@@ -2,6 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.Extensions.Editor;
+using Vortex.Unity.UI.VirtualCursorSystem.InputDrivers;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
 {

@@ -5,7 +5,7 @@ using Vortex.Unity.EditorTools.Attributes;
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
     /// <summary>
-    /// Набор скинов одного тира разрешения: базовый скин (вне hover) + hover-варианты по строковому ключу.
+    /// Пакет скинов курсора: базовый скин (вне hover) + hover-варианты по строковому ключу.
     /// </summary>
     [Serializable, ClassLabel("$Label")]
     public class CursorSkinPack
@@ -16,7 +16,11 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         [SerializeField, Tooltip("Hover-варианты по ключу (CursorSkin.Name).")]
         private CursorSkin[] hoverSkins = new CursorSkin[0];
 
+        [SerializeField, Tooltip("Ключ темы (для выбора/покупки).")]
+        private string key;
+
         public CursorSkin Base => baseSkin;
+        public string Key => key;
 
         /// <summary>Hover-скин по ключу; null, если ключ пуст или не найден.</summary>
         public CursorSkin FindHover(string key)
@@ -30,7 +34,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         }
 
 #if UNITY_EDITOR
-        private string Label() => "res set: " + Base.Name;
+        private string Label() => Base.Name;
 #endif
     }
 }

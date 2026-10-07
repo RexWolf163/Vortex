@@ -1,6 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Vortex.Unity.UI.VirtualCursorSystem.Bus;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
+using Vortex.Unity.UI.VirtualCursorSystem.Render;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
@@ -29,13 +32,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// <c>EventSystem.current</c>, и <see cref="VirtualCursorBus.IsReady"/> стали true.
     ///
     /// <b>Поддерживаемые события.</b> Enter/Exit (hover), Down/Up/Click для
-    /// <see cref="PointerAction.Action1"/>/<see cref="PointerAction.Action2"/>/<see cref="PointerAction.Action3"/>
+    /// <see cref="PointerAction.BaseClick"/>/<see cref="PointerAction.ContextClick"/>/<see cref="PointerAction.AltClick"/>
     /// (LMB/RMB/MMB по конвенции <see cref="PointerAction"/>). Drag/Scroll/Submit/Navigation —
     /// не реализованы; слоты в маске зарезервированы под Scroll
     /// (<see cref="PointerAction.Action6"/>/<see cref="PointerAction.Action7"/>).
     ///
     /// <b>Монтаж.</b> Один экземпляр на persistent-сцене рядом с <see cref="VirtualCursorBootstrap"/>
-    /// и <see cref="UiImageCursorRenderer"/>. При <see cref="OnDisable"/> снимает все зависшие
+    /// и <see cref="UiCursorRenderer"/>. При <see cref="OnDisable"/> снимает все зависшие
     /// Enter/Press — чтобы следующий сценарий не унаследовал подвисший hover.
     /// </summary>
     public class VirtualPointerDispatcher : MonoBehaviour
@@ -185,9 +188,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
             // Down/Up/Click для LMB/RMB/MMB. Клик считается только если up произошёл на том же
             // IPointerClickHandler-таргете, что и down (стандартный UGUI-канон).
-            HandleAction(PointerAction.Action1, PointerEventData.InputButton.Left, mask, current, topRaycast);
-            HandleAction(PointerAction.Action2, PointerEventData.InputButton.Right, mask, current, topRaycast);
-            HandleAction(PointerAction.Action3, PointerEventData.InputButton.Middle, mask, current, topRaycast);
+            HandleAction(PointerAction.BaseClick, PointerEventData.InputButton.Left, mask, current, topRaycast);
+            HandleAction(PointerAction.ContextClick, PointerEventData.InputButton.Right, mask, current, topRaycast);
+            HandleAction(PointerAction.AltClick, PointerEventData.InputButton.Middle, mask, current, topRaycast);
         }
 
         private void HandleAction(PointerAction action, PointerEventData.InputButton button,
@@ -263,8 +266,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
         private static PointerEventData.InputButton ButtonForSlot(int slot) => slot switch
         {
-            (int)PointerAction.Action1 => PointerEventData.InputButton.Left,
-            (int)PointerAction.Action2 => PointerEventData.InputButton.Right,
+            (int)PointerAction.BaseClick => PointerEventData.InputButton.Left,
+            (int)PointerAction.ContextClick => PointerEventData.InputButton.Right,
             _ => PointerEventData.InputButton.Middle,
         };
     }

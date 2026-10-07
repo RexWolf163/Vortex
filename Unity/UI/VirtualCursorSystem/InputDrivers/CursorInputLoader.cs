@@ -8,7 +8,7 @@ using Vortex.Core.LoaderSystem.Bus;
 using Vortex.Core.System.ProcessInfo;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Загрузчик пакета ввода курсора как SDK-модуль. Регистрируется в <see cref="Loader"/> (порядок — через

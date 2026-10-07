@@ -1,13 +1,12 @@
 using System;
-using UnityEngine;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Config
 {
-    /// <summary>Именованная пара «действие → спрайт» — разреженная запись скина (struct Enum⇒Sprite).</summary>
     [Serializable]
     public struct CursorSpriteEntry
     {
         public PointerAction action;
-        public Sprite sprite;
+        public string name;
     }
 }

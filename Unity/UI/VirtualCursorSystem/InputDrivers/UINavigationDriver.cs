@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Драйвер фокус-навигации: четыре action-id под направления (Up/Down/Left/Right)

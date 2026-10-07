@@ -2,8 +2,9 @@ using System;
 using UnityEngine;
 using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.InputBusSystem;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
     /// Драйвер действий: набор привязок «экшен → <see cref="PointerAction"/>». По performed выставляет
@@ -18,7 +19,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             [Tooltip("Какое действие активирует привязка.")]
             public PointerAction action;
 
-            [ValueSelector(nameof(GetInputActions)), Tooltip("Экшен-кнопка (Button), id «Карта/Экшен».")]
+            [ValueSelector("$GetInputActions"), Tooltip("Экшен-кнопка (Button), id «Карта/Экшен».")]
             public string actionId;
 
 #if UNITY_EDITOR
@@ -43,6 +44,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                                        $"привязка '{b.action}' работать не будет. Проверь id в InputDriverSet.");
                     continue;
                 }
+
                 EnableMap(b.actionId);
                 var action = b.action; // фиксируем на итерацию
                 SubscribeAction(b.actionId,

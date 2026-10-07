@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
@@ -8,8 +9,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// UGUI-биндинг действий курсора на <see cref="UnityEvent"/>: вешается на любой UGUI-элемент,
     /// в инспекторе выбирается слушаемый <see cref="PointerAction"/> и UnityEvent'ы для
     /// press/release/click. Выделяет из стандартных UGUI-событий именно нужный тип кнопки:
-    /// Button-наследник ловит только Left и годен для <see cref="PointerAction.Action1"/>; этот
-    /// же компонент одинаково покрывает <see cref="PointerAction.Action2"/>/<see cref="PointerAction.Action3"/>
+    /// Button-наследник ловит только Left и годен для <see cref="PointerAction.BaseClick"/>; этот
+    /// же компонент одинаково покрывает <see cref="PointerAction.ContextClick"/>/<see cref="PointerAction.AltClick"/>
     /// (RMB/MMB), для которых стандартного Button нет.
     ///
     /// Работает одновременно с физической мышью (через <c>InputSystemUIInputModule</c>) и
@@ -28,7 +29,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         [SerializeField, Tooltip("Действие курсора, которое ловит handler. Поддерживаются: " +
                                  "Action1 (LMB), Action2 (RMB), Action3 (MMB). Остальные через UGUI " +
                                  "не проходят — handler тихо игнорирует.")]
-        private PointerAction action = PointerAction.Action1;
+        private PointerAction action = PointerAction.BaseClick;
 
         [Tooltip("Передний фронт нажатия — приходит синхронно с PointerDown.")]
         public UnityEvent onPressed;
@@ -62,9 +63,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// </summary>
         private bool Match(PointerEventData eventData) => action switch
         {
-            PointerAction.Action1 => eventData.button == PointerEventData.InputButton.Left,
-            PointerAction.Action2 => eventData.button == PointerEventData.InputButton.Right,
-            PointerAction.Action3 => eventData.button == PointerEventData.InputButton.Middle,
+            PointerAction.BaseClick => eventData.button == PointerEventData.InputButton.Left,
+            PointerAction.ContextClick => eventData.button == PointerEventData.InputButton.Right,
+            PointerAction.AltClick => eventData.button == PointerEventData.InputButton.Middle,
             _ => false,
         };
     }

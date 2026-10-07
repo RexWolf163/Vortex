@@ -1,32 +1,55 @@
+using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.UI;
+using Vortex.Unity.UI.StateSwitcher;
+using Vortex.Unity.UI.VirtualCursorSystem.Bus;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Render
 {
     /// <summary>
     /// Дефолтный рендер: UGUI-<see cref="Image"/> в позиции <c>ScreenPosition</c> на оверлей-канвасе
-    /// (ОС-курсор скрыт). Спрайт — из <see cref="CursorVisual"/>, hotspot — через pivot RectTransform.
-    /// Расцеплено от ОС-мыши: следует за виртуальным курсором для любого источника, без warp.
-    /// Требования: RectTransform курсора на Screen Space - Overlay канвасе выше всего UI, Raycast Target off.
+    /// Требования: RectTransform курсора на Screen Space - Overlay канвасе выше всего UI,
+    ///
+    /// Raycast Image или иных UGUI элементов должен быть отелючен!.
     /// </summary>
-    public class UiImageCursorRenderer : MonoBehaviour, ICursorRenderer
+    public class UiCursorRenderer : MonoBehaviour
     {
         [SerializeField, Tooltip("RectTransform курсора на оверлей-канвасе.")]
         private RectTransform cursor;
 
-        [SerializeField, Tooltip("Image курсора (Raycast Target off).")]
-        private Image image;
-
         [SerializeField, Tooltip("Скрывать системный курсор пока активен этот рендер.")]
         private bool hideSystemCursor = true;
 
+        [HorizontalGroup("switcher")]
+        [InfoBox("Первый слот свитчера должен соответствовать положению «Нет Курсора». " +
+                 "Второй - дефолтный курсор (если ключ не найден)." +
+                 " Прочие по ключам пресета")]
+        [SerializeField]
+        private UIStateSwitcher cursorMode;
+
         private bool _subscribed;
 
-        // Гейт первой отрисовки. До первого РЕАЛЬНОГО репорта позиции (от любого InputDriver'а)
-        // визуал держим скрытым: иначе дефолтный спрайт темы мигнул бы в (0, 0) — на тач-платформах
-        // это флэш в углу экрана до первого касания. Сбрасывается в OnEnable (повторный Enable →
-        // снова ждём первого репорта), выставляется только из OnPosition.
+        //Гейт заморозки отрисовки до первого смещения
         private bool _firstReportReceived;
+
+        private HashSet<string> _states = new();
+
+#if UNITY_EDITOR
+        [HorizontalGroup("switcher", 100f), Button(ButtonSizes.Large)]
+        private void Construct()
+        {
+            
+        }
+#endif
+        private void Awake()
+        {
+            _states.Clear();
+            var temp = cursorMode.States;
+            foreach (var stateData in temp)
+                _states.Add(stateData.Name);
+        }
 
         private void OnEnable()
         {
@@ -34,10 +57,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 Cursor.visible = false;
 
             // Стартуем явно скрытым — независимо от того, когда подоспеет Bus.IsReady и первый репорт.
-            // Image до этого момента не отрисуется, даже если ApplyCurrent где-то спровоцируется.
+            // Курсор до этого момента не рисуется.
+            cursorMode.Set(0);
             _firstReportReceived = false;
-            if (image != null)
-                image.enabled = false;
 
             TrySubscribe();
             VirtualCursorBus.OnReady += TrySubscribe;
@@ -66,7 +88,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             // Первый OnPosition от драйвера снимет гейт и позовёт ApplyCurrent.
         }
 
-        private void OnVisual(CursorVisual _)
+        private void OnVisual(CursorData _)
         {
             // До первого репорта позиции не рисуем вообще — чтобы смена темы/действия в стартовом
             // (0,0) не открывала визуал. После — обычный путь.
@@ -82,27 +104,23 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         private void ApplyCurrent() =>
             Apply(VirtualCursorBus.Visual.Value, VirtualCursorBus.Data.ScreenPosition.Value);
 
-        public void Apply(in CursorVisual visual, Vector2 screenPosition)
+        private void Apply(in CursorData data, Vector2 screenPosition)
         {
-            if (image == null || cursor == null)
+            if (cursor == null)
                 return;
 
-            // visual.Hide = скин.Hide || _pointerHidden (источник) || _externalHidden (API)
-            // — OR-композиция собирается в VirtualCursorController.Recompute. Initial-flash
-            // (дефолтный спрайт в (0,0) до первого ввода) гасится на уровне OnEnable/OnPosition
-            // через _firstReportReceived — Apply сюда просто не вызывается до первого репорта.
-            var show = !visual.Hide && visual.HasSprite;
-            image.enabled = show;
-
-            if (show)
+            var show = !data.Hide;
+            if (!show)
             {
-                image.sprite = visual.Sprite;
-                var rect = visual.Sprite.rect; // rect спрайта, не texture — корректно и для атласных спрайтов
-                if (rect.width > 0 && rect.height > 0)
-                    // hotspot(top-left px, rect-local) → pivot(bottom-left, нормализованный): точка совпадёт с позицией
-                    cursor.pivot = new Vector2(visual.Hotspot.x / rect.width, 1f - visual.Hotspot.y / rect.height);
+                cursorMode.Set(0);
+                return;
             }
 
+            if (_states.Contains(data.Key))
+                cursorMode.Set(data.Key);
+            else
+                cursorMode.Set(1);
+            
             cursor.position = new Vector3(screenPosition.x, screenPosition.y, 0f);
         }
     }

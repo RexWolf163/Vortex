@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Unity.Extensions.ReactiveValues;
+using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem
 {
