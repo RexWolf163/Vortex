@@ -68,6 +68,11 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         private static bool _lastHideCursor;
         private static bool _lastWarpSystemMouse;
 
+        // Re-entry guard: _busy выставлен ТОЛЬКО на время вызова пользовательских onFocused/onUnfocused.
+        // Любая мутация фокуса/стека групп из такого обработчика отклоняется fail-loud — иначе
+        // незащищённая рекурсия Notify→Navigate/Push/Ignore→Notify даёт StackOverflow.
+        private static bool _busy;
+
         public static void Init()
         {
             if (IsReady) return;
@@ -106,8 +111,31 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             VirtualCursorBus.OnReady -= AttachPositionWatcher;
             TimeController.RemoveCall(FollowOwner);
             _focusAnchor = null;
+            _busy = false;
             _model = null;
             IsReady = false;
+        }
+
+        // true (+ LogError), если вызвано реентерабельно из обработчика фокуса — вызывающий выходит.
+        private static bool Reenter()
+        {
+            if (!_busy) return false;
+            Debug.LogError("[VirtualCursorFocus] Реентерабельный вызов из обработчика фокуса " +
+                           "(onFocused/onUnfocused) — игнорирован. Эти события не должны менять фокус " +
+                           "или стек групп.");
+            return true;
+        }
+
+        // Вызов пользовательского UnityEvent под _busy — окно, в котором мутации фокуса отклоняются.
+        private static void Notify(IFocusTarget target, bool focused)
+        {
+            _busy = true;
+            try
+            {
+                if (focused) target.NotifyFocused();
+                else target.NotifyUnfocused();
+            }
+            finally { _busy = false; }
         }
 
         /// <summary>
@@ -120,6 +148,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         public static void PushGroup(FocusGroup group)
         {
             if (_model == null || group == null) return;
+            if (Reenter()) return;
 
             // Гард фликера: двигаем фокус только если push реально сменил активную группу.
             // Push группы с меньшим приоритетом / Ignored оставляет ActiveGroup прежней — тогда
@@ -145,6 +174,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         public static void RemoveGroup(FocusGroup group)
         {
             if (_model == null || group == null) return;
+            if (Reenter()) return;
 
             // Гард фликера: если снимаемая группа не активна, ActiveGroup не изменится —
             // перефокусировать не нужно (неактивная группа свой фокус уже отдала в Remembered
@@ -175,9 +205,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         internal static void OnTargetUnregistered(IFocusTarget target)
         {
             if (_model == null || target == null) return;
+            if (Reenter()) return;
             if (!ReferenceEquals(_model.CurrentFocus.Value, target)) return;
             _model.SetCurrent(null, Key);
-            target.NotifyUnfocused();
+            Notify(target, false);
         }
 
         /// <summary>
@@ -194,6 +225,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         internal static void OnGroupIgnoreChanged(FocusGroup group)
         {
             if (_model == null || group == null) return;
+            if (Reenter()) return;
 
             var current = _model.CurrentFocus.Value;
             if (current == null) return;
@@ -239,6 +271,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             bool hideCursor, bool warpSystemMouse, bool captureNearestIfFree)
         {
             if (_model == null) return;
+            if (Reenter()) return;
             if (direction.sqrMagnitude < 0.0001f) return;
             if (VirtualCursorBus.Data == null) return;
 
@@ -335,6 +368,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         public static void ClearFocus()
         {
             if (_model == null) return;
+            if (Reenter()) return;
 
             var current = _model.CurrentFocus.Value;
             if (current != null)
@@ -347,7 +381,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 if (owning != null) owning.RememberedFocus = current;
 
                 _model.SetCurrent(null, Key);
-                current.NotifyUnfocused();
+                Notify(current, false);
             }
 
             // Nav-mode state чистится всегда, даже когда current был уже null, — иначе
@@ -375,7 +409,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             if (owning != null) owning.RememberedFocus = current;
 
             _model.SetCurrent(null, Key);
-            current.NotifyUnfocused();
+            Notify(current, false);
         }
 
         /// <summary>
@@ -401,7 +435,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             var cursorPos = VirtualCursorBus.Data.ScreenPosition.Value;
             // Remembered имеет приоритет, если ещё активен; иначе ближайший.
             var target = activeGroup.RememberedFocus;
-            if (target == null || !target.IsActive)
+            // fake-null: Remembered мог быть уничтожен ПОСЛЕ того, как пережил Unregister (он теперь
+            // чистится только при реальном destroy — см. FocusGroup.Unregister). Ссылочное == null
+            // уничтоженный Unity-объект не ловит, а .IsActive бросил бы MissingReferenceException.
+            if (target == null || target is Object o && o == null || !target.IsActive)
                 target = activeGroup.FindNearestEuclidean(cursorPos);
 
             if (target == null)
@@ -432,9 +469,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             {
                 var oldOwning = FindOwningGroup(old);
                 if (oldOwning != null) oldOwning.RememberedFocus = old;
-                old.NotifyUnfocused();
+                Notify(old, false);
             }
-            target.NotifyFocused();
+            Notify(target, true);
 
             // Запомним в владеющей группе target'а. В штатном сценарии target приходит из
             // activeGroup.Targets, значит owning == activeGroup; но FindOwningGroup даёт

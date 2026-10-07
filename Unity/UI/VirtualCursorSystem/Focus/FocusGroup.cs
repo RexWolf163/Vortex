@@ -114,7 +114,12 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         {
             if (target == null) return;
             _targets.Remove(target);
-            if (ReferenceEquals(RememberedFocus, target))
+            // Чистим Remembered ТОЛЬКО если цель реально уничтожена (fake-null), а не просто выключена:
+            // close→open меню (SetActive(false)) снимает фокусный target через OnDisable, но объект жив —
+            // его надо помнить, чтобы повторное открытие вернуло фокус (контракт RememberedFocus).
+            // TryAutoFocus валидирует IsActive (и fake-null) перед использованием, так что временно
+            // выключенный Remembered безопасен.
+            if (ReferenceEquals(RememberedFocus, target) && target is Object o && o == null)
                 RememberedFocus = null;
             // Если этот target был текущим фокусом — контроллер снимет висящую ссылку
             // (модель не должна указывать на выбывший target до следующего Navigate).
