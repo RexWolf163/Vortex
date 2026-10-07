@@ -103,27 +103,20 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             var move = _action.ReadValue<Vector2>();
             var magnitude = move.magnitude;
 
-            if (magnitude < deadzone)
+            if (magnitude <= deadzone)
             {
                 _accelFactor = 0f; // в деад-зоне — мгновенный сброс; следующий старт пойдёт с 0
                 return;
             }
 
-            // Нормировка магнитуды к [0..1] для curve: ось X интерпретируется как доля
-            // отклонения стика. При magnitude > 1 (бывает у некоторых композитных биндингов —
-            // например, keyboard WASD без normalize) кривая выходит за правый край,
-            // AnimationCurve.Evaluate штатно возвращает экстраполированное значение.
-            var curveMultiplier = speedCurve.Evaluate(Mathf.Clamp01(magnitude));
-            var direction = move / magnitude;
-
-            // Плавный разгон: за accelerationTime секунд выходим с 0 на 1.
-            // Нулевое время — мгновенный выход (bang-bang как было).
             if (accelerationTime > 0f)
                 _accelFactor = Mathf.MoveTowards(_accelFactor, 1f, unscaledDeltaTime / accelerationTime);
             else
                 _accelFactor = 1f;
+            var curveMultiplier = speedCurve.Evaluate(Mathf.Clamp01(_accelFactor));
+            var direction = move / magnitude;
 
-            var appliedSpeed = speed * curveMultiplier * _accelFactor;
+            var appliedSpeed = speed * curveMultiplier;
             var pos = VirtualCursorBus.Data.ScreenPosition.Value + direction * (appliedSpeed * unscaledDeltaTime);
             pos.x = Mathf.Clamp(pos.x, 0f, Screen.width - 1f);
             pos.y = Mathf.Clamp(pos.y, 0f, Screen.height - 1f);

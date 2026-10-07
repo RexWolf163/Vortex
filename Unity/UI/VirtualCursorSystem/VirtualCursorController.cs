@@ -118,18 +118,21 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         internal static void ReportPointer(Vector2 screen, PointerSourceKind source, bool hidesCursor)
         {
             if (_model == null || _computeDriverReporting) return;
-            _computeDriverReporting = true;
-            _model.ScreenPosition.Set(screen, Key);
-            _model.ActiveSource.Set(source, Key);
-            if (_pointerHidden == hidesCursor)
+            try
+            {
+                _computeDriverReporting = true;
+                _model.ScreenPosition.Set(screen, Key);
+                _model.ActiveSource.Set(source, Key);
+                if (_pointerHidden == hidesCursor)
+                    return;
+
+                _pointerHidden = hidesCursor;
+                Recompute();
+            }
+            finally
             {
                 _computeDriverReporting = false;
-                return;
             }
-
-            _pointerHidden = hidesCursor;
-            Recompute();
-            _computeDriverReporting = false;
         }
 
         /// <summary>
