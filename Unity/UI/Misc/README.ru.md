@@ -218,17 +218,21 @@ OnDisable
 
 Компонент выпадающего списка. Состоит из четырёх классов:
 
-- `DropDownComponent` — контроллер: toggle open/close, конфигурация через `SetList(texts, callback, value)`. Поддержка сортировки (`sorting`), `UnityEvent<int> onSelected`, `closeOnSelected`, `scrollSensitivity`. При сортировке строит прямую (`_map`) и обратную (`_mapBack`) карту индексов сортированного → оригинального порядка. Позиция списка перевыставляется на **каждый** открыв (по точке привязки под текущее направление), а не кешируется от первого — список не отстаёт от сдвинувшейся кнопки.
+- `DropDownComponent` — контроллер: toggle open/close, конфигурация через `SetList(texts, callback, value)`. Поддержка сортировки (`sorting`), `UnityEvent<int> onSelected`, `closeOnSelected`, `scrollSensitivity`, перебор `Prev`/`Next` с флагом `cyclic`. При сортировке строит прямую (`_map`) и обратную (`_mapBack`) карту индексов сортированного → оригинального порядка. Позиция списка перевыставляется на **каждый** открыв (по точке привязки под текущее направление), а не кешируется от первого — список не отстаёт от сдвинувшейся кнопки.
 - `DropDownList` — Pool-based список, scroll-позиционирование к выбранному элементу через `ScrollRect.normalizedPosition` (сброс выполняется и на повторном открытии с тем же составом, а не только через `OnEnable` от `SetActive`). Кеширует хэш текстов (`string.Join`) — при том же составе обновляет только `Current` и скролл, не пересоздавая пул. Поле `directionSwitcher` (`UIStateSwitcher`) переключает визуальное состояние под направление раскрытия.
 - `DropDownItem` — элемент списка. Получает `DropDownListModel` и `IntData` (индекс) через `IDataStorage`. Визуально выделяет текущий элемент через `UIComponent.SetSwitcher(SwitcherState.On/Off)`. Подписывается на `OnUpdateData` для обновления.
 - `DropDownListModel` — `IReactiveData` модель: callbacks (select, close), тексты, текущий выбор, `closeOnSelected`, `ScrollSensitivity`. `Dispose()` очищает подписчиков.
 
 **Направление раскрытия (`DropDownDirection`).** Enum `{ RightDown, RightTop, LeftDown, LeftTop }` (горизонталь + вертикаль; порядок значений = порядок состояний свитчера, RightDown = 0 … LeftTop = 3). По умолчанию — `RightDown` (справа-вниз). Флаг `autoOrientation` включает автоопределение: экранная позиция базовой точки `target` (через `RectTransformUtility.WorldToScreenPoint`, камера канваса; для Overlay — `null`) сравнивается с центром экрана — кнопка левее центра раскрывает список вправо, выше центра — вниз (и наоборот), чтобы он уходил к центру, а не за край. При включённом флаге в инспекторе (Odin `[ShowIf]`) появляются три доп-точки привязки `targetRightTop` / `targetLeftDown` / `targetLeftTop`; отсутствующая точка фолбечится на обязательную `target` (RightDown). Вычисленное направление уходит в `DropDownList.Set(...)`, где `directionSwitcher` принимает соответствующее состояние; поле помечено `[StateSwitcher(typeof(DropDownDirection))]` — в инспекторе состояния свитчера подписываются значениями enum (RightDown = 0 … LeftTop = 3).
 
+**Перебор без раскрытия (`Prev` / `Next`).** Публичные методы сдвигают выбор на одну позицию — для списков, которые листают стрелками или геймпадом вместо раскрытия. Шаг идёт по **видимому** порядку: сдвигается номер в сортированном списке, то есть в том порядке, в каком пункты стоят в раскрытом списке; при выключенной `sorting` видимый и исходный порядки совпадают. Дальше работает обычный `Select(...)` — индекс приводится к исходному через `_mapBack`, вызываются `_callback`, `onSelected` и `OnValueSelected`, обновляется текст на кнопке; список, раскрытый в этот момент, переподхватывает новое выделение. Флаг `cyclic` задаёт поведение на границах: включён — с последнего пункта шаг вперёд уводит на первый (и наоборот), выключен — шаг не делается вовсе, без вызова колбэков. Вызов до инициализации сам прогоняет `SetList(dataList, null)` — так же, как это делает `OpenList`.
+
 API:
 ```csharp
 dropDown.SetList(texts, OnSelect, currentValue);  // конфигурация
 dropDown.SetValue(3);                              // программное переключение
+dropDown.Next();                                   // шаг по видимому порядку
+dropDown.Prev();
 int idx = dropDown.GetValue();                     // оригинальный индекс
 string text = dropDown.GetValueItem();             // текст выбранного
 ```
@@ -273,3 +277,6 @@ Callback `Select()` всегда возвращает оригинальный (
 | `SliderView.Set()` — те же value/max | Обновление пропускается |
 | `EnableDelayForChild` — `OnDisable` до срока | Дети деактивируются, таймер снимается |
 | `AutoRectSetter` в Editor | Обновляется при `OnValidate` |
+| `DropDownComponent.Prev()` / `Next()` на границе списка, `cyclic` выключен | Шаг не делается, колбэки не вызываются |
+| `DropDownComponent.Prev()` / `Next()` до первого `SetList` или открытия | Сам вызывает `SetList(dataList, null)`; при пустом `dataList` — тихий выход |
+| `DropDownComponent.Prev()` / `Next()` при включённой `sorting` | Шаг по видимому (сортированному) порядку; в колбэки уходит оригинальный индекс |
