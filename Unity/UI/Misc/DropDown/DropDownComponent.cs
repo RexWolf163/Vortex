@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sirenix.OdinInspector;
@@ -50,6 +50,9 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         [SerializeField] private bool closeOnSelected;
         [SerializeField] private bool sorting;
+
+        [InfoBox("Зацикленный перебор для Prev/Next: с крайнего значения шаг уводит на противоположный конец списка. Выкл. — на границах шаг не делается")]
+        [SerializeField] private bool cyclic;
 
         [SerializeField] private int scrollSensitivity = 1;
 
@@ -136,6 +139,44 @@ namespace Vortex.Unity.UI.Misc.DropDown
                 return;
             //_currentValue = _map[value];
             Select(_map[value]);
+            if (_opened)
+                UpdateList(ResolveDirection());
+        }
+
+        /// <summary>
+        /// Переключить на предыдущее значение списка без его раскрытия.
+        /// </summary>
+        public void Prev() => Step(-1);
+
+        /// <summary>
+        /// Переключить на следующее значение списка без его раскрытия.
+        /// </summary>
+        public void Next() => Step(1);
+
+        /// <summary>
+        /// Шаг по видимому порядку списка: сдвигается <see cref="_currentValue"/>, то есть номер
+        /// в <see cref="_sorted"/> — в том же порядке, в каком пункты стоят в раскрытом списке, а не в исходном.
+        /// При выключенной <see cref="sorting"/> порядки совпадают.
+        /// </summary>
+        private void Step(int direction)
+        {
+            if (!_wasInit)
+                SetList(dataList, null);
+
+            var count = _sorted?.Length ?? 0;
+            if (count == 0)
+                return;
+
+            var index = _currentValue + direction;
+            if (index < 0 || index >= count)
+            {
+                if (!cyclic)
+                    return;
+
+                index = (index + count) % count;
+            }
+
+            Select(index);
             if (_opened)
                 UpdateList(ResolveDirection());
         }
