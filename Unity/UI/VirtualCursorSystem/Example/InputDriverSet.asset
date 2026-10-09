@@ -13,21 +13,22 @@ MonoBehaviour:
   m_Name: InputDriverSet
   m_EditorClassIdentifier: ru.vortex.unity.virtualcursorsystem::Vortex.Unity.UI.VirtualCursorSystem.InputDriverSet
   drivers:
-  - rid: 2241965945696026725
-  - rid: 2241965945696026726
-  - rid: 2241965945696026727
-  - rid: 2241965945696026728
-  - rid: 2241965945696026729
-  - rid: 2241965945696026730
-  - rid: 2241965945696026731
+  - rid: 2241965992367620096
+  - rid: 2241965992367620097
+  - rid: 2241965992367620098
+  - rid: 2241965992367620099
+  - rid: 2241965992367620100
+  - rid: 2241965992367620101
+  - rid: 2241965992367620102
+  - rid: 2241965992367620103
   references:
     version: 2
     RefIds:
-    - rid: 2241965945696026725
+    - rid: 2241965992367620096
       type: {class: MouseInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
       data:
         positionActionId: VirtualCursor/CursorMouse
-    - rid: 2241965945696026726
+    - rid: 2241965992367620097
       type: {class: ActionInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
       data:
         bindings:
@@ -35,24 +36,24 @@ MonoBehaviour:
           actionId: VirtualCursor/Click
         - action: 2
           actionId: VirtualCursor/AltClick
-    - rid: 2241965945696026727
+    - rid: 2241965992367620098
       type: {class: DirectInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
       data:
-        moveActionId: VirtualCursor/CursorGamePad
-        speed: 2200
+        moveActionId: VirtualCursor/CursorPrecisionGamePad
+        speed: 800
         deadzone: 0.2
         speedCurve:
           serializedVersion: 2
           m_Curve:
           - serializedVersion: 3
             time: 0
-            value: 0.5
-            inSlope: 0.22574963
-            outSlope: 0.22574963
+            value: 1
+            inSlope: 0
+            outSlope: 0
             tangentMode: 0
             weightedMode: 0
             inWeight: 0
-            outWeight: 0.09850374
+            outWeight: 0
           - serializedVersion: 3
             time: 1
             value: 1
@@ -65,9 +66,41 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
+        accelerationTime: 0
+        warpSystemMouse: 1
+    - rid: 2241965992367620099
+      type: {class: DirectInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
+      data:
+        moveActionId: VirtualCursor/CursorGamePad
+        speed: 2200
+        deadzone: 0.2
+        speedCurve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 34
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 34
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
         accelerationTime: 0.6
         warpSystemMouse: 1
-    - rid: 2241965945696026728
+    - rid: 2241965992367620100
       type: {class: UINavigationDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
       data:
         upActionId: VirtualCursor/NavigationUp
@@ -78,7 +111,7 @@ MonoBehaviour:
         hideCursorOnFocus: 1
         warpSystemMouse: 1
         captureFocusIfFree: 1
-    - rid: 2241965945696026729
+    - rid: 2241965992367620101
       type: {class: TouchInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
       data:
         mode: 2
@@ -86,7 +119,7 @@ MonoBehaviour:
         pointActionId: VirtualCursor/CursorDesktopTouchswipe
         warpSystemMouse: 1
         deltaSpeedMultiplier: 1
-    - rid: 2241965945696026730
+    - rid: 2241965992367620102
       type: {class: TouchInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
       data:
         mode: 0
@@ -94,7 +127,7 @@ MonoBehaviour:
         pointActionId: VirtualCursor/CursorHide
         warpSystemMouse: 1
         deltaSpeedMultiplier: 1
-    - rid: 2241965945696026731
+    - rid: 2241965992367620103
       type: {class: ScrollInputDriver, ns: Vortex.Unity.UI.VirtualCursorSystem.InputDrivers, asm: ru.vortex.unity.virtualcursorsystem}
       data:
         scrollUpActionId: VirtualCursor/ScrollUp
