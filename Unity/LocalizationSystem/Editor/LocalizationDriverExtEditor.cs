@@ -15,8 +15,23 @@ namespace Vortex.Unity.LocalizationSystem
         private static bool _isSet;
 
         [InitializeOnLoadMethod]
-        private static void EditorRegister()
+        private static void EditorRegister() => Defer();
+
+        /// <summary>
+        /// Отложить регистрацию до устойчивого состояния редактора. <c>InitializeOnLoadMethod</c>
+        /// выполняется в середине загрузки домена, а при смене платформы следом идёт массовый
+        /// реимпорт: выборка ассетов в этот момент неполна, существующий пресет посчитался бы
+        /// отсутствующим и был бы затёрт пустым. Ждём, пока AssetDatabase перестанет обновляться,
+        /// перевешивая вызов на следующий тик.
+        /// </summary>
+        private static void Defer() => EditorApplication.delayCall += () =>
         {
+            if (EditorApplication.isUpdating || EditorApplication.isCompiling)
+            {
+                Defer();
+                return;
+            }
+
             _isSet = false;
             if (!Localization.SetDriver(Instance))
             {
@@ -25,8 +40,7 @@ namespace Vortex.Unity.LocalizationSystem
             }
 
             FileBus.CreateFolders($"{Application.dataPath}/Resources/{Path}");
-            var resources = Resources.LoadAll<LocalizationPreset>(Path);
-            if (resources == null || resources.Length == 0)
+            if (FindPreset() == null)
             {
                 AssetDatabase.CreateAsset(ScriptableObject.CreateInstance<LocalizationPreset>(),
                     $"Assets/Resources/{Path}/LocalizationData.asset");
@@ -35,7 +49,18 @@ namespace Vortex.Unity.LocalizationSystem
 
             _isSet = true;
             Instance.LoadData();
-        }
+        };
+
+        /// <summary>
+        /// Поиск пресета по всему проекту, а не по <c>Resources/{Path}</c>: ассет могли перенести в
+        /// другую папку, и загрузка по фиксированному пути его бы не нашла — рядом лёг бы дубликат.
+        /// Фильтр <c>t:</c> захватит и одноимённый класс Nani-локализации, но <c>LoadAssetAtPath</c>
+        /// вернёт для него <c>null</c>: классы не связаны наследованием.
+        /// </summary>
+        private static LocalizationPreset FindPreset() =>
+            AssetDatabase.FindAssets($"t:{nameof(LocalizationPreset)}")
+                .Select(guid => AssetDatabase.LoadAssetAtPath<LocalizationPreset>(AssetDatabase.GUIDToAssetPath(guid)))
+                .FirstOrDefault(x => x != null);
 
         [MenuItem("Tools/Vortex/Localization/Load data", false, 1)]
         private static async void LoadLocalizationData()
