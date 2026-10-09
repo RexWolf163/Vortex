@@ -22,9 +22,23 @@ namespace Vortex.NaniExtensions.LocalizationSystem
         /// реимпорт: выборка ассетов в этот момент неполна, существующий пресет посчитался бы
         /// отсутствующим и был бы затёрт пустым. Ждём, пока AssetDatabase перестанет обновляться,
         /// перевешивая вызов на следующий тик.
+        ///
+        /// В Play Mode (и на входе в него) редакторская регистрация переносится на возврат в Edit Mode:
+        /// индекс в игре грузит рантайм-<see cref="RunAsync"/>. Иначе отложенный <see cref="RefreshIndex"/>
+        /// срабатывает посреди его загрузки (тот уступает кадр каждые 20 записей), очищает и заполняет
+        /// общий индекс, а рантайм затем дописывает хвост повторно — дубли ключей в логе.
+        /// Перенос, а не отмена: на выходе из Play Mode домен не перезагружается, и без него
+        /// редакторская регистрация не случилась бы до следующей перекомпиляции.
         /// </summary>
         private static void Defer() => EditorApplication.delayCall += () =>
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                EditorApplication.playModeStateChanged -= DeferUntilEditMode;
+                EditorApplication.playModeStateChanged += DeferUntilEditMode;
+                return;
+            }
+
             if (EditorApplication.isUpdating || EditorApplication.isCompiling)
             {
                 Defer();
@@ -33,6 +47,13 @@ namespace Vortex.NaniExtensions.LocalizationSystem
 
             RegisterDriver();
         };
+
+        private static void DeferUntilEditMode(PlayModeStateChange state)
+        {
+            if (state != PlayModeStateChange.EnteredEditMode) return;
+            EditorApplication.playModeStateChanged -= DeferUntilEditMode;
+            Defer();
+        }
 
         private static void RegisterDriver()
         {
