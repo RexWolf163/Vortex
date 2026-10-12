@@ -1,22 +1,22 @@
 using UnityEngine;
+using Vortex.Unity.UI.VirtualCursorSystem.Handlers;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Focus
 {
     /// <summary>
     /// Контракт одной цели фокус-навигации. Реализуется MonoBehaviour-компонентом
     /// (<see cref="FocusTargetComponent"/>) или любым объектом, который хочет быть
     /// фокусируемым виртуальным курсором.
     ///
-    /// Реестр целей живёт в <c>VirtualCursorFocusController</c>; регистрация идёт при
-    /// <c>OnEnable</c>, снятие — при <c>OnDisable</c>. Контроллер зовёт
-    /// <see cref="NotifyFocused"/>/<see cref="NotifyUnfocused"/> на переходах фокуса.
+    /// Цели регистрируются в своей <see cref="FocusGroup.Register"/> (<see cref="FocusGroup"/> /
+    /// <see cref="FocusGroup"/>), навигация идёт среди целей активной группы.
+    /// Контроллер зовёт <see cref="NotifyUnfocused"/>/<see cref="FocusGroup"/> на переходах фокуса.
     /// </summary>
     public interface IFocusTarget
     {
         /// <summary>
-        /// Экранная точка цели в пикселях (центр для hover+warp курсора). Вычисляется
-        /// при каждом запросе — для UGUI через <see cref="RectTransform"/> на overlay-
-        /// канвасе, для world-объекта через <see cref="Camera.WorldToScreenPoint"/>.
+        /// Экранная точка цели в пикселях — куда переносится курсор при фокусе. Вычисляется
+        /// при каждом запросе, поэтому следует за смещением цели (скролл, лейаут, анимация).
         /// </summary>
         Vector2 ScreenPoint { get; }
 
@@ -31,7 +31,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// <summary>Контроллер зовёт при переходе фокуса на этот target.</summary>
         void NotifyFocused();
 
-        /// <summary>Контроллер зовёт при уходе фокуса (другой target или <c>ClearFocus</c>).</summary>
+        /// <summary>Контроллер зовёт при уходе фокуса (на другой target или при снятии фокуса).</summary>
         void NotifyUnfocused();
+
+        /// <summary>
+        /// GameObject, в который <see cref="VirtualCursorFocusController.Submit"/> эмулирует клик
+        /// (PointerDown/Up/Click с подъёмом по иерархии до обработчиков — как при попадании рейкаста).
+        /// </summary>
+        GameObject Target { get; }
     }
 }

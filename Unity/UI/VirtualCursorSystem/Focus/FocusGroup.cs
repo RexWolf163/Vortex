@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Vortex.Unity.UI.VirtualCursorSystem.Handlers;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Focus
 {
     /// <summary>
     /// Контейнер фокус-навигации для набора <see cref="IFocusTarget"/>-ей, живущих в его
@@ -15,10 +16,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// её <see cref="Register"/>; на OnDisable — <see cref="Unregister"/>. Target без
     /// родительской группы — ошибка настройки сцены, компонент это фиксирует (fail-loud).
     ///
-    /// <b>RememberedFocus.</b> Группа помнит свой последний <see cref="CurrentFocus"/>
-    /// между активациями: закрыл меню паузы → открыл HUD → снова открыл меню → фокус
-    /// возвращается туда, где был (при условии <c>_focusAnchor != null</c> у контроллера —
-    /// т.е. пользователь остался в «nav mode», не двигал курсор мышью).
+    /// <b>RememberedFocus.</b> Группа помнит свой последний фокус (<see cref="FocusModel.CurrentFocus"/>)
+    /// между активациями: закрыл меню паузы → открыл HUD → снова открыл меню → контроллер
+    /// возвращает фокус туда, где был, если активация группы происходит в режиме навигации
+    /// (см. <see cref="VirtualCursorFocusController"/>).
     ///
     /// <b>Nested groups.</b> Вложенные <c>FocusGroup</c> разрешены — target'ы цепляются
     /// к ближайшей родительской. LIFO обычно: push родителя → push вложенной → pop
@@ -42,6 +43,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                  "[HUD, Toast, Pause]; активной остаётся Pause. 0 = обычный LIFO без «подпора».")]
         private int priority;
 
+        /// <summary>Зарегистрированные target'ы группы.</summary>
         private readonly List<IFocusTarget> _targets = new();
 
         /// <summary>Target'ы этой группы (read-only). Порядок — по регистрации (OnEnable).</summary>
@@ -84,10 +86,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// </summary>
         public IFocusTarget RememberedFocus { get; internal set; }
 
+        /// <summary>Встать в стек групп контроллера.</summary>
         private void OnEnable() => VirtualCursorFocusController.PushGroup(this);
 
+        /// <summary>Выйти из стека групп контроллера.</summary>
         private void OnDisable() => VirtualCursorFocusController.RemoveGroup(this);
 
+        /// <summary>Финальная очистка: снятие со стека (идемпотентно), сброс target'ов и запомненного фокуса.</summary>
         private void OnDestroy()
         {
             // На случай если RemoveGroup уже прошёл на OnDisable — RemoveGroup idempotent.
@@ -107,8 +112,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         }
 
         /// <summary>
-        /// Снятие target'а. Если он был <see cref="RememberedFocus"/> — обнуляем
-        /// запомненный (чтобы по возврату не ссылаться на уничтоженный target).
+        /// Снятие target'а. Зовётся <see cref="FocusTargetComponent"/>.OnDisable. Запомненный фокус
+        /// (<see cref="RememberedFocus"/>) обнуляется, только если target уничтожен; выключенный target
+        /// остаётся запомненным, чтобы повторная активация вернула на него фокус. Если target был текущим
+        /// фокусом, контроллер снимает фокус.
         /// </summary>
         public void Unregister(IFocusTarget target)
         {

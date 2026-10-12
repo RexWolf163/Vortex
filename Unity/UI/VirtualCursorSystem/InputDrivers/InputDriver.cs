@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Unity.InputBusSystem;
+using Vortex.Unity.UI.VirtualCursorSystem.Controllers;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
@@ -9,28 +10,34 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
     /// Абстрактный драйвер ввода курсора. POCO (не MonoBehaviour): список реализаций живёт в
     /// <see cref="InputDriverSet"/> (<c>[SerializeReference]</c>), подключается контроллером
     /// <see cref="CursorInputLoader"/> на старте приложения. Роль — поймать сигнал ввода и отрепортить
-    /// его в <see cref="VirtualCursorController"/>. Гейта нет: курсор надсистемный, драйвер всегда активен.
+    /// его в <see cref="Controllers.VirtualCursorController"/>. Гейта нет: курсор надсистемный, драйвер всегда активен.
     ///
     /// Экшены резолвятся по строковому id «Карта/Экшен» через <see cref="InputController"/> (Vortex-стандарт),
     /// а не через <c>InputActionProperty</c>. Драйвер, будучи подключённым, активен всегда; ситуативного
-    /// отсечения ввода на уровне пакета нет.
+    /// отсечения ввода на уровне пакета нет. Карты экшенов драйвер не включает — их включение на стороне
+    /// проекта (например, <c>InputMapHandler</c>); без включённой карты события экшенов не приходят.
     /// </summary>
     [Serializable]
     public abstract class InputDriver
     {
-        /// <summary>Подключение: резолв экшенов, включение карт, подписка на сигналы.</summary>
+        /// <summary>Подключение: резолв экшенов и подписка на их сигналы.</summary>
         public abstract void Connect();
 
-        /// <summary>Отключение: отписка, отключение карт. Зовётся на тердауне/hotplug-removal.</summary>
+        /// <summary>Отключение: отписка от сигналов, сброс своего состояния. Зовётся на выходе из приложения.</summary>
         public abstract void Disconnect();
 
         /// <summary>Нужен ли покадровый <see cref="Tick"/> (интеграция скорости у направленного драйвера).</summary>
         public virtual bool NeedsTick => false;
 
         /// <summary>Покадровый апдейт (только при <see cref="NeedsTick"/>). dt — <c>Time.unscaledDeltaTime</c>.</summary>
-        public virtual void Tick(float unscaledDeltaTime) { }
+        public virtual void Tick(float unscaledDeltaTime)
+        {
+        }
 
-        /// <summary>Скрывает ли курсор этот источник (прямой контакт — касание). Применяется last-source-wins.</summary>
+        /// <summary>
+        /// Скрывает ли курсор этот источник (прямой контакт — касание): его репорт скрывает курсор, а репорт нескрывающего
+        /// источника возвращает курсор значимым сдвигом (фильтр дрейфа в <c>VirtualCursorController.ReportPointer</c>).
+        /// </summary>
         public virtual bool HidesCursor => false;
 
         /// <summary>Поддержка текущей платформы (гейт на подключение). По умолчанию — везде.</summary>
@@ -41,46 +48,29 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         /// <summary>Резолв <see cref="InputAction"/> по id «Карта/Экшен». null — не найден.</summary>
         protected static InputAction ResolveAction(string actionId) => InputController.GetAction(actionId);
 
-        /// <summary>Включить карту экшена (регистрируемся её пользователем). No-op, если экшен не резолвится.</summary>
-        protected void EnableMap(string actionId)
-        {
-            if (ResolveAction(actionId) == null || !TryMapId(actionId, out var mapId)) return;
-            InputController.AddMapUser(mapId, this);
-        }
-
-        /// <summary>Выключить карту экшена (снимаемся с пользователей; карта гаснет, если пользователей нет).</summary>
-        protected void DisableMap(string actionId)
-        {
-            if (ResolveAction(actionId) == null || !TryMapId(actionId, out var mapId)) return;
-            InputController.RemoveMapUser(mapId, this);
-        }
-
-        /// <summary>Подписка на сигналы экшена через LIFO-шину <see cref="InputController"/>.</summary>
+        /// <summary>
+        /// Подписка на сигналы экшена через LIFO-шину <see cref="InputController"/>. Валидность id
+        /// не проверяется — проверку делает драйвер до вызова.
+        /// </summary>
+        /// <param name="actionId">Id экшена «Карта/Экшен».</param>
+        /// <param name="performed">Колбэк на performed.</param>
+        /// <param name="canceled">Колбэк на canceled (может быть null).</param>
         protected void SubscribeAction(string actionId, Action performed, Action canceled)
         {
-            if (ResolveAction(actionId) == null)
-            {
-                // Непустой, но неразрезолвленный id — misconfig (нет в Input Actions / опечатка):
-                // драйвер молча бы бездействовал. Fail-loud вместо тихого no-op.
-                if (!string.IsNullOrEmpty(actionId))
-                    Debug.LogError($"[{GetType().Name}] Экшен '{actionId}' не разрезолвился — драйвер не " +
-                                   "подпишется и будет бездействовать. Проверь id в InputDriverSet.");
-                return;
-            }
             InputController.AddActionUser(actionId, this, performed, canceled);
         }
 
         /// <summary>Отписка от сигналов экшена.</summary>
         protected void UnsubscribeAction(string actionId)
         {
-            if (ResolveAction(actionId) == null) return;
             InputController.RemoveActionUser(actionId, this);
         }
 
         /// <summary>Отрепортить позицию в контроллер (с флагом скрытия текущего источника).</summary>
-        protected void Report(Vector2 screen, PointerSourceKind source)
-            => VirtualCursorController.ReportPointer(screen, source, HidesCursor);
+        protected void Report(Vector2 screen)
+            => VirtualCursorController.ReportPointer(screen, HidesCursor);
 
+        /// <summary>Выделить id карты из id экшена «Карта/Экшен». false — id пуст или без карты.</summary>
         private static bool TryMapId(string actionId, out string mapId)
         {
             mapId = null;

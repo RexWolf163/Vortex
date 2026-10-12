@@ -3,7 +3,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Model
     /// <summary>
     /// Словарь-индекс возможных действий указателя. Имена генерик — конкретную клавишу/ось назначает
     /// верстальщик в Input Actions; комментарий фиксирует предполагаемую конвенцию маппинга на девайс.
-    /// ПОРЯДОК НЕ МЕНЯТЬ: индекс = позиция бита в <see cref="PointerActionMask"/> и ключ карты спрайтов.
+    /// ПОРЯДОК НЕ МЕНЯТЬ: индекс = позиция бита в <see cref="PointerActionMask"/> и приоритет
+    /// <see cref="PointerActionMask.Dominant"/> (меньший индекс важнее).
     /// </summary>
     public enum PointerAction
     {

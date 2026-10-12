@@ -25,17 +25,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1139170325712702818}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1256259643966082359}
+  m_Father: {fileID: 423022138962582613}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 26, y: -32}
-  m_SizeDelta: {x: -0.0000019073486, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5695003146831564078
 CanvasRenderer:
@@ -86,7 +86,7 @@ GameObject:
   - component: {fileID: 910925922148576893}
   - component: {fileID: 1121401077344216372}
   m_Layer: 0
-  m_Name: '[CursorMode]'
+  m_Name: '[CursorSkin]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -104,7 +104,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 8623676523049268686}
   m_Father: {fileID: 1256259643966082359}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1121401077344216372
@@ -122,32 +123,59 @@ MonoBehaviour:
   stateOnEnable: 0
   duplicateOnCreate: 1
   states:
-  - name: hide
-    stateItems: []
   - name: default
     stateItems:
     - rid: 2241965945696026717
-  - name: click
-    stateItems:
-    - rid: 2241965945696026716
+  - name: hidden
+    stateItems: []
   references:
     version: 2
     RefIds:
-    - rid: 2241965945696026716
-      type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
-      data:
-        links:
-        - {fileID: 5192103719898592001}
-        - {fileID: 1139170325712702818}
-        onDelayed: 0
-        offDelayed: 0
     - rid: 2241965945696026717
       type: {class: GameObjectsSwitch, ns: Vortex.Unity.UI.StateSwitcher.Items, asm: ru.vortex.unity.ui.misc}
       data:
         links:
-        - {fileID: 1139170325712702818}
+        - {fileID: 7615867783857706404}
+        - {fileID: 3769659077093002458}
         onDelayed: 0
         offDelayed: 0
+--- !u!1 &3769659077093002458
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 423022138962582613}
+  m_Layer: 0
+  m_Name: Container
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &423022138962582613
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3769659077093002458}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2700065035939115334}
+  - {fileID: 5996539159662610412}
+  m_Father: {fileID: 1256259643966082359}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 26, y: -32}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &5192103719898592001
 GameObject:
   m_ObjectHideFlags: 0
@@ -173,17 +201,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5192103719898592001}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1256259643966082359}
+  m_Father: {fileID: 423022138962582613}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 26, y: -32}
-  m_SizeDelta: {x: -0.0000019073486, y: -0.0000019073486}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &371597565338978203
 CanvasRenderer:
@@ -223,6 +251,69 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &5633073534326950360
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7372809773060829437}
+  - component: {fileID: 6071667576326786724}
+  m_Layer: 0
+  m_Name: '[click]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7372809773060829437
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5633073534326950360}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8623676523049268686}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6071667576326786724
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5633073534326950360}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1ac6283c375a2648b4f9cdfd6b62489, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.TweenerSystem.TweenerHub
+  tweeners:
+  - rid: 2241965994221502544
+  references:
+    version: 2
+    RefIds:
+    - rid: 2241965994221502544
+      type: {class: ColorLogic, ns: Vortex.Unity.UI.TweenerSystem.TweenLogics, asm: ru.vortex.unity.ui.misc}
+      data:
+        offset: 0
+        offsetBack: 0
+        preset: {fileID: 11400000, guid: 9438b05e60bc81b45bbce984786042c2, type: 2}
+        targets:
+        - {fileID: 4454590074574411235}
+        targetsTexts: []
+        targetsTextMP: []
+        targetsTextUGUI: []
+        spriteRenderers: []
+        startColor: {r: 1, g: 1, b: 1, a: 0}
+        endColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &6976831056096728727
 GameObject:
   m_ObjectHideFlags: 0
@@ -253,8 +344,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 910925922148576893}
-  - {fileID: 2700065035939115334}
-  - {fileID: 5996539159662610412}
+  - {fileID: 423022138962582613}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -276,4 +366,118 @@ MonoBehaviour:
   m_EditorClassIdentifier: ru.vortex.unity.virtualcursorsystem::Vortex.Unity.UI.VirtualCursorSystem.UiImageCursorRenderer
   cursor: {fileID: 1256259643966082359}
   hideSystemCursor: 1
-  cursorMode: {fileID: 1121401077344216372}
+  cursorSkin: {fileID: 1121401077344216372}
+--- !u!1 &7502893214969694770
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2154052937014802828}
+  - component: {fileID: 6854711497238378117}
+  m_Layer: 0
+  m_Name: '[Idle]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2154052937014802828
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7502893214969694770}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8623676523049268686}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6854711497238378117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7502893214969694770}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1ac6283c375a2648b4f9cdfd6b62489, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.TweenerSystem.TweenerHub
+  tweeners:
+  - rid: 2241965994221502543
+  references:
+    version: 2
+    RefIds:
+    - rid: 2241965994221502543
+      type: {class: ColorLogic, ns: Vortex.Unity.UI.TweenerSystem.TweenLogics, asm: ru.vortex.unity.ui.misc}
+      data:
+        offset: 0
+        offsetBack: 0
+        preset: {fileID: 11400000, guid: d6ad16acdb97df447b021ff08ead2542, type: 2}
+        targets:
+        - {fileID: 2904756391370915970}
+        targetsTexts: []
+        targetsTextMP: []
+        targetsTextUGUI: []
+        spriteRenderers: []
+        startColor: {r: 1, g: 1, b: 1, a: 0}
+        endColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!1 &7615867783857706404
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8623676523049268686}
+  - component: {fileID: 556054448538240260}
+  m_Layer: 0
+  m_Name: Default
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &8623676523049268686
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7615867783857706404}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2154052937014802828}
+  - {fileID: 7372809773060829437}
+  m_Father: {fileID: 910925922148576893}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &556054448538240260
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7615867783857706404}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b05940133b5db2348aca47ddbf336659, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ru.vortex.unity.virtualcursorsystem::Vortex.Unity.UI.VirtualCursorSystem.Handlers.PointerActionTweenerHandler
+  bindings:
+  - action: 0
+    tweener: {fileID: 6854711497238378117}
+  - action: 1
+    tweener: {fileID: 6071667576326786724}

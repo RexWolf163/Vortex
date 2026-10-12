@@ -33,7 +33,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
     /// только удержание (без стартового рывка). По умолчанию активны обе.
     ///
     /// Горизонтальные направления необязательны: оставь пустыми, если скролл только вертикальный.
-    /// Курсор не скрывает, позицию не трогает.
+    /// Курсор не скрывает, позицию не трогает. Импульсы публикуются в <c>ScrollDelta</c> модели
+    /// (<c>VirtualCursorController.ReportScroll</c>); обработка — на подписчиках модели.
     /// </summary>
     [Serializable]
     public class ScrollInputDriver : InputDriver
@@ -69,13 +70,22 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                  "старое поведение).")]
         private float holdSpeed = 20f;
 
+        /// <summary>Экшен направления вверх (null — не задан или не разрезолвлен).</summary>
         private InputAction _upAction;
+
+        /// <summary>Экшен направления вниз (null — не задан или не разрезолвлен).</summary>
         private InputAction _downAction;
+
+        /// <summary>Экшен направления влево (null — не задан или не разрезолвлен).</summary>
         private InputAction _leftAction;
+
+        /// <summary>Экшен направления вправо (null — не задан или не разрезолвлен).</summary>
         private InputAction _rightAction;
 
+        /// <summary>Режим удержания опрашивает экшены каждый кадр.</summary>
         public override bool NeedsTick => true;
 
+        /// <summary>Резолв четырёх направлений и подписка на пульсы (при <see cref="pulseStep"/> &gt; 0).</summary>
         public override void Connect()
         {
             _upAction    = SubscribeDirection(scrollUpActionId,    new Vector2(0f,  1f));
@@ -84,19 +94,17 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             _rightAction = SubscribeDirection(scrollRightActionId, new Vector2(1f,  0f));
         }
 
+        /// <summary>Отписка от всех направлений.</summary>
         public override void Disconnect()
         {
             UnsubscribeAction(scrollUpActionId);
             UnsubscribeAction(scrollDownActionId);
             UnsubscribeAction(scrollLeftActionId);
             UnsubscribeAction(scrollRightActionId);
-            DisableMap(scrollUpActionId);
-            DisableMap(scrollDownActionId);
-            DisableMap(scrollLeftActionId);
-            DisableMap(scrollRightActionId);
             _upAction = _downAction = _leftAction = _rightAction = null;
         }
 
+        /// <summary>Режим удержания: сумма зажатых направлений × <see cref="holdSpeed"/> × dt — одним импульсом за кадр.</summary>
         public override void Tick(float unscaledDeltaTime)
         {
             if (holdSpeed <= 0f) return;
@@ -112,22 +120,22 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 
             if (accum.sqrMagnitude < 0.0001f) return;
 
-            VirtualCursorController.ReportScroll(accum * (holdSpeed * unscaledDeltaTime));
+            Controllers.VirtualCursorController.ReportScroll(accum * (holdSpeed * unscaledDeltaTime));
         }
 
+        /// <summary>
+        /// Резолв экшена направления и подписка на пульс <c>unit × pulseStep</c>.
+        /// Пустой или неразрезолвленный id — направление выключено (null, без лога).
+        /// </summary>
         private InputAction SubscribeDirection(string actionId, Vector2 unit)
         {
             if (string.IsNullOrEmpty(actionId)) return null;
             var action = ResolveAction(actionId);
             if (action == null) return null;
-            EnableMap(actionId);
-            // Пульс — только если pulseStep > 0. Иначе не подписываемся вовсе: Tick-ветка
-            // (holdSpeed) достаточна. Это позволяет держать только continuous-режим без
-            // стартового рывка (напр. для аналогичного slider UX).
             if (pulseStep > 0f)
             {
                 SubscribeAction(actionId,
-                    () => VirtualCursorController.ReportScroll(unit * pulseStep),
+                    () => Controllers.VirtualCursorController.ReportScroll(unit * pulseStep),
                     null);
             }
             return action;

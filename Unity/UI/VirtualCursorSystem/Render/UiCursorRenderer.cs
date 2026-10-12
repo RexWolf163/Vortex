@@ -4,15 +4,15 @@ using UnityEngine;
 using UnityEngine.UI;
 using Vortex.Unity.UI.StateSwitcher;
 using Vortex.Unity.UI.VirtualCursorSystem.Bus;
-using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem.Render
 {
     /// <summary>
-    /// Дефолтный рендер: UGUI-<see cref="Image"/> в позиции <c>ScreenPosition</c> на оверлей-канвасе
-    /// Требования: RectTransform курсора на Screen Space - Overlay канвасе выше всего UI,
-    ///
-    /// Raycast Image или иных UGUI элементов должен быть отелючен!.
+    /// Дефолтный рендер: UGUI-курсор на оверлей-канвасе. RectTransform <see cref="cursor"/> ставится в
+    /// <c>ScreenPosition</c> модели, скин переключается состоянием <see cref="UIStateSwitcher"/> по имени
+    /// <c>Skin</c> (неизвестное имя — состояние 0). Отрисовка позиции и скина начинается с первого репорта позиции.
+    /// Требования: RectTransform курсора на Screen Space - Overlay канвасе выше всего UI;
+    /// raycast у <see cref="Image"/> и прочих UGUI-элементов курсора должен быть отключен.
     /// </summary>
     public class UiCursorRenderer : MonoBehaviour
     {
@@ -22,106 +22,95 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Render
         [SerializeField, Tooltip("Скрывать системный курсор пока активен этот рендер.")]
         private bool hideSystemCursor = true;
 
+        /// <summary>Свитчер скинов: имя состояния = имя скина, состояние 0 — скин по умолчанию.</summary>
         [HorizontalGroup("switcher")]
-        [InfoBox("Первый слот свитчера должен соответствовать положению «Нет Курсора». " +
-                 "Второй - дефолтный курсор (если ключ не найден)." +
-                 " Прочие по ключам пресета")]
+        [InfoBox("Первый слот свитчера должен соответствовать дефолтному курсору (если ключ не найден)." +
+                 " Прочие по ключам пресета. Скрытый курсор - это скин с названием hidden")]
         [SerializeField]
-        private UIStateSwitcher cursorMode;
+        private UIStateSwitcher cursorSkin;
 
+        /// <summary>Не используется.</summary>
         private bool _subscribed;
 
-        //Гейт заморозки отрисовки до первого смещения
+        /// <summary>Гейт отрисовки: до первого репорта позиции смена скина не применяется.</summary>
         private bool _firstReportReceived;
 
+        /// <summary>Имена состояний свитчера — известные рендеру скины.</summary>
         private HashSet<string> _states = new();
 
 #if UNITY_EDITOR
+        /// <summary>Кнопка инспектора рядом со свитчером. Заготовка — пока ничего не делает.</summary>
         [HorizontalGroup("switcher", 100f), Button(ButtonSizes.Large)]
         private void Construct()
         {
-            
         }
 #endif
+        /// <summary>Собрать имена состояний свитчера.</summary>
         private void Awake()
         {
             _states.Clear();
-            var temp = cursorMode.States;
+            var temp = cursorSkin.States;
             foreach (var stateData in temp)
                 _states.Add(stateData.Name);
         }
 
+        /// <summary>
+        /// Скрыть системный курсор (по флагу), выставить скин hidden (нет такого — состояние 0), взвести гейт первого репорта
+        /// и подписаться на скин и позицию.
+        /// </summary>
         private void OnEnable()
         {
             if (hideSystemCursor)
                 Cursor.visible = false;
 
-            // Стартуем явно скрытым — независимо от того, когда подоспеет Bus.IsReady и первый репорт.
-            // Курсор до этого момента не рисуется.
-            cursorMode.Set(0);
+            // Стартуем скрытым — до первого репорта позиции курсор не рисуется. Нет скина hidden — дефолтный (0).
+            if (_states.Contains(VirtualCursorBus.HideCursor))
+                cursorSkin.Set(VirtualCursorBus.HideCursor);
+            else
+                cursorSkin.Set(0);
             _firstReportReceived = false;
 
-            TrySubscribe();
-            VirtualCursorBus.OnReady += TrySubscribe;
+            VirtualCursorBus.Data.Skin.OnUpdate += OnVisual;
+            VirtualCursorBus.Data.ScreenPosition.OnUpdate += OnPosition;
         }
 
+        /// <summary>Вернуть системный курсор (по флагу) и отписаться.</summary>
         private void OnDisable()
         {
             if (hideSystemCursor)
                 Cursor.visible = true; // восстановить ОС-курсор — симметрично OnEnable (иначе останется скрыт)
 
-            VirtualCursorBus.OnReady -= TrySubscribe;
-            if (!_subscribed) return;
-            VirtualCursorBus.Visual.OnUpdate -= OnVisual;
+            VirtualCursorBus.Data.Skin.OnUpdate -= OnVisual;
             VirtualCursorBus.Data.ScreenPosition.OnUpdate -= OnPosition;
-            _subscribed = false;
         }
 
-        private void TrySubscribe()
+        /// <summary>Смена скина — применить, если первый репорт позиции уже был.</summary>
+        private void OnVisual(string s)
         {
-            if (_subscribed || !VirtualCursorBus.IsReady) return;
-            VirtualCursorBus.Visual.OnUpdate += OnVisual;
-            VirtualCursorBus.Data.ScreenPosition.OnUpdate += OnPosition;
-            _subscribed = true;
-            // НЕ зовём ApplyCurrent на подписке: модель ещё в стартовом состоянии ((0,0) + дефолтный
-            // скин), ранняя отрисовка = тот же initial-flash, от которого защищает _firstReportReceived.
-            // Первый OnPosition от драйвера снимет гейт и позовёт ApplyCurrent.
+            if (_firstReportReceived) Apply();
         }
 
-        private void OnVisual(CursorData _)
-        {
-            // До первого репорта позиции не рисуем вообще — чтобы смена темы/действия в стартовом
-            // (0,0) не открывала визуал. После — обычный путь.
-            if (_firstReportReceived) ApplyCurrent();
-        }
-
+        /// <summary>Смена позиции — снять гейт и применить.</summary>
         private void OnPosition(Vector2 _)
         {
             _firstReportReceived = true;
-            ApplyCurrent();
+            Apply();
         }
 
-        private void ApplyCurrent() =>
-            Apply(VirtualCursorBus.Visual.Value, VirtualCursorBus.Data.ScreenPosition.Value);
-
-        private void Apply(in CursorData data, Vector2 screenPosition)
+        /// <summary>Выставить состояние свитчера по скину (неизвестный — 0) и переставить курсор в позицию модели.</summary>
+        private void Apply()
         {
             if (cursor == null)
                 return;
 
-            var show = !data.Hide;
-            if (!show)
-            {
-                cursorMode.Set(0);
-                return;
-            }
+            var data = VirtualCursorBus.Data;
 
-            if (_states.Contains(data.Key))
-                cursorMode.Set(data.Key);
+            if (_states.Contains(data.Skin))
+                cursorSkin.Set(data.Skin);
             else
-                cursorMode.Set(1);
-            
-            cursor.position = new Vector3(screenPosition.x, screenPosition.y, 0f);
+                cursorSkin.Set(0);
+
+            cursor.position = new Vector3(data.ScreenPosition.Value.x, data.ScreenPosition.Value.y, 0f);
         }
     }
 }

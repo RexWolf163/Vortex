@@ -7,22 +7,22 @@
 
 ## Назначение
 
-Виртуальный курсор с мульти-источником для UGUI-проектов. Единая экранная позиция (`ScreenPosition`) кормится любым источником — мышь, геймпад, клавиши, тач — и является единственным источником истины. Позиция **расцеплена от ОС-мыши**: живёт в модели (при желании ОС-мышь синхронно warp'ается — опция `warpSystemMouse` в `DirectInputDriver`).
+Виртуальный курсор с мульти-источником для UGUI-проектов. Единая экранная позиция (`ScreenPosition`) кормится любым источником — мышь, геймпад, клавиши, тач — и является единственным источником истины для рендера курсора, UGUI-ввода, фокус-навигации и screen→world проекции.
 
-Родной UGUI (`Button`, `Toggle`, `ScrollRect`, hover, `IPointerXxx`) работает без кода на каждый виджет: `VirtualPointerDispatcher` в кадре события от курсора делает `EventSystem.RaycastAll` под `ScreenPosition` и шлёт стандартные `PointerDown`/`PointerUp`/`PointerClick`/`PointerEnter`/`PointerExit` через `ExecuteEvents`. Фантомного `InputDevice` нет; биндинги в UI Actions-asset остаются на `<Mouse>` — физическая мышь и виртуальный курсор независимо шлют события одним и тем же UGUI-handler'ам.
+Источники реализованы как **драйверы** (`InputDriver`), перечисленные в настроечном ассете `InputDriverSet` и подключаемые на старте загрузчиком `CursorInputLoader`. Курсор — **надсистемная сущность**: ситуативного гейта ввода нет, подключённый драйвер активен всегда.
 
-Внешний вид курсора — **render-агностичная система скинов**: сменные наборы-темы (по ключу в рантайме), масштаб от разрешения (глобальные тиры), спрайт по состоянию действий, с фолбэком вверх. Рендер — через `ICursorRenderer` (по умолчанию UGUI-`Image` в позиции курсора; опционально ОС-курсор через `Cursor.SetCursor`).
+Внешний вид — **строковый скин**: контроллер сводит итоговое имя скина из флага скрытия (от последнего источника ввода) и LIFO-стека запросов скинов (например, от зон наведения). Рендер показывает скин по имени: `UiCursorRenderer` (UGUI, через `UIStateSwitcher`) или `OsCursorRenderer` (системный ОС-курсор).
 
-**Весь пакет гейтится тогглом в SDK Settings.** Источники реализованы как драйверы (`InputDriver`), которые перечисляются в настроечном ассете `InputDriverSet` и подключаются на старте контроллером-загрузчиком `CursorInputLoader`. Включение всей системы — тогглом `cursorInputSdk` в `SdkSettings` (дефайн `USING_VORTEX_CURSOR`): `defineConstraints` в asmdef пакета. Единственное исключение — файл-partial с самим тогглом (`DefineSettings/SdkSettings.CursorInput.cs`), который через `.asmref` входит в сборку `SdkSettings` и виден всегда. Курсор — **надсистемная сущность**: ситуативного гейта ввода нет, подключённый драйвер активен всегда.
+**Фокус-навигация** (`Focus/`): `FocusGroup` собирает дочерние `FocusTargetComponent`-ы в контекст навигации; группы живут в стеке с приоритетами. `UINavigationDriver` по направлению выбирает ближайшую цель в конусе, переносит туда курсор (и ОС-мышь) и, по флагу, скрывает его; submit активирует фокусный элемент.
 
-**Фокус-навигация** (подсистема `Focus/`): `FocusGroup` на любом родителе собирает дочерние `FocusTargetComponent`-ы в контекст навигации; группы живут в LIFO-стеке (push/pop на `OnEnable`/`OnDisable` — стандартный паттерн SetActive меню). `UINavigationDriver` слушает 4 action'а на D-pad/стрелки; на нажатие — ближайший target в полуоткрытом конусе ±45° **из активной (топовой) группы** становится активным. Курсор прячется через внешний канал (`HideCursor`) и варпается на точку target'а — hover и клик проходят естественным UGUI-путём. Движение курсора мышью/стиком автоматически сбрасывает фокус. При переключении активной группы (пока курсор в nav mode) фокус автоматически передаётся на `RememberedFocus` новой группы или ближайший к курсору target.
+**Весь пакет гейтится тогглом в SDK Settings** (`cursorInputSdk` → дефайн `USING_VORTEX_CURSOR`, `defineConstraints` в asmdef). Исключение — файл-partial с самим тогглом (`DefineSettings/SdkSettings.CursorInput.cs`), который через `.asmref` входит в сборку `SdkSettings` и виден всегда.
 
-**Противопоставление `CursorSystem`:** `CursorSystem` — ОС-курсор + UGUI-hover, mouse-only, упрощённая альтернатива. `VirtualCursorSystem` — виртуальный курсор + арбитраж источников + render-агностичные сменные скины + подключаемый драйверный слой ввода.
+**Противопоставление `CursorSystem`:** `CursorSystem` — ОС-курсор + UGUI-hover, mouse-only. `VirtualCursorSystem` — виртуальная позиция + арбитраж источников + подключаемые драйверы + фокус-навигация. При включённом `USING_VORTEX_CURSOR` легаси-меню `CursorSystem` скрыто.
 
 Вне ответственности:
-- Игровые триггеры/механики клика — уровень потребителя (`AdvancedButton`/игровой код); пакет отдаёт позицию/действия/проекцию.
-- Персист выбранной темы — проектный слой (L2 не зависит от L3-GameCore; см. «Выбор темы»).
+- Игровые триггеры/механики клика — уровень потребителя; пакет отдаёт позицию, действия, скин, проекцию.
 - Интерпретация мирового хита — пакет отдаёт сырой `RaycastHit`.
+- Включение карт Input Actions — на стороне проекта (см. «Драйверы ввода»).
 
 ---
 
@@ -30,248 +30,249 @@
 
 | Зависимость | Назначение |
 |-------------|-----------|
-| `Unity.InputSystem` | `InputAction`, `Mouse` (warp системной мыши в `DirectInputDriver`) |
-| `UnityEngine.UI` | `Image`/`Canvas` (UI-рендер) |
-| `UnityEngine.EventSystems` | `EventSystem.RaycastAll`, `ExecuteEvents`, `PointerEventData`, `IPointerXxx` интерфейсы |
-| `Vortex.Unity.InputBusSystem` | `InputController` — резолв экшенов по строковому id «Карта/Экшен», карты/подписка (LIFO) |
-| `Vortex.Core.LoaderSystem` (apploader) | `IProcess`/`Loader` — подключение драйверов в пайплайне загрузки |
-| `Vortex.Unity.CoreAssetsSystem` | `ICoreAsset` — авто-провижен ассета `InputDriverSet` в `Resources/Settings` |
-| `Vortex.Unity.AppSystem` | `TimeController.Accumulate` — покадровый тик драйверов |
+| `Unity.InputSystem` | `InputAction`, `Mouse.WarpCursorPosition`, EnhancedTouch (прямые касания UGUI-модуля) |
+| `UnityEngine.UI` / `EventSystems` | UGUI-рендер, `IPointerXxx` в хендлерах, `ExecuteEvents` для submit, `StandaloneInputModule`/`BaseInput` для UGUI-модуля |
+| `Vortex.Unity.InputBusSystem` | `InputController` — резолв экшенов по id «Карта/Экшен», LIFO-подписка |
+| `Vortex.Core.LoaderSystem` | `IProcess`/`Loader` — подключение драйверов в пайплайне загрузки |
+| `Vortex.Unity.CoreAssetsSystem` | `ICoreAsset` — авто-провижен `InputDriverSet` в `Resources/Settings` |
+| `Vortex.Unity.AppSystem` | `TimeController.Accumulate` — покадровые петли (тик драйверов, сопровождение фокуса) |
 | `Vortex.Sdk.SdkSettingsSystem` | тоггл модуля + `DefineSymbol("USING_VORTEX_CURSOR")` |
-| `Vortex.Core.Extensions.ReactiveValues` | `ReactiveValue<T>`, `EnumData`/`StringData`/`BoolData` с owner-защитой |
-| `Vortex.Unity.Extensions.ReactiveValues` | `Vector2Data` |
-| `Vortex.Unity.EditorTools` | `[AutoLink]`, `[ClassLabel]`, `[ValueSelector]` (дропдаун id экшенов) |
-| Sirenix Odin Inspector | `[Tooltip]`, `[SerializeReference]`/`[HideReferenceObjectPicker]`, `[ToggleButton]` |
+| `Vortex.Core.Extensions.ReactiveValues` / `Vortex.Unity.Extensions.ReactiveValues` | `ReactiveValue<T>`, `StringData`, `BoolData`, `Vector2Data` с owner-защитой |
+| `ru.vortex.unity.ui.misc` | `UIStateSwitcher` (скины `UiCursorRenderer`), `TweenerHub` (`PointerActionTweenerHandler`) |
+| `Vortex.Unity.EditorTools` | `[AutoLink]`, `[ValueSelector]` (дропдаун id экшенов), `[ToggleButton]` |
+| Sirenix Odin Inspector | атрибуты инспектора, `[SerializeReference]`-список драйверов |
 
-Драйверы ввода **не** используют `InputActionProperty`: биндинг задаётся строковым id экшена (Vortex-стандарт, как в `InputController`) и резолвится в рантайме.
-
-Персист темы (`IGameData`) реализуется на **проектном слое** (пример: `_SexMusicIdol/_Scripts/UI/CursorSkinPersistence.cs`) — пакет save-агностичен.
+Драйверы **не** используют `InputActionProperty`: биндинг задаётся строковым id экшена и резолвится в рантайме через `InputController`.
 
 ---
 
 ## Архитектура
 
 ```
-[CursorSkinSettings] (SO)                       ← конфиг: глобальные тиры + каталог тем
- ├─ int[] resolutionTiers                        (брейкпоинты по Screen.height, ВОЗР.)
- ├─ string defaultSetKey
- └─ CursorSkinSet[] sets                          (тема = ключ + паки по тирам)
-      └─ CursorSkinPack[] tiers
-           ├─ CursorSkin baseSkin                 (вне hover)
-           └─ CursorSkin[] hoverSkins             (по строковому ключу)
-                └─ CursorSkin { name, hideCursor, defaultSprite, CursorSpriteEntry[] overrides }
+[VirtualCursorBus] (static, фасад)
+ ├─ PointerModel Data      ← владелец полей: VirtualCursorController
+ ├─ FocusModel   Focus     ← владелец поля:  VirtualCursorFocusController
+ ├─ GestureModel Gesture   ← владелец поля:  VirtualCursorController
+ └─ const HideCursor = "hidden"
+
+[GestureModel] (IReactiveData, runtime, НЕ Save)
+ └─ GestureFrameData     Frame            ← импульс: Fingers · Phase · Center · Pan · Spread · Scale · Rotation
 
 [PointerModel] (IReactiveData, runtime, НЕ Save)
- ├─ Vector2Data ScreenPosition                    ← истина позиции
- ├─ EnumData<PointerSourceKind> ActiveSource      ← Analog/Point/Direct (last-source-wins)
- ├─ PointerActionMaskData Actions                 ← битовая маска одновременных действий
- ├─ StringData HoverKey                           ← активный hover-скин
- └─ BoolData IsOverUI                             ← над UGUI (из EventSystem)
+ ├─ Vector2Data          ScreenPosition   ← истина позиции
+ ├─ PointerActionMaskData Actions         ← битовая маска одновременных действий
+ ├─ StringData           Skin             ← итоговый скин ("hidden" / запрошенный / "" = базовый)
+ ├─ BoolData             IsOverUI
+ ├─ Vector2Data          ScrollDelta      ← импульс скролла
+ └─ event OnPointerMoved                  ← значимый сдвиг (фильтр дрейфа)
 
-[VirtualCursorController] (static)
- ├─ Init(settings) / Cleanup() / RefreshResolution()
- ├─ ReportPointer(pos, source[, hidesCursor]) / SetAction / SetHover / SetOverUI   (internal — драйверы)
- ├─ Recompute → CursorSkinResolver → Visual (CursorVisualData); подмешивает скрытие по источнику
- └─ Projection: RegisterCamera(LIFO) + ленивый raycast (TryGetWorldHit/GetWorldProjection)
+[VirtualCursorController] (static, partial)
+ ├─ ReportPointer(pos, hidesCursor) · SetAction(action, active, source) · ClearActions · SetOverUI · ReportScroll · ReportGesture   (internal — драйверы)
+ ├─ OnSkin(skin, owner) / OffSkin(owner)  — расширения PointerModel, LIFO-стек запросов скинов
+ └─ Projection: RegisterCamera/UnregisterCamera (LIFO) · TryGetWorldHit · GetWorldProjection · InvalidateProjection
 
-[VirtualCursorBus] (static)  → Data / Visual / IsReady / OnReady            (read-only фасад)
-[CursorSkinSelector] (static) → Selected(StringData) / Select(key)          (save-агностично)
-
-Слой ввода (часть пакета, гейтится вместе со всей сборкой):
-  [InputDriverSet] (SO, ICoreAsset)  → [SerializeReference] InputDriver[]      (Resources/Settings)
-  [CursorInputLoader] (IProcess)     → Register в Loader · Resources.Load + failfast
-                                        · connect по платформе · тик через Accumulate (+анти-спам)
+Слой ввода:
+  [InputDriverSet] (SO, ICoreAsset)  → [SerializeReference] InputDriver[]   (Resources/Settings)
+  [CursorInputLoader] (IProcess)     → Loader.Register · Resources.Load + failfast · connect по платформе
+                                        · тик через Accumulate (+анти-спам) · Disconnect на App.OnExit
   [InputDriver] (POCO, abstract): Connect/Disconnect · NeedsTick/Tick · HidesCursor · SupportsPlatform
-     ├─ MouseInputDriver (Analog)     · TouchInputDriver (Point; режимы HideOnly/AbsolutePosition/Delta + платформенный фильтр)
-     ├─ DirectInputDriver (Direct, NeedsTick; speedCurve + accelerationTime) · ActionInputDriver (кнопки→маска)
-     └─ UINavigationDriver (4 action'а → VirtualCursorFocusController.Navigate)
+     ├─ MouseInputDriver   (позиция мыши, без своего фильтра)
+     ├─ DirectInputDriver  (вектор движения, NeedsTick, speedCurve по времени удержания × stick², варп ОС-мыши)
+     ├─ ActionInputDriver  (кнопки → биты Actions)
+     ├─ ScrollInputDriver  (4 направления → ScrollDelta: пульс + удержание)
+     ├─ TouchInputDriver   (HideOnly / AbsolutePosition / Delta + платформенный фильтр)
+     ├─ MultiTouchInputDriver (палец → экшен: позиция курсора или действие маски + платформенный фильтр)
+     ├─ GestureInputDriver (кадр жеста → Gesture.Frame; Tap/Hold N пальцев → действие маски)
+     └─ UINavigationDriver (4 направления → Navigate, submit → Submit)
 
 Фокус-навигация (Focus/):
-  [FocusModel] (IReactiveData)       → приоритет-ориентированный стек Groups[] + ActiveGroup (пропускает Ignored) + ReactiveValue<IFocusTarget> CurrentFocus
-  [FocusGroup] (MonoBehaviour)        → OnEnable push с bubble-insert по Priority · OnDisable pop · OnDestroy cleanup
-                                        · Priority (0..10) · Ignore (reactive, уведомляет контроллер)
-                                        · Targets[] (регистрация детей) · RememberedFocus · FindNearestEuclidean
-  [VirtualCursorFocusController] (static) → Init/Cleanup · PushGroup/RemoveGroup · Navigate(dir)/ClearFocus
-                                            · авто-передача фокуса на push/pop если _focusAnchor != null
-                                            · подписка на ScreenPosition → авто-ClearFocus на движении
-                                            · _focusAnchor абсорбирует суб-пороговый дрейф (per-frame 3 px)
-  [IFocusTarget] (контракт)          → ScreenPoint · IsActive · NotifyFocused/NotifyUnfocused
+  [FocusModel]  → стек групп с приоритетами · ActiveGroup (первая не-Ignore сверху) · CurrentFocus
+  [FocusGroup]  (MonoBehaviour) → push/pop на OnEnable/OnDisable · Priority · Ignore · Targets · RememberedFocus
+  [VirtualCursorFocusController] (static) → PushGroup/RemoveGroup · Navigate · Submit
+                                            · выход из режима навигации на сдвиге курсора · сопровождение цели
+  [IFocusTarget] (контракт) → ScreenPoint · IsActive · NotifyFocused/NotifyUnfocused · Target
 
-Сценовые MonoBehaviour (не драйверы ввода):
-  CursorHoverZone (UGUI→HoverKey) · CameraProvider (камера проекции, LIFO)
-  PointerActionHandler (UGUI-биндинг Action1/2/3 → UnityEvent — опционально, на кнопках)
-  FocusGroup (на родителе; LIFO контекст навигации)
-  FocusTargetComponent (на кнопке/объекте; UGUI/World → регистрация в родительской FocusGroup + UnityEvent onFocused/onUnfocused)
+Сценовые компоненты (Handlers/):
+  CursorHoverZone · CameraProvider · FocusTargetComponent · FocusCenterScrollRect
+  PointerActionHandler · PointerActionTweenerHandler
 
-UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPosition/Actions, RaycastAll, ExecuteEvents
-Рендер:     ICursorRenderer → UiImageCursorRenderer (дефолт) | OsCursorRenderer (опц.)
+Рендер (Render/): UiCursorRenderer (UGUI + UIStateSwitcher) | OsCursorRenderer (Cursor.SetCursor)
+
+UGUI-модуль (UiModule/):
+  [VirtualCursorInputModule] (StandaloneInputModule на EventSystem) → штатная обработка UGUI · прямые касания по платформе
+  [VirtualCursorBaseInput]   (BaseInput) → «мышь» UGUI = PointerModel · касания из EnhancedTouch
 ```
 
 ### Поток данных
 
 ```
 Источник (мышь/стик/тач/клавиши)
-   → InputDriver (резолв экшена по id через InputController) → VirtualCursorController.ReportPointer/SetAction
-        → PointerModel (ScreenPosition/Actions/HoverKey; hidesCursor по источнику)
-             ├→ CursorSkinResolver → Visual → ICursorRenderer (рисует курсор)
-             ├→ VirtualPointerDispatcher (OnUpdate→dirty; LateUpdate если dirty)
-             │     → EventSystem.RaycastAll → ExecuteEvents(Enter/Exit/Down/Up/Click) → UGUI-handlers
-             └→ Projection (по запросу) → RaycastHit
+   → InputDriver (экшен по id через InputController)
+        → VirtualCursorController.ReportPointer / SetAction / ReportScroll / ReportGesture
+             → PointerModel (ScreenPosition / Actions / Skin / ScrollDelta)
+             │    ├→ рендер (позиция + скин)
+             │    ├→ VirtualCursorFocusController (OnPointerMoved → выход из режима навигации)
+             │    ├→ PointerActionTweenerHandler (Actions → твинеры)
+             │    ├→ Projection (по запросу) → RaycastHit
+             │    └→ VirtualCursorBaseInput → VirtualCursorInputModule → UGUI-события (hover/click/drag/scroll)
+             └→ GestureModel (Frame) → потребители жестов (зум, панорамирование, поворот)
 ```
+
+Инициализация: `VirtualCursorController` и `VirtualCursorFocusController` поднимаются через `[RuntimeInitializeOnLoadMethod]`; модели шины создаются статически и доступны с первого обращения.
 
 ---
 
 ## Ключевые концепции
 
 ### Драйверы ввода как подключаемый модуль
-- `InputDriver` — абстрактный **POCO** (не MonoBehaviour): `Connect()`/`Disconnect()`, `NeedsTick`/`Tick(dt)`, `HidesCursor`, `SupportsPlatform(platform)`. Экшены резолвятся по строковому id «Карта/Экшен» через `InputController` (`[ValueSelector]`-дропдаун в инспекторе).
+- `InputDriver` — абстрактный **POCO**: `Connect()`/`Disconnect()`, `NeedsTick`/`Tick(dt)`, `HidesCursor`, `SupportsPlatform(platform)`. Экшены резолвятся по строковому id «Карта/Экшен» через `InputController` (`[ValueSelector]`-дропдаун в инспекторе).
+- **Карты экшенов драйверы не включают.** Включение карты — на стороне проекта (например, `InputMapHandler` на сцене); без включённой карты события экшенов не приходят, а опрос (`ReadValue`) возвращает ноль.
 - `InputDriverSet` — SO-список драйверов (`[SerializeReference]`), `ICoreAsset` → авто-создаётся в `Resources/Settings/InputDriverSet.asset`.
-- `CursorInputLoader` — `IProcess`: регистрируется в `Loader`, в `RunAsync` грузит сет из `Resources`, подключает драйверы под текущую платформу, заводит покадровый тик. **Failfast**: модуль включён (`USING_VORTEX_CURSOR`), а ассета нет или список пуст → исключение (не тихий отказ).
-- Включается тогглом `cursorInputSdk` в `SdkSettings` (дефайн `USING_VORTEX_CURSOR`). При выключенном дефайне **вся сборка пакета** не компилируется (`defineConstraints` в asmdef); единственное исключение — файл-partial с тогглом (`DefineSettings/SdkSettings.CursorInput.cs`), который через `.asmref` входит в сборку `SdkSettings` и виден в инспекторе всегда — иначе было бы «курица–яйцо» (нечем включить). При выключенном дефайне компоненты пакета в сценах/префабах становятся Missing Script — ожидаемое поведение Unity, сцены/префабы при этом не ломаются.
-- **Гейта ввода нет** — курсор надсистемный: драйвер, будучи подключённым, активен всегда (без ситуативного отсечения).
+- `CursorInputLoader` — `IProcess`: регистрируется в `Loader`, в `RunAsync` грузит сет, подключает драйверы под текущую платформу, заводит покадровый тик для `NeedsTick`. **Failfast**: модуль включён, а ассета нет или список пуст → исключение. На `App.OnExit` все драйверы отключаются.
+- Пустой или неразрезолвленный id экшена — `LogError` «Ошибка настройки драйвера управления» в `Mouse`/`Direct`/`Action`/`MultiTouch`/`Gesture`/`UINavigation`-драйверах; `ScrollInputDriver` молча выключает направление; `TouchInputDriver` id не проверяет.
 
-### Арбитраж источников (last-source-wins)
-`ReportPointer(pos, source)` делает репортящий источник активным (last-source-wins). `PointerSourceKind`: `Analog` (мышь), `Point` (тач), `Direct` (геймпад/клавиши — интеграция скорость×dt, кламп к экрану). Порог антидребезга у мыши из старой реализации в новые драйверы не перенесён (арбитраж — чистый last-source-wins).
+### Арбитраж источников и скрытие
+`ReportPointer(pos, hidesCursor)` задаёт позицию (всегда) и видимость: скрывающий источник скрывает курсор на любом репорте, нескрывающий возвращает его только значимым сдвигом (фильтр дрейфа, см. ниже) — дрожание и эхо варпа скрытие не снимают. Драйвер объявляет `HidesCursor` (у `TouchInputDriver` в HideOnly/AbsolutePosition → `true`, в Delta → `false`; у `MultiTouchInputDriver` и `GestureInputDriver` — поле `hidesCursor`); фокус-навигация передаёт свой флаг `hideCursor`. Значимый сдвиг от другого источника (мышь, стик) возвращает курсор.
 
-### Скрытие курсора по источнику
-Драйвер объявляет `HidesCursor` (у `TouchInputDriver` зависит от режима: HideOnly/AbsolutePosition → true, Delta → false). Флаг прокидывается в `ReportPointer(pos, source, hidesCursor)` и по last-source-wins кладётся в контроллер; `Recompute` подмешивает его поверх резолвера (`Hide = resolved.Hide || pointerHidden`). Смена источника корректно возвращает курсор (мышь → снова виден).
+### Скин курсора
+Итоговый `Skin` сводит контроллер (`GetSkinName`):
+1. Курсор скрыт последним источником → `VirtualCursorBus.HideCursor` (`"hidden"`).
+2. Иначе — верхний запрос LIFO-стека скинов.
+3. Иначе — пустая строка (базовый скин рендера).
 
-Для сценариев «пометить источник, но позицию не трогать» есть отдельный intake `VirtualCursorController.SetActiveSource(source, hidesCursor)` — обновляет `ActiveSource` + hide-канал без `ScreenPosition.Set`. Используется в `TouchInputDriver` режима **HideOnly** (нужно только спрятать визуал, UGUI сам кликает нативно) — чтобы не триггерить `VirtualPointerDispatcher` лишним raycast'ом и не конфликтовать с нативным обработчиком того же устройства.
+Запросы: `VirtualCursorBus.Data.OnSkin(skin, owner)` снимает прежний запрос владельца и кладёт новый наверх; `OffSkin(owner)` снимает. Все три писателя `Skin` (`ReportPointer`, `OnSkin`, `OffSkin`) идут через одно правило — скрытый курсор остаётся скрытым при любых запросах.
+
+### Зоны наведения (`CursorHoverZone`)
+По `PointerEnter` запрашивает свой скин, по `PointerExit`/`OnDisable` снимает. **Правило размещения: одна зона — один свой рейкаст.** UGUI шлёт `PointerEnter` цели рейкаста и её предкам, поэтому зона не должна быть предком рейкаст-объекта другой зоны (иначе две зоны на один рейкаст, порядок их запросов не определён). Вложенные зоны раскладываются сиблингами, каждая со своим `Graphic` (`raycastTarget = true`).
+
+### Интеграция с UGUI
+UGUI получает ввод из модели курсора, а не из устройств: `VirtualCursorInputModule` (наследник `StandaloneInputModule`) ставится на EventSystem вместо `InputSystemUIInputModule`, его источник ввода `VirtualCursorBaseInput` отдаёт:
+- позицию — `ScreenPosition`;
+- кнопки 0/1/2 — `BaseClick`/`ContextClick`/`AltClick` маски `Actions`; фронты нажатия и отпускания фиксируются по событиям маски и держатся до конца кадра модуля — нажатие и отпускание в одном кадре не теряются;
+- скролл — сумму импульсов `ScrollDelta` за кадр;
+- оси и кнопки навигации Selectable — 0/false (навигацию заменяет фокус-подсистема пакета).
+
+Рейкаст, Enter/Exit, Down/Up/Click, порог drag и scroll — штатная логика `StandaloneInputModule`. Поэтому клик, hover и drag работают от любого источника, который драйверы сводят в модель (мышь, геймпад, клавиатура), без физической мыши (консоли) и без варпа ОС-курсора. Старый `UnityEngine.Input` не вызывается (кроме IME — как у стандартного `BaseInput`), модуль совместим с режимом «только Input System». Экшены у модуля не настраиваются.
+
+**Касания.** `nativeTouch` + `nativeTouchPlatforms` (`TouchPlatformFilter`, дефолт `MobileOnly`): на подходящей платформе модуль включает EnhancedTouch и отдаёт касания UGUI напрямую — мультитач, каждый палец отдельным указателем; в кадре с касаниями курсорная часть не обрабатывается. На остальных платформах касания в UGUI не идут — тач-экран работает через драйверы (например, `TouchInputDriver` в Delta как трекпад).
+
+**Не поддерживается:** навигация Selectable, перо (давление/наклон), XR-указатели.
+
+Варп ОС-мыши (`DirectInputDriver.warpSystemMouse`, `TouchInputDriver` в AbsolutePosition, фокус-навигация) для UI больше не нужен — он держит ОС-курсор рядом с виртуальным, чтобы физическая мышь продолжала с его места.
+
+**Фильтр дрейфа** — на входе репорта позиции (`VirtualCursorController.ReportPointer`), общий для всех источников, драйверы своих фильтров не держат. Позиция пишется всегда; сдвиг значим, если за один репорт больше 3 px (`DriftStepSqr` = 9 px²) или от центра дрейфа больше 5 px (`DriftRadiusSqr` = 25 px²); центр переносится в точку значимого сдвига. Значимый сдвиг снимает скрытие нескрывающим источником и поднимает `PointerModel.OnPointerMoved` (после позиции и скина, синхронно внутри репорта). Быстрое движение значимо на каждом шаге, медленное — по накоплении радиуса, дрожание на месте — никогда. Свои переносы курсора (переход фокуса, сопровождение) событие тоже поднимают — подписчик отсекает их сам.
+
+Эхо варпа ОС-мыши приходит с ошибкой округления до пикселя (≈0.7 px, на HiDPI ≈1.4 px): шаг 3 px выше неё — эхо не снимает скрытие и не выводит из режима навигации; допуск сопровождения фокуса (2 px) тоже выше — эхо, сдвинувшее курсор на долю пикселя, не вызывает повторный варп.
+
+`PointerActionHandler` ловит стандартные UGUI-события от любого источника и разделяет их по кнопке (Left/Right/Middle → `BaseClick`/`ContextClick`/`AltClick`). Событие чужой кнопки передаёт дальше по иерархии от родителя — обработчик на потомке `Button` не глушит её клик; своя кнопка поглощается.
+
+### Маска действий
+`PointerAction`: `None`, `BaseClick` (LMB), `ContextClick` (RMB), `AltClick` (MMB). **Порядок не менять** — индекс = бит маски и приоритет доминанты. `PointerActionMask` — `readonly struct` над `int`: одновременные действия битами, `Dominant()` — активное с наименьшим индексом. `None` битом не представлен и никогда не активен. Бит держится набором держателей: источник (привязка `ActionInputDriver`, палец `MultiTouchInputDriver`) берёт действие и отпускает его от своего имени, бит активен, пока держатель есть хотя бы один — отпускание одного из двух экшенов или пальцев на одно действие его не снимает. Взятие и отпускание идемпотентны по источнику. `ActionInputDriver` берёт по `performed`, отпускает по `canceled` (при потере фокуса окна Input System шлёт `canceled` — залипания нет).
+
+### DirectInputDriver: скорость
+`speed × speedCurve(holdTime) × stick²`, направление — нормализованный вектор движения. `holdTime` — секунды удержания стика вне мёртвой зоны: в ней мгновенно сбрасывается в 0, вне её растёт до времени последнего ключа кривой и дальше не копится. Кривая целиком задаёт профиль разгона: X — секунды, Y — множитель к `speed`; при кривой-константе разгона нет. `stick` — отклонение, перенормированное от края мёртвой зоны (0 на границе, 1 при полном), в квадрате — точность на малых отклонениях. На `Connect` — `LogWarning`, если последний ключ кривой ≈ 0. Тик — на `unscaledDeltaTime`, работает и на паузе. Позиция клампится в экран.
+
+### ScrollInputDriver: пульс + удержание
+Четыре Button-экшена направлений. **Пульс** — на каждый `performed` импульс `pulseStep` (колесо мыши). **Удержание** — каждый кадр, пока направление зажато, `holdSpeed × dt` (D-pad, клавиши, стик как Button). Любую модель выключает 0 в её поле. Импульсы публикуются в `PointerModel.ScrollDelta` (импульс, равный предыдущему, публикуется принудительно — щелчки колеса подряд не теряются); в UGUI их доносит `VirtualCursorInputModule`.
 
 ### TouchInputDriver: режимы и платформенный фильтр
-Касание на разных платформах нужно обрабатывать по-разному. Поэтому `TouchInputDriver` — универсальный компонент с тремя режимами и явным платформенным фильтром; типовой паттерн — **два экземпляра в одном `InputDriverSet`**, разведённые по платформам.
+- **HideOnly** (дефолт) — касание только скрывает курсор; репортится текущая позиция курсора (без сдвига — уходит только флаг скрытия), значение экшена не читается. Сам клик — прямым касанием `VirtualCursorInputModule` (`nativeTouch` на платформе). Для Android.
+- **AbsolutePosition** — курсор прыгает в точку касания и скрывается; опционально варп ОС-мыши.
+- **Delta** — трекпад: дельта пальца (× `deltaSpeedMultiplier`) сдвигает курсор, курсор виден, клампится в экран. Варпа нет. Для десктоп-тачскринов.
 
-**Режимы (`TouchDriverMode`):**
-- **HideOnly** (дефолт). На касание выставляет `ActiveSource=Point` + `_pointerHidden=true` через `SetActiveSource`. `ScreenPosition` НЕ меняется, `VirtualPointerDispatcher` не триггерится. Клик обрабатывается нативным `InputSystemUIInputModule` на `<Touchscreen>/primaryTouch`. Биндинг — любой (Button `primaryTouch` или Value); значение не читается. **Нужен на Android**.
-- **AbsolutePosition**. Курсор прыгает в точку касания — старое поведение. Биндинг — Value/Vector2 (`Touchscreen/primaryTouch/position`). Полезно только там, где нативный UGUI-тач-пайплайн выключен (киоск).
-- **Delta**. Трекпад — палец сдвигает курсор относительно; курсор остаётся видим (`HidesCursor=false`). Биндинг — Value/Vector2 **дельты** (`Touchscreen/delta`). InputSystem сам обнуляет дельту между касаниями, никакой истории драйвер не ведёт. **Нужен на десктоп-тачскринах**.
+`TouchPlatformFilter`: `All` / `MobileOnly` (Android/iOS, в редакторе не подключается) / `DesktopOnly` (Standalone + все редакторы). Пара HideOnly + Delta разводится фильтром по платформам — иначе на мобильных Delta (не скрывает) перебивал бы HideOnly.
 
-**Платформенный фильтр (`TouchPlatformFilter`):**
-- **All** — любая платформа (дефолт, обратная совместимость; **не рекомендуется для парного сета**).
-- **MobileOnly** — Android/iOS runtime; в редакторе НЕ подключается (тестировать на устройстве).
-- **DesktopOnly** — Standalone Windows/Mac/Linux + все редакторы.
+### MultiTouchInputDriver: пальцы мультикасания
+Привязки «палец → экшен». Палец (`TouchFinger`) — порядок прикосновения, слот `Touchscreen.touches[i]` Input System. Экшен биндится на касания целиком (`<Touchscreen>/touch*/position`, `<Touchscreen>/touch*/press`); каждый кадр драйвер берёт его контрол на выбранном пальце и действует по типу контрола:
+- **Vector2** (позиция) — курсор ведётся за пальцем: репорт, пока касание идёт и точка сместилась (с началом касания — сразу); скрытие по `hidesCursor`.
+- **Кнопка** (press, tap) — состояние ставит или снимает `PointerAction` привязки в маске `Actions`.
 
-**Зачем фильтр.** В парном сете (HideOnly + Delta) на одной платформе возник бы конфликт на last-source-wins: Delta фаерит каждый кадр движения пальца с `HidesCursor=false`, а HideOnly — только единожды на tap-down с `HidesCursor=true`. При свайпе Delta всегда перезапишет hide в `false` — курсор был бы виден и на Android (нежелательно). Фильтр разводит экземпляры: HideOnly → MobileOnly, Delta → DesktopOnly, конфликта нет.
+Нет контрола позиции или кнопки на пальце — `LogError` один раз на привязку. Выключенный экшен (карта выключена) — касание для драйвера закончилось: действие отпускается, ведение курсора сбрасывается. На `Disconnect` снимает только свои действия. Платформы — `TouchPlatformFilter`. При `VirtualCursorInputModule.nativeTouch` на той же платформе курсорная часть модуля в кадрах с касанием не обрабатывается — действия драйвера до UGUI не дойдут.
 
-### Тик драйверов (TimeController.Accumulate + анти-спам)
-Драйверы с `NeedsTick` (Direct) тикаются самоперепланирующейся петлёй через `TimeController.Accumulate` (без скрытого раннера). Петля обёрнута в `try/catch/finally`: внутренний `catch` изолирует сбойный драйвер, `finally` гарантирует продолжение. Анти-спам: исключение драйвера логируется только на **первое** в серии, счётчик сбрасывается на первом успешном кадре. `Tick` работает на `unscaledDeltaTime` — действует и на паузе (меню).
+### GestureInputDriver: жесты мультикасания
+Касания — через экшен на `<Touchscreen>/touch*/position` (контролы идущих касаний, по `touchId`). Два слоя:
 
-### Фокус-навигация (Focus/)
-Переключение активного элемента нажатием направлений (D-pad/стрелки) — альтернатива курсорному управлению для гейпада/клавиатуры в UI-сценах.
+**Кадр жеста** (`VirtualCursorBus.Gesture.Frame`, `GestureFrame`) — пока на экране два и больше пальцев:
 
-**Стек групп (контексты навигации) — приоритет + LIFO внутри тира.**
-- `FocusGroup` — MonoBehaviour на любом родителе интерактивных элементов. На `OnEnable` push'ится в стек с bubble-insert по `Priority` (см. ниже); на `OnDisable` — pop; на `OnDestroy` — финальный cleanup. Активная группа (`ActiveGroup`) — ближайшая к топу не-`Ignore`-группа; только её `Targets` участвуют в `Navigate`.
-- Стандартный паттерн — SetActive меню: HUD-группа всегда активна, при открытии меню паузы оно пушится поверх → навигация идёт по его кнопкам; закрыл меню → активной снова становится HUD-группа.
-- Nested-группы — вложенные `FocusGroup` допустимы; target цепляется к ближайшей родительской через `GetComponentInParent`.
+| Поле | Смысл |
+|---|---|
+| `Fingers` | число пальцев жеста |
+| `Phase` | `Began` — набралось число пальцев (дельты нейтральные) · `Changed` — кадр с изменением · `Ended` — пальцы подняты или набор пальцев изменился |
+| `Center` | центр пальцев, px |
+| `Pan` | сдвиг центра за кадр, px — панорамирование |
+| `Spread` | среднее расстояние пальцев до центра, px |
+| `Scale` | `Spread` / `Spread` прошлого кадра: >1 — расширение, <1 — сужение (зум, не зависит от разрешения) |
+| `Rotation` | поворот пальцев вокруг центра за кадр, градусы (против часовой — положительный) |
 
-**Priority (0..10).** На push группа bubble'ится к топу, минуя группы со **строго меньшим** приоритетом, и останавливается перед первой равной или большей. Между равными — обычный LIFO (позже push'нутый — выше). Пример: `HUD(0)` + `Pause(5)` + `Toast(3)` даст порядок `[HUD, Toast, Pause]`, активной останется `Pause`. `Priority=0` у всех — поведение сводится к чистому LIFO. Изменение в рантайме НЕ переупорядочивает уже-зарегистрированные группы — применяется на следующий `OnEnable` этой группы.
+Смена набора пальцев посреди жеста завершает его (`Ended`) и сразу начинает новый (`Began`) — без скачка центра и размаха. Каналы `Pan`/`Scale`/`Rotation` молчат (нейтральные 0/1/0), пока накопленное с начала жеста изменение не превысит порог (`panThreshold` px, `scaleThreshold` доля, `rotationThreshold` градусы); `Changed` публикуется только при ненейтральной дельте. Кадр — импульс: равный предыдущему публикуется принудительно. Толкование (зум камеры, прокрутка карты, поворот) — на потребителе.
 
-**Ignore (reactive).** `bool`-тоггл на группе: при `true` группа **остаётся в стеке** (target'ы живут, `RememberedFocus` сохраняется), но `ActiveGroup` её пропускает. Setter idempotent + уведомляет контроллер (`VirtualCursorFocusController.OnGroupIgnoreChanged`): если `CurrentFocus` после смены Ignore оказался вне активной группы — срабатывает немедленный перенос (сохранение в `RememberedFocus` владеющей группы + `NotifyUnfocused` + auto-focus в новой активной при nav-mode). Если флаг флипнули на группе глубоко в стеке и `ActiveGroup` не поменялась — no-op, фликера нет.
+**Распознанные жесты → маска** — привязки `{ fingers (2–5), kind, action, moveCursorToCenter }`:
+- **Tap** — от первого касания до отрыва последнего пальца не дольше `tapMaxDuration`, ни один палец не сдвинулся дальше `tapMaxMovement`; число пальцев — максимум одновременных. Действие берётся и отпускается в одном кадре (клик — `VirtualCursorInputModule` фронты не теряет).
+- **Hold** — действие держится, пока идёт жест ровно с этим числом пальцев (тап тем же числом пальцев тоже кратко его возьмёт).
+- `moveCursorToCenter` — перед взятием курсор переносится в центр жеста (скрытие по `hidesCursor`): клик придётся по месту касания.
 
-**Регистрация target'ов.**
-- `FocusTargetComponent` на UGUI-кнопке (`TargetKind=UGUI`, ссылка на `RectTransform`) или world-объекте (`TargetKind=World`, `Transform` + активная камера из `CameraProvider`). `OnEnable` → `GetComponentInParent<FocusGroup>` + ре-резолв родительского канваса → `Register`; `OnDisable` → `Unregister` из той же группы, в которой был зарегистрирован.
-- **Re-resolve на каждом OnEnable, не lazy.** Reparenting target'а между OnDisable и OnEnable (UI-пулинг, динамическая компоновка меню, `DontDestroyOnLoad move`) корректно подхватывается — старая регистрация снята в OnDisable, новая делается в фактически текущую родительскую группу. Стоимость `GetComponentInParent` на редких OnEnable незначима.
-- **Fail-loud:** target без `FocusGroup` в родителях → `LogError` (с анти-спамом: подряд повторяющиеся null-резолвы молчат, флаг сбрасывается на первом найденном). Это ошибка настройки сцены.
+Действия берутся от имени привязки (набор держателей). `Disconnect` завершает идущий жест и отпускает удержания. Выключенный экшен — касаний нет: жест завершается, удержания отпускаются, незаконченный тап сбрасывается (ложного тапа нет).
 
-**Алгоритм Navigate.** Полуоткрытый конус `[-45°..+45°)` относительно направления (4 направления × 90° = покрытие 360° без пересечений, target попадает ровно в одну зону). Среди попавших — **минимум евклидовой дистанции**. Отсчёт от **точной `ScreenPoint` текущего фокуса** (не от позиции курсора — она после `WarpCursorPosition` округляется ОС-мышью до int-пикселя и даёт сдвиг ≈0.5 px, что на коротких дистанциях путает конусную выборку); если фокуса нет — fallback на `ScreenPosition` курсора. Текущий `CurrentFocus` исключается из кандидатов (defensive `ReferenceEquals` поверх дистанции).
+### Тик драйверов
+Драйверы с `NeedsTick` тикаются самоперепланирующейся петлёй через `TimeController.Accumulate`. Внутренний `catch` изолирует сбойный драйвер, `finally` гарантирует продолжение; исключение логируется только на первое в серии, счётчик сбрасывается на первом успешном кадре.
 
-**«Захват фокуса» (`captureFocusIfFree`).** Опциональный fallback-режим в `UINavigationDriver` (default `true`): если в конусе никого **и** `CurrentFocus == null` — выбирается ближайший активный target группы по евклидовой дистанции, без учёта направления. Любая клавиша-направление становится точкой входа в nav mode: курсор «прилипает» к ближайшей кнопке. При уже активном фокусе этот fallback **не** применяется — иначе навигация у края группы (нет соседей в этом направлении) молча бы перескакивала на противоположный конец списка.
+### Фокус-навигация
+**Стек групп.** `FocusGroup` на `OnEnable` встаёт в стек с учётом `Priority` (0..10): группа поднимается к верху, минуя группы со строго меньшим приоритетом; между равными — LIFO. `ActiveGroup` — первая сверху группа без `Ignore`; только её `Targets` участвуют в навигации. `OnDisable` снимает группу, `OnDestroy` — финальная очистка. Изменение `Priority` в рантайме применяется на следующем `OnEnable`. `Ignore` в рантайме уведомляет контроллер: если текущий фокус оказался вне активной группы — он уходит в `RememberedFocus` своей группы; если фокуса нет — запрашивается авто-передача (в режиме навигации), как при push/pop.
 
-**Авто-передача фокуса при push/pop группы.** Срабатывает **только** если `_focusAnchor != null` (курсор был «притянут» навигацией и не сдвинут мышью с тех пор):
-- Push: старый фокус сохраняется в `RememberedFocus` старой группы + `NotifyUnfocused`; в новой топ-группе фокусом становится `RememberedFocus` (если ещё активен) или ближайший евклидовой дистанции target → `NotifyFocused` + warp.
-- Pop: симметрично — старая группа теряет current (сохраняется в её Remembered), новая топ-группа восстанавливает свой.
-- Если `_focusAnchor == null` (пользователь двигал мышь, вышел из nav mode) — автоматика выключена, стек просто перестраивается, курсор остаётся свободным.
+**Регистрация целей.** `FocusTargetComponent` (`TargetKind.UGUI` — центр `RectTransform` с учётом render mode канваса; `TargetKind.World` — проекция `Transform` через активную камеру `CameraProvider`) на каждом `OnEnable` ищет ближайшую родительскую `FocusGroup` и регистрируется; без группы — `LogError` (с анти-спамом). `Unregister` чистит `RememberedFocus` группы, только если цель уничтожена.
 
-**Эффекты фокуса:** `IFocusTarget.NotifyFocused`/`NotifyUnfocused` → UnityEvent'ы на компоненте (подсветка/SFX); курсор скрывается через `VirtualCursorController.HideCursor()` (external-канал — независим от Report'ов драйверов); `Mouse.WarpCursorPosition` синхронизирует ОС-мышь с точкой target'а.
+**Navigate.** Полуоткрытый конус `[-cone..+cone)` от точки текущего фокуса (без фокуса — от позиции курсора); среди попавших — минимум евклидовой дистанции; текущий фокус исключается. `captureNearestIfFree`: без фокуса и без кандидатов в конусе берётся ближайшая цель группы. Переход фокуса: `NotifyUnfocused`/`NotifyFocused` (UnityEvent'ы цели), запоминание в `RememberedFocus` групп, репорт позиции с флагом скрытия и варп ОС-мыши.
 
-**Авто-ClearFocus на движении курсора:** `_focusAnchor` + `AnchorToleranceSqr=9` (3 px) — **per-frame** порог, не кумулятивный. Дельта ниже порога **поглощается в сам anchor** на каждый апдейт `ScreenPosition`: hardware noise ОС-мыши (~1 px/кадр при простое), int-округление `WarpCursorPosition` и warp-эхо не копятся кадр за кадром от исходной точки — иначе случайный спайк за секунду-другую пробивал бы tolerance без действия пользователя (выглядит как «периодический выброс в свободный курсор»). Намеренный жест мышью (5+ px/кадр даже на самом медленном осознанном движении на 60 Гц) пробивает порог за один кадр → `ClearFocus` + `ShowCursor()` + выход из nav mode.
+**Режим навигации** — отдельный флаг: включается переходом фокуса, выключается только сдвигом курсора пользователем или опустевшим стеком групп. Переживает временную потерю фокуса (уход в `RememberedFocus` при push, отключение фокусной цели) — на нём держится авто-передача фокуса при push/pop/`Ignore`: новой активной группе отдаётся её `RememberedFocus` или ближайшая к курсору цель. Передача отложена до ближайшего тика петли сопровождения (`LateUpdate`): на `OnEnable` группы её дочерние цели ещё не зарегистрированы, а смена меню в одном кадре не роняет режим на промежуточном пустом стеке. Явный `Navigate` в этом окне отменяет отложенную передачу. Значимый сдвиг курсора (`PointerModel.OnPointerMoved`) завершает режим и снимает фокус; дрожание и эхо варпа — нет. Свои переносы курсора контроллер отсекает флагом на время собственного репорта.
 
-### Внешний канал скрытия курсора (`HideCursor`/`ShowCursor`)
-Независимый API поверх источников: `VirtualCursorController.HideCursor()` / `ShowCursor()`. `_externalHidden` входит в OR-композицию `visual.Hide` в `Recompute` (три канала: скин → `_pointerHidden` от источника → `_externalHidden` от внешнего кода). Не сбрасывается `ReportPointer`-ами драйверов — критично для фокус-навигации, где mouse-echo после warp'а иначе бы перезаписал hide back to false.
+**Уведомления модели.** `FocusModel.OnUpdateData` батчится через `TimeController.Accumulate`: серия изменений за вызов (стек → снятие фокуса → новая цель) даёт одно событие в `LateUpdate` с итоговым состоянием. `CurrentFocus.OnUpdate` остаётся синхронным.
 
-`ShowCursor` обнуляет **только** свой канал: если скин задан с `HideCursor=true` или активный источник (`TouchInputDriver`) скрывает курсор — он останется скрыт.
+**Сопровождение.** Покадровая петля переносит курсор (и ОС-мышь) в точку цели, если та сместилась (скролл, лейаут, анимация) — с тем же флагом скрытия.
 
-### Профиль скорости в DirectInputDriver (curve + разгон)
-Итоговая скорость курсора: `speed × speedCurve.Evaluate(stickMagnitude) × accelFactor`.
-- **`speedCurve`** (AnimationCurve) — нелинейный ответ на отклонение стика. X ∈ [0..1] = магнитуда стика, Y = множитель к `speed`. Дефолт — константа 1 (кривая не влияет). Для precision-control на малых отклонениях — `Pow(x, 2)` или аналог.
-- **`accelerationTime`** (сек) — плавный набор скорости от 0 до максимума при выходе стика из деад-зоны. `0` = мгновенный разгон (bang-bang, как было). Торможение в деад-зоне **мгновенное** (`_accelFactor` сбрасывается в 0) — курсор слушается дизайнера без инерции на остановке; следующий старт пойдёт с 0.
-- **Валидация**: на `Connect` проверка `speedCurve.Evaluate(1) ≈ 0` → `LogWarning` с указанием `moveActionId`. Ловит типовую ошибку конфигурации «курсор не двигается на полной амплитуде».
+**Submit.** `VirtualCursorFocusController.Submit()` эмулирует клик левой кнопкой в точке цели так, будто рейкаст попал в `IFocusTarget.Target` текущего фокуса: `PointerDown` с подъёмом по иерархии до ближайшего обработчика нажатия (без него получатель — ближайший `IPointerClickHandler`), `PointerUp` получателю нажатия, `PointerClick` ближайшему по иерархии `IPointerClickHandler`. Работают обработчики, фиксирующие клик по нажатию/отпусканию/времени, и цель ниже обработчика (зона нажатия кнопки). Без фокуса — ничего.
 
-### Маска действий (одновременность + доминанта)
-`PointerAction` — последовательный enum-индекс (`None` + `Action1…Action10`; конвенция: 1=LMB, 2=RMB, 3=MMB, 4=Back, 5=Forward, 6=Scroll↑, 7=Scroll↓, 8–10=запас). `PointerActionMask` — `readonly struct` над `int`: биты = одновременно активные действия, `Dominant()` — младший активный бит по приоритету (для спрайта). `ActionInputDriver` по `started`/`canceled` выставляет/снимает биты; `canceled` при alt-tab снимает их сам.
+**Обработчики фокуса.** Смена фокуса (`Navigate`) из `onFocused`/`onUnfocused` отклоняется с `LogError`. Изменения стека групп и регистрации целей оттуда (включение/выключение групп и целей, `Ignore`) не теряются: они откладываются и выполняются по порядку после завершения текущей операции контроллера (не посреди перехода фокуса), каждое перепроверяет сцену на момент выполнения — push пропускается, если группа уже выключена, remove — если снова включена.
 
-### Скины: тема → тир → hover → действие, с фолбэком вверх
-`CursorSkinResolver.Resolve`:
-1. **Тема** — `CursorSkinSelector.Selected` → `CursorSkinSet` (дефолт, если не найдена).
-2. **Тир разрешения** — `SelectTierIndex(Screen.height)`: минимальный `resolutionTiers[i] >= height`, иначе крупнейший → `CursorSkinPack`.
-3. **Скин** — hover-скин по `HoverKey`, иначе базовый; `HideCursor` → курсор скрыт.
-4. **Спрайт** — по `Actions.Dominant()`: `override` скина → его `defaultSprite` → **вверх**: базовый скин пакета → его `defaultSprite`.
-5. Hotspot — из `Sprite.pivot`, инверсия по Y.
+`FocusCenterScrollRect` (на `ScrollRect`) центрирует контент на фокусном элементе-потомке `content`: по разрешённым осям, с порогом `axisTolerance` относительно предыдущего фокуса, мгновенно или анимацией на unscaled-времени.
 
-### Глобальные тиры разрешения
-Брейкпоинты (`resolutionTiers`) заданы **один раз** в `CursorSkinSettings`; каждая тема даёт по одному паку на тир (`OnValidate` предупреждает о рассогласовании). Смена разрешения → `VirtualCursorController.RefreshResolution()`.
+### Твинеры по клавишам (`PointerActionTweenerHandler`)
+Глобально подписан на `Actions`: для каждой привязки «действие → `TweenerHub`» нажатие → `Forward`, отпускание → `Back`; на `OnEnable` твинеры мгновенно выравниваются по текущей маске. Привязка к `None` никогда не активна.
 
-### Initial-flash: гейт первого репорта в UGUI-рендерере
-`UiImageCursorRenderer` держит `image.enabled = false` до первого реального репорта позиции от любого драйвера (`_firstReportReceived`-гейт). Иначе дефолтный спрайт темы мигнул бы в `(0, 0)` при загрузке сцены — на тач-платформах это флэш в углу экрана до первого касания. Гейт снимается в `OnPosition`; `OnVisual` при незакрытом гейте тоже не рисует (смена темы/действия в стартовом состоянии не открывает визуал). На `OnEnable` гейт сбрасывается — повторная активация рендерера начинает с чистого состояния.
-
-Важное следствие для Android: если на устройстве нет мыши/геймпада и единственный источник ввода — `TouchInputDriver` в режиме HideOnly, `ScreenPosition` не меняется никогда (режим использует `SetActiveSource` без `Set` на позицию). Гейт не снимается, визуал остаётся скрытым **навсегда** — именно то, что нужно на чисто тач-устройстве.
-
-### Виртуальный pointer и родной UGUI (`VirtualPointerDispatcher`)
-`VirtualPointerDispatcher` подписан на `ScreenPosition.OnUpdate` и `Actions.OnUpdate` в `Bus`; событие ставит `_dirty` — `LateUpdate` обсчитывает цикл **только** на изменениях (в простое — одна проверка булева). За один проход: `EventSystem.RaycastAll` в точке позиции → Enter/Exit diff → переходы Action1/2/3 (LMB/RMB/MMB) с `pointerDownHandler`/`pointerUpHandler`/`pointerClickHandler` через `ExecuteEvents` на найденный target. Поддерживается стандартный UGUI-канон клика (Up на том же `IPointerClickHandler`-таргете, что и Down).
-
-**Нет фантомного `InputDevice`**: биндинги в UI Actions-asset остаются на `<Mouse>` для физической мыши. Виртуальный pointer и физическая мышь шлют события тем же UGUI-handler'ам независимо — никаких петель. Поддерживает UGUI, 2D-/3D-коллайдеры (через стандартные `Physics2DRaycaster`/`PhysicsRaycaster` на камере — `RaycastAll` вернёт и их).
-
-**Ленивая инициализация**: `PointerEventData` создаётся в `LateUpdate` при первом появлении `EventSystem.current`. Диспетчер корректно работает на `Preload`-сцене, когда EventSystem живёт на UI-сцене и загружается позже.
-
-**На кнопках**: для **правой/средней** кнопки — `PointerActionHandler` на UGUI-элементе (dropdown `PointerAction` + `onPressed`/`onReleased`/`onClick`). Для **левой** — обычный `Button.onClick`. Action4..Action10 через UGUI-пайплайн не проходят (`PointerEventData.InputButton` знает только Left/Right/Middle).
-
-### IsOverUI
-`VirtualPointerDispatcher` пишет `PointerModel.IsOverUI` по своему `RaycastAll` в позиции виртуального курсора (попал ли raycast в UI) — потребители мировой проекции гейтят клик по флагу. Источник — сам виртуальный курсор, а не `EventSystem.IsPointerOverGameObject()` (тот отражал бы физическую мышь). Отдельный компонент для этого не нужен.
+### Рендеры
+- **`UiCursorRenderer`** — RectTransform курсора на оверлей-канвасе ставится в `ScreenPosition`; скин — состояние `UIStateSwitcher` с тем же именем (неизвестное имя → состояние 0). Для скрытия нужно состояние с именем `hidden`. Позиция и скин применяются начиная с первого репорта позиции; на `OnEnable` ставится состояние `hidden` (нет такого — состояние 0). Опционально скрывает системный курсор.
+- **`OsCursorRenderer`** — `Cursor.SetCursor` (ForceSoftware) по набору спрайтов скина: первый набор — скин по умолчанию, флаг `hidden` прячет ОС-курсор, спрайт выбирается по `Actions.Dominant()` (`actionsOverride[0..2]` с фолбэком). Перерисовывается на смене `Skin`. Требует standalone-текстуру спрайта (не атлас).
 
 ### Screen→world проекция
-`VirtualCursorController` ведёт LIFO-реестр камер (`CameraProvider`); `TryGetWorldHit`/`GetWorldProjection` — ленивый `Physics.Raycast` с кэшем на кадр. Пакет отдаёт сырой хит.
-
-### Выбор темы (save-агностично)
-`CursorSkinSelector` держит реактивный ключ темы (`Selected`) и `Select(key)`. Персист (`IGameData`) — на **проектном слое**. Пакет (L2) не зависит от GameCore (L3).
+LIFO-реестр камер (`CameraProvider` на OnEnable/OnDisable); `TryGetWorldHit`/`GetWorldProjection` — ленивый `Physics.Raycast` из `ScreenPosition` с кэшем на кадр; кэш сбрасывается сменой позиции курсора и реестра камер, вручную — `InvalidateProjection` (сдвинулась геометрия сцены).
 
 ### Editor-инструментарий
-- **`Tools/Vortex/Virtual Cursor/Focus Stack`** — диагностическое окно: стек `FocusGroup` сверху-вниз (топ = верх стека, `▶ ACTIVE` — ближайшая не-Ignored к топу), для каждой группы приоритет-chip слева (`P<n>`), маркер `⊘ IGNORED` на Ignored-группах (серый курсив), список `Targets`, маркер `●` на `CurrentFocus`, `◉` на `RememberedFocus`, пометка `[inactive]`. Клик по строке группы или target'а — Ping + Select в Hierarchy. Данные только в Play Mode после `VirtualCursorBootstrap.Init`; авто-repaint через `EditorApplication.update`. Палитра стилей переключается по `EditorGUIUtility.isProSkin`.
-- **`Tools/Vortex/Configs/Virtual Cursor Skin Settings`** — подсветить ассет `CursorSkinSettings` в Project window.
-- **`Tools/Vortex/Configs/Input Driver Set`** — подсветить ассет `InputDriverSet` в Project window.
-- Легаси-пункт `Tools/Vortex/Configs/Cursor Settings` (из пакета `CursorSystem`) обёрнут в `#if !USING_VORTEX_CURSOR` — при включённом новом курсоре в меню не показывается.
+- **`Tools/Vortex/Virtual Cursor/Focus Stack`** — окно стека групп: приоритет (`P<n>`), статус (`▶ ACTIVE` / `⊘ IGNORED` / глубина), `Targets` с маркерами `●` текущий фокус, `◉` запомненный, `[inactive]`; клик — Ping + Select. Только в Play Mode; авто-перерисовка не чаще раза в секунду, вне Play Mode тик отключён.
+- **`Tools/Vortex/Configs/Input Driver Set`** — подсветить `InputDriverSet` в Project.
 
 ---
 
 ## Контракт
 
 ### Вход
-- `SdkSettings`: тоггл `cursorInputSdk` включён (дефайн `USING_VORTEX_CURSOR`).
-- `InputDriverSet` (SO в `Resources/Settings`): непустой список драйверов с назначенными id экшенов.
-- Input Actions: экшены под драйверы (позиция мыши, позиция касания, вектор движения, кнопки Action1…Action10); UI Actions-asset (`InputSystemUIInputModule`) остаётся стандартным — биндится на `<Mouse>`.
-- `CursorSkinSettings` (SO) передан в `Init` (через `VirtualCursorBootstrap`).
-- `EventSystem` в активных сценах (стандартный UGUI-объект, нужен диспетчеру).
+- `SdkSettings`: включён `cursorInputSdk` (`USING_VORTEX_CURSOR`).
+- `InputDriverSet` в `Resources/Settings`: непустой список драйверов с назначенными id экшенов.
+- Input Actions: экшены под драйверы; карты включаются проектом.
+- `EventSystem` + `VirtualCursorInputModule` (вместо `InputSystemUIInputModule`) в сценах с UI.
+- Рендер курсора на оверлей-канвасе (`UiCursorRenderer`) или `OsCursorRenderer`.
 
 ### Выход
-- `PointerModel` (позиция/источник/маска/hover/над-UI) — реактивно.
-- `CursorVisual` — текущий вид курсора (спрайт+hotspot+hide) для рендера.
-- Стандартные UGUI-события на target'ах под курсором (Enter/Exit/Down/Up/Click) через `VirtualPointerDispatcher`.
+- `PointerModel` (позиция / действия / скин / над-UI / скролл) — реактивно.
+- UGUI-события (hover/click/drag/scroll) в позиции курсора от любого источника — через `VirtualCursorInputModule`; прямые касания — по платформе.
+- `FocusModel` (стек групп, текущий фокус) — реактивно.
+- `GestureModel` (кадр жеста мультикасания) — реактивно.
 - `RaycastHit`/точка проекции по запросу.
 
 ### Гарантии
-- Одна экранная позиция для рендера, UI и проекции — без рассинхрона.
-- Одновременность действий на девайсе; одиночная доминанта для спрайта.
-- `canceled`/alt-tab снимает биты действий — залипания нет.
-- Тик драйверов переживает сбой одного драйвера (try/catch/finally, лог без спама).
-- Владение реактивными полями закреплено за контроллером — извне не пишутся.
-
-### Ограничения
-- Пакет требует включённого дефайна `USING_VORTEX_CURSOR` (`defineConstraints` в asmdef); при выключенном не компилируется ни один тип пакета — внешний код, ссылающийся на `VirtualCursorBus`/`FocusGroup`/etc., также падает, если не гейтит своё обращение.
-- `InputDriverSet` обязан существовать и быть непустым — иначе `CursorInputLoader` кидает исключение (failfast).
-- `VirtualPointerDispatcher` должен быть **в активной сцене** (persistent-сцена рядом с Bootstrap/Renderer — идеально); без него UGUI-handler'ы не получат события от виртуального курсора. `EventSystem` может быть на любой другой сцене — диспетчер подхватится лениво.
-- Через UGUI-пайплайн доступны только `Action1`/`Action2`/`Action3` (LMB/RMB/MMB). Для `Action4..Action10` нужен прямой биндинг на `VirtualCursorBus.Data.Actions.OnUpdate` с ручной проверкой hover-зоны.
-- Проекция требует зарегистрированной камеры; без неё — промах.
-- `OsCursorRenderer` требует **standalone-текстуру** спрайта (`Cursor.SetCursor` берёт целую `Texture2D`). Для атласных курсоров — `UiImageCursorRenderer`.
-- `InputController` (шина ввода) должен быть доступен на момент коннекта — он лениво инициализируется по первому обращению (`GetAction`), явного ожидания в `WaitingFor` не требуется.
+- Одна экранная позиция для рендера, UGUI-ввода, фокуса и проекции.
+- Одновременность действий; одиночная доминанта для спрайта.
+- Скрытие от источника имеет приоритет над запросами скинов.
+- Тик драйверов переживает сбой одного драйвера.
+- Поля моделей `ScreenPosition`/`Actions`/`Skin`/`IsOverUI`/`ScrollDelta`/`CurrentFocus`/`Gesture.Frame` закрыты на контроллеры.
 
 ---
 
@@ -279,133 +280,107 @@ UGUI-мост:  VirtualPointerDispatcher — подписка на ScreenPositio
 
 ### VirtualCursorBus (static)
 ```csharp
-static PointerModel     Data;      // runtime-модель
-static CursorVisualData Visual;    // текущий вид курсора
-static FocusModel       Focus;     // runtime-реестр фокус-навигации (CurrentFocus.OnUpdate)
-static bool             IsReady;
-static event Action     OnReady;
+const string HideCursor = "hidden";
+static PointerModel Data;      // runtime-модель указателя
+static FocusModel   Focus;     // runtime-модель фокус-навигации
+static GestureModel Gesture;   // runtime-модель жестов мультикасания (Frame)
 ```
 
 ### VirtualCursorController (static)
 ```csharp
-static void Init(CursorSkinSettings settings);
-static void Cleanup();
-static void RefreshResolution();
-static void ConfigureProjection(LayerMask mask, float distance);
-static bool TryGetWorldHit(out RaycastHit hit);
+// Скины (расширения PointerModel): VirtualCursorBus.Data.OnSkin(...)
+static void OnSkin(this PointerModel model, string skin, Object skinOwner);
+static void OffSkin(this PointerModel model, Object skinOwner);
+
+// Проекция
+static bool     TryGetWorldHit(out RaycastHit hit);
 static Vector3? GetWorldProjection();
-static void InvalidateProjection();
+static void     InvalidateProjection();
 
-// Внешний канал скрытия курсора — независим от Report'ов и от скина (OR-композиция).
-static void HideCursor();                 // _externalHidden = true, Recompute
-static void ShowCursor();                 // _externalHidden = false; скин/источник остаются
-static bool IsCursorHiddenExternally;     // query
-
-// intake (internal): ReportPointer(pos,src) / ReportPointer(pos,src,hidesCursor)
-//                    / SetActiveSource(src, hidesCursor)    ← source+hide БЕЗ ScreenPosition.Set
-//                    / SetAction / ClearActions / SetHover / SetOverUI / Register/UnregisterCamera
+// internal (драйверы/компоненты пакета):
+// ReportPointer(pos, hidesCursor) · SetAction(action, active, source) · ClearActions · SetOverUI
+// ReportScroll · ReportGesture
+// RegisterCamera / UnregisterCamera · ActiveCamera
 ```
 
 ### VirtualCursorFocusController (static)
 ```csharp
-static FocusModel Model;                                         // null до Init
 static bool IsReady;
-
-static void Init();                                              // зовётся из VirtualCursorBootstrap
-static void Cleanup();
-static void PushGroup(FocusGroup group);                         // из FocusGroup.OnEnable; bubble-insert по Priority
-static void RemoveGroup(FocusGroup group);                       // из OnDisable/OnDestroy
+static void Init();                                         // [RuntimeInitializeOnLoadMethod]
+static void PushGroup(FocusGroup group);                    // из FocusGroup.OnEnable
+static void RemoveGroup(FocusGroup group);                  // из OnDisable/OnDestroy
 static void Navigate(Vector2 direction, float coneAngleDeg,
-                     bool hideCursor, bool warpSystemMouse,
-                     bool captureNearestIfFree);                 // из UINavigationDriver
-static void ClearFocus();                                        // + ShowCursor() + NotifyUnfocused
-internal static void OnGroupIgnoreChanged(FocusGroup group);     // из FocusGroup.Ignore setter
+                     bool hideCursor, bool captureNearestIfFree);
+static void Submit();                                       // эмуляция клика (Down/Up/Click) в Target текущего фокуса
 ```
 
 ### FocusGroup (MonoBehaviour)
 ```csharp
-IReadOnlyList<IFocusTarget> Targets;                             // регистрируются детьми
-int  Priority;                                                   // 0..10 Range-слайдер; bubble-insert на PushGroup
-bool Ignore { get; set; }                                        // reactive: setter триггерит OnGroupIgnoreChanged
-IFocusTarget RememberedFocus;                                    // сохраняется между активациями
-void Register(IFocusTarget target);                              // из FocusTargetComponent.OnEnable
-void Unregister(IFocusTarget target);                            // из OnDisable
-void ClearRememberedFocus();                                     // явный сброс (опционально)
+IReadOnlyList<IFocusTarget> Targets;
+int  Priority;                         // 0..10
+bool Ignore { get; set; }              // setter уведомляет контроллер
+IFocusTarget RememberedFocus;
+void Register(IFocusTarget target);
+void Unregister(IFocusTarget target);
+void ClearRememberedFocus();
 ```
 
 ### IFocusTarget (контракт)
 ```csharp
-Vector2 ScreenPoint { get; }   // пересчитывается при каждом запросе
-bool IsActive { get; }         // GameObject.activeInHierarchy + локальные гейты
-void NotifyFocused();          // зовёт контроллер при переходе фокуса на этот target
-void NotifyUnfocused();        // другой target / ClearFocus / OnDisable
-```
-
-### CursorSkinSelector (static)
-```csharp
-static StringData Selected;                 // реактивный ключ темы
-static void Select(string setKey);
-static bool IsSelected(string setKey);
+Vector2    ScreenPoint { get; }   // пересчитывается при каждом запросе
+bool       IsActive    { get; }   // готов принимать фокус
+void       NotifyFocused();
+void       NotifyUnfocused();
+GameObject Target      { get; }   // точка «рейкаста» клика от Submit
 ```
 
 ### InputDriver (abstract, POCO)
 ```csharp
 abstract void Connect();
 abstract void Disconnect();
-virtual  bool NeedsTick { get; }            // Direct → true
+virtual  bool NeedsTick { get; }
 virtual  void Tick(float unscaledDeltaTime);
-virtual  bool HidesCursor { get; }          // Point/Touch → true
+virtual  bool HidesCursor { get; }
 virtual  bool SupportsPlatform(RuntimePlatform platform);
-// helpers: ResolveAction / EnableMap / DisableMap / SubscribeAction / UnsubscribeAction / Report
-```
-
-### InputDriverSet (SO, ICoreAsset) / CursorInputLoader (IProcess)
-```csharp
-InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet.asset
-// CursorInputLoader: Register→Loader, RunAsync(load+failfast+connect+tick), WaitingFor()=пусто
+// helpers: ResolveAction / SubscribeAction / UnsubscribeAction / Report
 ```
 
 ---
 
 ## Использование
 
-### 1. Включить модуль ввода
-В ассете `SdkSettings` включить `cursorInputSdk` → **ApplyChanges** (добавит дефайн `USING_VORTEX_CURSOR`, пересборка).
+### 1. Включить модуль
+В `SdkSettings` включить `cursorInputSdk` → **ApplyChanges** (дефайн `USING_VORTEX_CURSOR`, пересборка).
 
 ### 2. Настроить InputDriverSet
-`CoreAssetsController` авто-создаст `Resources/Settings/InputDriverSet.asset` (или `Tools/Vortex/Debug/Check Core Assets`). Добавить драйверы (`MouseInputDriver`/`TouchInputDriver`/`DirectInputDriver`/`ActionInputDriver`), назначить id экшенов из дропдауна. Пустой сет → failfast на Play.
+`CoreAssetsController` авто-создаст `Resources/Settings/InputDriverSet.asset`. Добавить драйверы, назначить id экшенов из дропдауна. Для Android + Desktop — два `TouchInputDriver`: `HideOnly` + `MobileOnly` (Button `<Touchscreen>/primaryTouch`) и `Delta` + `DesktopOnly` (Value `<Touchscreen>/delta`).
 
-Для мульти-платформенной сборки (Android + Desktop) — **два экземпляра `TouchInputDriver`**:
-1. `mode=HideOnly`, `platformFilter=MobileOnly`, биндинг — Button `<Touchscreen>/primaryTouch`.
-2. `mode=Delta`, `platformFilter=DesktopOnly`, биндинг — Value `<Touchscreen>/delta`.
+### 3. Input Actions
+Экшены под драйверы (позиция мыши, вектор движения, кнопки, направления навигации, submit, скролл, касание). Для `MultiTouchInputDriver` и `GestureInputDriver` — экшены на касания целиком: `<Touchscreen>/touch*/position`, для кнопок пальцев — `<Touchscreen>/touch*/press`. Карту виртуального курсора включить на стороне проекта (например, `InputMapHandler` на постоянной сцене). Экшены кнопок `ActionInputDriver` — тип **Button** (по `performed` действие ставится, по `canceled` снимается); с PassThrough отпускание тоже приходит как `performed`, и действие залипает. Клик по UI — тот же экшен: UGUI-модуль пакета читает маску действий, отдельный экшен для UI не нужен.
 
-На Android подключится первый (курсор скрывается, клик обрабатывает нативный UGUI). На Desktop/в редакторе — второй (палец работает как трекпад). См. раздел «TouchInputDriver: режимы и платформенный фильтр».
+### 4. Сцена
+- На `EventSystem` — `VirtualCursorInputModule` вместо `InputSystemUIInputModule` (`VirtualCursorBaseInput` добавится сам). Для мобильных — `nativeTouch` с `MobileOnly`.
+- Оверлей `Canvas` (Screen Space - Overlay, поверх всего UI) + курсор с `UIStateSwitcher` (состояние 0 — скин по умолчанию, `hidden` — скрытый, остальные по именам скинов) + `UiCursorRenderer`. Raycast у графики курсора отключить.
+- Опционально: `PointerActionTweenerHandler` на курсоре (анимация нажатия), `CameraProvider` на камере, `CursorHoverZone` на элементах UI (одна зона — один рейкаст), `PointerActionHandler` для RMB/MMB.
 
-### 3. Конфиг скинов
-`Create → Vortex/UI/Cursor Skin Settings`. Заполнить `resolutionTiers` (по возрастанию), `defaultSetKey`, `sets` — темы; в каждой теме — паки по тирам, base/hover-скины, `defaultSprite` + разреженные `overrides` (действие→спрайт).
+### 5. Фокус-навигация (опционально)
+- В `InputDriverSet` — `UINavigationDriver`: 4 направления + submit, `coneAngleDeg`, `hideCursorOnFocus`, `captureFocusIfFree`.
+- `FocusGroup` на корне каждого контекста навигации (HUD, меню, диалог); переключение контекстов — `SetActive`.
+- `FocusTargetComponent` на каждом фокусируемом элементе внутри группы; `onFocused`/`onUnfocused` — подсветка/SFX. Для кнопки `FocusTargetComponent` ставится на объект с обработчиком клика или ниже него (submit поднимается по иерархии, как рейкаст).
+- `FocusCenterScrollRect` на `ScrollRect`-списках.
 
-### 4. Input Actions
-Экшены под драйверы (позиция мыши, движение стика, касание, кнопки Action1…Action10). **UI Actions-asset для `InputSystemUIInputModule` стандартный** — биндинги `Point/Click/RightClick/ScrollWheel` на `<Mouse>` (физическая мышь). Никаких перебиндингов под виртуальный pointer не требуется — его события идут напрямую через `ExecuteEvents`.
+---
 
-### 5. Сцена
-- `VirtualCursorBootstrap` (+ `CursorSkinSettings`, параметры проекции) — на persistent-сцене (`Preload`/boot). `VirtualCursorFocusController.Init` вызывается автоматически в `Awake`.
-- `VirtualPointerDispatcher` — там же, рядом с Bootstrap. **Драйверы ввода на сцену не ставятся** — они в `InputDriverSet`.
-- Оверлей `Canvas` (Screen Space - Overlay, поверх всего UI) + cursor `Image` (Raycast Target off) + `UiImageCursorRenderer`.
-- Опц.: `CameraProvider` (на камере), `CursorHoverZone` (на интерактивных UGUI-элементах, ключ hover-скина), `PointerActionHandler` (на UI-кнопках для RMB/MMB), `FocusTargetComponent` (на UI-кнопках или world-объектах для gamepad-навигации).
-- Для 2D/3D-объектов — `Physics2DRaycaster`/`PhysicsRaycaster` на камере + MonoBehaviour c `IPointerClickHandler`/`IPointerEnterHandler` на объекте. Диспетчер работает одинаково для UGUI и world-коллайдеров.
+## Известные проблемы
 
-### 7. Фокус-навигация (опционально)
-- В `InputDriverSet` добавить `UINavigationDriver`: назначить 4 action-id под направления (Gamepad D-pad / Keyboard arrows), настроить `coneAngleDeg = 45`, `hideCursorOnFocus = true`, `warpSystemMouse = true`, `captureFocusIfFree = true` (при пустом фокусе и отсутствии кандидата в конусе — захватить ближайший target группы; удобная точка входа в nav mode).
-- На родителе интерактивных элементов (обычно Canvas или контейнер меню) — `FocusGroup`. Один компонент на один контекст навигации (HUD, меню паузы, модальный диалог — каждый своим).
-- На каждом фокусируемом элементе внутри иерархии этой группы — `FocusTargetComponent`:
-  - `TargetKind=UGUI` + ссылка на `RectTransform` (слот `rectTarget` виден в инспекторе только для UGUI через Odin `ShowIf`).
-  - `TargetKind=World` + ссылка на `Transform` (слот `worldTarget`) — требует зарегистрированной `CameraProvider`-камеры для вычисления screen-point.
-- Привязать `onFocused`/`onUnfocused` UnityEvent'ы для подсветки/SFX.
-- Переключение между контекстами — стандартный Unity-паттерн: `SetActive(true)` на объекте с `FocusGroup` → push в LIFO, становится активным. `SetActive(false)` → pop, активной становится предыдущая группа. При nav mode (`_focusAnchor != null`) фокус передаётся автоматически — на `RememberedFocus` новой группы или ближайший target.
-- Клик по сфокусированному элементу работает автоматически — курсор уже на точке через warp, `VirtualPointerDispatcher` отдаёт `PointerClick` стандартным UGUI-handler'ам.
-
-### 6. Персист темы (проектный слой)
-`CursorSkinData : IGameData` + мост: на загрузку/новую игру `CursorSkinSelector.Select(data.SelectedSetKey)`, на `Selected.OnUpdate` — запись обратно.
+| Проблема | Где |
+|---|---|
+| `IsOverUI` публикуется, но в пакете его никто не пишет и не читает | `PointerModel` |
+| `Skin` не транслируется в `PointerModel.OnUpdateData` | `PointerModel` |
+| `OsCursorRenderer` не перерисовывается на смене `Actions`; падает при пустом `cursorSets`, `actionsOverride` короче трёх и `idle == null` | `OsCursorRenderer` |
+| World-цель без камеры: `ScreenPoint` бросает NRE, а при наличии фокуса он читается без проверки `IsActive` | `FocusTargetComponent`, `VirtualCursorFocusController` |
+| `InputController` отдаёт `canceled` только верхнему подписчику экшена: если между нажатием и отпусканием на тот же экшен подписался другой, отпускание до драйвера не дойдёт — действие залипнет | `InputController` (ядро Vortex), `ActionInputDriver`, `UINavigationDriver` |
+| Содержимое `Example/` отстаёт от пакета (нет `VirtualCursorInputModule`, старые поля драйверов) | `Example/` |
 
 ---
 
@@ -413,47 +388,31 @@ InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet
 
 | Ситуация | Поведение |
 |----------|-----------|
-| Модуль выключен (`USING_VORTEX_CURSOR` off) | Вся сборка пакета не компилируется (`defineConstraints`); типы недоступны, компоненты в сценах/префабах становятся Missing Script (сцены/префабы не ломаются) |
-| `InputDriverSet` отсутствует / пуст | `CursorInputLoader` кидает исключение (failfast на загрузке) |
-| Драйвер не поддерживает платформу | Пропускается при коннекте (`SupportsPlatform`) |
-| Активный источник — касание (`Point`), `TouchInputDriver` в HideOnly/AbsolutePosition | Курсор скрыт (`HidesCursor=true`); мышь/геймпад снова показывают |
-| `TouchInputDriver` в Delta на Desktop + свайп | `Report(cursor+delta, Point, HidesCursor=false)`; курсор ВИДИМ, едет пропорционально пальцу (трекпад) |
-| `TouchInputDriver` в HideOnly на Android + тап кнопки | `SetActiveSource(Point, true)` → курсор скрыт, `ScreenPosition` не меняется → `VirtualPointerDispatcher` не триггерится → клик обрабатывает нативный `InputSystemUIInputModule` без дубля |
-| Пара HideOnly+Delta с `platformFilter=All` | Конфликт last-source-wins: Delta фаерит каждый кадр свайпа с `HidesCursor=false` и перебивает HideOnly → курсор виден везде. Разводить по MobileOnly/DesktopOnly |
-| `TouchPlatformFilter=MobileOnly` в редакторе | НЕ подключается (`Application.platform` в редакторе — всегда `*Editor`); тестить на устройстве |
-| Чисто тач-устройство (нет мыши/геймпада), HideOnly только | `ScreenPosition` никогда не меняется (режим использует `SetActiveSource`) → `_firstReportReceived` в рендерере не снимается → визуал скрыт перманентно (ожидаемо для чистого тача) |
-| Исключение в `Tick` драйвера | Лог только на первое в серии; петля живёт, остальные драйверы тикаются |
-| `CursorSkinSettings` не передан в `Init` | `Visual` = None; курсор не рисуется |
-| Тема по ключу не найдена | Дефолтная (`defaultSetKey`), иначе первая |
-| Разрешение выше всех тиров | Крупнейший тир; ниже всех — минимальный |
-| Действие без спрайта в скине | Фолбэк вверх: base-скин → его `defaultSprite`; нигде нет → None |
-| Скин с `HideCursor` | Курсор скрыт, спрайт не ставится |
-| `VirtualPointerDispatcher` отсутствует в сцене | UGUI не реагирует на виртуальный курсор (физическая мышь работает штатно через InputSystemUIInputModule) |
-| `DirectInputDriver.speedCurve.Evaluate(1) == 0` | `LogWarning` на Connect; курсор не двигается при полном отклонении стика — поправить кривую |
-| `DirectInputDriver.accelerationTime = 0` | Мгновенный разгон (bang-bang) — старое поведение до правки |
-| Нет ни одной `FocusGroup` в сцене | `UINavigationDriver.Navigate` ничего не находит (стек пуст) — молчит |
-| `FocusTargetComponent` без родительской `FocusGroup` | `LogError` на первом Enable, компонент не регистрируется — настроить сцену |
-| `FocusTargetComponent` с `TargetKind=World` без камеры в `CameraProvider` | `IsActive = false` → target не участвует в выборе |
-| Деактивация активной `FocusGroup` (`SetActive(false)`) | `OnDisable` → `RemoveGroup` → если nav mode: авто-передача фокуса на новую топ-группу (RememberedFocus или ближайший); иначе стек просто перестраивается |
-| Активация другой `FocusGroup` поверх текущей | `OnEnable` → `PushGroup` → если nav mode: авто-передача фокуса в новую группу; иначе — старый фокус снимается (NotifyUnfocused), новая группа без фокуса |
-| Возврат к ранее активной группе | Её `RememberedFocus` вернётся как фокус (если ещё активен); иначе — ближайший евклидовой дистанции |
-| `FocusTargetComponent` деактивируется когда он `CurrentFocus` | `OnDisable` → `Unregister` в группе (сбросит её `RememberedFocus`, если указывал сюда); global `CurrentFocus` обнулится через ClearFocus при следующем Navigate |
-| Пользователь шевельнул мышь/стик при активном фокусе | Авто-`ClearFocus` на кадре с per-frame дельтой > `AnchorToleranceSqr` (3 px); под-порог поглощается в anchor и не копится. Фокус снимается, курсор становится видим, выход из nav mode (авто-передача на push/pop больше не сработает) |
-| В конусе нет кандидатов, `CurrentFocus == null`, `captureFocusIfFree = true` | Fallback «захват фокуса»: ближайший активный target группы по евклидовой дистанции, без учёта направления |
-| В конусе нет кандидатов, `CurrentFocus != null` (фокус активен, край списка) | Молчит — fallback-«захват» намеренно не срабатывает (чтобы не прыгать на противоположный конец) |
-| `HideCursor` + скин с `HideCursor=false` + `ShowCursor` | `_externalHidden` обнулён, курсор снова показан скином (если `_pointerHidden` тоже false) |
-| Nested `FocusGroup` | Target цепляется к ближайшей родительской через `GetComponentInParent`; стек работает естественно: вложенная push'ится поверх родительской |
-| `FocusGroup.Priority` = 10, других высоких нет | На `PushGroup` группа bubble'ится к топу, становится `ActiveGroup` независимо от позиции push'а в LIFO |
-| `FocusGroup.Priority` изменён в рантайме у уже-зарегистрированной группы | Стек НЕ переупорядочивается — порядок применится на следующем OnEnable этой группы (SetActive false→true переподнимет с новым приоритетом) |
-| `FocusGroup.Ignore = true` в рантайме на активной группе | Setter триггерит `OnGroupIgnoreChanged` → `CurrentFocus` переносится в её `RememberedFocus`, `NotifyUnfocused` → подсветка гаснет, auto-focus в новой `ActiveGroup` при nav-mode |
-| `FocusGroup.Ignore = true` на группе глубоко в стеке (не активной) | `ActiveGroup` не поменялась — `OnGroupIgnoreChanged` detect'ит это и выходит no-op, фликера фокуса нет |
-| `FocusGroup.Ignore = false` на группе, что по priority перекроет текущую активную | `OnGroupIgnoreChanged` обнаружит смену ActiveGroup → перенос фокуса в неё (RememberedFocus или ближайший) |
-| Reparenting `FocusTargetComponent` между OnDisable и OnEnable | На повторном OnEnable `_group` ре-резолвится через `GetComponentInParent` → корректно регистрируется в новой родительской группе (lazy-cache убран, re-resolve на каждом Enable) |
-| `EventSystem` ещё не загружен при старте | Диспетчер подхватится лениво при появлении EventSystem; события до этого момента теряются (курсор ещё не над UI) |
-| Alt-tab с зажатой кнопкой | `canceled` снимает бит — залипания нет |
-| Диспетчер отключён (`OnDisable`) | Все подвисшие Enter/Press сняты принудительно — повторный Enable начнёт с чистого листа |
-| Проекция без зарегистрированной камеры | Промах (`false`/`null`) |
-| Атласный спрайт курсора | `UiImageCursorRenderer` — ок; `OsCursorRenderer` — нужна standalone-текстура |
+| Модуль выключен | Сборка пакета не компилируется; компоненты в сценах — Missing Script |
+| `InputDriverSet` отсутствует / пуст | `CursorInputLoader` кидает исключение |
+| Драйвер не поддерживает платформу | Не подключается |
+| Карта экшенов не включена | События не приходят, опрос возвращает ноль — курсор от этого источника не двигается |
+| Касание в HideOnly / AbsolutePosition | Курсор скрыт до значимого сдвига от другого источника |
+| Пара HideOnly+Delta с `All` | Delta перебивает скрытие — разводить по платформам |
+| Касание при `nativeTouch` на платформе | Идёт в UGUI напрямую (мультитач); курсорная часть модуля в этом кадре не обрабатывается |
+| Касание без `nativeTouch` на платформе | В UGUI не идёт — только через драйверы |
+| `MultiTouchInputDriver`: у экшена нет контрола на пальце | `LogError` один раз, привязка молчит |
+| `MultiTouchInputDriver` + `nativeTouch` на одной платформе | Касание уходит в UGUI напрямую, действия драйвера в UGUI не доходят |
+| `MobileOnly` в редакторе | Не подключается |
+| Исключение в `Tick` драйвера | Лог на первое в серии; остальные драйверы тикаются |
+| Скин не найден рендером | Состояние 0 (`UiCursorRenderer`) / первый набор (`OsCursorRenderer`) |
+| Нет состояния `hidden` у `UiCursorRenderer` | Скрытие показывает скин по умолчанию |
+| Две зоны наведения на один рейкаст | Порядок запросов скинов не определён — некорректное размещение |
+| Нет `FocusGroup` в сцене | `Navigate` ничего не делает |
+| `FocusTargetComponent` без родительской группы | `LogError`, цель не регистрируется |
+| В конусе нет кандидатов, фокус есть | Ничего (захват ближайшего — только без фокуса) |
+| Сдвиг курсора при фокусе | Значимый (`OnPointerMoved`: шаг > 3 px или от центра дрейфа > 5 px) — фокус снимается; меньше — дрейф |
+| Цель фокуса сместилась | Курсор переносится следом, если расхождение больше 2 px |
+| Submit без фокуса | Ничего |
+| Смена фокуса из `onFocused`/`onUnfocused` | Отклоняется с `LogError` |
+| Включение/выключение группы или цели, `Ignore` из `onFocused`/`onUnfocused` | Откладывается до конца операции контроллера и выполняется |
+| Проекция без камеры | Промах (`false`/`null`) |
+| Атласный спрайт курсора | `UiCursorRenderer` — ок; `OsCursorRenderer` — нужна standalone-текстура |
 
 ---
 
@@ -462,34 +421,29 @@ InputDriver[] InputDriverSet.Drivers;       // Resources/Settings/InputDriverSet
 ```
 VirtualCursorSystem/
 ├── Bus/VirtualCursorBus.cs
-├── VirtualCursorController.cs            # static core: модель, резолв Visual, интейк, hide-по-источнику
-├── VirtualCursorController.Projection.cs # LIFO-камеры + raycast
-├── VirtualCursorBootstrap.cs             # Init + ConfigureProjection
+├── Controllers/
+│   ├── VirtualCursorController.cs             # интейк драйверов, сведение скина
+│   └── VirtualCursorController.Projection.cs  # LIFO-камеры + raycast
 ├── Model/
-│   ├── PointerAction.cs  PointerSourceKind.cs
-│   ├── PointerActionMask.cs  PointerActionMaskData.cs
-│   ├── CursorVisual.cs  CursorVisualData.cs  PointerModel.cs
-│   ├── CursorSkinResolver.cs  CursorSkinSelector.cs
-├── Config/
-│   ├── CursorSpriteEntry.cs  CursorSkin.cs  CursorSkinPack.cs
-│   ├── CursorSkinSet.cs  CursorSkinSettings.cs
-├── Input/
-│   ├── VirtualPointerDispatcher.cs  PointerActionHandler.cs
+│   ├── PointerModel.cs  PointerAction.cs  PointerActionMask.cs  PointerActionMaskData.cs
+│   ├── GestureModel.cs  GestureFrame.cs  GestureFrameData.cs
 ├── Focus/
 │   ├── FocusModel.cs  FocusGroup.cs  FocusTargetData.cs  IFocusTarget.cs  VirtualCursorFocusController.cs
-├── InputDrivers/                         # слой драйверов ввода (гейтится вместе со всей сборкой)
+├── InputDrivers/
 │   ├── InputDriver.cs  InputDriverSet.cs  CursorInputLoader.cs
-│   ├── MouseInputDriver.cs  TouchInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs  UINavigationDriver.cs
-├── Drivers/                              # MonoBehaviour, сценово-привязанные (не драйверы ввода)
-│   ├── CursorHoverZone.cs  CameraProvider.cs  FocusTargetComponent.cs
+│   ├── MouseInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs
+│   ├── ScrollInputDriver.cs  TouchInputDriver.cs  MultiTouchInputDriver.cs  GestureInputDriver.cs  UINavigationDriver.cs
+├── Handlers/
+│   ├── CursorHoverZone.cs  CameraProvider.cs  FocusTargetComponent.cs  FocusCenterScrollRect.cs
+│   ├── PointerActionHandler.cs  PointerActionTweenerHandler.cs
 ├── Render/
-│   ├── ICursorRenderer.cs  UiImageCursorRenderer.cs  OsCursorRenderer.cs
-├── DefineSettings/                       # SDK-тоггл (вклинивается в сборку SdkSettings через .asmref)
+│   ├── UiCursorRenderer.cs  OsCursorRenderer.cs
+├── UiModule/
+│   ├── VirtualCursorInputModule.cs  VirtualCursorBaseInput.cs
+├── DefineSettings/                            # SDK-тоггл (в сборке SdkSettings через .asmref)
 │   ├── SdkSettings.CursorInput.cs  sdk.settings.system.ext.asmref
-├── Editor/                               # editor-only (стандартная папка Unity, без своего asmdef)
-│   ├── FocusStackWindow.cs               # Tools/Vortex/Virtual Cursor/Focus Stack — LIFO-дамп + Ping
-│   ├── MenuController.cs                 # Tools/Vortex/Configs/Virtual Cursor Skin Settings + Input Driver Set
-└── ru.vortex.unity.virtualcursorsystem.asmdef   # defineConstraints: ["USING_VORTEX_CURSOR"]
+├── Editor/
+│   ├── FocusStackWindow.cs  MenuController.cs  VirtualCursorInputModuleProcessor.cs
+├── Example/                                   # пример: Input Actions, InputDriverSet, префаб курсора, пресеты твинов
+└── ru.vortex.unity.virtualcursorsystem.asmdef # defineConstraints: ["USING_VORTEX_CURSOR"]
 ```
-
-Персист темы (`CursorSkinData : IGameData` + мост) живёт на проектном слое, вне пакета.

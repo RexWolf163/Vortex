@@ -1,17 +1,18 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.UI.VirtualCursorSystem.Bus;
+using Vortex.Unity.UI.VirtualCursorSystem.Controllers;
+using Vortex.Unity.UI.VirtualCursorSystem.Handlers;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Focus
 {
     /// <summary>
     /// Статический контроллер подсистемы фокус-навигации виртуального курсора.
-    /// Владеет <see cref="FocusModel"/>, принимает push/pop <see cref="FocusGroup"/>-ов
-    /// в LIFO-стек (через их <c>OnEnable</c>/<c>OnDisable</c>), обрабатывает
-    /// <see cref="Navigate"/> от <c>UINavigationDriver</c>.
     ///
-    /// <b>Активная группа.</b> <see cref="FocusModel.ActiveGroup"/> — верхняя в стеке.
+    /// <b>Активная группа.</b> <see cref="FocusModel.ActiveGroup"/> — верхняя в стеке, если не Ignore
     /// Только её <c>Targets</c> участвуют в Navigate. Переключение активной группы
     /// (push/pop) — через стандартный Unity-паттерн SetActive меню/HUD.
     ///
@@ -20,113 +21,168 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// направлениями. Среди попавших — минимум евклидовой дистанции. Текущий
     /// <see cref="FocusModel.CurrentFocus"/> исключается из кандидатов.
     ///
-    /// <b>Авто-передача фокуса на push/pop.</b> Срабатывает только когда
-    /// <see cref="_focusAnchor"/> != null — т.е. пользователь сейчас в nav mode
-    /// (курсор «прибит» к target'у, не двигался мышью). При push новой группы:
-    /// её <see cref="FocusGroup.RememberedFocus"/> или
-    /// <see cref="FocusGroup.FindNearestEuclidean"/> становится новым фокусом,
-    /// курсор warp'ается, HideCursor остаётся активным. При pop — симметрично:
-    /// новая активная (нижняя по стеку) восстанавливает свой RememberedFocus
-    /// или ближайший к курсору. Если <see cref="_focusAnchor"/> == null —
-    /// автоматика выключена, стек просто перестраивается.
+    /// <b>Режим навигации.</b> Отдельный флаг <see cref="_navMode"/>: включается переходом фокуса, выключается
+    /// только сдвигом курсора пользователем или опустевшим стеком групп. Переживает временную потерю фокуса
+    /// (фокус ушёл в RememberedFocus при push, фокусная цель отключилась). Фокус ставится через
+    /// <see cref="Navigate"/>; курсор переносится в точку цели (репорт позиции + варп ОС-мыши) и, по флагу, скрывается.
     ///
-    /// <b>Авто-ClearFocus на движении курсора.</b> При успешном переходе фокуса
-    /// запоминаем якорь-позицию. Подписка на <c>ScreenPosition.OnUpdate</c>: если
-    /// delta &gt; <see cref="AnchorToleranceSqr"/> — пользователь двинул курсор →
-    /// <see cref="ClearFocus"/>. Warp-эхо попадает в tolerance и игнорируется.
+    /// <b>Авто-передача фокуса на push/pop.</b> При смене активной группы фокус старой уходит в её
+    /// <see cref="FocusGroup.RememberedFocus"/>; новой активной передаётся её
+    /// <see cref="FocusGroup.RememberedFocus"/> или <see cref="FocusGroup.FindNearestEuclidean"/> —
+    /// только в режиме навигации, иначе стек просто перестраивается. Передача отложена до ближайшего тика петли
+    /// сопровождения (<see cref="_pendingAutoFocus"/>): группа — предок своих целей, и на её OnEnable цели ещё
+    /// не перерегистрированы; к тику все OnEnable пройдены, а смена меню в одном кадре (pop A + push B) не
+    /// роняет режим навигации на промежуточном пустом стеке.
+    ///
+    /// <b>Выход из режима на движении курсора.</b> Подписка на <c>PointerModel.OnPointerMoved</c> — значимый сдвиг
+    /// по фильтру дрейфа на входе репорта (VirtualCursorController.ReportPointer) (дрожание и эхо варпа ОС-мыши его не дают) завершает режим навигации и снимает фокус.
+    /// Свои переносы курсора (переход фокуса, сопровождение) отсекаются флагом <see cref="_selfReporting"/>.
+    /// Смещение самой цели фокус не снимает — его догоняет сопровождение.
+    ///
+    /// <b>Сопровождение.</b> Покадровая петля переносит курсор за целью, если её экранная точка сместилась
+    /// (скролл, лейаут, анимация).
     /// </summary>
     public static class VirtualCursorFocusController
     {
+        /// <summary>Ключ владельца реактивного поля фокуса.</summary>
         private static readonly object Key = new();
+
+        /// <summary>Владелец вызова покадровой петли сопровождения в <see cref="TimeController"/>.</summary>
         private static readonly object FollowOwner = new();
 
-        // 3 px — укладывает hardware noise ОС-мыши и int-округление WarpCursorPosition
-        // в одном кадре. Якорь при этом абсорбирует дрейф (см. OnScreenPositionChanged),
-        // поэтому порог per-frame, а не "всего накопилось от момента SetFocus".
-        private const float AnchorToleranceSqr = 9f;
-
-        // Порог сопровождения — минимальное движение target'а в пикс², которое вызывает
-        // переноc курсора. Чуть меньше AnchorToleranceSqr, чтобы follow-tick реагировал на
-        // ScrollRect-смещение раньше, чем OnScreenPositionChanged мог бы ошибочно сработать
-        // от того же движения. Экономия на no-op кадрах (target не движется).
-        private const float FollowThresholdSqr = 0.25f; // 0.5 px
-
+        /// <summary>Модель фокуса шины, которой владеет контроллер.</summary>
         private static FocusModel _model;
 
-        /// <summary>Runtime-реестр фокус-навигации. <c>null</c> до <see cref="Init"/>.</summary>
-        public static FocusModel Model => _model;
+        /// <summary>
+        /// Допуск сопровождения, квадрат пикселей (2 px): расхождение точки цели и курсора меньше — курсор не переносится.
+        /// Выше ошибки эха варпа ОС-мыши (округление до пикселя: ≈0.7 px, на HiDPI ≈1.4 px) — эхо, сдвинувшее курсор
+        /// на долю пикселя, не вызывает повторный варп, и петля «эхо → сопровождение → варп» не возникает.
+        /// </summary>
+        private const float FollowToleranceSqr = 4f;
 
-        public static bool IsReady { get; private set; }
-
-        // Якорь текущего фокуса; null = курсор не "прибит" (режим свободного курсора).
-        // Критично для авто-передачи фокуса на push/pop и для различения warp-эхо.
-        private static Vector2? _focusAnchor;
-
-        // Запомненные флаги последнего Navigate — применяются при автоматических
-        // переходах фокуса (push/pop группы), чтобы использовать те же параметры
-        // hide/warp, с которыми пользователь зашёл в nav mode.
+        /// <summary>
+        /// Флаг скрытия курсора последнего перехода фокуса — переиспользуется автоматическими переходами
+        /// (push/pop группы) и сопровождением, чтобы курсор оставался в том же режиме.
+        /// </summary>
         private static bool _lastHideCursor;
-        private static bool _lastWarpSystemMouse;
 
-        // Re-entry guard: _busy выставлен ТОЛЬКО на время вызова пользовательских onFocused/onUnfocused.
-        // Любая мутация фокуса/стека групп из такого обработчика отклоняется fail-loud — иначе
-        // незащищённая рекурсия Notify→Navigate/Push/Ignore→Notify даёт StackOverflow.
+        /// <summary>
+        /// Окно уведомления: выставлен только на время вызова <see cref="IFocusTarget.NotifyFocused"/>/
+        /// <see cref="IFocusTarget.NotifyUnfocused"/>. Смена фокуса из этих обработчиков (<see cref="Navigate"/>)
+        /// отклоняется с ошибкой; изменения стека групп и регистрации целей (включение/выключение групп и целей,
+        /// <see cref="FocusGroup.Ignore"/>) откладываются в <see cref="Deferred"/> — иначе рекурсия
+        /// Notify → Push/Remove/Ignore → Notify, а отброшенный вызов оставил бы стек рассинхронизированным со сценой.
+        /// </summary>
         private static bool _busy;
 
+        /// <summary>
+        /// Глубина вложенности операций контроллера (<see cref="BeginOperation"/>/<see cref="EndOperation"/>).
+        /// Отложенные изменения выполняются, когда завершается внешняя операция, — не посреди перехода фокуса.
+        /// </summary>
+        private static int _operationDepth;
+
+        /// <summary>
+        /// Изменения стека групп и регистрации целей, пришедшие из обработчиков фокуса (<see cref="_busy"/>).
+        /// Выполняются по порядку после завершения внешней операции (<see cref="EndOperation"/>); каждое
+        /// перепроверяет состояние сцены на момент выполнения.
+        /// </summary>
+        private static readonly Queue<System.Action> Deferred = new();
+
+        /// <summary>
+        /// Выставлен на время собственного репорта позиции (<see cref="MoveCursorToFocus"/>): такой сдвиг курсора —
+        /// перенос в точку фокуса, а не движение пользователя, и <see cref="OnPointerMoved"/> его пропускает.
+        /// Событие модели синхронное и приходит внутри репорта — флага на время вызова достаточно.
+        /// </summary>
+        private static bool _selfReporting;
+
+        /// <summary>
+        /// Режим навигации: выставляется переходом фокуса, снимается только сдвигом курсора пользователем
+        /// или опустевшим стеком групп. Переживает перенос фокуса в RememberedFocus и отключение фокусной цели —
+        /// на нём держится авто-передача фокуса при push/pop/Ignore.
+        /// </summary>
+        private static bool _navMode;
+
+        /// <summary>
+        /// Запрошена авто-передача фокуса новой активной группе (push/pop/Ignore). Выполняется в ближайшем тике
+        /// петли сопровождения (<see cref="FollowFocus"/>), а не синхронно в OnEnable/OnDisable группы: к тику
+        /// дочерние цели успевают зарегистрироваться, стек — устояться. Явный переход фокуса
+        /// (<see cref="SetFocusInternal"/>) запрос снимает.
+        /// </summary>
+        private static bool _pendingAutoFocus;
+
+        /// <summary>
+        /// Захват владения моделью фокуса, подписка на позицию курсора и запуск петли сопровождения.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod]
         public static void Init()
         {
-            if (IsReady) return;
-
-            _model = new FocusModel();
+            _model = VirtualCursorBus.Focus;
             _model.SetOwner(Key);
 
-            if (VirtualCursorBus.Data != null)
-                VirtualCursorBus.Data.ScreenPosition.OnUpdate += OnScreenPositionChanged;
-            else
-                VirtualCursorBus.OnReady += AttachPositionWatcher;
+            VirtualCursorBus.Data.OnPointerMoved += OnPointerMoved;
 
             // Follow-петля: самоперепланирующаяся через TimeController.Accumulate (как у драйверов
-            // ввода). На каждом кадре сверяет ScreenPoint текущего target'а с якорем и, если тот
+            // ввода). На каждом кадре сверяет ScreenPoint текущего target'а с позицией курсора и, если тот
             // физически сместился (ScrollRect, layout group, анимация, DOTween на RectTransform), —
             // переносит курсор следом (ReportPointer + warp). Это важно, когда FocusCenterScrollRect
             // прокручивает контент под фокусным элементом: без follow'а курсор остался бы в точке
             // прежнего warp'а, визуально оторвавшись от элемента.
             TimeController.Accumulate(FollowFocus, FollowOwner);
-
-            IsReady = true;
         }
 
-        private static void AttachPositionWatcher()
-        {
-            VirtualCursorBus.OnReady -= AttachPositionWatcher;
-            if (VirtualCursorBus.Data != null)
-                VirtualCursorBus.Data.ScreenPosition.OnUpdate += OnScreenPositionChanged;
-        }
-
-        public static void Cleanup()
-        {
-            if (!IsReady) return;
-            if (VirtualCursorBus.Data != null)
-                VirtualCursorBus.Data.ScreenPosition.OnUpdate -= OnScreenPositionChanged;
-            VirtualCursorBus.OnReady -= AttachPositionWatcher;
-            TimeController.RemoveCall(FollowOwner);
-            _focusAnchor = null;
-            _busy = false;
-            _model = null;
-            IsReady = false;
-        }
-
-        // true (+ LogError), если вызвано реентерабельно из обработчика фокуса — вызывающий выходит.
-        private static bool Reenter()
+        /// <summary>Отклонить смену фокуса из обработчика фокуса (см. <see cref="_busy"/>).</summary>
+        /// <returns><c>true</c> (с LogError) — вызов из обработчика фокуса, вызывающий должен выйти.</returns>
+        private static bool Reject()
         {
             if (!_busy) return false;
-            Debug.LogError("[VirtualCursorFocus] Реентерабельный вызов из обработчика фокуса " +
-                           "(onFocused/onUnfocused) — игнорирован. Эти события не должны менять фокус " +
-                           "или стек групп.");
+            Debug.LogError("[VirtualCursorFocus] Смена фокуса из обработчика фокуса " +
+                           "(onFocused/onUnfocused) — игнорирована. Эти события не должны менять фокус.");
             return true;
         }
 
-        // Вызов пользовательского UnityEvent под _busy — окно, в котором мутации фокуса отклоняются.
+        /// <summary>
+        /// Отложить изменение стека групп или регистрации целей, пришедшее из обработчика фокуса (см. <see cref="_busy"/>).
+        /// </summary>
+        /// <param name="retry">Повтор вызова; выполнится после завершения внешней операции.</param>
+        /// <returns><c>true</c> — вызов отложен, вызывающий должен выйти.</returns>
+        private static bool Defer(System.Action retry)
+        {
+            if (!_busy) return false;
+            Deferred.Enqueue(retry);
+            return true;
+        }
+
+        /// <summary>Начало операции контроллера (вход в публичную/внутреннюю точку, способную уведомлять цели).</summary>
+        private static void BeginOperation() => _operationDepth++;
+
+        /// <summary>
+        /// Конец операции. На выходе из внешней операции выполняет отложенные изменения по порядку; каждое — своя
+        /// операция, его собственные отложенные изменения выполняются следом. Исключение одного не останавливает остальные.
+        /// </summary>
+        private static void EndOperation()
+        {
+            if (--_operationDepth > 0) return;
+
+            while (Deferred.Count > 0)
+            {
+                var retry = Deferred.Dequeue();
+                try
+                {
+                    retry();
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Уведомить target о смене фокуса под <see cref="_busy"/> — окно, в котором смена фокуса отклоняется,
+        /// а изменения стека и регистрации откладываются.
+        /// </summary>
+        /// <param name="target">Уведомляемый target.</param>
+        /// <param name="focused"><c>true</c> — фокус пришёл, <c>false</c> — ушёл.</param>
         private static void Notify(IFocusTarget target, bool focused)
         {
             _busy = true;
@@ -135,114 +191,169 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 if (focused) target.NotifyFocused();
                 else target.NotifyUnfocused();
             }
-            finally { _busy = false; }
+            finally
+            {
+                _busy = false;
+            }
         }
 
         /// <summary>
-        /// Push группы в LIFO-стек. Зовётся <see cref="FocusGroup"/>.OnEnable.
-        /// Если курсор в nav mode (_focusAnchor != null) — активный фокус старой
-        /// группы сохраняется в её RememberedFocus и получает NotifyUnfocused;
-        /// в новой группе выбирается RememberedFocus или ближайший к курсору,
-        /// на него переносится фокус. Иначе — только обновление стека.
+        /// Push группы в стек с учётом приоритета. Зовётся <see cref="FocusGroup"/>.OnEnable.
+        /// Если активная группа сменилась — фокус старой уходит в её RememberedFocus (с NotifyUnfocused),
+        /// затем запрашивается отложенная авто-передача фокуса новой активной группе (<see cref="_pendingAutoFocus"/>).
+        /// Если активная группа не сменилась — только обновление стека.
+        /// Из обработчика фокуса — откладывается; на выполнении пропускается, если группа к тому времени выключена.
         /// </summary>
         public static void PushGroup(FocusGroup group)
         {
-            if (_model == null || group == null) return;
-            if (Reenter()) return;
+            if (group == null) return;
+            if (Defer(() =>
+                {
+                    if (group != null && group.isActiveAndEnabled) PushGroup(group);
+                })) return;
 
-            // Гард фликера: двигаем фокус только если push реально сменил активную группу.
-            // Push группы с меньшим приоритетом / Ignored оставляет ActiveGroup прежней — тогда
-            // Transfer+auto-focus сняли бы и тут же вернули фокус на ТОТ ЖЕ target (лишние
-            // NotifyUnfocused/NotifyFocused + повторный Warp). Симметрично гарду OnGroupIgnoreChanged.
-            var before = _model.ActiveGroup;
-            _model.PushGroup(group);
-            if (ReferenceEquals(_model.ActiveGroup, before)) return;
+            BeginOperation();
+            try
+            {
+                // Гард фликера: двигаем фокус только если push реально сменил активную группу.
+                // Push группы с меньшим приоритетом / Ignored оставляет ActiveGroup прежней — тогда
+                // Transfer+auto-focus сняли бы и тут же вернули фокус на ТОТ ЖЕ target (лишние
+                // NotifyUnfocused/NotifyFocused + повторный Warp). Симметрично гарду OnGroupIgnoreChanged.
+                var before = _model.ActiveGroup;
+                _model.PushGroup(group);
+                if (ReferenceEquals(_model.ActiveGroup, before)) return;
 
-            // Активная группа сменилась: фокус старой (если был) уходит в её RememberedFocus +
-            // NotifyUnfocused (старая группа ещё в стеке — FindOwningGroup её найдёт), новая
-            // активная получает фокус.
-            TransferCurrentToRemembered();
-            TryAutoFocusNewActiveGroup();
+                // Активная группа сменилась: фокус старой (если был) уходит в её RememberedFocus +
+                // NotifyUnfocused (старая группа ещё в стеке — FindOwningGroup её найдёт), новая
+                // активная получает фокус на ближайшем тике (её цели ещё не включились).
+                TransferCurrentToRemembered();
+                _pendingAutoFocus = true;
+            }
+            finally
+            {
+                EndOperation();
+            }
         }
 
         /// <summary>
-        /// Снять группу из LIFO. Зовётся <see cref="FocusGroup"/>.OnDisable или OnDestroy.
-        /// Если это была активная группа — старый фокус (её RememberedFocus обновлён)
-        /// снимается, затем новая активная (следующая вниз по стеку) восстанавливает
-        /// свой RememberedFocus или ближайший — при условии nav mode.
+        /// Снять группу из стека. Зовётся <see cref="FocusGroup"/>.OnDisable или OnDestroy (идемпотентно;
+        /// уничтоженная группа снимается по ссылке).
+        /// Если это была активная группа — её фокус уходит в её RememberedFocus (с NotifyUnfocused),
+        /// затем запрашивается отложенная авто-передача фокуса новой активной группе (<see cref="_pendingAutoFocus"/>).
+        /// Из обработчика фокуса — откладывается; на выполнении пропускается, если группа к тому времени снова включена.
         /// </summary>
         public static void RemoveGroup(FocusGroup group)
         {
-            if (_model == null || group == null) return;
-            if (Reenter()) return;
+            if (ReferenceEquals(group, null)) return;
+            if (Defer(() =>
+                {
+                    if (group != null && group.isActiveAndEnabled) return;
+                    RemoveGroup(group);
+                })) return;
 
-            // Гард фликера: если снимаемая группа не активна, ActiveGroup не изменится —
-            // перефокусировать не нужно (неактивная группа свой фокус уже отдала в Remembered
-            // при потере top-статуса).
-            var wasActive = ReferenceEquals(_model.ActiveGroup, group);
+            BeginOperation();
+            try
+            {
+                // Гард фликера: если снимаемая группа не активна, ActiveGroup не изменится —
+                // перефокусировать не нужно (неактивная группа свой фокус уже отдала в Remembered
+                // при потере top-статуса).
+                var wasActive = ReferenceEquals(_model.ActiveGroup, group);
 
-            // Transfer ДО удаления: фокус активной группы сохраняется в её же RememberedFocus
-            // (FindOwningGroup найдёт её, пока она ещё в стеке).
-            if (wasActive)
-                TransferCurrentToRemembered();
+                // Transfer ДО удаления: фокус активной группы сохраняется в её же RememberedFocus
+                // (FindOwningGroup найдёт её, пока она ещё в стеке).
+                if (wasActive)
+                    TransferCurrentToRemembered();
 
-            _model.RemoveGroup(group);
+                _model.RemoveGroup(group);
 
-            if (wasActive)
-                TryAutoFocusNewActiveGroup();
+                if (wasActive)
+                    _pendingAutoFocus = true;
+            }
+            finally
+            {
+                EndOperation();
+            }
         }
 
         /// <summary>
         /// Реакция на уход target'а из системы (его <see cref="FocusGroup.Unregister"/> — обычно
         /// <c>FocusTargetComponent.OnDisable</c>). Если уходящий target был текущим фокусом, снимаем
         /// висящий <c>CurrentFocus</c> (он теперь указывает на выбывший элемент) + <c>NotifyUnfocused</c>.
-        /// <b>Nav-mode НЕ трогаем</b> (не сбрасываем <see cref="_focusAnchor"/>, не зовём ShowCursor):
-        /// если следом идёт teardown группы (закрытие меню), <see cref="TryAutoFocusNewActiveGroup"/>
-        /// перенесёт фокус на группу под ней; если ничего не следует — ближайшее движение курсора
-        /// (<see cref="ClearFocus"/>) или <see cref="Navigate"/> разрулят. Без этого модель до
-        /// следующего Navigate держала бы ссылку на отключённый target.
+        /// В RememberedFocus target не пишется и курсор не трогается. Без этого модель до следующего
+        /// <see cref="Navigate"/> держала бы ссылку на отключённый target.
+        /// Из обработчика фокуса — откладывается; на выполнении пропускается, если target к тому времени снова активен.
         /// </summary>
         internal static void OnTargetUnregistered(IFocusTarget target)
         {
-            if (_model == null || target == null) return;
-            if (Reenter()) return;
-            if (!ReferenceEquals(_model.CurrentFocus.Value, target)) return;
-            _model.SetCurrent(null, Key);
-            Notify(target, false);
+            if (target == null) return;
+            if (Defer(() =>
+                {
+                    // Уничтоженный target не спрашиваем (IsActive бросил бы MissingReferenceException) — снимаем.
+                    if (!(target is Object o && o == null) && target.IsActive) return;
+                    OnTargetUnregistered(target);
+                })) return;
+
+            BeginOperation();
+            try
+            {
+                if (!ReferenceEquals(_model.CurrentFocus.Value, target)) return;
+                _model.SetCurrent(null, Key);
+                Notify(target, false);
+            }
+            finally
+            {
+                EndOperation();
+            }
         }
 
         /// <summary>
         /// Реакция на runtime-смену <see cref="FocusGroup.Ignore"/>. Зовётся из setter'а
         /// свойства самой группы. Если смена Ignore повлияла на <see cref="FocusModel.ActiveGroup"/>
         /// (её либо скрыло, либо наоборот — вернуло более высокоприоритетную в игру),
-        /// корректно переносит фокус: NotifyUnfocused на старом target'е, запись в
-        /// RememberedFocus владеющей группы, auto-focus в новой активной (при nav mode).
+        /// переносит фокус: NotifyUnfocused на старом target'е, запись в RememberedFocus владеющей группы,
+        /// затем отложенная авто-передача фокуса новой активной группе (<see cref="_pendingAutoFocus"/>).
         ///
         /// Если смена Ignore на ActiveGroup не влияет (например, Ignore'нули группу
         /// в глубине стека, которая и так не была активной) — ничего не делаем, фликера
         /// фокуса нет.
+        ///
+        /// Фокуса нет (режим навигации мог остаться после отключения фокусной цели) — запрашивается
+        /// авто-передача фокуса, как при push/pop: на тике она сработает только в режиме навигации.
+        /// Из обработчика фокуса — откладывается и на выполнении оценивает состояние заново.
         /// </summary>
         internal static void OnGroupIgnoreChanged(FocusGroup group)
         {
-            if (_model == null || group == null) return;
-            if (Reenter()) return;
+            if (group == null) return;
+            if (Defer(() => OnGroupIgnoreChanged(group))) return;
 
-            var current = _model.CurrentFocus.Value;
-            if (current == null) return;
+            BeginOperation();
+            try
+            {
+                var current = _model.CurrentFocus.Value;
+                if (current == null)
+                {
+                    _pendingAutoFocus = true;
+                    return;
+                }
 
-            // Если текущий фокус всё ещё принадлежит активной группе — ничего не менялось
-            // для него (Ignore затронул чужой слой стека). Пропускаем, чтобы не было фликера.
-            var activeGroup = _model.ActiveGroup;
-            if (activeGroup != null && ContainsTarget(activeGroup, current)) return;
+                // Если текущий фокус всё ещё принадлежит активной группе — ничего не менялось
+                // для него (Ignore затронул чужой слой стека). Пропускаем, чтобы не было фликера.
+                var activeGroup = _model.ActiveGroup;
+                if (activeGroup != null && ContainsTarget(activeGroup, current)) return;
 
-            // CurrentFocus теперь вне активной группы: либо его группа только что стала
-            // Ignored, либо выше в стеке unIgnored'нулась другая, которая его перекрыла.
-            // Переносим: Remembered в владеющую группу (сохраняется для будущего возврата)
-            // + NotifyUnfocused (визуал снимается немедленно). Затем auto-focus в новой
-            // активной — только если юзер в nav mode (_focusAnchor != null); иначе остаёмся
-            // без фокуса, пока пользователь не нажмёт направление.
-            TransferCurrentToRemembered();
-            TryAutoFocusNewActiveGroup();
+                // CurrentFocus теперь вне активной группы: либо его группа только что стала
+                // Ignored, либо выше в стеке unIgnored'нулась другая, которая его перекрыла.
+                // Переносим: Remembered в владеющую группу (сохраняется для будущего возврата)
+                // + NotifyUnfocused (визуал снимается немедленно). Затем auto-focus в новой
+                // активной на ближайшем тике — только в nav mode (_navMode); иначе остаёмся
+                // без фокуса, пока пользователь не нажмёт направление.
+                TransferCurrentToRemembered();
+                _pendingAutoFocus = true;
+            }
+            finally
+            {
+                EndOperation();
+            }
         }
 
         /// <summary>
@@ -267,11 +378,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// на фокусной группе в рантайме» — иначе Navigate в соседних группах
         /// работал бы странно из-за «залипшего» CurrentFocus.
         /// </summary>
+        /// <param name="direction">Направление перехода (нормализуется; нулевой вектор игнорируется).</param>
+        /// <param name="coneAngleDeg">Полуугол конуса выбора, градусы.</param>
+        /// <param name="hideCursor">Скрыть курсор после перехода фокуса.</param>
+        /// <param name="captureNearestIfFree">Без фокуса и без кандидатов в конусе — взять ближайший target группы.</param>
         public static void Navigate(Vector2 direction, float coneAngleDeg,
-            bool hideCursor, bool warpSystemMouse, bool captureNearestIfFree)
+            bool hideCursor, bool captureNearestIfFree)
         {
-            if (_model == null) return;
-            if (Reenter()) return;
+            if (Reject()) return;
             if (direction.sqrMagnitude < 0.0001f) return;
             if (VirtualCursorBus.Data == null) return;
 
@@ -279,25 +393,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             if (activeGroup == null) return;
 
             var current = _model.CurrentFocus.Value;
-            // Если current принадлежит не activeGroup (Ignored соседка или stale после
-            // ручной мутации стека) — для текущего Navigate это шум. Обнуляем локально:
-            // origin съедет на cursorPos, captureIfFree сможет сработать, exclusion не нужен
-            // (current в activeGroup.Targets отсутствует и так).
-            if (current != null && !ContainsTarget(activeGroup, current))
-                current = null;
-
-            // Origin — точная ScreenPoint текущего фокуса, а НЕ позиция курсора. Курсор
-            // после WarpCursorPosition округляется ОС-мышью до целого пикселя (API принимает
-            // int), а потом его позиция приходит обратно в ScreenPosition с echo-поправкой.
-            // Из-за этого origin съезжает на 0.3–0.7 пикс от истинного центра current.
-            // На коротких дистанциях / узких конусах это ломает ранжирование: кандидат
-            // в выборке получает угол, выходящий за [-cone..+cone), либо distSqr-сортировка
-            // путает порядок (ties). ScreenPoint — живой float от RectTransformUtility,
-            // всегда точный. Если current нет (ClearFocus) — origin от курсора, других
-            // ориентиров нет.
-            var origin = current != null
-                ? current.ScreenPoint
-                : VirtualCursorBus.Data.ScreenPosition.Value;
+            var origin = current?.ScreenPoint ?? VirtualCursorBus.Data.ScreenPosition.Value;
             var dir = direction.normalized;
             var cone = Mathf.Abs(coneAngleDeg);
 
@@ -305,9 +401,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             var bestDistSqr = float.MaxValue;
 
             var targets = activeGroup.Targets;
-            for (var i = 0; i < targets.Count; i++)
+            foreach (var t in targets)
             {
-                var t = targets[i];
                 if (t == null || !t.IsActive) continue;
                 // Явное исключение текущего — даже при origin == current.ScreenPoint
                 // defensive-ный ReferenceEquals ловит случаи, где distSqr мог бы оказаться
@@ -317,16 +412,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
 
                 var vec = t.ScreenPoint - origin;
                 var distSqr = vec.sqrMagnitude;
-                if (distSqr < 0.0001f) continue;
+                if (distSqr < 0.1f) continue;
 
                 var angle = Vector2.SignedAngle(dir, vec);
                 if (angle < -cone || angle >= cone) continue;
 
-                if (distSqr < bestDistSqr)
-                {
-                    bestDistSqr = distSqr;
-                    best = t;
-                }
+                if (!(distSqr < bestDistSqr)) continue;
+                bestDistSqr = distSqr;
+                best = t;
             }
 
             if (best == null)
@@ -339,69 +432,50 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                     var cursorPos = VirtualCursorBus.Data.ScreenPosition.Value;
                     best = activeGroup.FindNearestEuclidean(cursorPos);
                 }
+
                 if (best == null) return;
             }
 
             // Запомнили флаги — пригодятся при auto-focus на push/pop.
             _lastHideCursor = hideCursor;
-            _lastWarpSystemMouse = warpSystemMouse;
 
-            SetFocusInternal(best, hideCursor, warpSystemMouse);
+            BeginOperation();
+            try
+            {
+                SetFocusInternal(best, hideCursor);
+            }
+            finally
+            {
+                EndOperation();
+            }
         }
 
         /// <summary>
-        /// Явный сброс фокуса + выход из nav-mode. Делает две независимые работы:
-        /// <list type="bullet">
-        /// <item>Если был <c>CurrentFocus</c> — сохраняет его в <c>RememberedFocus</c>
-        /// владеющей группы, снимает (<c>SetCurrent(null)</c>), зовёт <c>NotifyUnfocused</c>.</item>
-        /// <item>Независимо от этого — если установлен <see cref="_focusAnchor"/>, обнуляет его
-        /// и зовёт <c>ShowCursor()</c>, чтобы снять внешний канал скрытия (`_externalHidden`).</item>
-        /// </list>
-        ///
-        /// Это важно для патового состояния: PushGroup с пустой новой группой (Unity вызывает
-        /// OnEnable родителя ДО детей, поэтому <c>Group.Targets</c> пуст в момент push'а → auto-focus
-        /// не находит таргета → <c>CurrentFocus=null</c> из <c>TransferCurrentToRemembered</c>, но
-        /// <see cref="_focusAnchor"/> и <c>_externalHidden</c> остаются «висеть». Без второй ветки
-        /// `ClearFocus` в такой момент выходил бы по `current==null` раньше, чем снимал курсор, —
-        /// и пользователь оказывался в заклиненном nav-mode без видимого курсора.
+        /// Выход из режима навигации: если есть <c>CurrentFocus</c> — сохраняет его в <c>RememberedFocus</c>
+        /// владеющей группы, снимает (<c>SetCurrent(null)</c>) и зовёт <c>NotifyUnfocused</c>.
+        /// Видимость курсора здесь не меняется — её задаёт источник, сдвинувший курсор.
         /// </summary>
-        public static void ClearFocus()
+        private static void ClearFocus()
         {
-            if (_model == null) return;
-            if (Reenter()) return;
-
+            if (Reject()) return;
             var current = _model.CurrentFocus.Value;
             if (current != null)
             {
-                // Remembered пишем в ВЛАДЕЮЩУЮ группу target'а, не в ActiveGroup. Иначе если
-                // current принадлежит теперь-Ignored или stale-группе (пользователь выставил
-                // Ignore в рантайме), запись в ActiveGroup засорила бы её Remembered чужим
-                // элементом из другой контекстной группы.
                 var owning = FindOwningGroup(current);
                 if (owning != null) owning.RememberedFocus = current;
 
                 _model.SetCurrent(null, Key);
                 Notify(current, false);
             }
-
-            // Nav-mode state чистится всегда, даже когда current был уже null, — иначе
-            // «застрявший» _focusAnchor + _externalHidden никак не снимаются с внешней стороны.
-            if (_focusAnchor.HasValue)
-            {
-                _focusAnchor = null;
-                VirtualCursorController.ShowCursor();
-            }
         }
 
         /// <summary>
         /// Снять текущий фокус (если был) и запомнить его в его ВЛАДЕЮЩЕЙ группе как
-        /// RememberedFocus (не обязательно ActiveGroup — current может быть stale, см.
-        /// <see cref="ClearFocus"/>). Не трогает <see cref="_focusAnchor"/> (nav-mode state),
-        /// ShowCursor, _lastHide/Warp — следующий auto-focus продолжит в том же режиме.
+        /// RememberedFocus (не обязательно ActiveGroup — current может быть stale). <see cref="_lastHideCursor"/>
+        /// не сбрасывается — следующая авто-передача фокуса продолжит в том же режиме видимости.
         /// </summary>
         private static void TransferCurrentToRemembered()
         {
-            if (_model == null) return;
             var current = _model.CurrentFocus.Value;
             if (current == null) return;
 
@@ -413,22 +487,21 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         }
 
         /// <summary>
-        /// Авто-передача фокуса в новой активной группе. Только если курсор в nav mode
-        /// (_focusAnchor != null) — т.е. фокус-навигация активна. Target берётся из
-        /// RememberedFocus группы (приоритет), иначе — ближайший евклидовой дистанции.
+        /// Авто-передача фокуса в новой активной группе — исполнение отложенного запроса (<see cref="_pendingAutoFocus"/>)
+        /// из петли сопровождения. Выполняется только в режиме навигации
+        /// (<see cref="_navMode"/>). Target берётся из RememberedFocus группы (если он жив и активен), иначе —
+        /// ближайший к курсору по евклидовой дистанции. Пустой стек групп — фокус снимается, режим навигации завершается.
         /// </summary>
         private static void TryAutoFocusNewActiveGroup()
         {
-            if (_model == null) return;
-            if (!_focusAnchor.HasValue) return;             // Пользователь не в nav mode — пропускаем
-            if (VirtualCursorBus.Data == null) return;
+            if (!_navMode) return; // Пользователь не в nav mode — пропускаем
 
             var activeGroup = _model.ActiveGroup;
             if (activeGroup == null)
             {
                 // Стек пуст (всё закрылось) — выйти из nav mode аккуратно.
-                _focusAnchor = null;
-                VirtualCursorController.ShowCursor();
+                _navMode = false;
+                _model.SetCurrent(null, Key);
                 return;
             }
 
@@ -448,19 +521,21 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 return;
             }
 
-            SetFocusInternal(target, _lastHideCursor, _lastWarpSystemMouse);
+            SetFocusInternal(target, _lastHideCursor);
         }
 
-        private static void SetFocusInternal(IFocusTarget target, bool hideCursor, bool warpSystemMouse)
+        /// <summary>
+        /// Перевести фокус на target: старый уведомляется и запоминается в своей группе, новый уведомляется
+        /// и запоминается в своей; курсор переносится в точку target'а (репорт с флагом скрытия + варп ОС-мыши).
+        /// Точка берётся после смены фокуса и уведомлений: подписчики фокуса (например, <see cref="FocusCenterScrollRect"/>)
+        /// могут сдвинуть target синхронно. Тот же target — ничего не делает.
+        /// </summary>
+        private static void SetFocusInternal(IFocusTarget target, bool hideCursor)
         {
             var old = _model.CurrentFocus.Value;
             if (ReferenceEquals(old, target)) return;
 
-            var pos = target.ScreenPoint;
-            _focusAnchor = pos;
             _lastHideCursor = hideCursor;
-            _lastWarpSystemMouse = warpSystemMouse;
-
             _model.SetCurrent(target, Key);
             // old здесь обычно null (TransferCurrentToRemembered уже снял) — но для Navigate
             // старый target остаётся и его нужно уведомить + запомнить в его ВЛАДЕЮЩЕЙ
@@ -471,6 +546,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                 if (oldOwning != null) oldOwning.RememberedFocus = old;
                 Notify(old, false);
             }
+
             Notify(target, true);
 
             // Запомним в владеющей группе target'а. В штатном сценарии target приходит из
@@ -479,13 +555,30 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             var targetOwning = FindOwningGroup(target);
             if (targetOwning != null) targetOwning.RememberedFocus = target;
 
-            if (hideCursor)
-                VirtualCursorController.HideCursor();
+            _navMode = true;
+            _pendingAutoFocus = false; // явный переход фокуса перекрывает отложенную авто-передачу
+            MoveCursorToFocus(target.ScreenPoint, hideCursor);
+        }
 
-            VirtualCursorController.ReportPointer(pos, PointerSourceKind.Direct);
+        /// <summary>
+        /// Перенести курсор в точку фокуса: репорт позиции с флагом скрытия + варп ОС-мыши.
+        /// Репорт идёт под <see cref="_selfReporting"/> — <see cref="OnPointerMoved"/> не примет его за
+        /// движение пользователя и не снимет фокус. Эхо варпа (событие ОС-мыши в ту же точку) значимого сдвига не даёт
+        /// по фильтру дрейфа на входе репорта (VirtualCursorController.ReportPointer).
+        /// </summary>
+        private static void MoveCursorToFocus(Vector2 pos, bool hideCursor)
+        {
+            _selfReporting = true;
+            try
+            {
+                VirtualCursorController.ReportPointer(pos, hideCursor);
+            }
+            finally
+            {
+                _selfReporting = false;
+            }
 
-            if (warpSystemMouse)
-                Mouse.current?.WarpCursorPosition(pos);
+            Mouse.current?.WarpCursorPosition(pos);
         }
 
         /// <summary>
@@ -500,11 +593,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         {
             if (_model == null || target == null) return null;
             var groups = _model.Groups;
-            for (var i = 0; i < groups.Count; i++)
-            {
-                var g = groups[i];
-                if (g != null && ContainsTarget(g, target)) return g;
-            }
+            foreach (var g in groups)
+                if (g != null && ContainsTarget(g, target))
+                    return g;
+
             return null;
         }
 
@@ -513,25 +605,23 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         {
             if (group == null || target == null) return false;
             var ts = group.Targets;
-            for (var i = 0; i < ts.Count; i++)
-            {
-                if (ReferenceEquals(ts[i], target)) return true;
-            }
+            foreach (var t in ts)
+                if (ReferenceEquals(t, target))
+                    return true;
+
             return false;
         }
 
         /// <summary>
-        /// Follow-петля: сопровождение курсора за физически смещающимся target'ом. Запускается
+        /// Follow-петля: исполнение отложенной авто-передачи фокуса (<see cref="_pendingAutoFocus"/>) и
+        /// сопровождение курсора за физически смещающимся target'ом. Запускается
         /// каждый кадр через <see cref="TimeController.Accumulate"/> (самоперепланирующаяся
-        /// в finally — любой бросок в теле не рвёт цикл). Семантика:
+        /// в finally — любой бросок в теле не рвёт цикл).
+        /// Семантика (<see cref="TickFollow"/>):
         /// <list type="bullet">
-        /// <item>Nav-mode выключен (<see cref="_focusAnchor"/>==null) → ничего не делаем.</item>
-        /// <item>Нет current / target неактивен → ничего не делаем (ScreenPoint читать бессмысленно,
-        /// да и warp бесполезен).</item>
-        /// <item>target.ScreenPoint отличается от anchor на &gt;<see cref="FollowThresholdSqr"/> —
-        /// переносим курсор: обновляем anchor (чтобы OnScreenPositionChanged абсорбировал
-        /// собственный ReportPointer), шлём <c>ReportPointer</c> + warp ОС-мыши (с last-флагами,
-        /// как при входе в nav-mode).</item>
+        /// <item>Нет текущего фокуса / target неактивен → ничего не делаем.</item>
+        /// <item>Точка target'а ближе <see cref="FollowToleranceSqr"/> к позиции курсора → ничего не делаем.</item>
+        /// <item>Иначе переносим курсор: <c>ReportPointer</c> с <see cref="_lastHideCursor"/> + варп ОС-мыши.</item>
         /// </list>
         /// Это закрывает кейс «ScrollRect прокрутил контент / layout group пересчитался /
         /// анимация передвинула target» — target движется БЕЗ собственных событий, но
@@ -540,50 +630,116 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// </summary>
         private static void FollowFocus()
         {
-            try { TickFollow(); }
-            finally { TimeController.Accumulate(FollowFocus, FollowOwner); }
+            try
+            {
+                if (_pendingAutoFocus)
+                {
+                    _pendingAutoFocus = false;
+                    BeginOperation();
+                    try
+                    {
+                        TryAutoFocusNewActiveGroup();
+                    }
+                    finally
+                    {
+                        EndOperation();
+                    }
+                }
+
+                TickFollow();
+            }
+            finally
+            {
+                TimeController.Accumulate(FollowFocus, FollowOwner);
+            }
         }
 
+        /// <summary>Один шаг сопровождения: перенести курсор в точку текущего target'а, если она сместилась.</summary>
         private static void TickFollow()
         {
-            if (!_focusAnchor.HasValue) return;
-            if (_model == null) return;
-            var current = _model.CurrentFocus.Value;
+            var current = _model.CurrentFocus?.Value;
             if (current == null || !current.IsActive) return;
-
             var newPos = current.ScreenPoint;
-            if ((newPos - _focusAnchor.Value).sqrMagnitude < FollowThresholdSqr) return;
+            if ((newPos - VirtualCursorBus.Data.ScreenPosition.Value).sqrMagnitude < FollowToleranceSqr)
+                return;
 
-            // Anchor обновляем ДО ReportPointer — иначе OnScreenPositionChanged (который наш
-            // собственный хук на ScreenPosition.OnUpdate) увидел бы большой delta от старого
-            // якоря и сработал бы ClearFocus. С обновлённым якорем: delta=0 → absorb-ветка.
-            _focusAnchor = newPos;
-            VirtualCursorController.ReportPointer(newPos, PointerSourceKind.Direct);
-            if (_lastWarpSystemMouse)
-                Mouse.current?.WarpCursorPosition(newPos);
+            MoveCursorToFocus(newPos, _lastHideCursor);
         }
 
-        private static void OnScreenPositionChanged(Vector2 newPos)
+        /// <summary>
+        /// Реакция на значимый сдвиг курсора (<c>PointerModel.OnPointerMoved</c>) в режиме навигации: выход из режима
+        /// и снятие фокуса (если он есть: фокус мог уйти раньше вместе с отключённой целью, а режим — остаться).
+        /// Дрожание и эхо варпа событие не поднимают — это решает фильтр дрейфа на входе репорта (VirtualCursorController.ReportPointer). Собственный перенос курсора в
+        /// точку фокуса (<see cref="MoveCursorToFocus"/>) пропускается.
+        /// </summary>
+        private static void OnPointerMoved()
         {
-            if (!_focusAnchor.HasValue) return;
-            var delta = newPos - _focusAnchor.Value;
-            if (delta.sqrMagnitude < AnchorToleranceSqr)
-            {
-                // Поглощаем микро-дрейф в сам anchor. Если держать anchor фиксированным
-                // (как было раньше), hardware noise ОС-мыши (~1 px/кадр при простое) и
-                // int-округление WarpCursorPosition (ещё ~0.5 px) накапливаются кадр за
-                // кадром: ни один одиночный кадр не несёт движения, но суммарная дельта
-                // от якоря через секунду-другую пересекает tolerance и ломает nav-mode
-                // без действия пользователя — выглядит как «периодический выброс в
-                // свободный курсор». С абсорбцией сравнивается всегда дельта одного
-                // кадра: намеренный жест мышью (5+ px/кадр даже на самом медленном
-                // осознанном движении на 60 Гц) всё равно пробивает порог.
-                _focusAnchor = newPos;
-                return;
-            }
+            if (_selfReporting) return;
+            if (!_navMode) return;
 
-            // Пользователь двинул курсор — выход из nav mode: snятие фокуса, snятие HideCursor.
-            ClearFocus();
+            // Пользователь двинул курсор — выход из nav mode: снятие фокуса.
+            _navMode = false;
+            BeginOperation();
+            try
+            {
+                ClearFocus();
+            }
+            finally
+            {
+                EndOperation();
+            }
+        }
+
+        /// <summary>
+        /// Активировать фокусный элемент — эмуляция клика левой кнопкой в точке цели по правилам EventSystem,
+        /// как если бы рейкаст попал в <see cref="IFocusTarget.Target"/>:
+        /// <list type="number">
+        /// <item><c>PointerDown</c> — с подъёмом по иерархии до ближайшего <see cref="IPointerDownHandler"/>
+        /// (получатель нажатия; без него — ближайший <see cref="IPointerClickHandler"/>);</item>
+        /// <item><c>PointerUp</c> — получателю нажатия;</item>
+        /// <item><c>PointerClick</c> — ближайшему по иерархии <see cref="IPointerClickHandler"/>.</item>
+        /// </list>
+        /// Полная последовательность нужна обработчикам, которые фиксируют клик не только по PointerClick
+        /// (нажатие, отпускание, время между ними), а подъём — компонентам цели, висящим ниже обработчика
+        /// (например, на зоне нажатия кнопки). Без фокуса или с уничтоженной целью — ничего не делает.
+        /// </summary>
+        public static void Submit()
+        {
+            if (!_model.HasFocus())
+                return;
+
+            var current = _model.CurrentFocus.Value;
+            var go = current.Target;
+            if (go == null)
+                return;
+
+            var pos = current.ScreenPoint;
+            var ped = new PointerEventData(EventSystem.current)
+            {
+                button = PointerEventData.InputButton.Left,
+                position = pos,
+                pressPosition = pos,
+                eligibleForClick = true,
+                clickCount = 1,
+                clickTime = Time.unscaledTime,
+                rawPointerPress = go,
+                pointerCurrentRaycast = new RaycastResult { gameObject = go, screenPosition = pos },
+            };
+            ped.pointerPressRaycast = ped.pointerCurrentRaycast;
+
+            var clickHandler = ExecuteEvents.GetEventHandler<IPointerClickHandler>(go);
+            var pressHandler = ExecuteEvents.ExecuteHierarchy(go, ped, ExecuteEvents.pointerDownHandler);
+            if (pressHandler == null)
+                pressHandler = clickHandler;
+
+            ped.pointerPress = pressHandler;
+            ped.pointerClick = clickHandler;
+
+            if (pressHandler != null)
+                ExecuteEvents.Execute(pressHandler, ped, ExecuteEvents.pointerUpHandler);
+
+            if (clickHandler != null)
+                ExecuteEvents.Execute(clickHandler, ped, ExecuteEvents.pointerClickHandler);
         }
     }
 }

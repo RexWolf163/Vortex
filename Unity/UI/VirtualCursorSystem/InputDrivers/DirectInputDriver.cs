@@ -7,29 +7,21 @@ using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 {
     /// <summary>
-    /// Драйвер направленного ввода (источник <see cref="PointerSourceKind.Direct"/>): интегрирует вектор
-    /// движения (стик/клавиши) в позицию курсора в <see cref="Tick"/>. Работает на unscaledDeltaTime —
-    /// действует и на паузе (меню). Курсор не скрывает.
+    /// Драйвер направленного ввода (стик/клавиши): каждый тик опрашивает вектор движения и сдвигает
+    /// курсор. Работает на unscaledDeltaTime — действует и на паузе. Курсор не скрывает.
     ///
-    /// <b>Профиль скорости.</b> Итоговая скорость =
-    /// <c>speed × <see cref="speedCurve"/>.Evaluate(stickMagnitude) × accelFactor</c>, где:
-    /// (1) <see cref="speedCurve"/> — нелинейный ответ на отклонение стика
-    /// (вход X = <c>stickMagnitude ∈ [0..1]</c>, выход Y = множитель к <see cref="speed"/>).
-    /// Дефолт — константа 1 (кривая не влияет; задаётся дизайнером при необходимости — например,
-    /// Pow(x, 2) для более точного управления на малых отклонениях).
-    /// (2) <see cref="accelerationTime"/> — время плавного набора скорости от 0 до максимума
-    /// (нет мгновенного рывка на старте). При входе в deadzone фактор мгновенно сбрасывается
-    /// в 0 — следующий старт тоже плавный. Торможение в деад-зоне мгновенное: курсор нужно
-    /// отпускать быстро, не инерцией. Для 0 — классический bang-bang (как было без разгона).
+    /// <b>Скорость.</b> <c>speed × speedCurve(holdTime) × stick²</c>, направление — нормализованный вектор движения.
+    /// <list type="bullet">
+    /// <item><c>holdTime</c> — секунды удержания стика вне мёртвой зоны; в ней мгновенно сбрасывается в 0,
+    /// вне её растёт до времени последнего ключа кривой и дальше не копится. Кривая задаёт профиль разгона
+    /// по времени целиком: X — секунды, Y — множитель к <see cref="speed"/>. Кривая-константа — разгона нет.</item>
+    /// <item><c>stick</c> — отклонение стика, перенормированное от края мёртвой зоны: 0 на её границе, 1 при полном
+    /// отклонении. Возводится в квадрат — точность на малых отклонениях, полная скорость на максимальном.</item>
+    /// </list>
     ///
-    /// <b>Синхронизация с ОС-мышью.</b> При движении стиком дополнительно вызывается
-    /// <see cref="Mouse.WarpCursorPosition"/>: без этого реальная мышь остаётся в своей
-    /// старой позиции, и любой её дрейф/касание рождает <c>performed</c>-event, который
-    /// у <see cref="MouseInputDriver"/> безусловно перепишет позицию виртуального
-    /// курсора — визуально это выглядит как «курсор прыгает к старой позиции мыши».
-    /// Варп держит ОС-мышь синхронно с виртуальной позицией; event мыши при дрейфе
-    /// придёт с той же точкой, и перехода не будет. Опционально отключается
-    /// <see cref="warpSystemMouse"/>, если ОС-курсор нужен в своём независимом месте.
+    /// <b>Синхронизация с ОС-мышью.</b> При <see cref="warpSystemMouse"/> ОС-мышь варпается в позицию курсора
+    /// на каждом тике движения — иначе событие физической мыши у <see cref="MouseInputDriver"/> вернуло бы
+    /// курсор в её старую точку.
     /// </summary>
     [Serializable]
     public class DirectInputDriver : InputDriver
@@ -38,24 +30,18 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
          Tooltip("Вектор движения — Value/Vector2 (например, Gamepad/leftStick).")]
         private string moveActionId;
 
-        [SerializeField, Tooltip("Максимальная скорость курсора, пикселей/сек. Умножается на " +
-                                 "speedCurve(stickMagnitude) и на accelFactor (плавный разгон).")]
+        [SerializeField, Tooltip("Базовая скорость курсора, пикселей/сек. Умножается на " +
+                                 "speedCurve(время удержания) и на квадрат отклонения стика.")]
         private float speed = 1200f;
 
         [SerializeField, Range(0f, 1f), Tooltip("Мёртвая зона вектора движения.")]
         private float deadzone = 0.2f;
 
-        [SerializeField, Tooltip("Форма ответа на отклонение стика: X = магнитуда [0..1], " +
-                                 "Y = множитель к speed. Дефолт — константа 1 (кривая не влияет). " +
-                                 "Для гейпадов часто используется Pow(x, 2) для более плавного " +
-                                 "управления на малых отклонениях.")]
+        [SerializeField, Tooltip("Профиль разгона: X = секунды удержания стика вне мёртвой зоны, " +
+                                 "Y = множитель к speed. После последнего ключа множитель держится на его " +
+                                 "значении. Дефолт — константа 1 (разгона нет). В мёртвой зоне время " +
+                                 "сбрасывается — следующий старт идёт с начала кривой.")]
         private AnimationCurve speedCurve = AnimationCurve.Constant(0f, 1f, 1f);
-
-        [SerializeField, Min(0f), Tooltip("Время плавного набора скорости (секунды) с момента " +
-                                          "выхода стика из деад-зоны. 0 = мгновенный разгон (bang-bang). " +
-                                          "В деад-зоне фактор мгновенно сбрасывается — следующий старт " +
-                                          "начинается с 0.")]
-        private float accelerationTime = 0.1f;
 
         [SerializeField, Tooltip("Варпать ОС-мышь к виртуальному курсору на каждом тике со стиком. " +
                                  "Нужно, чтобы MouseInputDriver не откатывал позицию в старую точку " +
@@ -63,39 +49,51 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                                  "независимым (например, у тебя есть отдельный ОС-курсор для чего-то).")]
         private bool warpSystemMouse = true;
 
+        /// <summary>Экшен вектора движения (null — не разрезолвлен, драйвер бездействует).</summary>
         private InputAction _action;
-        private float _accelFactor;
 
+        /// <summary>
+        /// Секунды удержания стика вне мёртвой зоны — аргумент <see cref="speedCurve"/>.
+        /// Ограничено временем последнего ключа кривой.
+        /// </summary>
+        private float _holdTime;
+
+        /// <summary>Драйвер опрашивает экшен каждый кадр.</summary>
         public override bool NeedsTick => true;
 
+        /// <summary>
+        /// Резолв экшена движения (ошибка настройки — LogError, драйвер бездействует) и предупреждение,
+        /// если последний ключ кривой даёт 0 (курсор встанет на полном разгоне).
+        /// </summary>
         public override void Connect()
         {
             _action = ResolveAction(moveActionId);
-            EnableMap(moveActionId);
 
-            // Fail-loud: непустой id, который не резолвится, оставил бы Tick молча бездействующим.
-            if (_action == null && !string.IsNullOrEmpty(moveActionId))
-                Debug.LogError($"[DirectInputDriver] moveActionId='{moveActionId}' не разрезолвился — " +
-                               "курсор не будет двигаться. Проверь id в InputDriverSet.");
+            if (string.IsNullOrEmpty(moveActionId) || _action == null)
+                Debug.LogError("[DirectInputDriver] Ошибка настройки драйвера управления");
 
-            // Curve, оканчивающаяся на 0 при полном отклонении стика (Evaluate(1) ≈ 0) —
-            // почти всегда ошибка конфигурации: курсор не будет двигаться даже на максимуме.
+            // Кривая, оканчивающаяся на 0, — почти всегда ошибка конфигурации: после разгона
+            // курсор встанет и не сдвинется, сколько стик ни держи.
             // Явно предупреждаем на подключении, не ждём «курсор не работает» в тестах.
-            if (speedCurve != null && Mathf.Approximately(speedCurve.Evaluate(1f), 0f))
+            if (speedCurve != null && Mathf.Approximately(speedCurve.Evaluate(GetCurveEndTime()), 0f))
             {
                 Debug.LogWarning(
-                    $"[DirectInputDriver] speedCurve.Evaluate(1) ≈ 0 для moveActionId='{moveActionId}'. " +
-                    "Курсор не будет двигаться при полном отклонении стика — проверь форму кривой в InputDriverSet.");
+                    $"[DirectInputDriver] speedCurve в последнем ключе ≈ 0 для moveActionId='{moveActionId}'. " +
+                    "Курсор встанет после разгона — проверь форму кривой в InputDriverSet.");
             }
         }
 
+        /// <summary>Сброс экшена и времени удержания.</summary>
         public override void Disconnect()
         {
-            DisableMap(moveActionId);
             _action = null;
-            _accelFactor = 0f;
+            _holdTime = 0f;
         }
 
+        /// <summary>
+        /// Шаг движения: в мёртвой зоне — сброс времени удержания; иначе сдвиг курсора на
+        /// <c>speed × speedCurve(holdTime) × stick² × dt</c> с клампом в экран, репорт и (опционально) варп ОС-мыши.
+        /// </summary>
         public override void Tick(float unscaledDeltaTime)
         {
             if (_action == null || VirtualCursorBus.Data == null) return;
@@ -103,27 +101,32 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             var move = _action.ReadValue<Vector2>();
             var magnitude = move.magnitude;
 
-            if (magnitude <= deadzone)
+            if (magnitude < deadzone)
             {
-                _accelFactor = 0f; // в деад-зоне — мгновенный сброс; следующий старт пойдёт с 0
+                _holdTime = 0f; // в деад-зоне — мгновенный сброс; следующий старт пойдёт с начала кривой
                 return;
             }
 
-            if (accelerationTime > 0f)
-                _accelFactor = Mathf.MoveTowards(_accelFactor, 1f, unscaledDeltaTime / accelerationTime);
-            else
-                _accelFactor = 1f;
-            var curveMultiplier = speedCurve.Evaluate(Mathf.Clamp01(_accelFactor));
             var direction = move / magnitude;
 
-            var appliedSpeed = speed * curveMultiplier;
+            // Разгон по времени удержания: кривая целиком задаёт профиль, после последнего ключа время не копится.
+            _holdTime = Mathf.Min(_holdTime + unscaledDeltaTime, GetCurveEndTime());
+
+            // Отклонение от края мёртвой зоны до полного, в квадрате: мягко на малых, полная скорость на максимуме.
+            var stick = Mathf.InverseLerp(deadzone, 1f, Mathf.Min(magnitude, 1f));
+
+            var appliedSpeed = speed * speedCurve.Evaluate(_holdTime) * (stick * stick);
             var pos = VirtualCursorBus.Data.ScreenPosition.Value + direction * (appliedSpeed * unscaledDeltaTime);
             pos.x = Mathf.Clamp(pos.x, 0f, Screen.width - 1f);
             pos.y = Mathf.Clamp(pos.y, 0f, Screen.height - 1f);
-            Report(pos, PointerSourceKind.Direct);
+            Report(pos);
 
             if (warpSystemMouse)
                 Mouse.current?.WarpCursorPosition(pos);
         }
+
+        /// <summary>Время последнего ключа <see cref="speedCurve"/> (0 — кривая пуста).</summary>
+        private float GetCurveEndTime() =>
+            speedCurve != null && speedCurve.length > 0 ? speedCurve[speedCurve.length - 1].time : 0f;
     }
 }

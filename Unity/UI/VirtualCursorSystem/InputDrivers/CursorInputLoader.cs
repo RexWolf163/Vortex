@@ -22,26 +22,44 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
     /// </summary>
     public class CursorInputLoader : IProcess
     {
+        /// <summary>Путь <see cref="InputDriverSet"/> в Resources.</summary>
         private const string AssetPath = "Settings/InputDriverSet";
+
+        /// <summary>Владелец вызова петли тика в <see cref="TimeController"/>.</summary>
         private static readonly object TickOwner = new();
 
+        /// <summary>Экземпляр загрузчика (создаётся при первом обращении).</summary>
         private static CursorInputLoader _instance;
+
+        /// <summary>Экземпляр загрузчика, регистрируемый в <see cref="Loader"/>.</summary>
         private static CursorInputLoader Instance => _instance ??= new CursorInputLoader();
 
+        /// <summary>Подключённые драйверы, которым нужен покадровый тик.</summary>
         private readonly List<TickSlot> _ticking = new();
+
+        /// <summary>Загруженный набор драйверов.</summary>
         private InputDriverSet _set;
+
+        /// <summary>Описание процесса для экрана загрузки.</summary>
         private readonly ProcessData _process = new() { Name = "Cursor Input", Progress = 0, Size = 1 };
 
+        /// <summary>Регистрация загрузчика в <see cref="Loader"/> на старте приложения.</summary>
         [RuntimeInitializeOnLoadMethod]
         private static void Register() => Loader.Register(Instance);
 
-        // InputController лениво инициализируется по первому доступу (GetAction) и не является ISystemController,
-        // поэтому его в WaitingFor указать нельзя (Loader такую зависимость не резолвит) — и не нужно.
-        // Появится реальная ISystemController/IProcess-зависимость — перечислить её здесь.
+        /// <summary>
+        /// Зависимостей нет. <c>InputController</c> инициализируется лениво по первому доступу и не является
+        /// ISystemController, поэтому в WaitingFor его указать нельзя — и не нужно.
+        /// </summary>
         public Type[] WaitingFor() => Type.EmptyTypes;
 
+        /// <summary>Описание процесса для экрана загрузки.</summary>
         public ProcessData GetProcessInfo() => _process;
 
+        /// <summary>
+        /// Загрузить <see cref="InputDriverSet"/> (нет ассета / пустой список — исключение), подключить драйверы,
+        /// поддерживающие текущую платформу, запустить тик для нуждающихся и подписать <see cref="Teardown"/> на выход.
+        /// </summary>
         public UniTask RunAsync(CancellationToken cancellationToken)
         {
             _set = Resources.Load<InputDriverSet>(AssetPath);
@@ -72,8 +90,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             return UniTask.CompletedTask;
         }
 
-        // Покадровая петля тика. Внутренний try/catch изолирует сбойный драйвер, finally гарантирует,
-        // что петля переживёт любой бросок и перепланируется на следующую волну.
+        /// <summary>
+        /// Покадровая петля тика. Внутренний try/catch изолирует сбойный драйвер, finally гарантирует,
+        /// что петля переживёт любой бросок и перепланируется на следующий кадр.
+        /// </summary>
         private void TickAll()
         {
             try
@@ -100,6 +120,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             }
         }
 
+        /// <summary>Выход из приложения: остановить тик и отключить все драйверы набора.</summary>
         private void Teardown()
         {
             App.OnExit -= Teardown;
@@ -110,10 +131,16 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             _ticking.Clear();
         }
 
+        /// <summary>Тикающий драйвер и счётчик подряд идущих сбоев (для анти-спама лога).</summary>
         private sealed class TickSlot
         {
+            /// <summary>Драйвер с <see cref="InputDriver.NeedsTick"/>.</summary>
             public readonly InputDriver Driver;
+
+            /// <summary>Число подряд идущих кадров с исключением; 0 — последний кадр прошёл без ошибки.</summary>
             public int FailStreak;
+
+            /// <summary>Слот для драйвера.</summary>
             public TickSlot(InputDriver driver) => Driver = driver;
         }
     }

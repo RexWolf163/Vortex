@@ -13,6 +13,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
     [Serializable]
     public class ActionInputDriver : InputDriver
     {
+        /// <summary>Привязка «экшен-кнопка → действие курсора».</summary>
         [Serializable]
         public struct Binding
         {
@@ -23,46 +24,62 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             public string actionId;
 
 #if UNITY_EDITOR
-            // ValueResolver резолвит имя метода относительно типа ВЛАДЕЛЬЦА поля — то есть
-            // Binding, а не ActionInputDriver. Протащить сюда protected InputDriver.GetInputActions
-            // наследованием нельзя (struct не наследует класс). Локальный static-прокси —
-            // минимальный фикс, иерархию обходить вручную через @root/@# не надо.
+            /// <summary>
+            /// Источник дропдауна id экшенов для <see cref="actionId"/>. ValueResolver резолвит имя метода
+            /// относительно типа ВЛАДЕЛЬЦА поля — то есть Binding, а не ActionInputDriver; протащить сюда
+            /// protected InputDriver.GetInputActions наследованием нельзя (struct не наследует класс),
+            /// поэтому локальный static-прокси.
+            /// </summary>
             private static string[] GetInputActions() => InputController.GetActions();
 #endif
         }
 
+        /// <summary>Привязки драйвера; на одно действие можно завести несколько экшенов.</summary>
         [SerializeField] private Binding[] bindings = Array.Empty<Binding>();
 
+        /// <summary>
+        /// Ключи удержания действий по привязкам (индекс = индекс в <see cref="bindings"/>): каждая привязка держит
+        /// действие от своего имени, отпускание одной не снимает действие, удерживаемое другой.
+        /// </summary>
+        private object[] _sources = new object[0];
+
+        /// <summary>
+        /// Подписаться на каждую привязку: performed берёт действие, canceled отпускает.
+        /// Привязка с пустым или неразрезолвленным id пропускается с LogError.
+        /// </summary>
         public override void Connect()
         {
-            foreach (var b in bindings)
+            _sources = new object[bindings.Length];
+            for (var i = 0; i < bindings.Length; i++)
             {
-                if (ResolveAction(b.actionId) == null)
+                var b = bindings[i];
+                var source = _sources[i] = new object();
+                if (string.IsNullOrEmpty(b.actionId) || ResolveAction(b.actionId) == null)
                 {
-                    if (!string.IsNullOrEmpty(b.actionId))
-                        Debug.LogError($"[ActionInputDriver] Экшен '{b.actionId}' не разрезолвился — " +
-                                       $"привязка '{b.action}' работать не будет. Проверь id в InputDriverSet.");
+                    Debug.LogError("[ActionInputDriver] Ошибка настройки драйвера управления");
                     continue;
                 }
 
-                EnableMap(b.actionId);
                 var action = b.action; // фиксируем на итерацию
                 SubscribeAction(b.actionId,
-                    () => VirtualCursorController.SetAction(action, true),
-                    () => VirtualCursorController.SetAction(action, false));
+                    () => Controllers.VirtualCursorController.SetAction(action, true, source),
+                    () => Controllers.VirtualCursorController.SetAction(action, false, source));
             }
         }
 
+        /// <summary>Отписаться от всех привязок и отпустить только свои удержания.</summary>
         public override void Disconnect()
         {
-            foreach (var b in bindings)
+            for (var i = 0; i < bindings.Length; i++)
             {
-                UnsubscribeAction(b.actionId);
-                DisableMap(b.actionId);
-                // Снимаем ТОЛЬКО свои биты, а не глобальный ClearActions: иначе отключение одного
-                // ActionInputDriver стирало бы маску действий, выставленную другими экземплярами.
-                VirtualCursorController.SetAction(b.action, false);
+                UnsubscribeAction(bindings[i].actionId);
+                // Отпускаем ТОЛЬКО свои удержания, а не глобальный ClearActions: иначе отключение одного
+                // драйвера стирало бы действия других источников. Неудерживаемое отпускание — no-op.
+                if (i < _sources.Length)
+                    Controllers.VirtualCursorController.SetAction(bindings[i].action, false, _sources[i]);
             }
+
+            _sources = new object[0];
         }
     }
 }

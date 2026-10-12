@@ -15,45 +15,28 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
     public enum TouchDriverMode
     {
         /// <summary>
-        /// Android-профиль. На касание выставляем источник <see cref="PointerSourceKind.Point"/> +
-        /// hide-флаг, но <c>ScreenPosition</c> НЕ трогаем. UGUI (через <c>InputSystemUIInputModule</c>
-        /// на <c>&lt;Touchscreen&gt;</c>) обрабатывает клик нативно; <see cref="VirtualPointerDispatcher"/>
-        /// не триггерится (нет изменения позиции) — двойных кликов и лишнего raycast'а нет.
-        /// <b>Биндинг:</b> любой — Button (например, <c>&lt;Touchscreen&gt;/primaryTouch</c>) или
-        /// Value — значение не читается, важен только факт события.
+        /// Касание только скрывает курсор: репортится текущая позиция курсора (без сдвига), значение экшена
+        /// не читается — биндинг может быть любым (Button или Value). Клик обрабатывает UGUI нативно.
         /// </summary>
         HideOnly,
 
         /// <summary>
-        /// Абсолютная позиция (устаревшее поведение). Report'им точку касания, курсор прыгает к пальцу.
-        /// Полезно только там, где нативный UGUI-пайплайн тача выключен, а виртуальный диспетчер —
-        /// единственный источник кликов (киоск/VR-туториал на тач-поверхности). HidesCursor=true —
-        /// касание скрывает визуал (как в старой реализации).
-        /// <b>Биндинг:</b> Value/Vector2 позиции касания (например, <c>&lt;Touchscreen&gt;/primaryTouch/position</c>).
+        /// Курсор прыгает в точку касания и скрывается. Биндинг — Value/Vector2 позиции касания
+        /// (например, <c>&lt;Touchscreen&gt;/primaryTouch/position</c>).
         /// </summary>
         AbsolutePosition,
 
         /// <summary>
-        /// Трекпад-смещение. Delta пальца добавляется к текущей позиции курсора. Курсор остаётся
-        /// видимым (HidesCursor=false): пользователь смотрит на экранный курсор, не на палец.
-        /// Delta берётся напрямую из биндинга — Unity InputSystem сам обнуляет её между касаниями
-        /// (при lift accumulation не продолжается).
-        /// <b>Биндинг:</b> Value/Vector2 delta касания (например, <c>&lt;Touchscreen&gt;/delta</c>).
+        /// Трекпад: дельта пальца сдвигает курсор, курсор виден. Биндинг — Value/Vector2 дельты
+        /// (например, <c>&lt;Touchscreen&gt;/delta</c>).
         /// </summary>
         Delta,
     }
 
     /// <summary>
-    /// Платформенный фильтр подключения драйвера касания. На момент <c>Connect</c>
-    /// <see cref="CursorInputLoader"/> спрашивает <see cref="InputDriver.SupportsPlatform"/> —
-    /// при <c>false</c> драйвер пропускается и в рантайме не фаерит.
-    ///
-    /// Зачем это нужно: типичная пара TouchInputDriver'ов (HideOnly + Delta) в одном
-    /// <see cref="InputDriverSet"/> даёт конфликт на последнем-источнике-wins. Delta фаерит
-    /// каждый кадр движения пальца с <c>HidesCursor=false</c>, HideOnly — только единожды
-    /// на tap-down с <c>HidesCursor=true</c>. При свайпе Delta всегда перезаписывает hide
-    /// в <c>false</c> → курсор виден на всех платформах. Фильтр разводит экземпляры по
-    /// платформам (HideOnly только на мобильном, Delta — только на десктопе).
+    /// Платформенный фильтр подключения драйвера касания: при несовпадении платформы загрузчик драйвер
+    /// не подключает. Нужен, чтобы развести экземпляры пары HideOnly + Delta по платформам — иначе на мобильных
+    /// Delta (не скрывает) перебивал бы HideOnly по правилу last-source-wins.
     /// </summary>
     public enum TouchPlatformFilter
     {
@@ -67,11 +50,41 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         DesktopOnly,
     }
 
+    /// <summary>Проверка платформы по <see cref="TouchPlatformFilter"/> (драйвер касания, UGUI-модуль пакета).</summary>
+    public static class TouchPlatformFilterExtensions
+    {
+        /// <summary>Платформа подходит под фильтр.</summary>
+        public static bool Matches(this TouchPlatformFilter filter, RuntimePlatform platform)
+        {
+            switch (filter)
+            {
+                case TouchPlatformFilter.MobileOnly:
+                    // Android и iOS runtime. Редакторы НЕ входят — для тестирования строить на устройство.
+                    return platform == RuntimePlatform.Android
+                           || platform == RuntimePlatform.IPhonePlayer;
+
+                case TouchPlatformFilter.DesktopOnly:
+                    // Standalone-плееры + ВСЕ редакторы (редактор всегда десктоп по хосту —
+                    // Application.platform возвращает *Editor независимо от Build Target).
+                    return platform == RuntimePlatform.WindowsPlayer
+                           || platform == RuntimePlatform.OSXPlayer
+                           || platform == RuntimePlatform.LinuxPlayer
+                           || platform == RuntimePlatform.WindowsEditor
+                           || platform == RuntimePlatform.OSXEditor
+                           || platform == RuntimePlatform.LinuxEditor;
+
+                default:
+                    return true;
+            }
+        }
+    }
+
     /// <summary>
     /// Драйвер касания. Три режима работы (см. <see cref="TouchDriverMode"/>):
     /// <list type="bullet">
-    /// <item><b>HideOnly</b> (дефолт, Android): скрываем визуал, позицию не репортим.</item>
-    /// <item><b>AbsolutePosition</b>: прежнее поведение — репорт точки касания.</item>
+    /// <item><b>HideOnly</b> (дефолт, Android): скрываем визуал; репортится текущая позиция курсора (без сдвига) —
+    /// только чтобы передать флаг скрытия.</item>
+    /// <item><b>AbsolutePosition</b>: репорт точки касания.</item>
     /// <item><b>Delta</b>: трекпад — палец двигает курсор относительно; курсор виден.</item>
     /// </list>
     /// <see cref="HidesCursor"/> = <c>true</c> для HideOnly/AbsolutePosition (касание — прямой контакт,
@@ -114,50 +127,33 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                  "курсор на N px). >1 — ускорение (меньше сдвигов пальцем для того же пути).")]
         private float deltaSpeedMultiplier = 1f;
 
+        /// <summary>Экшен касания (null — не разрезолвлен).</summary>
         private InputAction _action;
 
-        // В Delta курсор остаётся видимым — пользователь смотрит на экранный курсор, не на палец.
-        // В HideOnly/AbsolutePosition — скрываем (прямой контакт, курсор семантически не нужен).
+        /// <summary>
+        /// В Delta курсор остаётся видимым — пользователь смотрит на экранный курсор, не на палец.
+        /// В HideOnly/AbsolutePosition — скрываем (прямой контакт, курсор семантически не нужен).
+        /// </summary>
         public override bool HidesCursor => mode != TouchDriverMode.Delta;
 
-        public override bool SupportsPlatform(RuntimePlatform platform)
-        {
-            switch (platformFilter)
-            {
-                case TouchPlatformFilter.MobileOnly:
-                    // Android и iOS runtime. Редакторы НЕ входят — для тестирования строить на устройство.
-                    return platform == RuntimePlatform.Android
-                           || platform == RuntimePlatform.IPhonePlayer;
+        /// <summary>Поддержка платформы по <see cref="platformFilter"/>.</summary>
+        public override bool SupportsPlatform(RuntimePlatform platform) => platformFilter.Matches(platform);
 
-                case TouchPlatformFilter.DesktopOnly:
-                    // Standalone-плееры + ВСЕ редакторы (редактор всегда десктоп по хосту —
-                    // Application.platform возвращает *Editor независимо от Build Target).
-                    return platform == RuntimePlatform.WindowsPlayer
-                           || platform == RuntimePlatform.OSXPlayer
-                           || platform == RuntimePlatform.LinuxPlayer
-                           || platform == RuntimePlatform.WindowsEditor
-                           || platform == RuntimePlatform.OSXEditor
-                           || platform == RuntimePlatform.LinuxEditor;
-
-                default:
-                    return true;
-            }
-        }
-
+        /// <summary>Резолв экшена касания и подписка на него (id не проверяется).</summary>
         public override void Connect()
         {
             _action = ResolveAction(pointActionId);
-            EnableMap(pointActionId);
             SubscribeAction(pointActionId, OnPoint, null);
         }
 
+        /// <summary>Отписка от экшена касания.</summary>
         public override void Disconnect()
         {
             UnsubscribeAction(pointActionId);
-            DisableMap(pointActionId);
             _action = null;
         }
 
+        /// <summary>Событие касания — обработка по <see cref="mode"/>.</summary>
         private void OnPoint()
         {
             if (_action == null) return;
@@ -166,15 +162,16 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             {
                 case TouchDriverMode.HideOnly:
                     // Значение экшена НЕ читаем — биндинг может быть Button (primaryTouch),
-                    // ReadValue<Vector2> на нём выбросит control-type mismatch. Нужен только факт
-                    // события: пометить активный источник + hide-канал. ScreenPosition не трогаем.
-                    VirtualCursorController.SetActiveSource(PointerSourceKind.Point, HidesCursor);
+                    // ReadValue<Vector2> на нём выбросит control-type mismatch. Нужен только факт касания.
+                    // Репортим текущую позицию курсора: позиция не меняется (дедуп ReactiveValue), уходит только
+                    // флаг HidesCursor — мышь для этого не нужна.
+                    Report(VirtualCursorBus.Data.ScreenPosition.Value);
                     break;
 
                 case TouchDriverMode.AbsolutePosition:
                 {
                     var pos = _action.ReadValue<Vector2>();
-                    Report(pos, PointerSourceKind.Point);
+                    Report(pos);
                     if (warpSystemMouse)
                         Mouse.current?.WarpCursorPosition(pos);
                     break;
@@ -193,7 +190,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                     var cursor = VirtualCursorBus.Data.ScreenPosition.Value + delta;
                     cursor.x = Mathf.Clamp(cursor.x, 0f, Screen.width - 1f);
                     cursor.y = Mathf.Clamp(cursor.y, 0f, Screen.height - 1f);
-                    Report(cursor, PointerSourceKind.Point);
+                    Report(cursor);
                     break;
                 }
             }

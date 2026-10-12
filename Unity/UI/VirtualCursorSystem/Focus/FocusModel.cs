@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Vortex.Core.Extensions.ReactiveValues;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 
-namespace Vortex.Unity.UI.VirtualCursorSystem
+namespace Vortex.Unity.UI.VirtualCursorSystem.Focus
 {
     /// <summary>
     /// Runtime-реестр фокус-навигации виртуального курсора. Хранит LIFO-стек активных
@@ -19,11 +20,27 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
     /// (смена фокуса — включая переходы между группами и обнуление), читать
     /// <see cref="Groups"/>/<see cref="ActiveGroup"/>. Мутации — internal, зовутся
     /// контроллером/<see cref="FocusGroup"/>.
+    ///
+    /// <b>Батчинг <see cref="OnUpdateData"/>.</b> Смена групп порождает серию изменений за один вызов
+    /// (стек → снятие фокуса → новая цель); агрегатное событие собирает их в одно — не чаще раза за волну
+    /// <see cref="TimeController.Accumulate"/> (LateUpdate) и уже с итоговым состоянием.
+    /// <c>CurrentFocus.OnUpdate</c> остаётся синхронным — на каждое изменение фокуса.
     /// </summary>
     public class FocusModel : IReactiveData
     {
+        /// <summary>
+        /// Любое изменение модели: смена фокуса или состава стека групп. Батчится: одно событие на волну
+        /// <see cref="TimeController.Accumulate"/> (LateUpdate), сколько бы изменений ни случилось до неё.
+        /// </summary>
         public event Action OnUpdateData;
 
+        /// <summary>
+        /// Есть изменения, о которых подписчики <see cref="OnUpdateData"/> ещё не уведомлены. Снимается в
+        /// <see cref="Flush"/>; повторный <see cref="Flush"/> без новых изменений ничего не поднимает.
+        /// </summary>
+        private bool _dirty;
+
+        /// <summary>Стек групп; верх стека — последний элемент.</summary>
         private readonly List<FocusGroup> _groups = new();
 
         /// <summary>Снапшот стека групп (read-only). Топ = <c>Groups[^1]</c>; порядок — LIFO
@@ -44,6 +61,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
                     var g = _groups[i];
                     if (g != null && !g.Ignore) return g;
                 }
+
                 return null;
             }
         }
@@ -51,12 +69,33 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// <summary>Текущая цель фокуса или <c>null</c>, если фокуса нет / стек пуст.</summary>
         public FocusTargetData CurrentFocus { get; } = new(null);
 
+        /// <summary>Модель с пустым стеком и без фокуса; смена фокуса транслируется в <see cref="OnUpdateData"/>.</summary>
         public FocusModel()
         {
             CurrentFocus.OnUpdateData += Raise;
         }
 
-        private void Raise() => OnUpdateData?.Invoke();
+        /// <summary>Есть ли текущий фокус. Наличие фокуса — признак режима навигации.</summary>
+        public bool HasFocus() => CurrentFocus.Value != null;
+
+        /// <summary>Отметить изменение и запланировать <see cref="Flush"/> на волну <see cref="TimeController.Accumulate"/>.</summary>
+        private void Raise()
+        {
+            _dirty = true;
+            TimeController.Accumulate(Flush, this);
+        }
+
+        /// <summary>
+        /// Поднять <see cref="OnUpdateData"/> один раз за накопленные изменения. Изменения, внесённые во время
+        /// волны после планирования (например, отложенная авто-передача фокуса), уходят в следующую волну;
+        /// если они успели до Flush этой — следующий Flush пустой.
+        /// </summary>
+        private void Flush()
+        {
+            if (!_dirty) return;
+            _dirty = false;
+            OnUpdateData?.Invoke();
+        }
 
         /// <summary>Закрепить владельца за реактивным полем. Зовётся контроллером один раз.</summary>
         public void SetOwner(object owner)
@@ -94,7 +133,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
         /// </summary>
         internal bool RemoveGroup(FocusGroup group)
         {
-            if (group == null) return false;
+            // Сравнение по ссылке: уничтоженная группа (fake-null) тоже должна сниматься из стека.
+            if (ReferenceEquals(group, null)) return false;
             // Сравнение с ActiveGroup до удаления: сам List.Remove — O(n), один проход; снятие
             // попутно «вычищает» элемент из любых потенциальных приоритетных подочередей (у нас
             // единый список, никаких parallel-queue не ведём — чистка исчерпывается Remove'ом).
@@ -104,7 +144,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem
             return wasActive;
         }
 
-        /// <summary>Прямая установка текущего фокуса. Контроллер зовёт на SetFocusInternal / ClearFocus.</summary>
+        /// <summary>Прямая установка текущего фокуса (<c>null</c> — снять). Проходит только с ключом владельца — контроллера.</summary>
         internal void SetCurrent(IFocusTarget target, object owner)
         {
             CurrentFocus.Set(target, owner);

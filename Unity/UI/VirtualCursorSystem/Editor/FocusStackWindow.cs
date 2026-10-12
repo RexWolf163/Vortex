@@ -2,6 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 using Vortex.Unity.UI.VirtualCursorSystem.Bus;
+using Vortex.Unity.UI.VirtualCursorSystem.Focus;
 
 namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
 {
@@ -11,15 +12,16 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
     /// Клик по строке группы или target'а — <c>EditorGUIUtility.PingObject</c> на соответствующий
     /// GameObject (навигация к объекту в иерархии / Project).
     ///
-    /// Данные берутся из <see cref="VirtualCursorBus.Focus"/>. До инициализации (Play Mode +
-    /// <c>VirtualCursorBootstrap</c>) модели нет — окно показывает подсказку. Авто-repaint
-    /// через <see cref="EditorApplication.update"/> ~раз на тик, т.к. состояние меняется
-    /// быстро (навигация, open/close меню).
+    /// Данные берутся из <see cref="VirtualCursorBus.Focus"/> и показываются только в Play Mode
+    /// (вне игры окно показывает подсказку). Авто-перерисовка — только в Play Mode, не чаще раза в секунду
+    /// (тик на <see cref="EditorApplication.update"/> подключается на входе в Play Mode и снимается на выходе).
+    /// Клики и наведение в окне перерисовывают его сразу, штатно.
     ///
     /// Read-only, никакого воздействия на систему — только визуализация.
     /// </summary>
     public class FocusStackWindow : EditorWindow
     {
+        /// <summary>Открыть окно стека фокуса.</summary>
         [MenuItem("Tools/Vortex/Virtual Cursor/Focus Stack")]
         public static void Open()
         {
@@ -27,61 +29,83 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             w.minSize = new Vector2(360f, 240f);
         }
 
+        /// <summary>Позиция прокрутки списка групп.</summary>
         private Vector2 _scroll;
 
         // GUIStyle нельзя создавать до первого OnGUI — ленивая инициализация.
         // Палитра различается для Pro (dark) и Personal (light) скинов, иначе на одном из
         // них текст сливается с фоном: светлые пастельные тона на светлом фоне не видно,
         // тёмные насыщенные — на тёмном.
+        /// <summary>Кэш стиля текущего фокуса.</summary>
         private static GUIStyle _currentStyle;
+
+        /// <summary>Кэш стиля запомненного фокуса.</summary>
         private static GUIStyle _rememberedStyle;
+
+        /// <summary>Кэш стиля активной группы.</summary>
         private static GUIStyle _activeGroupStyle;
+
+        /// <summary>Кэш стиля null-target'а.</summary>
         private static GUIStyle _missingStyle;
+
+        /// <summary>Кэш стиля игнорируемой группы.</summary>
         private static GUIStyle _ignoredGroupStyle;
+
+        /// <summary>Кэш стиля метки приоритета.</summary>
         private static GUIStyle _priorityChipStyle;
 
+        /// <summary>Цвет текущего фокуса (под тему редактора).</summary>
         private static Color CurrentColor => EditorGUIUtility.isProSkin
             ? new Color(0.55f, 1f, 0.55f)       // ярко-зелёный на тёмном
             : new Color(0.1f, 0.55f, 0.1f);     // насыщенный тёмно-зелёный на светлом
 
+        /// <summary>Цвет запомненного фокуса.</summary>
         private static Color RememberedColor => EditorGUIUtility.isProSkin
             ? new Color(1f, 0.85f, 0.35f)
             : new Color(0.65f, 0.45f, 0f);
 
+        /// <summary>Цвет активной группы.</summary>
         private static Color ActiveGroupColor => EditorGUIUtility.isProSkin
             ? new Color(0.6f, 0.9f, 1f)
             : new Color(0.1f, 0.35f, 0.75f);
 
+        /// <summary>Цвет null-target'а.</summary>
         private static Color MissingColor => EditorGUIUtility.isProSkin
             ? new Color(1f, 0.5f, 0.5f)
             : new Color(0.65f, 0.15f, 0.15f);
 
+        /// <summary>Цвет игнорируемой группы.</summary>
         private static Color IgnoredColor => EditorGUIUtility.isProSkin
             ? new Color(0.55f, 0.55f, 0.55f)
             : new Color(0.45f, 0.45f, 0.45f);
 
+        /// <summary>Цвет метки приоритета.</summary>
         private static Color PriorityChipColor => EditorGUIUtility.isProSkin
             ? new Color(1f, 0.6f, 0.9f)
             : new Color(0.65f, 0.15f, 0.5f);
 
+        /// <summary>Стиль текущего фокуса (ленивый).</summary>
         private static GUIStyle CurrentStyle =>
             _currentStyle ??= new GUIStyle(EditorStyles.boldLabel)
             {
                 normal = { textColor = CurrentColor }
             };
 
+        /// <summary>Стиль запомненного фокуса (ленивый).</summary>
         private static GUIStyle RememberedStyle =>
             _rememberedStyle ??= new GUIStyle(EditorStyles.label)
             {
                 normal = { textColor = RememberedColor }
             };
 
+        /// <summary>Стиль активной группы (ленивый).</summary>
         private static GUIStyle ActiveGroupStyle =>
             _activeGroupStyle ??= new GUIStyle(EditorStyles.boldLabel)
             {
                 normal = { textColor = ActiveGroupColor }
             };
 
+        /// <summary>Стиль null-target'а (ленивый).</summary>
         private static GUIStyle MissingStyle =>
             _missingStyle ??= new GUIStyle(EditorStyles.label)
             {
@@ -89,6 +113,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
                 fontStyle = FontStyle.Italic
             };
 
+        /// <summary>Стиль игнорируемой группы (ленивый).</summary>
         private static GUIStyle IgnoredGroupStyle =>
             _ignoredGroupStyle ??= new GUIStyle(EditorStyles.boldLabel)
             {
@@ -96,6 +121,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
                 fontStyle = FontStyle.Italic
             };
 
+        /// <summary>Стиль метки приоритета (ленивый).</summary>
         private static GUIStyle PriorityChipStyle =>
             _priorityChipStyle ??= new GUIStyle(EditorStyles.miniBoldLabel)
             {
@@ -103,9 +129,71 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
                 alignment = TextAnchor.MiddleCenter,
             };
 
-        private void OnEnable() => EditorApplication.update += Repaint;
-        private void OnDisable() => EditorApplication.update -= Repaint;
+        /// <summary>Интервал авто-перерисовки в Play Mode, секунды.</summary>
+        private const double RepaintInterval = 1d;
 
+        /// <summary>Время последней авто-перерисовки (<see cref="EditorApplication.timeSinceStartup"/>).</summary>
+        private double _lastRepaint;
+
+        /// <summary>Тик перерисовки подписан на <see cref="EditorApplication.update"/>.</summary>
+        private bool _ticking;
+
+        /// <summary>Подписка на смену режима; в Play Mode — сразу запуск тика.</summary>
+        private void OnEnable()
+        {
+            EditorApplication.playModeStateChanged += OnPlayModeChanged;
+            SetTicking(EditorApplication.isPlaying);
+        }
+
+        /// <summary>Отписка от смены режима и остановка тика.</summary>
+        private void OnDisable()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+            SetTicking(false);
+        }
+
+        /// <summary>Тик только в Play Mode: вход — запуск, выход — остановка и перерисовка в подсказку.</summary>
+        private void OnPlayModeChanged(PlayModeStateChange state)
+        {
+            switch (state)
+            {
+                case PlayModeStateChange.EnteredPlayMode:
+                    SetTicking(true);
+                    break;
+
+                case PlayModeStateChange.ExitingPlayMode:
+                    SetTicking(false);
+                    Repaint();
+                    break;
+            }
+        }
+
+        /// <summary>Включить или выключить тик перерисовки (идемпотентно).</summary>
+        private void SetTicking(bool on)
+        {
+            if (on == _ticking) return;
+            _ticking = on;
+            if (on)
+            {
+                _lastRepaint = 0d;
+                EditorApplication.update += Tick;
+            }
+            else
+            {
+                EditorApplication.update -= Tick;
+            }
+        }
+
+        /// <summary>Тик редактора: перерисовка не чаще раза в <see cref="RepaintInterval"/>.</summary>
+        private void Tick()
+        {
+            var now = EditorApplication.timeSinceStartup;
+            if (now - _lastRepaint < RepaintInterval) return;
+            _lastRepaint = now;
+            Repaint();
+        }
+
+        /// <summary>Шапка + стек групп (только в Play Mode).</summary>
         private void OnGUI()
         {
             DrawHeader();
@@ -135,6 +223,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             }
         }
 
+        /// <summary>Тулбар: число групп в стеке и текущий фокус.</summary>
         private void DrawHeader()
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
@@ -152,6 +241,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             }
         }
 
+        /// <summary>Стек групп сверху вниз: верх окна — верх стека.</summary>
         private void DrawStack(FocusModel focus)
         {
             var groups = focus.Groups;
@@ -180,6 +270,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             }
         }
 
+        /// <summary>
+        /// Блок группы: приоритет, статус (IGNORED / ACTIVE / глубина), запомненный фокус и target'ы.
+        /// Клик по заголовку — ping группы.
+        /// </summary>
         private void DrawGroup(FocusGroup group, bool isActive, int depth, IFocusTarget current)
         {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
@@ -243,6 +337,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             }
         }
 
+        /// <summary>
+        /// Строка target'а с маркером: ● текущий фокус, ◉ запомненный, • прочие; [inactive] — не готов
+        /// принимать фокус. Клик — ping объекта.
+        /// </summary>
         private void DrawTarget(IFocusTarget target, IFocusTarget current, IFocusTarget remembered)
         {
             if (target == null)
@@ -272,6 +370,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             }
         }
 
+        /// <summary>Подпись target'а: имя GameObject'а для компонента, иначе имя типа.</summary>
         private static string TargetLabel(IFocusTarget target)
         {
             if (target == null) return "<null>";
@@ -282,6 +381,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             return target.GetType().Name;
         }
 
+        /// <summary>Подсветить и выделить GameObject группы.</summary>
         private static void PingGroup(FocusGroup group)
         {
             if (group == null) return;
@@ -289,6 +389,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Editor
             Selection.activeGameObject = group.gameObject;
         }
 
+        /// <summary>Подсветить и выделить GameObject target'а (если target — компонент).</summary>
         private static void PingTarget(IFocusTarget target)
         {
             if (target is Component c && c != null)

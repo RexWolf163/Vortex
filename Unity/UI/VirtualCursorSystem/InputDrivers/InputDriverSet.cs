@@ -20,6 +20,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         [Tooltip("Подключаемые драйверы ввода курсора. Добавляй реализации InputDriver.")]
         private InputDriver[] drivers = Array.Empty<InputDriver>();
 
+        /// <summary>Подключаемые драйверы (элементы могут быть null — загрузчик их пропускает).</summary>
         public InputDriver[] Drivers => drivers;
     }
 }
