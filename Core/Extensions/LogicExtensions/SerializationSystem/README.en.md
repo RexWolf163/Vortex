@@ -321,7 +321,7 @@ An object whose type is marked `[POCO]` (or implements an interface with `[POCO]
 | Limitation | Reason |
 |------------|--------|
 | Properties only, no fields | Controls the serializable surface, filters system fields |
-| Complex types require `[POCO]` | Protects against pulling in UnityEngine.Object and other unintended types |
+| Complex types require `[POCO]` | Protects against pulling in platform objects (engine assets) and other unintended types |
 | No cyclic references | Detected via `HashSet`; cycle causes error |
 | Dictionary keys — simple types or `Type` | Complex keys not supported (logged + graceful `"null"`, not an exception) |
 | `Type.GetType()` on deserialization | Type must be available in current AppDomain |
@@ -407,7 +407,7 @@ public class PlayerRecord : Record
     public string Name { get; set; }
     public int Level { get; private set; }
 
-    // Reference to ScriptableObject — won't be pulled in (type lacks [POCO])
+    // Reference to a config asset — won't be pulled in (type lacks [POCO])
     public WeaponConfig Weapon { get; set; }
 
     public override string GetDataForSave() => this.SerializeProperties();

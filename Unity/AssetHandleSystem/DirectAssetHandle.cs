@@ -2,8 +2,9 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using Vortex.Core.AssetHandleSystem;
 
-namespace Vortex.Core.AssetHandleSystem
+namespace Vortex.Unity.AssetHandleSystem
 {
     /// <summary>
     /// Прямая ссылка на Unity-ассет. Ассет находится в памяти всегда, пока живёт содержащий

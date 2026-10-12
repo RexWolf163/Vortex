@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Core.ExtensibleEnumSystem.Abstractions`, `Vortex.Core.ExtensibleEnumSystem.Extensions`
 **Сборка:** `ru.vortex.extenums`
-**Платформа:** Unity / .NET Standard 2.1+
+**Платформа:** .NET Standard 2.1+ (платформенно-независимое ядро)
 
 ---
 
@@ -16,14 +16,14 @@ Type-safe enum-подобные расширяемые наборы значен
 - `ExtensibleEnum` — абстрактная база с авто-реестром инстансов через ctor.
 - `ExtEnumData<T>` — реактивное значение типа-наследника (`ReactiveValue<T>`-наследник).
 - Сериализация/десериализация через формат `"{Namespace.TypeName}.{Key}"`.
-- Eager-инициализация реестра до загрузки сцены и при старте Editor-домена.
+- Eager-инициализация реестра — публичная идемпотентная `Initialize()`; запускает платформенный слой.
 - Lookup по ключу, по типу через статические методы базы.
 
 Вне ответственности:
 
 - Кодогенерация, парные SO-ассеты, валидаторы — **не предусмотрены**. Конкретные классы пишутся руками: `sealed class MoveState : ExtensibleEnum { … }`.
-- Inspector-атрибуты, дропдауны — Layer 2 (`Vortex.Unity.ExtensibleEnumSystem`).
-- UI-интеграция (`UIStateSwitcher`) — пакет `Vortex.Unity.UI.StateSwitcher`.
+- Атрибуты и выпадающие списки редактора — платформенный слой (Layer 2).
+- UI-интеграция (переключение визуальных состояний по значению) — платформенный слой.
 
 ---
 
@@ -32,8 +32,6 @@ Type-safe enum-подобные расширяемые наборы значен
 | Зависимость | Назначение |
 |-------------|-----------|
 | `Vortex.Core.Extensions` | `ReactiveValue<T>`, `IReactiveData`, `SerializeController` |
-| UnityEngine | `[RuntimeInitializeOnLoadMethod]` для eager-инициализации в рантайме |
-| UnityEditor (под `#if UNITY_EDITOR`) | `[InitializeOnLoadMethod]` для eager-инициализации в Editor-домене |
 
 Регистрация custom-конвертера в `SerializeController` происходит автоматически в static-конструкторе `ExtensibleEnum` — это гарантирует, что при первой загрузке базы (что произойдёт при первой же `Initialize`) сериализатор уже знает, как с ней работать.
 
@@ -56,9 +54,8 @@ ExtensibleEnum (abstract, IEquatable<ExtensibleEnum>)
         Ordered:     Dictionary<Type, List<ExtensibleEnum>>
         ByFullName:  Dictionary<string, Type>          ← для Deserialize, заполняется eager-init
         
-        [RuntimeInitializeOnLoadMethod] InitializeOnRuntime() → Initialize()
-        [InitializeOnLoadMethod]        InitializeOnEditor()  → Initialize()  (#if UNITY_EDITOR)
-        Initialize() — скан AppDomain + RunClassConstructor для всех наследников + populate ByFullName
+        Initialize() — public, идемпотентна: скан AppDomain + RunClassConstructor для всех наследников
+                       + populate ByFullName. Вызывает платформенный слой на старте
         
         GetByKey<T>(string)        → T
         GetByKey(Type, string)     → ExtensibleEnum
@@ -113,7 +110,7 @@ public partial class MoveState
 
 Правила:
 - Конструктор объявляется `public` (или `internal`) — иначе вторая partial-часть не сможет вызвать `new`.
-- `Order` в расширении **продолжается** с последнего занятого индекса базовой части. Дубликаты `Order` допустимы технически, но ломают слот-маппинг для `UIStateSwitcher`.
+- `Order` в расширении **продолжается** с последнего занятого индекса базовой части. Дубликаты `Order` допустимы технически, но ломают маппинг значений на слоты по индексу (`ExtEnumData.Index`).
 - Дубликаты `Key` в любой partial-части перезатирают друг друга в реестре `ByKey` — авторская ошибка, eager-init её не диагностирует.
 - Расширение через `partial` работает **в пределах одной сборки**. Для расширения из проектной сборки, использующей пакет как зависимость, см. ниже.
 
@@ -132,7 +129,7 @@ public partial class MoveState
 
 Если проект-потребитель сидит в отдельной asmdef и хочет добавить свои значения к существующему набору, варианта два:
 
-- **Создать инстанс через public ctor в своём static-классе**, гарантировав, что static-инициализатор сработает до использования реестра — например, через `[RuntimeInitializeOnLoadMethod]` или явную ссылку из стартового кода:
+- **Создать инстанс через public ctor в своём static-классе**, гарантировав, что static-инициализатор сработает до использования реестра — например, вызовом из стартового кода платформенного слоя или явной ссылкой из стартового кода:
   ```csharp
   public static class MyMoveStates
   {
@@ -146,9 +143,9 @@ public partial class MoveState
 
 ### Eager-инициализация (нет lazy)
 
-`ExtensibleEnum.Initialize()` вызывается:
-- в рантайме — через `[RuntimeInitializeOnLoadMethod(BeforeSceneLoad)]`;
-- в Editor-домене — через `[InitializeOnLoadMethod]` под `#if UNITY_EDITOR`.
+Ядро платформенно-независимо и инициализацию само не запускает — `ExtensibleEnum.Initialize()` (public, идемпотентна) вызывает платформенный слой:
+- платформенный слой — на старте приложения, до первого обращения к реестру (и при загрузке среды редактирования, если она есть);
+- без платформенного слоя (тесты, сервер) — хост явно на старте, до первого обращения к реестру.
 
 Что делает:
 1. Сканирует `AppDomain.CurrentDomain.GetAssemblies()`.
@@ -242,7 +239,7 @@ character.MoveMode.Set(MoveState.Run);                      // type-safe ✓
 if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equality
 if (character.MoveMode.Is(MoveState.Run)) { ... }           // явная проверка
 character.MoveMode.OnUpdate += v => Refresh(v);             // реактивность
-int slot = character.MoveMode.Index;                        // → UIStateSwitcher
+int slot = character.MoveMode.Index;                        // → индекс слота визуального состояния
 string key = character.MoveMode.Key;                        // → save без обёртки ExtEnumData
 ```
 
@@ -280,7 +277,8 @@ foreach (var s in ExtensibleEnum.GetAll<MoveState>())
 | `ExtEnumData<T>.Value == null` | `Key = null`, `Index = -1`, `Is(...) = false` |
 | `ExtEnumData<T>.Set(null)` | Допустимо; всё реактивное поведение `ReactiveValue<T>` сохраняется |
 | Дублирование Key в наследнике | Последний `new` перезатирает предыдущий в `ByKey` (некорректное использование автором класса) |
-| Чистый .NET без Unity (тесты) | `[RuntimeInitializeOnLoadMethod]` не сработает; вызвать `RunClassConstructor` вручную или сослаться хотя бы на одно значение перед сериализацией |
+| Без платформенного слоя (тесты, сервер) | Вызвать `ExtensibleEnum.Initialize()` на старте, до первого обращения к реестру |
+| `Initialize()` никто не вызвал | `GetAll` / `Deserialize` видят только типы, к которым уже обращались; вызвать `Initialize()` на старте |
 | Параллельные потоки | Реестр не потокобезопасен; eager-init выполняется один раз до пользовательского кода, повторные ctor-вызовы не защищены |
 
 ---
@@ -295,6 +293,7 @@ public abstract class ExtensibleEnum : IEquatable<ExtensibleEnum>
     public int Order { get; }
     
     protected ExtensibleEnum(string key, int order);
+    public static void Initialize();   // eager-инициализация реестра, идемпотентна; вызывает платформенный слой
     
     public string Serialize();
     

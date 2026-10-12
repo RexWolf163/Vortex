@@ -177,9 +177,9 @@ Place presets in `Assets/Resources/Database/`. Assign driver in `DriverConfig`.
 
 ### 3. AddressablesDriver setup
 
-1. Label presets in the Addressables window
-2. Specify labels in `DatabaseSettings.databaseLabels`
-3. Assign driver in `DriverConfig`
+1. Specify labels in `DatabaseSettings.databaseLabels`
+2. Assign driver in `DriverConfig`
+3. Mark presets: the **Mark as DatabasePreset** item (see "Editor Tools") or manually in the Addressables window
 
 ### 4. DbRecord attribute
 
@@ -207,6 +207,7 @@ var preset = driver?.GetPresetForRecord(guid);
 - `IDriverEditor.ReloadDatabase()` — cache refresh without restart
 - `IDriverEditor.GetPresetForRecord(guid)` — get preset by GUID
 - Code generation: `Assets/Create/Vortex Templates/Record`, `Assets/Create/Vortex Templates/Preset for Record`
+- **Mark as DatabasePreset** (`MarkAsDatabasePresetMenu`, Addressables only) — an item in the asset context menu of the Project window (`Assets/Mark as DatabasePreset`, applies to the whole selection) and in the asset inspector menu (⋮). Makes database presets (`IRecordPreset`) Addressable and puts the **first** label from `DatabaseSettings.databaseLabels` on them. An asset already in Addressables stays in its group; a new one goes to the default group. A label missing from the Addressables settings is created. The item is available only when the Addressables database driver is active and labels are set.
 
 ### Preset for Record — Property Generation
 
@@ -227,7 +228,8 @@ Immutability is determined via `ObjectExtDeepClone.IsImmutable` (primitives + pl
 | Situation | Behavior |
 |-----------|----------|
 | Empty `Resources/Database` folder | Driver initializes without data, `OnInit` fires |
-| Empty `databaseLabels` (Addressables) | Error log, loading skipped |
+| Empty `databaseLabels` (Addressables) | Error log, loading skipped; the **Mark as DatabasePreset** item is disabled |
+| Several labels in `databaseLabels` | **Mark as DatabasePreset** applies only the first one |
 | Duplicate GUID in Singleton | `AddNew` — last one overwrites |
 | Duplicate GUID in MultiInstance | Error log, GUID not added again |
 | `GetNewRecord` with non-existent GUID | `null` + error log |

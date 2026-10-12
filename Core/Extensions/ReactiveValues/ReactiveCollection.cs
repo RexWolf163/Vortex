@@ -271,9 +271,8 @@ namespace Vortex.Core.Extensions.ReactiveValues
             return true;
         }
 
-#if UNITY_EDITOR
         /// <summary>
-        /// Установка значения из Editor-инструментов.
+        /// Установка значения из инструментов разработки (отладочные панели, редакторы данных).
         /// Обходит проверку владельца. Сохраняет identity внутреннего списка
         /// (Clear + AddRange) — ранее выданные read-only-обёртки остаются актуальными.
         /// Допускает <c>null</c> — коллекция очищается.
@@ -285,6 +284,5 @@ namespace Vortex.Core.Extensions.ReactiveValues
             if (value != null) Value.AddRange(value);
             CallOnUpdate();
         }
-#endif
     }
 }

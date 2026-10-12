@@ -16,7 +16,6 @@ Capabilities:
 - Implicit operator for reading without `.Value`
 - Container ownership — only the owner can modify the value via `Set()`
 - `IReactiveData` interface is marked `[POCO]` — all implementations are automatically serializable via `SerializeController`
-- Editor generator of a reactive wrapper for an arbitrary class (right-click a `.cs` → Create → Vortex Templates → Create ReactiveData)
 
 Out of scope:
 - Thread safety

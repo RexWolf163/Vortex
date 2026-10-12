@@ -177,9 +177,9 @@ public class ProductPreset : RecordPreset<ProductRecord>
 
 ### 3. Настройка AddressablesDriver
 
-1. Пометить пресеты метками в окне Addressables
-2. В ассете `DatabaseSettings` указать метки в `databaseLabels`
-3. Назначить драйвер в `DriverConfig`
+1. В ассете `DatabaseSettings` указать метки в `databaseLabels`
+2. Назначить драйвер в `DriverConfig`
+3. Пометить пресеты: пункт **Mark as DatabasePreset** (см. «Редакторские инструменты») или вручную в окне Addressables
 
 ### 4. Атрибут DbRecord
 
@@ -207,6 +207,7 @@ var preset = driver?.GetPresetForRecord(guid);
 - `IDriverEditor.ReloadDatabase()` — обновление кеша без перезапуска
 - `IDriverEditor.GetPresetForRecord(guid)` — получение пресета по GUID
 - Кодогенерация: `Assets/Create/Vortex Templates/Record`, `Assets/Create/Vortex Templates/Preset for Record`
+- **Mark as DatabasePreset** (`MarkAsDatabasePresetMenu`, только Addressables) — пункт контекстного меню ассетов в окне Project (`Assets/Mark as DatabasePreset`, работает на всё выделение) и меню инспектора ассета (⋮). Делает пресеты базы (`IRecordPreset`) Addressable и вешает на них **первую** метку из `DatabaseSettings.databaseLabels`. Ассет, уже лежащий в Addressables, остаётся в своей группе; новый попадает в группу по умолчанию. Отсутствующая в настройках Addressables метка создаётся. Пункт доступен, только когда активен Addressables-драйвер базы и метки заданы.
 
 ### Preset for Record — генерация свойств
 
@@ -227,7 +228,8 @@ var preset = driver?.GetPresetForRecord(guid);
 | Ситуация | Поведение |
 |----------|-----------|
 | Пустая папка `Resources/Database` | Драйвер инициализируется без данных, `OnInit` вызывается |
-| Пустой `databaseLabels` (Addressables) | Лог ошибки, загрузка не выполняется |
+| Пустой `databaseLabels` (Addressables) | Лог ошибки, загрузка не выполняется; пункт **Mark as DatabasePreset** неактивен |
+| Несколько меток в `databaseLabels` | **Mark as DatabasePreset** вешает только первую |
 | Дубликат GUID в Singleton | `AddNew` — последний перезаписывает |
 | Дубликат GUID в MultiInstance | Лог ошибки, GUID не добавляется повторно |
 | `GetNewRecord` с несуществующим GUID | `null` + лог ошибки |

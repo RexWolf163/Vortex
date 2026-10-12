@@ -1,0 +1,17 @@
+{
+    "name": "ru.vortex.unity.assethandle",
+    "rootNamespace": "",
+    "references": [
+        "GUID:70004f1eb3bb8854bb26c209a55550de",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

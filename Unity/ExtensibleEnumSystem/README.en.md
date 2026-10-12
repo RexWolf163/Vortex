@@ -11,8 +11,7 @@ Thin Unity-side wrapper around the `ExtensibleEnum` abstraction (Layer 1):
 
 - Inspector attribute `[ExtEnumKey(typeof(MoveState))]` with a dropdown of valid keys.
 - `ExtensibleEnumValueSwitcherHandler` — reflection-based bridge from `ExtEnumData<T>` to `UIStateSwitcher`.
-
-The eager registry initialization (`[RuntimeInitializeOnLoadMethod]` + `[InitializeOnLoadMethod]`) is performed in L1 — no separate Unity initializer is needed.
+- `ExtensibleEnumBootstrap` — starts the eager registry initialization: L1 is platform-agnostic and does not call it itself.
 
 Out of scope:
 
@@ -34,6 +33,12 @@ Out of scope:
 ## Architecture
 
 ```
+Bootstrap/
+  ExtensibleEnumBootstrap           — static: ExtensibleEnum.Initialize() at runtime
+                                      ([RuntimeInitializeOnLoadMethod(BeforeSceneLoad)] — the registry is
+                                      ready by the first scene's Awake) and on Editor domain load
+                                      ([InitializeOnLoadMethod] under #if UNITY_EDITOR)
+
 Attributes/
   ExtEnumKeyAttribute               — [ExtEnumKey(typeof(TEnum))] for string fields in the Inspector;
                                       stores ExtEnumType, validates inheritance from ExtensibleEnum
@@ -45,8 +50,8 @@ Handlers/
 
 Editor/                              (under #if UNITY_EDITOR, in the same runtime asmdef)
   ExtensibleEnumKeyAttributeDrawer  — popup with axis keys for [ExtEnumKey].
-                                      The ExtensibleEnum registry is already populated by the
-                                      L1 eager initializer — the drawer just reads GetAll(Type).
+                                      The ExtensibleEnum registry is already populated by
+                                      ExtensibleEnumBootstrap on domain load — the drawer just reads GetAll(Type).
 ```
 
 ---
@@ -105,6 +110,11 @@ The editor-helper `GetExtEnumDataProperties()` (under `#if UNITY_EDITOR`) collec
 ## Public API
 
 ```csharp
+namespace Vortex.Unity.ExtensibleEnumSystem.Bootstrap
+{
+    public static class ExtensibleEnumBootstrap { }   // initialization attributes only, no public API
+}
+
 namespace Vortex.Unity.ExtensibleEnumSystem.Attributes
 {
     public class ExtEnumKeyAttribute : PropertyAttribute

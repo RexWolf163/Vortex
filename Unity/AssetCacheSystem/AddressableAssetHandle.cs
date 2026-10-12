@@ -15,8 +15,8 @@ namespace Vortex.Unity.AssetCacheSystem
     /// handle сам себе owner, dedup/LRU/sweep обеспечиваются кэшем.
     ///
     /// Живёт в пакете <c>AssetCacheSystem</c> (а не в отдельном), потому что это тонкий
-    /// адаптер, полностью делегирующий работу в <c>AssetCache</c> — как <c>DirectAssetHandle</c>
-    /// живёт рядом с <c>AssetHandle</c> в Core.
+    /// адаптер, полностью делегирующий работу в <c>AssetCache</c>. Прямая реализация —
+    /// <c>DirectAssetHandle</c> в пакете <c>Vortex.Unity.AssetHandleSystem</c>.
     ///
     /// Жизненный цикл (handle переиспользуем — <c>Release</c> не терминален):
     /// <list type="bullet">

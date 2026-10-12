@@ -11,8 +11,7 @@
 
 - Inspector-атрибут `[ExtEnumKey(typeof(MoveState))]` с дропдауном допустимых ключей.
 - Мост `ExtensibleEnumValueSwitcherHandler` для связки `ExtEnumData<T>` → `UIStateSwitcher` через рефлексию.
-
-Eager-инициализация реестра (`[RuntimeInitializeOnLoadMethod]` + `[InitializeOnLoadMethod]`) уже выполняется в L1 — отдельный Unity-инициализатор не нужен.
+- Запуск eager-инициализации реестра `ExtensibleEnumBootstrap`: L1 платформенно-независим и сам её не вызывает.
 
 Вне ответственности:
 
@@ -34,6 +33,12 @@ Eager-инициализация реестра (`[RuntimeInitializeOnLoadMethod
 ## Архитектура
 
 ```
+Bootstrap/
+  ExtensibleEnumBootstrap           — static: ExtensibleEnum.Initialize() в рантайме
+                                      ([RuntimeInitializeOnLoadMethod(BeforeSceneLoad)] — к Awake первой
+                                      сцены реестр готов) и при загрузке Editor-домена
+                                      ([InitializeOnLoadMethod] под #if UNITY_EDITOR)
+
 Attributes/
   ExtEnumKeyAttribute               — [ExtEnumKey(typeof(TEnum))] для string-полей в Inspector;
                                       хранит ExtEnumType, валидирует наследование от ExtensibleEnum
@@ -45,8 +50,8 @@ Handlers/
 
 Editor/                              (под #if UNITY_EDITOR, в том же runtime asmdef)
   ExtensibleEnumKeyAttributeDrawer  — popup с ключами для [ExtEnumKey].
-                                      Реестр ExtensibleEnum уже наполнен eager-инициализацией
-                                      в L1 — drawer просто читает GetAll(Type).
+                                      Реестр ExtensibleEnum уже наполнен ExtensibleEnumBootstrap
+                                      при загрузке домена — drawer просто читает GetAll(Type).
 ```
 
 ---
@@ -105,6 +110,11 @@ Editor-helper `GetExtEnumDataProperties()` под `#if UNITY_EDITOR` собир�
 ## Контракт публичного API
 
 ```csharp
+namespace Vortex.Unity.ExtensibleEnumSystem.Bootstrap
+{
+    public static class ExtensibleEnumBootstrap { }   // только атрибуты инициализации, публичного API нет
+}
+
 namespace Vortex.Unity.ExtensibleEnumSystem.Attributes
 {
     public class ExtEnumKeyAttribute : PropertyAttribute

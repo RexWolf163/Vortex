@@ -170,7 +170,7 @@ Data array: `{ Sprite, BoolData, StringData, IGalleryEntry, GalleryPoolCallbacks
 | `deniedTypes` | Blacklist of FullNames. |
 | `deniedGuids` | Explicit guid exclusions. |
 | `lockedMode` | `Hide` — locked cards absent from pool; `ShowAsLocked` — in pool with `isLocked=true`. |
-| `sorter` | FullName of an `IGalleryEntryComparer` implementation. Empty — no sorting (Database order, not guaranteed stable). |
+| `sorter` | FullName of an `IGalleryEntryComparer` implementation or `None` (`GalleryView.NoSorter`, the default) — no sorting (Database order, not guaranteed stable). Empty — not configured: `[NULL]` in the inspector, a warning on pool build, no sorting. |
 | `resetSelectionWhenLastViewedAbsent` | Reset the highlight to `null` when the last-viewed card is not in the current pool. On by default; off — the highlight keeps its previous value. |
 | `iconOverrides` | List of `(guid, Sprite)` — replace the model's icon for a specific scene. |
 | `pool` | `Pool` from `Vortex.Unity.UI.PoolSystem`. |
@@ -211,6 +211,7 @@ public class MyCardPreset : RecordPreset<MyCardModel> { /* content fields */ }
 | `RecordMarksBus.IsReady == false` at OnEnable | Subscribe to `OnReady`, defer `RefreshPool`. On OnDisable subscription is cleaned. |
 | `Database.GetRecords` is empty / all records filtered out | Empty pool → `stubTweener.Forward()`. |
 | `sorter` type not found in domain / does not implement `IGalleryEntryComparer` | Warning + Database order. |
+| `sorter` empty (neither a type nor `None` selected) | Warning + Database order. |
 | `LastViewedGuid` absent from current pool | With `resetSelectionWhenLastViewedAbsent` (default) — `selectedGuid` is reset to `null`; when off — keeps its previous value. |
 | `Open(guid)` — guid not in pool | Warning, no state change. |
 | `pool == null` | LogError at OnEnable, no further work. |

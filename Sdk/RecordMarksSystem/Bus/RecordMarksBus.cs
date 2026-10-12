@@ -18,13 +18,17 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
     /// пакет не входит в общий <c>Loader</c>/<c>DriverConfig</c>, инициализируется
     /// самостоятельно при старте приложения.
     ///
-    /// Двухфазная готовность:
+    /// Готовность и игровая сессия:
     /// - Bootstrap читает <see cref="RecordMarksSettings"/> из <c>Resources/Settings/</c>,
     ///   валидирует и подписывается на события двух шин: <c>GlobalSaveController.OnInit</c>
     ///   (одноразовое, для per-account модели) и <c>GameController.OnNewGame/OnLoadGame</c>
     ///   (многократное, слот-модель пересоздаётся на каждой новой сессии).
-    /// - <see cref="IsReady"/> = <c>true</c> только когда обе модели резолвлены. До этого
-    ///   любой <c>Mark</c>/<c>Unmark</c> — log-warning + no-op (Open Q5 = A).
+    /// - <see cref="IsReady"/> = <c>true</c>, как только резолвлена per-account модель — пакет работает и вне игры
+    ///   (главное меню). До этого любой <c>Mark</c>/<c>Unmark</c> — log-warning + no-op.
+    /// - Per-slot метки учитываются только при открытой игровой сессии (<see cref="HasSession"/>): слот привязывается
+    ///   на <c>OnNewGame/OnLoadGame</c> и отвязывается при переходе игры в <c>GameStates.Off</c> (<c>ExitGame</c>).
+    ///   Вне сессии per-slot метки пусты (<see cref="IsMarked"/> — <c>false</c>), <c>Mark</c>/<c>Unmark</c> по ним —
+    ///   log-warning + no-op.
     ///
     /// События <see cref="OnMarked"/> и <see cref="OnUnmarked"/> батчатся через
     /// <see cref="TimeController.Accumulate{T}"/> — фаерятся один раз за <c>LateUpdate</c>,
@@ -36,7 +40,11 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
         private const string SettingsResourcePath = "Settings/RecordMarksSettings";
 
         // Готовность
+        /// <summary>Per-account модель резолвлена: пакет готов, в том числе вне игры.</summary>
         public static bool IsReady { get; private set; }
+
+        /// <summary>Открыта игровая сессия: per-slot метки привязаны к слоту и учитываются.</summary>
+        public static bool HasSession => _slotModel != null;
 
         public static event Action OnReady;
         public static event Action OnMarksLoaded;
@@ -68,7 +76,12 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
             if (!EnsureReady()) return;
 
             var (data, cache, isGlobal) = Resolve(mark);
-            if (data == null) return;
+            if (data == null)
+            {
+                WarnNoSession(mark);
+                return;
+            }
+
             if (string.IsNullOrEmpty(guid))
             {
                 Log.Print(LogLevel.Warning, "[RecordMarks] Mark called with empty guid.", "RecordMarksBus");
@@ -95,7 +108,12 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
             if (!EnsureReady()) return;
 
             var (data, cache, isGlobal) = Resolve(mark);
-            if (data == null) return;
+            if (data == null)
+            {
+                WarnNoSession(mark);
+                return;
+            }
+
             if (string.IsNullOrEmpty(guid)) return;
 
             if (!cache[mark].Remove(guid)) return;
@@ -108,7 +126,10 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
                 GlobalSaveController.Commit<RecordMarksGlobalData>();
         }
 
-        /// <summary>Проверка наличия метки на GUID. Для неизвестной метки — <c>false</c>.</summary>
+        /// <summary>
+        /// Проверка наличия метки на GUID. Для неизвестной метки — <c>false</c>; для per-slot метки вне игровой
+        /// сессии — <c>false</c>.
+        /// </summary>
         public static bool IsMarked(string mark, string guid)
         {
             if (!IsReady) return false;
@@ -117,7 +138,8 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
         }
 
         /// <summary>
-        /// Все GUID, помеченные указанной меткой. Для неизвестной метки — пустой массив.
+        /// Все GUID, помеченные указанной меткой. Для неизвестной метки и для per-slot метки вне игровой
+        /// сессии — пустой массив.
         /// Возвращается live-обёртка над внутренним <see cref="HashSet{T}"/> через
         /// <see cref="IReadOnlyCollection{T}"/> — без аллокации. Мутация через downcast
         /// нарушает контракт read-only; штатное чтение (Count/Contains/foreach) безопасно.
@@ -132,7 +154,7 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
 
         // ================= Bootstrap =================
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod]
         private static void Bootstrap()
         {
             IsReady = false;
@@ -164,6 +186,8 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
             GameController.OnNewGame += OnSlotChanged;
             GameController.OnLoadGame -= OnSlotChanged;
             GameController.OnLoadGame += OnSlotChanged;
+            GameController.OnGameStateChanged -= OnGameStateChanged;
+            GameController.OnGameStateChanged += OnGameStateChanged;
         }
 
         /// <summary>
@@ -245,6 +269,22 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
         }
 
         /// <summary>
+        /// Игра перешла в <see cref="GameStates.Off"/> (выход в меню) — сессия закрыта: слот отвязывается, per-slot
+        /// метки перестают учитываться. Данные слота в <c>GameModel</c> не трогаются — сохранение/загрузка их.
+        /// Consumer перерисовывается через <see cref="OnMarksLoaded"/>.
+        /// </summary>
+        private static void OnGameStateChanged()
+        {
+            if (_slotModel == null || GameController.GetState() != GameStates.Off) return;
+
+            // Как и при смене слота: события закрытой сессии не фаерятся, состояние перечитывается целиком.
+            _pending.Clear();
+            _slotModel = null;
+            _slotCache.Clear();
+            OnMarksLoaded?.Invoke();
+        }
+
+        /// <summary>
         /// Гарантирует, что в <paramref name="modelData"/> присутствует ключ для каждой
         /// валидной метки (создаёт пустой список), и удаляет метки, не входящие в SO
         /// (Inv-6: неизвестные метки при загрузке — warning + drop).
@@ -280,7 +320,7 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
         private static void TryFinalizeReady()
         {
             if (IsReady) return;
-            if (_slotModel == null || _globalModel == null) return;
+            if (_globalModel == null) return;
             IsReady = true;
             OnReady?.Invoke();
         }
@@ -306,6 +346,17 @@ namespace Vortex.Sdk.RecordMarksSystem.Bus
                 $"[RecordMarks] Unknown mark '{mark}' (not declared in RecordMarksSettings).",
                 "RecordMarksBus");
             return (null, null, false);
+        }
+
+        /// <summary>
+        /// Предупреждение о мутации per-slot метки вне игровой сессии. Неизвестную метку уже залогировал
+        /// <see cref="Resolve"/>.
+        /// </summary>
+        private static void WarnNoSession(string mark)
+        {
+            if (!_validSlotMarks.Contains(mark)) return;
+            Log.Print(LogLevel.Warning,
+                $"[RecordMarks] Slot mark '{mark}' changed outside a game session. Ignored.", "RecordMarksBus");
         }
 
         private static bool EnsureReady()

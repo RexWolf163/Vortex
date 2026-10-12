@@ -48,8 +48,13 @@ namespace Vortex.Sdk.GallerySystem.View
         [Header("Behaviour")]
         [SerializeField] private LockedMode lockedMode = LockedMode.Hide;
 
-        [SerializeField, ValueSelector("$GetSorters")]
-        private string sorter;
+        /// <summary>Значение <see cref="sorter"/> «без сортировки» — явный выбор, в отличие от пустого (не настроено).</summary>
+        public const string NoSorter = "None";
+
+        [SerializeField, ValueSelector("$GetSorters"),
+         Tooltip("Сортировщик карточек: реализация IGalleryEntryComparer или None — без сортировки " +
+                 "(порядок как из Database). Пусто — не настроено: предупреждение, без сортировки.")]
+        private string sorter = NoSorter;
 
         [SerializeField, Tooltip("Сбрасывать выделение (highlight) в null, если последняя просмотренная " +
                                  "карточка отсутствует в текущем пуле. Выкл — выделение сохраняет прежнее значение.")]
@@ -251,7 +256,12 @@ namespace Vortex.Sdk.GallerySystem.View
 
         private IGalleryEntryComparer ResolveSorter()
         {
-            if (string.IsNullOrEmpty(sorter)) return null;
+            if (sorter == NoSorter) return null;
+            if (string.IsNullOrEmpty(sorter))
+            {
+                Debug.LogWarning($"[GalleryView] '{name}': sorter не выбран — выбери None или тип сортировщика.");
+                return null;
+            }
 
             var type = Type.GetType(sorter);
             if (type == null)
@@ -316,11 +326,11 @@ namespace Vortex.Sdk.GallerySystem.View
             => ScanConcreteTypes<IGalleryEntry>();
 
         // Типы реализаций IGalleryEntryComparer. Первым пунктом выпадашки — явная
-        // опция "None": выбор пишет "" в sorter, ResolveSorter трактует как «без сортировки».
-        // Даёт дизайнеру нажать «сбросить» из UI, а не оставлять поле в состоянии «[NULL]».
+        // опция "None": выбор пишет NoSorter в sorter, ResolveSorter трактует как «без сортировки».
+        // Пустое значение остаётся «не настроено» и рисуется как [NULL].
         private Dictionary<string, string> GetSorters()
         {
-            var result = new Dictionary<string, string> { { "None", "" } };
+            var result = new Dictionary<string, string> { { "None", NoSorter } };
             foreach (var kv in ScanConcreteTypes<IGalleryEntryComparer>())
                 if (!result.ContainsKey(kv.Key))
                     result[kv.Key] = kv.Value;

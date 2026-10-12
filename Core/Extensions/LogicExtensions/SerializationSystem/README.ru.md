@@ -320,7 +320,7 @@ public override void LoadFromSaveData(string data)
 | Ограничение | Причина |
 |-------------|---------|
 | Только свойства, не поля | Контроль сериализуемой поверхности, фильтрация системных полей |
-| Сложные типы требуют `[POCO]` | Защита от затягивания UnityEngine.Object и прочих непредназначенных типов |
+| Сложные типы требуют `[POCO]` | Защита от затягивания платформенных объектов (ассетов движка) и прочих непредназначенных типов |
 | Нет циклических ссылок | Обнаружение через `HashSet`; цикл — ошибка |
 | Ключи словарей — простые типы или `Type` | Сложные ключи не поддерживаются (лог + мягкая деградация `"null"`, не исключение) |
 | `Type.GetType()` при десериализации | Тип должен быть доступен в текущем AppDomain |
@@ -406,7 +406,7 @@ public class PlayerRecord : Record
     public string Name { get; set; }
     public int Level { get; private set; }
 
-    // Ссылка на ScriptableObject — не затянется (тип без [POCO])
+    // Ссылка на конфиг-ассет — не затянется (тип без [POCO])
     public WeaponConfig Weapon { get; set; }
 
     public override string GetDataForSave() => this.SerializeProperties();

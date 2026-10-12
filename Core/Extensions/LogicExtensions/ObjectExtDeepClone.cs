@@ -21,7 +21,7 @@ namespace Vortex.Core.Extensions.LogicExtensions
         /// Порядок обработки типов:
         /// 1. null → default(T)
         /// 2. Примитивы, string, decimal, DateTime, DateTimeOffset, TimeSpan, Guid, Uri, Version, enum → возврат as-is
-        /// 3. Платформенные примитивы (SimpleTypeMarker: Sprite, GameObject и т.д.) → возврат по ссылке
+        /// 3. Платформенные примитивы (типы, отмеченные в SimpleTypeMarker платформенным слоем) → возврат по ссылке
         /// 4. Циклические ссылки → возврат ранее созданной копии из visited
         /// 5. Array → поэлементное рекурсивное копирование
         /// 6. IDictionary → рекурсивное копирование ключей и значений

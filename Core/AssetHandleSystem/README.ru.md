@@ -1,58 +1,44 @@
-# AssetHandleSystem
+# AssetHandleSystem (Core)
 
-**Пакет:** driver-нейтральная обёртка над Unity-ассетом с единым async-контрактом
+**Пакет:** driver-нейтральный контракт указателя на ассет платформы с единым async-контрактом
 
 | Часть | Namespace | Assembly |
 |---|---|---|
-| Контракт + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` |
-| Addressable-реализация | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) |
+| Контракт | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` |
 
-Физически: `Assets/Vortex/Core/AssetHandleSystem/` (контракт + `DirectAssetHandle`), `Assets/Vortex/Unity/AssetCacheSystem/AddressableAssetHandle.cs` (тонкий адаптер живёт рядом с `AssetCache`, отдельного пакета не заслуживает).
+Реализации (прямая ссылка, ленивая подгрузка) — в платформенном слое.
 
 ---
 
 ## Назначение
 
-Один тип для «прямая ссылка на ассет» и «lazy-подгрузка ассета» с одинаковым consumer-кодом. Consumer никогда не пишет `if (Addressables enabled) ... else ...` — переключение решается на уровне пресета через полиморфное `[SerializeReference]`-поле.
+Один тип для «прямая ссылка на ассет» и «ленивая подгрузка ассета» с одинаковым consumer-кодом. Consumer никогда не пишет `if (ленивая загрузка доступна) ... else ...` — выбор реализации делается в данных держателя через полиморфное поле.
 
 ### Когда использовать
 
-Ключевой use-case — **переиспользуемые системы**, поставляемые как пакеты и работающие в разных проектах с разной инфраструктурой ассетов. Такая система не должна навязывать consumer'ам конкретный способ подгрузки, но и не может заранее знать, есть ли у проекта Addressables. `AssetHandle<T>` даёт способ **отложить это решение до консюмера-пресета**.
+Ключевой use-case — **переиспользуемые системы**, поставляемые как пакеты и работающие в разных проектах с разной инфраструктурой ассетов. Такая система не должна навязывать consumer'ам конкретный способ подгрузки и не может заранее знать, какой механизм загрузки есть у проекта. `AssetHandle<T>` даёт способ **отложить это решение до данных держателя**: код системы одинаков, реализация выбирается в пресете.
 
-**Пример.** Пакет `GallerySpritesSystem` объявляет пресет с полем `[SerializeReference] AssetHandle<Sprite> fullscreen`. Тот же пакет разворачивается в:
-
-- **Проект A** (с Addressables): дизайнер выбирает в инспекторе `AddressableAssetHandle<Sprite>` — тяжёлая fullscreen-картинка грузится лениво.
-- **Проект B** (без Addressables): дизайнер выбирает `DirectAssetHandle<Sprite>` — картинка держится прямой ссылкой.
-
-Код `GallerySpritesSystem` (модель, viewer, вся логика Show/Hide) **не меняется ни в одном проекте**. Один и тот же `await preset.Fullscreen.LoadAsync()` работает в обоих случаях. Если завтра в проекте B включат Addressables — часть пресетов можно переключить на lazy без правки самого пакета галлереи.
-
-Если пакет пишется под один конкретный проект, где инфраструктура фиксирована (например, только Addressables) — абстракция избыточна, используйте `AssetReference` / `AssetCache` напрямую.
+Если пакет пишется под один проект с фиксированной инфраструктурой ассетов — абстракция избыточна, используйте механизм загрузки платформы напрямую.
 
 Возможности:
 
-- **Единый async-контракт** — `UniTask<T> LoadAsync(...)` для обеих реализаций.
-- **`DirectAssetHandle<T>`** — прямая ссылка на Unity-ассет, работает в любом проекте (в том числе без Addressables).
-- **`AddressableAssetHandle<T>`** — lazy через Addressables, делегирует в `Vortex.Unity.AssetCacheSystem.AssetCache` (dedup, LRU-survivors, sweep destroyed owners бесплатно).
-- **`[SerializeReference]`-полиморфизм** — дизайнер выбирает реализацию для каждого поля в инспекторе через стандартный Odin picker.
-- **Driver-нейтральность** — Core-контракт не тянет `UnityEngine.AddressableAssets`. `AssetReference` живёт только внутри Unity-реализации, domain-пресет держит только абстрактный `AssetHandle<T>`.
+- **Единый async-контракт** — `UniTask<T> LoadAsync(...)` для любой реализации.
+- **Полиморфизм реализации** — держатель хранит абстрактный `AssetHandle<T>`, конкретная реализация выбирается в данных.
+- **Driver-нейтральность** — контракт не зависит ни от платформы, ни от механизма загрузки; они живут только в реализациях платформенного слоя.
 
 Вне ответственности:
 
-- **Refcount между разными handle** — не делаем на уровне контракта. `AddressableAssetHandle` делегирует в `AssetCache`, тот делает свой owner-based refcount.
-- **Автоматическая обработка отсутствия Addressables** — если проект отключит Addressables, `AddressableAssetHandle` в пресете десериализуется как `null`. Consumer при обращении получит NRE — это сознательное решение (маскирование конфиг-бага fallback'ом было бы вреднее).
+- **Реализации** — платформенный слой.
+- **Refcount между разными handle** — не делаем на уровне контракта; ленивая реализация опирается на refcount своего механизма загрузки.
 - **Жизненный цикл handle — на держателе, не на потребителях.** `Load` и `Release` зовёт **владелец** handle (пресет / кэш моделей, открывший экран) — по одному разу за цикл. Потребители, которым нужен ассет, только читают через `LoadAsync` и **`Release` не зовут**: иначе выдернут ассет из-под других читателей того же handle. Handle — single-owner своего underlying-ресурса; его собственный инстанс ведёт держатель.
 
 ---
 
 ## Зависимости
 
-| Зависимость | Часть | Назначение |
-|-------------|---|-----------|
-| `UniTask` | Core | Async-контракт |
-| Unity Engine | Core | `UnityEngine.Object`, `Sprite` (пример), `SerializeField` |
-| `Vortex.Unity.AssetCacheSystem` | Unity | `AssetCache.Load` / `AssetCache.Release` — underlying-механизм |
-| `Vortex.Core.LoggerSystem` | Unity | Warning при повторном `LoadAsync` без `Release` |
-| Unity Addressables | Unity | `AssetReference`, только внутри `AddressableAssetHandle` |
+| Зависимость | Назначение |
+|-------------|-----------|
+| `UniTask` | Async-контракт |
 
 ---
 
@@ -60,7 +46,7 @@
 
 ```csharp
 [Serializable]
-public abstract class AssetHandle<T> where T : UnityEngine.Object
+public abstract class AssetHandle<T> where T : class
 {
     public abstract bool IsLoaded { get; }
     public abstract T Asset { get; }
@@ -70,75 +56,44 @@ public abstract class AssetHandle<T> where T : UnityEngine.Object
 }
 ```
 
+Ограничение `where T : class` — минимальное. Реализации платформенного слоя могут сужать его до базового типа ассетов своей платформы.
+
 **Инварианты:**
 
 - **I1.** `Asset != null && IsLoaded == true` — эквивалентны.
-- **I2.** До `Release`: повторный `LoadAsync` возвращает тот же экземпляр `T` (Lazy — с warning: загрузка поверх неотпущенного ассета).
+- **I2.** До `Release`: повторный `LoadAsync` возвращает тот же экземпляр `T`.
 - **I3.** `Release` идемпотентен.
-- **I4.** `DirectAssetHandle.Release()` — гарантированно no-op.
-- **I5.** Core-сборка не содержит ссылок на `UnityEngine.AddressableAssets`.
-- **I6.** `AddressableAssetHandle` — sole owner своего Addressables-handle через `AssetCache` (`owner = this`).
-- **I7.** `Release` не терминален: handle переиспользуем — следующий `LoadAsync` грузит ассет заново.
-
----
-
-## Реализации
-
-### `DirectAssetHandle<T>`
-
-Одно поле `[SerializeField] T asset`. `LoadAsync` возвращает `UniTask.FromResult(asset)`. `Release` — пустой метод.
-
-### `AddressableAssetHandle<T>`
-
-- `[SerializeField] AssetReference reference` — ссылка на Addressables-ассет.
-- `[NonSerialized] T _cached` — кэш loaded-ассета; единственное состояние (handle переиспользуем).
-
-Flow `LoadAsync(ct)`:
-1. Если `_cached != null` → warning (повторный Load без Release) + тот же экземпляр, без обращения к `AssetCache`.
-2. Иначе — `await AssetCache.Load<T>(this, reference, ct)` → сохранить в `_cached`.
-
-Flow `Release()`:
-1. Если `_cached == null` — no-op (нечего освобождать).
-2. `AssetCache.Release(this)`; `_cached = null`. Handle снова готов к `LoadAsync`.
+- **I4.** Для прямой ссылки `Release()` — гарантированно no-op.
+- **I5.** Контракт не содержит ссылок на платформу и механизмы загрузки.
+- **I6.** `Release` не терминален: handle переиспользуем — следующий `LoadAsync` грузит ассет заново.
 
 ---
 
 ## Использование
 
-### Пресет
+### Держатель
 
 ```csharp
-public class GallerySpritePreset : RecordPreset<GallerySpriteModel>
+public class MyCardPreset
 {
-    [SerializeReference] private AssetHandle<Sprite> fullscreen;
-    public AssetHandle<Sprite> Fullscreen => fullscreen;
+    // Полиморфное поле: конкретную реализацию выбирают данные.
+    private AssetHandle<MyAsset> fullscreen;
+    public AssetHandle<MyAsset> Fullscreen => fullscreen;
 }
 ```
-
-В инспекторе Odin-picker для `fullscreen` даёт выбор между `DirectAssetHandle<Sprite>` (поле — прямая ссылка) и `AddressableAssetHandle<Sprite>` (поле — `AssetReference`).
 
 ### Consumer
 
 ```csharp
-async UniTask ShowFullscreen(GallerySpritePreset preset)
+async UniTask ShowFullscreen(MyCardPreset preset, CancellationToken ct)
 {
-    var sprite = await preset.Fullscreen.LoadAsync();  // работает и для Direct, и для Lazy
-    _imageComponent.sprite = sprite;
+    var asset = await preset.Fullscreen.LoadAsync(ct);  // одинаково для любой реализации
+    Show(asset);
 }
 
-void CloseFullscreen(GallerySpritePreset preset)
+void CloseFullscreen(MyCardPreset preset)
 {
-    preset.Fullscreen.Release();                        // Direct — no-op, Lazy — освобождает
-}
-```
-
-### С CancellationToken
-
-```csharp
-async UniTask ShowFullscreen(GallerySpritePreset preset, CancellationToken ct)
-{
-    var sprite = await preset.Fullscreen.LoadAsync(ct);
-    _imageComponent.sprite = sprite;
+    preset.Fullscreen.Release();                         // прямая ссылка — no-op, ленивая — освобождает
 }
 ```
 
@@ -148,17 +103,10 @@ async UniTask ShowFullscreen(GallerySpritePreset preset, CancellationToken ct)
 
 | Ситуация | Поведение |
 |---|---|
-| `LoadAsync` до `Release` — повторный вызов | Тот же экземпляр `T`; для Lazy — warning (повторный Load без Release) и без обращения к `AssetCache` |
-| `LoadAsync` после `Release` (Lazy) | Handle переиспользуем — грузит ассет заново с чистого листа |
-| `Release` до `LoadAsync` (Lazy) | No-op — освобождать нечего |
+| `LoadAsync` до `Release` — повторный вызов | Тот же экземпляр `T` |
+| `LoadAsync` после `Release` | Handle переиспользуем — ленивая реализация грузит ассет заново |
+| `Release` до `LoadAsync` | No-op — освобождать нечего |
 | Повторный `Release` | Идемпотентно, no-op |
-| `DirectAssetHandle` с `asset == null` | `IsLoaded == false`, `LoadAsync` возвращает `null`. Валидна как «пусто по замыслу» |
-| `AddressableAssetHandle.reference == null` | `AssetCache.Load` бросает `ArgumentNullException` — fail-fast конфиг-баг |
-| Проект без Addressables: сцена содержала `AddressableAssetHandle` | Поле десериализуется как `null`. Consumer обязан явно проверять null-handle или ловить NRE. Автоматического fallback нет |
-| Отмена через `ct` во время подгрузки (Lazy) | `AssetCache.Load` выбрасывает `OperationCanceledException`. Handle остаётся не-loaded (retry возможен) |
-
----
-
-## Editor
-
-Стандартный Odin `[SerializeReference]`-picker в инспекторе. Кастомный drawer не пишется.
+| Прямая ссылка без ассета | `IsLoaded == false`, `LoadAsync` возвращает `null` — валидно как «пусто по замыслу» |
+| Отмена через `ct` во время подгрузки | `OperationCanceledException`; handle остаётся не-loaded (retry возможен) |
+| Реализация недоступна в проекте (механизм загрузки отключён) | Поле держателя пусто (`null`); consumer обязан проверять null-handle. Автоматического fallback нет |

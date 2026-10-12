@@ -12,7 +12,7 @@ Automatic model assembly from all concrete implementations of an interface/base 
 - Type caching (per `T`) — subsequent `Init()` calls skip assembly scanning
 - Serialization/deserialization via `SerializeController` (property-based JSON)
 
-Out of scope: parameterized constructors, Database registration, Unity-specific logic.
+Out of scope: parameterized constructors, Database registration, platform-specific logic.
 
 ## Dependencies
 

@@ -38,6 +38,10 @@ namespace Vortex.Sdk.RecordMarksSystem.Editor
                     $"Ready: {RecordMarksBus.IsReady}",
                     RecordMarksBus.IsReady ? EditorStyles.boldLabel : EditorStyles.miniLabel,
                     GUILayout.Width(100f));
+                EditorGUILayout.LabelField(
+                    $"Session: {RecordMarksBus.HasSession}",
+                    RecordMarksBus.HasSession ? EditorStyles.boldLabel : EditorStyles.miniLabel,
+                    GUILayout.Width(110f));
                 _filter = EditorGUILayout.TextField("Filter", _filter);
             }
 
@@ -52,13 +56,17 @@ namespace Vortex.Sdk.RecordMarksSystem.Editor
             if (!RecordMarksBus.IsReady)
             {
                 EditorGUILayout.HelpBox(
-                    "Bus ещё не готов: ждёт GlobalSaveController.OnInit и GameController.OnNewGame/OnLoadGame.",
+                    "Bus ещё не готов: ждёт GlobalSaveController.OnInit.",
                     MessageType.Warning);
             }
 
             using (var scroll = new EditorGUILayout.ScrollViewScope(_scroll))
             {
                 _scroll = scroll.scrollPosition;
+                if (!RecordMarksBus.HasSession)
+                    EditorGUILayout.HelpBox(
+                        "Игровой сессии нет: slot-метки не учитываются до GameController.OnNewGame/OnLoadGame.",
+                        MessageType.Info);
                 DrawSection("Slot marks", RecordMarksBus.EditorSlotCache);
                 DrawSection("Global marks", RecordMarksBus.EditorGlobalCache);
             }

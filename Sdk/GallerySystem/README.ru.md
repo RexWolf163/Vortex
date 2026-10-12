@@ -170,7 +170,7 @@ Data-массив: `{ Sprite, BoolData, StringData, IGalleryEntry, GalleryPoolCa
 | `deniedTypes` | Чёрный список FullName. |
 | `deniedGuids` | Точечные исключения guid'ов. |
 | `lockedMode` | `Hide` — закрытые не в пуле; `ShowAsLocked` — в пуле, `isLocked=true`. |
-| `sorter` | FullName реализации `IGalleryEntryComparer`. Пусто — без сортировки (порядок как из Database — не гарантирован). |
+| `sorter` | FullName реализации `IGalleryEntryComparer` или `None` (`GalleryView.NoSorter`, по умолчанию) — без сортировки (порядок как из Database — не гарантирован). Пусто — не настроено: в инспекторе `[NULL]`, при сборке пула warning, без сортировки. |
 | `resetSelectionWhenLastViewedAbsent` | Сбрасывать highlight в `null`, если последняя просмотренная карточка не в текущем пуле. По умолчанию вкл; выкл — highlight сохраняет прежнее значение. |
 | `iconOverrides` | Список `(guid, Sprite)` — заменить иконку модели на «эту» для конкретной сцены. |
 | `pool` | `Pool` из `Vortex.Unity.UI.PoolSystem`. |
@@ -211,6 +211,7 @@ public class MyCardPreset : RecordPreset<MyCardModel> { /* поля контен
 | `RecordMarksBus.IsReady == false` при OnEnable | Подписка на `OnReady`, отложенное `RefreshPool`. При закрытии виджета подписка снимается. |
 | `Database.GetRecords` пуст, либо всё отфильтровано | Пустой пул → `stubTweener.Forward()`. |
 | `sorter` не найден в домене / не реализует `IGalleryEntryComparer` | Warning + порядок как из Database. |
+| `sorter` пустой (не выбран ни тип, ни `None`) | Warning + порядок как из Database. |
 | `LastViewedGuid` отсутствует в текущем пуле | При `resetSelectionWhenLastViewedAbsent` (по умолчанию) — `selectedGuid` сбрасывается в `null`; при выключенном — сохраняет прежнее значение. |
 | `Open(guid)` — guid не в пуле | Warning, состояние не меняется. |
 | `pool == null` | LogError при OnEnable, дальнейшая работа отменена. |

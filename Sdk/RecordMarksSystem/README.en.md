@@ -84,10 +84,11 @@ Out of scope:
                     (per-account, in GlobalModel)
 ```
 
-Bootstrap runs in two phases:
+Bootstrap, readiness and the game session:
 
-1. `[RuntimeInitializeOnLoadMethod BeforeSceneLoad]` — resets static state, loads the SO, validates mark names, subscribes to `GlobalSaveController.OnInit` and `GameController.OnNewGame` / `OnLoadGame`.
-2. Readiness is set once both models are resolved. Until `IsReady = true`, any `Mark`/`Unmark` returns warning + no-op.
+1. `[RuntimeInitializeOnLoadMethod BeforeSceneLoad]` — resets static state, loads the SO, validates mark names, subscribes to `GlobalSaveController.OnInit`, `GameController.OnNewGame` / `OnLoadGame` and `GameController.OnGameStateChanged`.
+2. Readiness (`IsReady`) is set once the per-account model is resolved (`GlobalSaveController.OnInit`) — the package works outside the game too (main menu, gallery before the game starts). Until `IsReady = true`, any `Mark`/`Unmark` returns warning + no-op.
+3. Per-slot marks count only while a game session is open (`HasSession`): the slot is attached on `OnNewGame` / `OnLoadGame` and detached when the game goes to `GameStates.Off` (`ExitGame`, back to menu). Outside a session per-slot marks are empty (`IsMarked` — `false`, `GetMarked` — empty), `Mark` / `Unmark` on them — warning + no-op. Detaching does not touch the slot data in `GameModel` — save and load work as usual.
 
 The runtime cache `Dictionary<mark, HashSet<guid>>` provides O(1) operations over the GUID sets. The models store `List<guid>` because the Vortex serializer handles `IList`, not `ISet`. The bus keeps both `List` and `HashSet` in sync on every mutation.
 
@@ -102,7 +103,8 @@ Vortex serializer merge semantics: when a slot is loaded, the outer `Dictionary<
 ### Input
 
 - `Assets/Resources/Settings/RecordMarksSettings.asset` — SO with `slotMarks: string[]` and `globalMarks: string[]`. Names are unique within each list and do not overlap between lists. Name format is not validated beyond non-emptiness.
-- `GlobalSaveController` — initialised (has passed `IProcess`). `GameController` — has fired `NewGame` or `LoadGame`.
+- `GlobalSaveController` — initialised (has passed `IProcess`) — enough for per-account marks.
+- `GameController` — has fired `NewGame` or `LoadGame` and has not gone to `GameStates.Off` — needed only for per-slot marks.
 
 ### Output
 
@@ -119,8 +121,9 @@ Vortex serializer merge semantics: when a slot is loaded, the outer `Dictionary<
 - **Owner-lock.** The Bus is the sole writer of `_slotCache` / `_globalCache` / `_pending`. The models are locked **structurally at the assembly boundary**: the `Data` field is `internal` + `[IsPOCO]`, unreachable from outside the assembly for both read and write; the Vortex serializer accesses it via reflection.
 - **Re-entrant Bootstrap.** Fast Enter Play does not accumulate subscriptions: `-= then +=` before each hook.
 - **Idempotent OnGlobalReady / OnSlotChanged.** A duplicate call re-syncs state against the SO without data loss.
-- **Slot isolation.** On `OnLoadGame` / `OnNewGame`, `_pending.Clear()` runs first — an event from the previous session cannot reach the next session's consumer.
-- **Fail-safe diagnostics.** Unknown mark, empty guid, mutation before `IsReady`, overlapping mark, mark from save not declared in SO — all log-warning / log-error, none crash.
+- **Slot isolation.** On `OnLoadGame` / `OnNewGame` and on game exit (`GameStates.Off`), `_pending.Clear()` — an event from the previous session cannot reach the next session's consumer.
+- **Outside the game — account only.** Without a game session per-slot marks are not counted: the previous playthrough's data does not leak into the menu.
+- **Fail-safe diagnostics.** Unknown mark, empty guid, mutation before `IsReady`, per-slot mark mutation outside a session, overlapping mark, mark from save not declared in SO — all log-warning / log-error, none crash.
 
 ### Constraints
 
@@ -142,15 +145,16 @@ Vortex serializer merge semantics: when a slot is loaded, the outer `Dictionary<
 
 | Member | Description |
 |--------|-------------|
-| `bool IsReady { get; }` | Both models resolved, SO loaded, package ready for mutations |
+| `bool IsReady { get; }` | Per-account model resolved, SO loaded, package ready (outside the game too) |
+| `bool HasSession { get; }` | A game session is open — per-slot marks are attached to the slot and counted |
 | `event Action OnReady` | First time `IsReady` becomes `true` |
-| `event Action OnMarksLoaded` | After every `OnSlotChanged` (`NewGame` / `LoadGame`). Consumer re-reads state |
+| `event Action OnMarksLoaded` | After the slot is attached (`NewGame` / `LoadGame`) and after it is detached (going to `GameStates.Off`). Consumer re-reads state |
 | `event Action<string, string> OnMarked` | `(mark, guid)` — mark set; end-of-frame batch |
 | `event Action<string, string> OnUnmarked` | `(mark, guid)` — mark removed; end-of-frame batch |
 | `void Mark(string mark, string guid)` | Mark GUID. Ratchet: repeat is a no-op |
 | `void Unmark(string mark, string guid)` | Remove a mark. Public, but contractually for debug/cheat |
-| `bool IsMarked(string mark, string guid)` | Presence check |
-| `IReadOnlyCollection<string> GetMarked(string mark)` | All GUIDs under a mark; live wrapper over the internal HashSet, no-alloc |
+| `bool IsMarked(string mark, string guid)` | Presence check; per-slot mark outside a session — `false` |
+| `IReadOnlyCollection<string> GetMarked(string mark)` | All GUIDs under a mark; live wrapper over the internal HashSet, no-alloc; per-slot mark outside a session — empty |
 
 ### `RecordMarksSettings` (SO)
 
@@ -233,7 +237,7 @@ Debug.Log($"{unlockedCount} / {total}");
 
 ### Editor window
 
-`Tools → Vortex → Record Marks → Index` — read-only dump of the current Bus state. Available only in Play Mode after Bootstrap. Name filter, foldout per mark with the list of GUIDs.
+`Tools → Vortex → Record Marks → Index` — read-only dump of the current Bus state. Available only in Play Mode after Bootstrap. The header shows `Ready` and `Session`; without a session a hint above per-slot marks says they are not counted. Name filter, foldout per mark with the list of GUIDs.
 
 `Tools → Vortex → Record Marks → Settings` — ping the SO in Project window.
 
@@ -250,6 +254,9 @@ Debug.Log($"{unlockedCount} / {total}");
 | `Mark(unknown, guid)` | `LogWarning`, no-op |
 | `Mark(mark, "")` | `LogWarning`, no-op |
 | `Mark` before `IsReady` | `LogWarning`, no-op |
+| `Mark` / `Unmark` of a per-slot mark outside a game session | `LogWarning`, no-op |
+| `IsMarked` / `GetMarked` of a per-slot mark outside a game session | `false` / empty |
+| Game exit (`GameStates.Off`) | Slot detached, `_pending.Clear()`, `OnMarksLoaded`; slot data in `GameModel` untouched |
 | `Mark(m, g)` while already marked | Silent no-op, no event |
 | `Unmark(m, g)` while not marked | Silent no-op, no event |
 | Mark in the save file not declared in SO | `LogWarning`, key removed from model on `Sync` |

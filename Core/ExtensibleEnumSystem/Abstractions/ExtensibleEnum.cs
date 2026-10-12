@@ -14,12 +14,10 @@ namespace Vortex.Core.ExtensibleEnumSystem.Abstractions
     /// каждый <c>new MoveState("Run", 2)</c> на статическом поле помещает себя в реестр
     /// типа-наследника по ключу.
     ///
-    /// Инициализация реестра выполняется eagerly через
-    /// <see cref="UnityEngine.RuntimeInitializeOnLoadMethodAttribute"/> до загрузки сцены
-    /// и через <see cref="UnityEditor.InitializeOnLoadMethodAttribute"/> при загрузке домена
-    /// в Editor-режиме. После этого <see cref="GetAll{T}"/>, <see cref="Deserialize(string)"/>
-    /// и Inspector-дропдауны работают предсказуемо вне зависимости от того, в каком порядке
-    /// загружаются типы и какой код первым к ним обратился.
+    /// Инициализация реестра — eager, через <see cref="Initialize"/>. Ядро платформенно-независимо и само её
+    /// не запускает: вызов делает платформенный слой. После этого <see cref="GetAll{T}"/>,
+    /// <see cref="Deserialize(string)"/> и инструменты редактирования работают предсказуемо вне зависимости от того,
+    /// в каком порядке загружаются типы и какой код первым к ним обратился.
     /// </summary>
     public abstract class ExtensibleEnum : IEquatable<ExtensibleEnum>
     {
@@ -49,14 +47,6 @@ namespace Vortex.Core.ExtensibleEnumSystem.Abstractions
             );
         }
 
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void InitializeOnRuntime() => Initialize();
-
-#if UNITY_EDITOR
-        [UnityEditor.InitializeOnLoadMethod]
-        private static void InitializeOnEditor() => Initialize();
-#endif
-
         /// <summary>
         /// Идемпотентная инициализация: сканирует <c>AppDomain.CurrentDomain.GetAssemblies()</c>,
         /// для каждого не-абстрактного <see cref="ExtensibleEnum"/>-наследника:
@@ -64,8 +54,10 @@ namespace Vortex.Core.ExtensibleEnumSystem.Abstractions
         ///  • вызывает <see cref="RuntimeHelpers.RunClassConstructor"/>, что прогоняет
         ///    static-инициализаторы наследника и наполняет <see cref="ByKey"/>/<see cref="Ordered"/>
         ///    зарегистрированными инстансами.
+        /// Вызывается платформенным слоем на старте; повторный вызов
+        /// безопасен — статические инициализаторы прогоняются один раз, карта типов перезаписывается теми же значениями.
         /// </summary>
-        private static void Initialize()
+        public static void Initialize()
         {
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {

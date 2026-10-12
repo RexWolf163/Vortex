@@ -1,58 +1,44 @@
-# AssetHandleSystem
+# AssetHandleSystem (Core)
 
-**Package:** driver-neutral wrapper over a Unity asset with a unified async contract
+**Package:** driver-neutral contract of a pointer to a platform asset with a unified async contract
 
 | Part | Namespace | Assembly |
 |---|---|---|
-| Contract + Direct | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` |
-| Addressable impl | `Vortex.Unity.AssetCacheSystem.*` | `ru.vortex.unity.assetcachesystem` (`ENABLE_ADDRESSABLES`) |
+| Contract | `Vortex.Core.AssetHandleSystem.*` | `ru.vortex.core.assethandle` |
 
-Physical layout: `Assets/Vortex/Core/AssetHandleSystem/` (contract + `DirectAssetHandle`), `Assets/Vortex/Unity/AssetCacheSystem/AddressableAssetHandle.cs` (a thin adapter lives next to `AssetCache` — doesn't warrant its own package).
+Implementations (direct reference, lazy loading) live in the platform layer.
 
 ---
 
 ## Purpose
 
-One type for "direct reference to an asset" and "lazy loading of an asset" with identical consumer code. Consumers never write `if (Addressables enabled) ... else ...` — the switch happens at the preset level via a polymorphic `[SerializeReference]` field.
+One type for "direct reference to an asset" and "lazy loading of an asset" with identical consumer code. Consumers never write `if (lazy loading available) ... else ...` — the implementation is chosen in the holder's data via a polymorphic field.
 
 ### When to use
 
-The core use case is **reusable systems** shipped as packages and used in different projects with different asset infrastructures. Such a system must not force a particular loading mechanism on its consumers, but also can't assume Addressables are available. `AssetHandle<T>` lets the package **defer that decision to the consumer preset**.
+The core use case is **reusable systems** shipped as packages and used in different projects with different asset infrastructures. Such a system must not force a particular loading mechanism on consumers and cannot know in advance which loading mechanism the project has. `AssetHandle<T>` lets you **defer that decision to the holder's data**: the system code is the same, the implementation is picked in the preset.
 
-**Example.** The `GallerySpritesSystem` package declares a preset with `[SerializeReference] AssetHandle<Sprite> fullscreen`. The same package ships to:
+If a package targets a single project with a fixed asset infrastructure, the abstraction is overkill — use the platform loading mechanism directly.
 
-- **Project A** (Addressables enabled): the designer picks `AddressableAssetHandle<Sprite>` in the inspector — the heavy fullscreen sprite loads lazily.
-- **Project B** (no Addressables): the designer picks `DirectAssetHandle<Sprite>` — the sprite is held as a direct reference.
+Capabilities:
 
-The `GallerySpritesSystem` code (model, viewer, all Show/Hide logic) **is identical across both projects**. The same `await preset.Fullscreen.LoadAsync()` works in either case. When project B adds Addressables tomorrow, some presets can be flipped to lazy without touching the gallery package itself.
-
-If the package targets a single project where the asset infrastructure is fixed (e.g. Addressables only), the abstraction is overkill — use `AssetReference` / `AssetCache` directly.
-
-Features:
-
-- **Unified async contract** — `UniTask<T> LoadAsync(...)` for both implementations.
-- **`DirectAssetHandle<T>`** — direct reference to a Unity asset, works in any project (including without Addressables).
-- **`AddressableAssetHandle<T>`** — lazy via Addressables, delegates to `Vortex.Unity.AssetCacheSystem.AssetCache` (dedup, LRU survivors, destroyed-owner sweep — for free).
-- **`[SerializeReference]` polymorphism** — the designer picks the implementation for each field via the standard Odin picker in the inspector.
-- **Driver neutrality** — the Core contract doesn't reference `UnityEngine.AddressableAssets`. `AssetReference` lives only inside the Unity implementation; the domain preset holds only the abstract `AssetHandle<T>`.
+- **Unified async contract** — `UniTask<T> LoadAsync(...)` for any implementation.
+- **Implementation polymorphism** — the holder keeps an abstract `AssetHandle<T>`, the concrete implementation is chosen in data.
+- **Driver neutrality** — the contract depends neither on the platform nor on the loading mechanism; they live only in platform-layer implementations.
 
 Out of scope:
 
-- **Refcount across different handles** — not at the contract level. `AddressableAssetHandle` delegates to `AssetCache`, which has its own owner-based refcount.
-- **Automatic handling of missing Addressables** — if the project disables Addressables, `AddressableAssetHandle` in the preset deserializes as `null`. The consumer will hit an NRE on access — this is intentional (a fallback would mask a config bug).
-- **Handle lifetime is the holder's job, not the consumers'.** `Load` and `Release` are called by the handle's **owner** (the preset / model cache that opened the screen) — once per cycle. Consumers that just need the asset only read via `LoadAsync` and **do not call `Release`**: doing so would yank the asset out from under other readers of the same handle. The handle is the single owner of its underlying resource; its own instance is driven by the holder.
+- **Implementations** — the platform layer.
+- **Refcount across different handles** — not at the contract level; a lazy implementation relies on its loading mechanism's refcount.
+- **Handle lifecycle is the holder's, not the consumers'.** `Load` and `Release` are called by the handle's **owner** (the preset / model cache that opened a screen) — once per cycle. Consumers that need the asset only read via `LoadAsync` and **do not call `Release`**: otherwise they pull the asset out from under other readers of the same handle. A handle is the single owner of its underlying resource; the holder manages its own instance.
 
 ---
 
 ## Dependencies
 
-| Dependency | Part | Purpose |
-|-------------|---|-----------|
-| `UniTask` | Core | Async contract |
-| Unity Engine | Core | `UnityEngine.Object`, `Sprite` (example), `SerializeField` |
-| `Vortex.Unity.AssetCacheSystem` | Unity | `AssetCache.Load` / `AssetCache.Release` — underlying mechanism |
-| `Vortex.Core.LoggerSystem` | Unity | Warning on a repeated `LoadAsync` without `Release` |
-| Unity Addressables | Unity | `AssetReference`, only inside `AddressableAssetHandle` |
+| Dependency | Purpose |
+|------------|---------|
+| `UniTask` | Async contract |
 
 ---
 
@@ -60,7 +46,7 @@ Out of scope:
 
 ```csharp
 [Serializable]
-public abstract class AssetHandle<T> where T : UnityEngine.Object
+public abstract class AssetHandle<T> where T : class
 {
     public abstract bool IsLoaded { get; }
     public abstract T Asset { get; }
@@ -70,75 +56,44 @@ public abstract class AssetHandle<T> where T : UnityEngine.Object
 }
 ```
 
+The `where T : class` constraint is minimal. Platform-layer implementations may narrow it to their platform's asset base type.
+
 **Invariants:**
 
-- **I1.** `Asset != null && IsLoaded == true` — equivalent.
-- **I2.** Before `Release`: a repeated `LoadAsync` returns the same `T` instance (Lazy — with a warning: a load over a not-released asset).
+- **I1.** `Asset != null` and `IsLoaded == true` are equivalent.
+- **I2.** Before `Release`: a repeated `LoadAsync` returns the same `T` instance.
 - **I3.** `Release` is idempotent.
-- **I4.** `DirectAssetHandle.Release()` — guaranteed no-op.
-- **I5.** The Core assembly contains no references to `UnityEngine.AddressableAssets`.
-- **I6.** `AddressableAssetHandle` is the sole owner of its Addressables handle through `AssetCache` (`owner = this`).
-- **I7.** `Release` is not terminal: the handle is reusable — the next `LoadAsync` loads the asset again.
-
----
-
-## Implementations
-
-### `DirectAssetHandle<T>`
-
-Single field `[SerializeField] T asset`. `LoadAsync` returns `UniTask.FromResult(asset)`. `Release` is empty.
-
-### `AddressableAssetHandle<T>`
-
-- `[SerializeField] AssetReference reference` — Addressables asset link.
-- `[NonSerialized] T _cached` — cached loaded asset; the only state (the handle is reusable).
-
-`LoadAsync(ct)` flow:
-1. If `_cached != null` → warning (repeated load without Release) + the same instance, without touching `AssetCache`.
-2. Otherwise — `await AssetCache.Load<T>(this, reference, ct)` → save to `_cached`.
-
-`Release()` flow:
-1. If `_cached == null` — no-op (nothing to release).
-2. `AssetCache.Release(this)`; `_cached = null`. The handle is ready for `LoadAsync` again.
+- **I4.** For a direct reference `Release()` is guaranteed to be a no-op.
+- **I5.** The contract contains no references to the platform or loading mechanisms.
+- **I6.** `Release` is not terminal: the handle is reusable — the next `LoadAsync` loads the asset again.
 
 ---
 
 ## Usage
 
-### Preset
+### Holder
 
 ```csharp
-public class GallerySpritePreset : RecordPreset<GallerySpriteModel>
+public class MyCardPreset
 {
-    [SerializeReference] private AssetHandle<Sprite> fullscreen;
-    public AssetHandle<Sprite> Fullscreen => fullscreen;
+    // Polymorphic field: the concrete implementation is chosen by data.
+    private AssetHandle<MyAsset> fullscreen;
+    public AssetHandle<MyAsset> Fullscreen => fullscreen;
 }
 ```
-
-In the inspector, the Odin picker for `fullscreen` lets you choose between `DirectAssetHandle<Sprite>` (field — direct ref) and `AddressableAssetHandle<Sprite>` (field — `AssetReference`).
 
 ### Consumer
 
 ```csharp
-async UniTask ShowFullscreen(GallerySpritePreset preset)
+async UniTask ShowFullscreen(MyCardPreset preset, CancellationToken ct)
 {
-    var sprite = await preset.Fullscreen.LoadAsync();  // works for both Direct and Lazy
-    _imageComponent.sprite = sprite;
+    var asset = await preset.Fullscreen.LoadAsync(ct);  // same for any implementation
+    Show(asset);
 }
 
-void CloseFullscreen(GallerySpritePreset preset)
+void CloseFullscreen(MyCardPreset preset)
 {
-    preset.Fullscreen.Release();                        // Direct — no-op, Lazy — releases
-}
-```
-
-### With CancellationToken
-
-```csharp
-async UniTask ShowFullscreen(GallerySpritePreset preset, CancellationToken ct)
-{
-    var sprite = await preset.Fullscreen.LoadAsync(ct);
-    _imageComponent.sprite = sprite;
+    preset.Fullscreen.Release();                         // direct — no-op, lazy — releases
 }
 ```
 
@@ -146,19 +101,12 @@ async UniTask ShowFullscreen(GallerySpritePreset preset, CancellationToken ct)
 
 ## Edge cases
 
-| Situation | Behaviour |
+| Situation | Behavior |
 |---|---|
-| `LoadAsync` before `Release` — repeated call | The same `T` instance; for Lazy — a warning (repeated load without Release) and without touching `AssetCache` |
-| `LoadAsync` after `Release` (Lazy) | The handle is reusable — loads the asset again from scratch |
-| `Release` before `LoadAsync` (Lazy) | No-op — nothing to release |
-| Repeated `Release` | Idempotent no-op |
-| `DirectAssetHandle` with `asset == null` | `IsLoaded == false`, `LoadAsync` returns `null`. Valid as "empty by design" |
-| `AddressableAssetHandle.reference == null` | `AssetCache.Load` throws `ArgumentNullException` — fail-fast on a config bug |
-| Project without Addressables: scene contains `AddressableAssetHandle` | Field deserializes as `null`. Consumer must explicitly null-check or catch NRE. No automatic fallback |
-| Cancellation via `ct` during load (Lazy) | `AssetCache.Load` throws `OperationCanceledException`. Handle stays not-loaded (retry possible) |
-
----
-
-## Editor
-
-Standard Odin `[SerializeReference]` picker in the inspector. No custom drawer is written.
+| `LoadAsync` before `Release` — repeated call | Same `T` instance |
+| `LoadAsync` after `Release` | The handle is reusable — a lazy implementation loads the asset again |
+| `Release` before `LoadAsync` | No-op — nothing to release |
+| Repeated `Release` | Idempotent, no-op |
+| Direct reference without an asset | `IsLoaded == false`, `LoadAsync` returns `null` — valid as "empty by design" |
+| Cancellation via `ct` during loading | `OperationCanceledException`; the handle stays not loaded (retry possible) |
+| Implementation unavailable in the project (loading mechanism disabled) | The holder's field is empty (`null`); the consumer must check for a null handle. No automatic fallback |

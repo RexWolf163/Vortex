@@ -84,10 +84,11 @@
                     (per-account, в GlobalModel)
 ```
 
-Bootstrap идёт двухфазно:
+Bootstrap, готовность и игровая сессия:
 
-1. `[RuntimeInitializeOnLoadMethod BeforeSceneLoad]` — сбрасывает статик-состояние, читает SO, валидирует имена меток, подписывается на `GlobalSaveController.OnInit` и `GameController.OnNewGame` / `OnLoadGame`.
-2. Готовность выставляется по факту резолва обеих моделей. До `IsReady = true` любой `Mark`/`Unmark` — warning + no-op.
+1. `[RuntimeInitializeOnLoadMethod BeforeSceneLoad]` — сбрасывает статик-состояние, читает SO, валидирует имена меток, подписывается на `GlobalSaveController.OnInit`, `GameController.OnNewGame` / `OnLoadGame` и `GameController.OnGameStateChanged`.
+2. Готовность (`IsReady`) выставляется по факту резолва per-account модели (`GlobalSaveController.OnInit`) — пакет работает и вне игры (главное меню, галерея до старта игры). До `IsReady = true` любой `Mark`/`Unmark` — warning + no-op.
+3. Per-slot метки учитываются только при открытой игровой сессии (`HasSession`): слот привязывается на `OnNewGame` / `OnLoadGame` и отвязывается, когда игра переходит в `GameStates.Off` (`ExitGame`, выход в меню). Вне сессии per-slot метки пусты (`IsMarked` — `false`, `GetMarked` — пусто), `Mark` / `Unmark` по ним — warning + no-op. Данные слота в `GameModel` при отвязке не трогаются — сохранение и загрузка штатные.
 
 Runtime-кеш `Dictionary<mark, HashSet<guid>>` держит O(1)-операции над множеством GUID. Модели хранят `List<guid>` — потому что сериализатор Vortex обрабатывает только `IList`, не `ISet`. Bus поддерживает `List` и `HashSet` синхронно при каждой мутации.
 
@@ -102,7 +103,8 @@ Merge-семантика Vortex-сериализатора: при загруз�
 ### Вход
 
 - `Assets/Resources/Settings/RecordMarksSettings.asset` — SO со списками `slotMarks: string[]` и `globalMarks: string[]`. Имена уникальны в пределах каждого списка и не пересекаются между списками. Формат имён не валидируется — только на непустоту.
-- `GlobalSaveController` — готов (проходит `IProcess`). `GameController` — прошёл `NewGame` или `LoadGame`.
+- `GlobalSaveController` — готов (проходит `IProcess`) — достаточно для работы per-account меток.
+- `GameController` — прошёл `NewGame` или `LoadGame` и не вышел в `GameStates.Off` — нужно только для per-slot меток.
 
 ### Выход
 
@@ -119,8 +121,9 @@ Merge-семантика Vortex-сериализатора: при загруз�
 - **Owner-lock.** Единственный писатель `_slotCache` / `_globalCache` / `_pending` — Bus. Модели закрыты **структурно на уровне сборки**: поле `Data` — `internal` + `[IsPOCO]`, снаружи сборки его нельзя ни прочитать, ни заменить; сериализатор Vortex работает с ним рефлексией.
 - **Идемпотентность повторного Bootstrap.** Fast Enter Play не удваивает подписки: `-= then +=` перед каждой.
 - **Идемпотентность OnGlobalReady / OnSlotChanged.** Дублирующий вызов пересинхронизирует состояние с SO без потери данных.
-- **Изоляция слотов.** При `OnLoadGame` / `OnNewGame` `_pending.Clear()` вызывается первой строкой — событие предыдущей сессии не долетит до consumer'а следующей.
-- **Fail-safe диагностика.** Unknown mark, empty guid, mutation до `IsReady`, пересекающаяся метка, метка из save не в SO — все дают Log-warning / Log-error, не крашат систему.
+- **Изоляция слотов.** При `OnLoadGame` / `OnNewGame` и при выходе из игры (`GameStates.Off`) `_pending.Clear()` — событие предыдущей сессии не долетит до consumer'а следующей.
+- **Вне игры — только аккаунт.** Без игровой сессии per-slot метки не учитываются: данные прошлого прохождения не просачиваются в меню.
+- **Fail-safe диагностика.** Unknown mark, empty guid, mutation до `IsReady`, мутация per-slot метки вне сессии, пересекающаяся метка, метка из save не в SO — все дают Log-warning / Log-error, не крашат систему.
 
 ### Ограничения
 
@@ -142,15 +145,16 @@ Merge-семантика Vortex-сериализатора: при загруз�
 
 | Член | Описание |
 |------|----------|
-| `bool IsReady { get; }` | Обе модели резолвлены, SO прочитан, пакет готов к мутациям |
+| `bool IsReady { get; }` | Per-account модель резолвлена, SO прочитан, пакет готов (в том числе вне игры) |
+| `bool HasSession { get; }` | Открыта игровая сессия — per-slot метки привязаны к слоту и учитываются |
 | `event Action OnReady` | Первый раз, когда `IsReady` перешёл в `true` |
-| `event Action OnMarksLoaded` | После каждого `OnSlotChanged` (`NewGame` / `LoadGame`). Consumer перечитывает состояние |
+| `event Action OnMarksLoaded` | После привязки слота (`NewGame` / `LoadGame`) и после его отвязки (выход в `GameStates.Off`). Consumer перечитывает состояние |
 | `event Action<string, string> OnMarked` | `(mark, guid)` — метка выставлена; батч в конце кадра |
 | `event Action<string, string> OnUnmarked` | `(mark, guid)` — метка снята; батч в конце кадра |
 | `void Mark(string mark, string guid)` | Пометить GUID меткой. Ratchet: повторный вызов — no-op |
 | `void Unmark(string mark, string guid)` | Снять метку. Публичен, но по контракту — для debug/cheat |
-| `bool IsMarked(string mark, string guid)` | Проверка наличия |
-| `IReadOnlyCollection<string> GetMarked(string mark)` | Все GUID под меткой; live-обёртка над внутренним HashSet, no-alloc |
+| `bool IsMarked(string mark, string guid)` | Проверка наличия; per-slot метка вне сессии — `false` |
+| `IReadOnlyCollection<string> GetMarked(string mark)` | Все GUID под меткой; live-обёртка над внутренним HashSet, no-alloc; per-slot метка вне сессии — пусто |
 
 ### `RecordMarksSettings` (SO)
 
@@ -233,7 +237,7 @@ Debug.Log($"{unlockedCount} / {total}");
 
 ### Editor-окно
 
-`Tools → Vortex → Record Marks → Index` — read-only дамп текущего состояния Bus. Работает только в Play Mode после Bootstrap. Фильтр по имени, foldout по каждой метке со списком GUID.
+`Tools → Vortex → Record Marks → Index` — read-only дамп текущего состояния Bus. Работает только в Play Mode после Bootstrap. В шапке — `Ready` и `Session`; без сессии над per-slot метками подсказка, что они не учитываются. Фильтр по имени, foldout по каждой метке со списком GUID.
 
 `Tools → Vortex → Record Marks → Settings` — подсветить SO-конфиг в Project window.
 
@@ -250,6 +254,9 @@ Debug.Log($"{unlockedCount} / {total}");
 | `Mark(unknown, guid)` | `LogWarning`, no-op |
 | `Mark(mark, "")` | `LogWarning`, no-op |
 | `Mark` до `IsReady` | `LogWarning`, no-op |
+| `Mark` / `Unmark` per-slot метки вне игровой сессии | `LogWarning`, no-op |
+| `IsMarked` / `GetMarked` per-slot метки вне игровой сессии | `false` / пусто |
+| Выход из игры (`GameStates.Off`) | Слот отвязывается, `_pending.Clear()`, `OnMarksLoaded`; данные слота в `GameModel` не трогаются |
 | `Mark(m, g)` при уже помеченном | Тихий no-op, событие не фаерится |
 | `Unmark(m, g)` при непомеченном | Тихий no-op, событие не фаерится |
 | Метка в сейве, отсутствующая в SO | `LogWarning`, ключ удаляется из модели при `Sync` |

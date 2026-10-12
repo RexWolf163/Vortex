@@ -13,7 +13,7 @@ General-purpose utility extensions for delegates, collections, strings, cryptogr
 - Reflection-based public property copying between objects
 - Property-based JSON serialization (experimental)
 
-Out of scope: business logic validation, Unity-dependent utilities, thread-safe collections.
+Out of scope: business logic validation, platform-dependent utilities, thread-safe collections.
 
 ## Dependencies
 
@@ -33,6 +33,7 @@ LogicExtensions/
 ├── ListExt.cs                → AddOnce, IndexOfItem
 ├── ObjectExtDeepClone.cs     → deep object cloning
 ├── SimpleTypeMarker.cs       → partial marker of platform primitives for DeepCopy
+├── CopyExclusionMarker.cs    → partial marker of CopyFrom exclusions
 ├── StringExtCompress.cs      → string compression
 ├── StringExtCommons.cs       → IsNullOrWhitespace
 ├── ObjectExtCopy.cs          → reflection-based property copy
@@ -293,7 +294,7 @@ Deep object cloning via reflection with cycle detection.
 
 ### SimpleTypeMarker — Platform Primitives
 
-`SimpleTypeMarker` is a partial class. Empty in Core. Unity partial adds types (e.g. `UnityEngine.Object`) that should not be cloned — passed by reference. Check uses `IsAssignableFrom` — subclasses of marker types are also treated as platform primitives. Types are cached on first call via reflection over static fields of the class.
+`SimpleTypeMarker` is a partial class. Empty in Core. The platform layer declares static fields in its partial part; their types should not be cloned — passed by reference (e.g. the engine object base class). Check uses `IsAssignableFrom` — subclasses of marker types are also treated as platform primitives. Types are cached on first call via reflection over static fields of the class.
 
 ### Edge Cases
 
@@ -322,7 +323,13 @@ Reflection-based public property copying between objects.
 
 - `source` and `target` types may differ — only properties with matching names are copied
 - Properties without a setter in `target` are skipped
+- Property names are compared case-insensitively
+- Properties declared in `CopyExclusionMarker` exclusion types and their ancestors are not copied
 - Exceptions are caught; returns `false` on error
+
+### CopyExclusionMarker — copy exclusions
+
+`CopyExclusionMarker` is a partial class modeled on `SimpleTypeMarker`. Empty in Core. The platform layer declares static fields in its partial part; their types are exclusion types. `CopyFrom` does not copy properties declared in an exclusion type or its ancestors: these are service properties of the preset's platform base class (asset name, etc.), not domain data. Without the exclusion such a property could match a domain property of the record by name (case-insensitively) and overwrite it. The types are collected via reflection over static fields on the first call and cached.
 
 ---
 

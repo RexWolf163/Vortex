@@ -2,7 +2,7 @@
 
 **Namespace:** `Vortex.Core.ExtensibleEnumSystem.Abstractions`, `Vortex.Core.ExtensibleEnumSystem.Extensions`
 **Assembly:** `ru.vortex.extenums`
-**Platform:** Unity / .NET Standard 2.1+
+**Platform:** .NET Standard 2.1+ (platform-agnostic core)
 
 ---
 
@@ -16,14 +16,14 @@ Capabilities:
 - `ExtensibleEnum` — abstract base with auto-registration of instances via ctor.
 - `ExtEnumData<T>` — reactive value of an `ExtensibleEnum` subtype (`ReactiveValue<T>` subclass).
 - Serialization/deserialization via the format `"{Namespace.TypeName}.{Key}"`.
-- Eager registry initialization before the first scene loads and on Editor domain start.
+- Eager registry initialization — public idempotent `Initialize()`; run by the platform layer.
 - Lookup by key and by type via static methods on the base.
 
 Out of scope:
 
 - Codegen, paired SO assets, validators — **not provided**. Concrete classes are written by hand: `sealed class MoveState : ExtensibleEnum { … }`.
-- Inspector attributes, dropdowns — Layer 2 (`Vortex.Unity.ExtensibleEnumSystem`).
-- UI integration (`UIStateSwitcher`) — package `Vortex.Unity.UI.StateSwitcher`.
+- Editor attributes and dropdowns — the platform layer (Layer 2).
+- UI integration (switching visual states by value) — the platform layer.
 
 ---
 
@@ -32,8 +32,6 @@ Out of scope:
 | Dependency | Purpose |
 |------------|---------|
 | `Vortex.Core.Extensions` | `ReactiveValue<T>`, `IReactiveData`, `SerializeController` |
-| UnityEngine | `[RuntimeInitializeOnLoadMethod]` for eager runtime initialization |
-| UnityEditor (under `#if UNITY_EDITOR`) | `[InitializeOnLoadMethod]` for eager Editor-domain initialization |
 
 The custom converter for `SerializeController` is registered automatically in the static constructor of `ExtensibleEnum` — this guarantees that as soon as the base is touched (which happens at the first `Initialize`), the serializer already knows how to handle the family.
 
@@ -56,9 +54,8 @@ ExtensibleEnum (abstract, IEquatable<ExtensibleEnum>)
         Ordered:     Dictionary<Type, List<ExtensibleEnum>>
         ByFullName:  Dictionary<string, Type>          ← for Deserialize, populated by eager init
         
-        [RuntimeInitializeOnLoadMethod] InitializeOnRuntime() → Initialize()
-        [InitializeOnLoadMethod]        InitializeOnEditor()  → Initialize()  (#if UNITY_EDITOR)
-        Initialize() — scan AppDomain + RunClassConstructor for every subclass + populate ByFullName
+        Initialize() — public, idempotent: scan AppDomain + RunClassConstructor for every subclass
+                       + populate ByFullName. Called by the platform layer at startup
         
         GetByKey<T>(string)        → T
         GetByKey(Type, string)     → ExtensibleEnum
@@ -113,7 +110,7 @@ public partial class MoveState
 
 Rules:
 - The ctor is declared `public` (or `internal`) — otherwise the second partial part can't call `new`.
-- `Order` in the extension **continues** from the last index used by the base part. Duplicate `Order`s are technically allowed but break slot mapping in `UIStateSwitcher`.
+- `Order` in the extension **continues** from the last index used by the base part. Duplicate `Order`s are technically allowed but break the index-to-slot mapping (`ExtEnumData.Index`).
 - Duplicate `Key`s across any partial part overwrite each other in the `ByKey` registry — author's error, the eager init does not diagnose it.
 - `partial` extension works **within a single assembly**. For extension from a consumer assembly, see below.
 
@@ -132,7 +129,7 @@ Each class is declared as `public partial class … : ExtensibleEnum` with a pub
 
 If the consumer project sits in a separate asmdef and wants to add values to an existing set, two options:
 
-- **Create instances via the public ctor in your own static class**, ensuring the static initializer runs before the registry is consulted — e.g., via `[RuntimeInitializeOnLoadMethod]` or an explicit reference from startup code:
+- **Create instances via the public ctor in your own static class**, ensuring the static initializer runs before the registry is consulted — e.g., a call from the platform layer's startup code or an explicit reference from startup code:
   ```csharp
   public static class MyMoveStates
   {
@@ -146,9 +143,9 @@ If the consumer project sits in a separate asmdef and wants to add values to an 
 
 ### Eager initialization (no lazy code)
 
-`ExtensibleEnum.Initialize()` is called:
-- at runtime — via `[RuntimeInitializeOnLoadMethod(BeforeSceneLoad)]`;
-- in the Editor domain — via `[InitializeOnLoadMethod]` under `#if UNITY_EDITOR`.
+The core is platform-agnostic and does not start initialization itself — `ExtensibleEnum.Initialize()` (public, idempotent) is called by the platform layer:
+- the platform layer — at application startup, before the first registry access (and when the editing environment loads, if there is one);
+- without a platform layer (tests, server) — the host explicitly at startup, before the first registry access.
 
 What it does:
 1. Scans `AppDomain.CurrentDomain.GetAssemblies()`.
@@ -242,7 +239,7 @@ character.MoveMode.Set(MoveState.Run);                      // type-safe ✓
 if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equality
 if (character.MoveMode.Is(MoveState.Run)) { ... }           // explicit
 character.MoveMode.OnUpdate += v => Refresh(v);             // reactivity
-int slot = character.MoveMode.Index;                        // → UIStateSwitcher
+int slot = character.MoveMode.Index;                        // → visual state slot index
 string key = character.MoveMode.Key;                        // → save without ExtEnumData wrapper
 ```
 
@@ -280,7 +277,8 @@ foreach (var s in ExtensibleEnum.GetAll<MoveState>())
 | `ExtEnumData<T>.Value == null` | `Key = null`, `Index = -1`, `Is(...) = false` |
 | `ExtEnumData<T>.Set(null)` | Allowed; full `ReactiveValue<T>` reactivity preserved |
 | Duplicate Key in a subclass | The last `new` overwrites the previous in `ByKey` (incorrect usage by class author) |
-| Pure .NET without Unity (tests) | `[RuntimeInitializeOnLoadMethod]` will not fire; call `RunClassConstructor` manually or reference at least one value before serializing |
+| Without a platform layer (tests, server) | Call `ExtensibleEnum.Initialize()` at startup, before the first registry access |
+| Nobody called `Initialize()` | `GetAll` / `Deserialize` see only types already touched; call `Initialize()` at startup |
 | Concurrent threads | The registry is not thread-safe; eager init runs once before user code; post-init ctor calls are unprotected |
 
 ---
@@ -295,6 +293,7 @@ public abstract class ExtensibleEnum : IEquatable<ExtensibleEnum>
     public int Order { get; }
     
     protected ExtensibleEnum(string key, int order);
+    public static void Initialize();   // eager registry initialization, idempotent; called by the platform layer
     
     public string Serialize();
     
