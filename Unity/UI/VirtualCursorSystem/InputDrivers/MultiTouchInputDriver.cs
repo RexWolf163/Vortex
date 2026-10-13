@@ -219,6 +219,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         {
             if (pressed == slot.WasPressed) return;
             slot.WasPressed = pressed;
+            if (pressed)
+                ReportDevice(Touchscreen.current);
             VirtualCursorController.SetAction(slot.Binding.action, pressed, slot);
         }
 
@@ -235,7 +237,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 
             slot.WasInProgress = true;
             slot.LastPosition = pos;
-            Report(pos);
+            Report(pos, Touchscreen.current);
         }
 
         /// <summary>Контрол экшена, принадлежащий касанию пальца (<paramref name="touch"/> или его потомок); null — нет.</summary>

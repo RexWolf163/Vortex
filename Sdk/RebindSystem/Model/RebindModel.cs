@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Vortex.Sdk.RebindSystem.Controllers;
 using Vortex.Sdk.RebindSystem.Presets;
 
 namespace Vortex.Sdk.RebindSystem.Model
@@ -55,5 +56,12 @@ namespace Vortex.Sdk.RebindSystem.Model
         public bool IsGroupActive(string groupKey) => groupKey != null && ActiveGroups.Contains(groupKey);
 
         public IReadOnlyCollection<string> GetActiveGroups() => ActiveGroups;
+
+        /// <summary>
+        /// Ключи групп, в которые входит устройство с layout'ом <paramref name="deviceLayout"/> (с наследованием layout'ов:
+        /// <c>DualSenseGamepadHID</c> входит в группу с <c>Gamepad</c>), в порядке конфига. Пусто — ни в одну.
+        /// </summary>
+        public IReadOnlyList<string> GroupsOf(string deviceLayout) =>
+            OrderedGroups.Where(g => GroupResolver.Matches(g, deviceLayout)).Select(g => g.Key).ToList();
     }
 }

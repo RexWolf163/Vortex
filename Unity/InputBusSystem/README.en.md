@@ -229,8 +229,8 @@ When enabled, logs: subscriber registration/removal, `performed`/`canceled` deli
 
 | Situation | Behavior |
 |-----------|----------|
-| Non-existent action/map name | `KeyNotFoundException` |
-| `RemoveActionUser` for unregistered object | Silent skip |
+| Non-existent action/map name | `KeyNotFoundException` (except `RemoveActionUser`) |
+| `RemoveActionUser` for unregistered object or non-existent action | Silent skip — including unsubscribing on `App.OnExit` after the bus has been cleared |
 | `performed` subscriber removed before `canceled` | `canceled` discarded |
 | No subscribers on `performed` | Silent skip |
 | `Keyboard.current == null` | Warning; presses ignored |

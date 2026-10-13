@@ -8,7 +8,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
     /// <summary>
     /// Драйвер мыши. Событийно репортит абсолютную позицию каждого события, без своего фильтра. Курсор не скрывает.
     /// Эхо варпа ОС-мыши (фокус-навигация, <see cref="DirectInputDriver"/>) отсекает фильтр дрейфа на входе
-    /// репорта (<c>VirtualCursorController.ReportPointer</c>): оно не снимает скрытие и не выводит из режима навигации.
+    /// репорта (<c>VirtualCursorController.ReportPointer</c>): эхо идёт после репорта другого источника, а смена
+    /// источника переякоривает фильтр — эхо не снимает скрытие, не выводит из режима навигации и не меняет устройство.
     /// </summary>
     [Serializable]
     public class MouseInputDriver : InputDriver
@@ -44,7 +45,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         private void OnMove()
         {
             if (_action == null) return;
-            Report(_action.ReadValue<Vector2>());
+            Report(_action.ReadValue<Vector2>(), DeviceOf(_action));
         }
     }
 }

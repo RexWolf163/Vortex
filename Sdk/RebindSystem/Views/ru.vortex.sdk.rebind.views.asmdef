@@ -9,7 +9,9 @@
         "ru.vortex.unity.editortools",
         "ru.vortex.extensions",
         "ru.vortex.extenums",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "ru.vortex.unity.inputbussystem",
+        "ru.vortex.unity.virtualcursorsystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

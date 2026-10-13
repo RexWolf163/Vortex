@@ -66,9 +66,18 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             InputController.RemoveActionUser(actionId, this);
         }
 
-        /// <summary>Отрепортить позицию в контроллер (с флагом скрытия текущего источника).</summary>
-        protected void Report(Vector2 screen)
-            => VirtualCursorController.ReportPointer(screen, HidesCursor);
+        /// <summary>
+        /// Отрепортить позицию в контроллер (с флагом скрытия текущего источника и устройством ввода — оно уходит
+        /// в <c>LastDevice</c>, если репорт значим: скрывающий источник или значимый сдвиг).
+        /// </summary>
+        protected void Report(Vector2 screen, InputDevice device)
+            => VirtualCursorController.ReportPointer(screen, HidesCursor, device);
+
+        /// <summary>Отрепортить устройство пользовательского ввода (нажатие экшена) в <c>LastDevice</c>.</summary>
+        protected static void ReportDevice(InputDevice device) => VirtualCursorController.ReportDevice(device);
+
+        /// <summary>Устройство активного контрола экшена (в колбэке performed / при удержании); нет — <c>null</c>.</summary>
+        protected static InputDevice DeviceOf(InputAction action) => action?.activeControl?.device;
 
         /// <summary>Выделить id карты из id экшена «Карта/Экшен». false — id пуст или без карты.</summary>
         private static bool TryMapId(string actionId, out string mapId)

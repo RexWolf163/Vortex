@@ -5,6 +5,7 @@ using Sirenix.OdinInspector;
 using Sirenix.Utilities;
 using UnityEngine;
 using UnityEngine.Events;
+using Vortex.Unity.AppSystem.System.TimeSystem;
 using Vortex.Unity.UI.UIComponents;
 
 namespace Vortex.Unity.UI.Misc.DropDown
@@ -213,6 +214,9 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         private void OnDestroy()
         {
+            // Список разрушится позже нас, и его onDisable не должен закрывать уже разрушенный компонент.
+            _opened = false;
+            TimeController.RemoveCall(this);
             Destroy(_list);
         }
 
@@ -247,9 +251,23 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         private void CloseList()
         {
+            // Список зовёт CloseList сам, когда гаснет (onDisable в префабе), в том числе когда его гасим
+            // мы же — повторный вход отсекается здесь.
+            if (!_opened)
+                return;
+
             _opened = false;
-            _list?.SetActive(false);
             uiComponent?.SetSwitcher(DropDownStates.Enabled);
+            // Выключение отложено: CloseList приходит и из onDisable дочернего объекта списка, а SetActive
+            // посреди выключения иерархии Unity отвергает ошибкой.
+            TimeController.Accumulate(HideList, this);
+        }
+
+        /// <summary>Выключить список, если до отложенного вызова его не открыли снова.</summary>
+        private void HideList()
+        {
+            if (!_opened)
+                _list?.SetActive(false);
         }
 
         /// <summary>

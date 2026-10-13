@@ -113,12 +113,15 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             // = одно событие в диспетчере = один raycast + scrollHandler. Если ни одно не зажато,
             // Set вообще не делаем (не тратим raycast впустую).
             var accum = Vector2.zero;
-            if (_upAction    != null && _upAction.IsPressed())    accum += new Vector2(0f,  1f);
-            if (_downAction  != null && _downAction.IsPressed())  accum += new Vector2(0f, -1f);
-            if (_leftAction  != null && _leftAction.IsPressed())  accum += new Vector2(-1f, 0f);
-            if (_rightAction != null && _rightAction.IsPressed()) accum += new Vector2(1f,  0f);
+            InputAction pressed = null;
+            if (_upAction    != null && _upAction.IsPressed())    { accum += new Vector2(0f,  1f); pressed = _upAction; }
+            if (_downAction  != null && _downAction.IsPressed())  { accum += new Vector2(0f, -1f); pressed = _downAction; }
+            if (_leftAction  != null && _leftAction.IsPressed())  { accum += new Vector2(-1f, 0f); pressed = _leftAction; }
+            if (_rightAction != null && _rightAction.IsPressed()) { accum += new Vector2(1f,  0f); pressed = _rightAction; }
 
             if (accum.sqrMagnitude < 0.0001f) return;
+
+            ReportDevice(DeviceOf(pressed));
 
             Controllers.VirtualCursorController.ReportScroll(accum * (holdSpeed * unscaledDeltaTime));
         }
@@ -135,7 +138,11 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             if (pulseStep > 0f)
             {
                 SubscribeAction(actionId,
-                    () => Controllers.VirtualCursorController.ReportScroll(unit * pulseStep),
+                    () =>
+                    {
+                        ReportDevice(DeviceOf(action));
+                        Controllers.VirtualCursorController.ReportScroll(unit * pulseStep);
+                    },
                     null);
             }
             return action;

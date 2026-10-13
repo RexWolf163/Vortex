@@ -324,6 +324,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1256259643966082359}
   - component: {fileID: 8471796985226483187}
+  - component: {fileID: 4614140037561951330}
+  - component: {fileID: 4257536524804246561}
   m_Layer: 0
   m_Name: CursorUIView
   m_TagString: Untagged
@@ -367,6 +369,31 @@ MonoBehaviour:
   cursor: {fileID: 1256259643966082359}
   hideSystemCursor: 1
   cursorSkin: {fileID: 1121401077344216372}
+--- !u!225 &4614140037561951330
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6976831056096728727}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
+--- !u!114 &4257536524804246561
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6976831056096728727}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f12db40cd5da89744bc6257d53c86b3d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: app.ui::SexMusicIdol.UI.FrozenGlassExclusion
+  group: {fileID: 4614140037561951330}
 --- !u!1 &7502893214969694770
 GameObject:
   m_ObjectHideFlags: 0

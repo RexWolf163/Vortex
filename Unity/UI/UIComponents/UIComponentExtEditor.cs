@@ -14,9 +14,99 @@ namespace Vortex.Unity.UI.UIComponents
         private bool EmptyGraphics() => uiComponentGraphics?.Length == 0;
         private bool EmptySwitchers() => uiComponentSwitchers?.Length == 0;
 
+        /// <summary>Связанных текстов нет (массив не задан или пуст) — блок выравнивания скрыт.</summary>
+        private bool NoTexts() => uiComponentTexts == null || uiComponentTexts.Length == 0;
+
+        /// <summary>
+        /// Выравнивание текста внутри компонента: чтение — по первому связанному тексту, запись — всем связанным
+        /// текстам (с Undo и записью prefab-оверрайдов). Не сериализуется: значение всегда берётся из самих текстов.
+        /// Скрыто, если связанных текстов нет.
+        /// </summary>
+        [ShowInInspector, HideIf("NoTexts"), PropertyOrder(10), LabelText("Выравнивание текста")]
+        private TMPro.TextAlignmentOptions TextAlignment
+        {
+            get => FindAlignment() ?? TMPro.TextAlignmentOptions.Center;
+            set => ApplyAlignment(value);
+        }
+
+        /// <summary>
+        /// Maskable текстов и графики компонента: чтение — по первой связанной части с UI-графикой (тексты, затем
+        /// графика), запись — всем таким частям (с Undo и записью prefab-оверрайдов). Не сериализуется. Скрыто, если
+        /// таких частей нет (3D-текст TextMeshPro и SpriteRenderer маскируемости UI не имеют).
+        /// </summary>
+        [ShowInInspector, HideIf("NoMaskables"), PropertyOrder(10), LabelText("Maskable")]
+        private bool Maskable
+        {
+            get => FindMaskable() ?? true;
+            set => ApplyMaskable(value);
+        }
+
+        private bool NoMaskables() => FindMaskable() == null;
+
+        /// <summary>Выравнивание первого связанного текста; текстов нет — <c>null</c>.</summary>
+        private TMPro.TextAlignmentOptions? FindAlignment()
+        {
+            if (uiComponentTexts != null)
+                foreach (var text in uiComponentTexts)
+                    if (text != null)
+                        return text.GetAlignment();
+            return null;
+        }
+
+        private void ApplyAlignment(TMPro.TextAlignmentOptions alignment)
+        {
+            foreach (var text in uiComponentTexts)
+            {
+                if (text == null)
+                    continue;
+                text.SetAlignment(alignment);
+                text.SetDirty();
+            }
+        }
+
+        /// <summary>Maskable первой связанной части с UI-графикой (тексты, затем графика); таких нет — <c>null</c>.</summary>
+        private bool? FindMaskable()
+        {
+            if (uiComponentTexts != null)
+                foreach (var text in uiComponentTexts)
+                    if (text != null && text.GetMaskable() is { } textMaskable)
+                        return textMaskable;
+            if (uiComponentGraphics != null)
+                foreach (var graphic in uiComponentGraphics)
+                    if (graphic != null && graphic.GetMaskable() is { } graphicMaskable)
+                        return graphicMaskable;
+            return null;
+        }
+
+        private void ApplyMaskable(bool maskable)
+        {
+            if (uiComponentTexts != null)
+                foreach (var text in uiComponentTexts)
+                {
+                    if (text == null)
+                        continue;
+                    text.SetMaskable(maskable);
+                    text.SetDirty();
+                }
+
+            if (uiComponentGraphics != null)
+                foreach (var graphic in uiComponentGraphics)
+                {
+                    if (graphic == null)
+                        continue;
+                    graphic.SetMaskable(maskable);
+                    graphic.SetDirty();
+                }
+        }
+
         [Button(ButtonHeight = 50), GUIColor("GetInitColor"), HorizontalGroup("Link", Width = 40f)]
         private void Init()
         {
+            // Выставленные до пересбора значения блоков «Выравнивание текста» и «Maskable» (по прежним связям) —
+            // применяются к найденным частям. Связей не было — значения нет, части не трогаются.
+            var alignment = FindAlignment();
+            var maskable = FindMaskable();
+
             var uiComponentTextsTemp = GetComponentsInChildren<UIComponentText>(true).ToList();
             var uiComponentButtonsTemp = GetComponentsInChildren<UIComponentButton>(true).ToList();
             var uiComponentGraphicsTemp = GetComponentsInChildren<UIComponentGraphic>(true).ToList();
@@ -43,6 +133,11 @@ namespace Vortex.Unity.UI.UIComponents
             uiComponentButtons = uiComponentButtonsTemp.ToArray();
             uiComponentGraphics = uiComponentGraphicsTemp.ToArray();
             uiComponentSwitchers = uiComponentSwitchersTemp.ToArray();
+
+            if (alignment.HasValue)
+                ApplyAlignment(alignment.Value);
+            if (maskable.HasValue)
+                ApplyMaskable(maskable.Value);
 
             _testData.texts = new string[uiComponentTexts?.Length ?? 0];
             var count = uiComponentTexts?.Length ?? 0;

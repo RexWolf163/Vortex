@@ -28,10 +28,8 @@ namespace Vortex.Unity.Components.Misc.MBHandlers
                 onEnable?.Invoke();
         }
 
-        private void OnDisable()
-        {
-            if (isActiveAndEnabled)
-                onDisable?.Invoke();
-        }
+        // Без проверки isActiveAndEnabled: внутри OnDisable она всегда ложна (объект или компонент
+        // уже выключен) — с ней событие не срабатывало никогда.
+        private void OnDisable() => onDisable?.Invoke();
     }
 }

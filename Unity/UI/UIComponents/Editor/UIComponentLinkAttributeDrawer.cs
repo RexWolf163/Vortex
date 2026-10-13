@@ -39,7 +39,8 @@ namespace Vortex.Unity.UI.UIComponents.Editor
             if (error)
             {
                 if (ValueEntry.SmartValue == -1)
-                    RichTextHelpBox.Create(rect, "Настройка будет применена ко всем компонентам", MessageType.Warning);
+                    RichTextHelpBox.Create(rect, Attribute.NoneHint ?? "Настройка будет применена ко всем компонентам",
+                        MessageType.Warning);
                 else
                     RichTextHelpBox.Create(rect, "<b>Нет компонента-цели для данных</b>", MessageType.Error);
             }

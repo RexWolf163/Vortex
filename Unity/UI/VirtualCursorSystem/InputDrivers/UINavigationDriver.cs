@@ -85,7 +85,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         /// <summary>Подписать экшен направления на <see cref="VirtualCursorFocusController.Navigate"/> с настройками драйвера.</summary>
         private void SubscribeDirection(string actionId, Vector2 direction)
         {
-            if (string.IsNullOrEmpty(actionId) || ResolveAction(actionId) == null)
+            var action = string.IsNullOrEmpty(actionId) ? null : ResolveAction(actionId);
+            if (action == null)
             {
                 Debug.LogError("[UINavigationDriver] Ошибка настройки драйвера управления");
                 return;
@@ -94,22 +95,31 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             // Фиксируем направление в closure, флаги читаем из this (serializable fields
             // не меняются в рантайме после конфига).
             SubscribeAction(actionId,
-                () => VirtualCursorFocusController.Navigate(direction, coneAngleDeg,
-                    hideCursorOnFocus, captureFocusIfFree),
+                () =>
+                {
+                    ReportDevice(DeviceOf(action));
+                    VirtualCursorFocusController.Navigate(direction, coneAngleDeg, hideCursorOnFocus,
+                        captureFocusIfFree);
+                },
                 null);
         }
 
         /// <summary>Подписать экшен submit на <see cref="VirtualCursorFocusController.Submit"/>.</summary>
         private void SubscribeSubmit(string actionId)
         {
-            if (string.IsNullOrEmpty(actionId) || ResolveAction(actionId) == null)
+            var action = string.IsNullOrEmpty(actionId) ? null : ResolveAction(actionId);
+            if (action == null)
             {
                 Debug.LogError("[UINavigationDriver] Ошибка настройки драйвера управления");
                 return;
             }
 
             SubscribeAction(actionId,
-                VirtualCursorFocusController.Submit,
+                () =>
+                {
+                    ReportDevice(DeviceOf(action));
+                    VirtualCursorFocusController.Submit();
+                },
                 null);
         }
     }

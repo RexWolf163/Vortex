@@ -168,15 +168,19 @@ namespace Vortex.Unity.InputBusSystem
 
         /// <summary>
         /// Удалить пользователя карты ввода
-        /// Пользователь будет удален из очереди на получение сигнала
+        /// Пользователь будет удален из очереди на получение сигнала.
+        /// Неизвестный id — тихий пропуск: удалять нечего (в т.ч. после <see cref="Dispose"/> на выходе,
+        /// когда подписчики отписываются позже очистки шины).
         /// </summary>
         /// <param name="actionInputId"></param>
         /// <param name="actionInputUser"></param>
         public static void RemoveActionUser(string actionInputId, object actionInputUser)
         {
-            var item = ActionsUsers[actionInputId].FirstOrDefault(x => x.Owner == actionInputUser);
+            if (!ActionsUsers.TryGetValue(actionInputId, out var users))
+                return;
+            var item = users.FirstOrDefault(x => x.Owner == actionInputUser);
             if (item != null)
-                ActionsUsers[actionInputId].Remove(item);
+                users.Remove(item);
         }
 
         /// <summary>

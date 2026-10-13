@@ -145,11 +145,13 @@ namespace Vortex.Unity.UI.Misc
 
             // Внешний программный клик через Press()/Release(). EventSystem
             // IPointerClickHandler в этом случае не вызовет (это не пользовательский input),
-            // поэтому режим OnClick/OnUpInBorders требует ручной обработки. Время и
-            // дистанцию проверяем — это согласовано с правилами режима OnClick.
+            // поэтому режим OnClick/OnUpInBorders требует ручной обработки — по правилам
+            // своего режима: OnUpInBorders — без ограничения времени (внешнее нажатие
+            // всегда «в границах»), OnClick — с проверкой времени (смещение нулевое).
             if (eventData == null
-                && (clickRegType == ClickRegType.OnClick || clickRegType == ClickRegType.OnUpInBorders)
-                && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs)
+                && (clickRegType == ClickRegType.OnUpInBorders
+                    || clickRegType == ClickRegType.OnClick
+                    && (DateTime.Now - _clickTime).TotalMilliseconds < TimeForClickMs))
                 Click();
 
             Set(_inBorders ? ButtonVisualState.Hover : ButtonVisualState.Free);

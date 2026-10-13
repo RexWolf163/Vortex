@@ -9,6 +9,7 @@ Modular UI component system. `UIComponent` (MonoBehaviour) manages arrays of typ
 
 Capabilities:
 - Bulk and targeted UI updates via `PutData()` / `SetText()` / `SetSprite()` / `SetAction()` / `SetSwitcher()`
+- Programmatic press and release of a part's button via `CallPress()` / `CallRelease()`
 - Support for Text, TextMeshPro, TextMeshProUGUI, Button, AdvancedButton, SpriteRenderer, Image, UIStateSwitcher
 - Position-based part addressing for multi-part components
 - `[UIComponentLink]` attribute for type-safe position selection in Inspector
@@ -35,7 +36,7 @@ Out of scope:
 ```
 UIComponents/
 ├── UIComponent.cs                  # Central orchestrator (partial)
-├── UIComponentExtEditor.cs         # Editor: Init(), Test(), GetLinks()
+├── UIComponentExtEditor.cs         # Editor: Init(), Test(), GetLinks(), "Text alignment" block
 ├── UIComponentData.cs              # Data struct for PutData()
 ├── Parts/
 │   ├── UIComponentPart.cs          # Abstract part base
@@ -66,6 +67,10 @@ The `Init` button in Inspector runs recursive `GetComponentsInChildren` for all 
 
 After collecting parts, `Init()` populates `_testData` with current values (texts, sprites, switcher states) for debugging via the `Test` button.
 
+### Text alignment
+
+The inspector block "Text alignment" (TMP `TextAlignmentOptions`) sets the alignment of all linked texts at once: reading — from the first linked text, writing — to all of them (with Undo and prefab override recording). The value is not serialized in `UIComponent` — it is always taken from the texts themselves. The block is hidden when no texts are linked. Legacy `Text` gets the nearest of the 9 anchors (justified/flush → left, baseline → bottom, capline → top, geometry → center). Editor only: the `UIComponentText` system methods (`GetAlignment`/`SetAlignment`) are `internal` under `#if UNITY_EDITOR`.
+
 ### Localization
 
 `useLocalization` is on by default: texts pass through `StringExt.Translate()`. The component remembers the last values passed to `SetText` per part position — the parts hold the translation, and only the component knows the key. On `OnEnable` (and only when `useLocalization` is on) it subscribes to `Localization.OnLocalizationChanged` and re-applies the cached texts on the event; on `OnDisable` it unsubscribes.
@@ -81,6 +86,8 @@ Base class for all parts. In Editor, automatically fills RectTransform to contai
 **UIComponentText** — supports Text (legacy), TextMeshPro, TextMeshProUGUI. Auto-discovers components in Editor (`[OnInspectorInit]`).
 
 **UIComponentButton** — supports Button and AdvancedButton. Tracks `_currentAction`, removes old listener before setting new. Cleanup in `OnDestroy`.
+
+Programmatic control: `CallPress()` — `AdvancedButton` gets its `Press()` (visuals and press logic by its click registration mode), `Button` gets PointerDown ("pressed" visuals; `Button` has no press API of its own). `CallRelease()` — `AdvancedButton` gets its `Release()` (click by its mode rules; nothing without a preceding press), `Button` gets PointerUp and `onClick` if the button is active and interactable.
 
 **UIComponentGraphic** — supports SpriteRenderer and Image. Accepts both `Sprite` and `Texture2D` (auto-converts to Sprite). Editor-time type validation: only `SpriteRenderer` and `Image` are accepted.
 
@@ -105,6 +112,8 @@ component.SetSprite(icon);
 component.SetSprite(texture2D);          // auto-conversion
 component.SetAction(OnClick);
 component.SetAction(OnClick, 2);         // by position
+component.CallPress();                   // programmatic press of part 0's button
+component.CallRelease();                 // programmatic release (click by the button's rules)
 component.SetSwitcher(SwitcherState.On);
 ```
 
@@ -126,6 +135,8 @@ Type-safe part position selection in Inspector. Renders a slider 0..N with targe
 private int position = -1;  // -1 = default, 0..N = specific part
 ```
 
+The default -1 value is labeled "The setting will be applied to all components". If -1 means something else for the field, the third parameter sets a custom hint: `UIComponentLink(typeof(UIComponentGraphic), "component", "Sprite is not shown")`.
+
 ---
 
 ## Edge Cases
@@ -135,12 +146,15 @@ private int position = -1;  // -1 = default, 0..N = specific part
 | `SetText("x", pos)` without `UIComponentText` or out of range | `Debug.LogError`, return |
 | `SetText("x")` when `uiComponentTexts == null` or the array is empty | `Debug.LogError`, return |
 | `SetAction(null)` | Current listener removed |
+| `CallPress` / `CallRelease` with no button at the position | `Debug.LogWarning`, return |
+| `CallRelease` on `AdvancedButton` without a preceding `CallPress` | Nothing happens |
 | `PutData()` with array shorter than part count | Texts/buttons/graphics: missing entries are nullified (empty string / null / null). Switchers: processing breaks early |
 | `SetSprite(Texture2D)` | `Sprite` created via `Sprite.Create()` |
 | `position` out of range | `Debug.LogError` + return (positional methods), `IndexOutOfRangeException` (direct array access) |
 | `useLocalization = true` (default) | Texts pass through `StringExt.Translate()`; the component subscribes to locale changes |
 | Locale change, no text was set from code | Nothing happens: the cache is empty, prefab text is left alone |
 | Locale change, the part set changed after the last `SetText` | Warning in the log, texts are not re-applied |
+| Linked texts with different alignments | The "Text alignment" block shows the first one's alignment; changing it applies the chosen one to all |
 | Locale change, `null` was written into a position | The position is cleared: `Translate(null)` returns an empty string |
 
 ### UIComponentLinkAttribute

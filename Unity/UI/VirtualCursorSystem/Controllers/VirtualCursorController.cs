@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
@@ -126,27 +127,43 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
         private static Vector2 _lastPoint;
 
         /// <summary>
+        /// Источник прошлого репорта позиции — устройство ввода; <c>null</c> — перенос без устройства (фокус). Смена
+        /// источника переякоривает фильтр дрейфа (<see cref="ReportPointer"/>).
+        /// </summary>
+        private static InputDevice _driftSource;
+
+        /// <summary>
         /// Репорт позиции с флагом скрытия курсора для этого источника. Позиция пишется всегда; фильтр дрейфа
-        /// (<see cref="IsSignificantMove"/>) решает, значим ли сдвиг:
+        /// (<see cref="IsSignificantMove"/>) решает, значим ли сдвиг.
+        ///
+        /// Фильтр накапливает сдвиг только в пределах одного источника: репорт с другого устройства (или без него)
+        /// незначим и переякоривает фильтр — центр дрейфа переносится в его точку. Иначе источник получал бы в зачёт
+        /// накопление чужого: эхо варпа ОС-мыши (с ошибкой округления до пикселя ОС — при масштабированном окне до
+        /// ~2 px по оси) добирало бы порог за медленным стиком и засчитывалось мыши.
         /// <list type="bullet">
         /// <item>скрывающий источник скрывает курсор на любом репорте;</item>
         /// <item>нескрывающий возвращает курсор только значимым сдвигом — дрожание и эхо варпа ОС-мыши скрытие не снимают;</item>
-        /// <item>значимый сдвиг поднимает <see cref="PointerModel.OnPointerMoved"/> (после позиции и скина).</item>
+        /// <item>значимый сдвиг поднимает <see cref="PointerModel.OnPointerMoved"/> (после позиции и скина);</item>
+        /// <item>устройство источника уходит в <see cref="PointerModel.LastDevice"/> на репорте скрывающего источника
+        /// и на значимом сдвиге (<see cref="ReportDevice"/>).</item>
         /// </list>
         /// Повторный вход (из подписчика во время репорта) игнорируется. Гард снимается в finally —
         /// исключение у подписчика позиции или скина не замораживает курсор навсегда.
         /// </summary>
         /// <param name="screen">Позиция в пикселях экрана.</param>
         /// <param name="hidesCursor">Скрывает ли курсор этот источник.</param>
-        internal static void ReportPointer(Vector2 screen, bool hidesCursor = false)
+        /// <param name="device">Устройство ввода источника; <c>null</c> — перенос не от пользователя (фокус).</param>
+        internal static void ReportPointer(Vector2 screen, bool hidesCursor = false, InputDevice device = null)
         {
             if (_computeDriverReporting) return;
             _computeDriverReporting = true;
             try
             {
-                var moved = IsSignificantMove(screen);
+                var sourceChanged = device != _driftSource;
+                _driftSource = device;
+                var moved = !sourceChanged && IsSignificantMove(screen);
                 _lastPoint = screen;
-                if (moved) _driftCenter = screen;
+                if (moved || sourceChanged) _driftCenter = screen;
 
                 if (_model.ScreenPosition.Value != screen)
                     InvalidateProjection();
@@ -157,6 +174,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
 
                 _model.Skin.Set(GetSkinName(), Key);
 
+                if (hidesCursor || moved) ReportDevice(device);
+
                 if (moved) _model.RaisePointerMoved();
             }
             finally
@@ -166,9 +185,20 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
         }
 
         /// <summary>
+        /// Репорт устройства пользовательского ввода в <see cref="PointerModel.LastDevice"/> (layout устройства).
+        /// Драйвер зовёт его на нажатии экшена; для движения указателя — <see cref="ReportPointer"/> по решению фильтра
+        /// дрейфа. <c>null</c> — ничего не меняет; тот же layout — без события (дедуп реактивного поля).
+        /// </summary>
+        internal static void ReportDevice(InputDevice device)
+        {
+            if (device == null) return;
+            _model.LastDevice.Set(device.layout, Key);
+        }
+
+        /// <summary>
         /// Фильтр дрейфа: сдвиг значим, если за один репорт больше <see cref="DriftStepSqr"/> или от центра дрейфа
         /// больше <see cref="DriftRadiusSqr"/>. Быстрое движение значимо на каждом шаге, медленное — по накоплении радиуса,
-        /// дрожание на месте и эхо варпа — никогда.
+        /// дрожание на месте — никогда. Зовётся только для репорта того же источника, что и прошлый.
         /// </summary>
         private static bool IsSignificantMove(Vector2 screen) =>
             (screen - _lastPoint).sqrMagnitude > DriftStepSqr ||

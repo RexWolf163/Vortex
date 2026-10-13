@@ -219,6 +219,36 @@ namespace Vortex.Unity.UI.UIComponents
         }
 
         /// <summary>
+        /// Программное нажатие кнопки части компонента (трансляция в <see cref="UIComponentButton.CallPress"/>)
+        /// </summary>
+        /// <param name="position">Номер части компонента</param>
+        public virtual void CallPress(int position = 0)
+        {
+            if (uiComponentButtons == null || uiComponentButtons.Length <= position)
+            {
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
+                return;
+            }
+
+            uiComponentButtons[position].CallPress();
+        }
+
+        /// <summary>
+        /// Программное отпускание кнопки части компонента (трансляция в <see cref="UIComponentButton.CallRelease"/>)
+        /// </summary>
+        /// <param name="position">Номер части компонента</param>
+        public virtual void CallRelease(int position = 0)
+        {
+            if (uiComponentButtons == null || uiComponentButtons.Length <= position)
+            {
+                Debug.LogWarning($"[UIComponent: {transform.name}] No UI components for this content");
+                return;
+            }
+
+            uiComponentButtons[position].CallRelease();
+        }
+
+        /// <summary>
         /// Добавление спрайта на все графические компоненты
         /// (Например для дальнейшего переключения с одной картинкой но разным материалом)
         /// </summary>

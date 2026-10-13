@@ -139,10 +139,16 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         /// <summary>Поддержка платформы по <see cref="platformFilter"/>.</summary>
         public override bool SupportsPlatform(RuntimePlatform platform) => platformFilter.Matches(platform);
 
-        /// <summary>Резолв экшена касания и подписка на него (id не проверяется).</summary>
+        /// <summary>Резолв экшена касания и подписка на него; ошибка настройки — LogError, драйвер бездействует.</summary>
         public override void Connect()
         {
             _action = ResolveAction(pointActionId);
+            if (_action == null || string.IsNullOrEmpty(pointActionId))
+            {
+                Debug.LogError("[TouchInputDriver] Ошибка настройки драйвера управления");
+                return;
+            }
+
             SubscribeAction(pointActionId, OnPoint, null);
         }
 
@@ -165,13 +171,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                     // ReadValue<Vector2> на нём выбросит control-type mismatch. Нужен только факт касания.
                     // Репортим текущую позицию курсора: позиция не меняется (дедуп ReactiveValue), уходит только
                     // флаг HidesCursor — мышь для этого не нужна.
-                    Report(VirtualCursorBus.Data.ScreenPosition.Value);
+                    Report(VirtualCursorBus.Data.ScreenPosition.Value, DeviceOf(_action));
                     break;
 
                 case TouchDriverMode.AbsolutePosition:
                 {
                     var pos = _action.ReadValue<Vector2>();
-                    Report(pos);
+                    Report(pos, DeviceOf(_action));
                     if (warpSystemMouse)
                         Mouse.current?.WarpCursorPosition(pos);
                     break;
@@ -190,7 +196,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                     var cursor = VirtualCursorBus.Data.ScreenPosition.Value + delta;
                     cursor.x = Mathf.Clamp(cursor.x, 0f, Screen.width - 1f);
                     cursor.y = Mathf.Clamp(cursor.y, 0f, Screen.height - 1f);
-                    Report(cursor);
+                    Report(cursor, DeviceOf(_action));
                     break;
                 }
             }

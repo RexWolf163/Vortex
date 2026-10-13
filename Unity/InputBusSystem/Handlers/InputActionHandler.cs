@@ -12,6 +12,9 @@ namespace Vortex.Unity.InputBusSystem.Handlers
         [SerializeField, ValueSelector("GetInputActions")]
         private string inputAction;
 
+        /// <summary>Id экшена «Карта/Экшен», на который подписан хэндлер.</summary>
+        public string InputAction => inputAction;
+
         [SerializeField] private AdvancedButton button;
         [SerializeField] private UnityEvent onPressed;
         [SerializeField] private UnityEvent onReleased;

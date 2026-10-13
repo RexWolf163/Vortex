@@ -12,11 +12,11 @@ Vortex framework Sdk package: key rebinding on top of the project-wide Input Sys
 - Diff snapshot loaded under "loaded is loaded" rules, with unreadable parts isolated and the source backed up
 - Snapshot export and import — rollback point and bulk remap
 - Developer rules in the config: allowed pairs, protected, skipped and common commands, forbidden keys
-- Ready-made views: group command list, slots, mouse zone, indicators, reset, layout switching, a rollback source for RollbackSystem
+- Ready-made views: group command list, slots, mouse zone, indicators, reset, layout switching, a rollback source for RollbackSystem, a control key linker with a glyph table
 
 Out of scope:
 
-- Glyphs, key name localization, menu layout
+- Glyph art (the table in the views is only a key-to-text-and-sprite association, sprites are assigned by the project), key name localization, menu layout
 - Firing rules for overlapping binds (Ctrl, A and Ctrl+A) — external handlers, including Input System's `shortcutKeysConsumeInput`
 - Out-of-system bindings (axes, interactions, processors, other composites) — the system neither sees nor touches them
 - `InputAction`s created in code (e.g. `KeyboardHandler`) — they bypass the system
@@ -48,7 +48,9 @@ Out of scope:
 | `ru.vortex.extenums` | `UIStateSwitcher.Set` overloads |
 | `ru.vortex.unity.ui.rollback` | `RollbackSource` — rollback source |
 | `ru.vortex.unity.editortools` | `[ClassFilter]`, `[AutoLink]` |
-| `Unity.InputSystem` | Map dropdown in the editor, device layout in `CaptureMouseHandler` |
+| `ru.vortex.unity.inputbussystem` | `InputActionHandler` — the action for `InputActionView` |
+| `ru.vortex.unity.virtualcursorsystem` | `PointerModel.LastDevice` — `InputActionView` key priority by the last input device. Optional: the code is under `USING_VORTEX_CURSOR`; without the package only `defaultGroup` sets the priority |
+| `Unity.InputSystem` | Map and command dropdowns in the editor, device layout in `CaptureMouseHandler`, path picker and human-readable control names for glyphs |
 
 Both assemblies compile only with the `USING_VORTEX_REBIND` symbol (`defineConstraints`); the symbol is enabled by the `rebindSdk` toggle in the `SdkSettings` asset.
 
@@ -216,6 +218,7 @@ RebindCommand                      RebindModel.GetCommand(string id);
 IEnumerable<RebindCommand>         RebindModel.GetCommands(string map = null);
 BindSlot                           RebindModel.GetSlot(string bindKey);
 bool                               RebindModel.IsGroupActive(string groupKey);
+IReadOnlyList<string>              RebindModel.GroupsOf(string deviceLayout);   // device groups, with layout inheritance, config order
 IReadOnlyList<BindSlot>            RebindCommand.GetSlots(string groupKey);
 
 // ── Events ────────────────────────────────────────────────────────────────
@@ -334,6 +337,8 @@ hint.text = slot?.GetDisplayString() ?? string.Empty;
 
 Subscribing to `OnSlotsChanged`, `OnRebuilt` and `OnGroupsChanged` keeps the hint up to date.
 
+A ready no-code solution — `InputActionView` with a `RebindGlyphTable` (see "Views"): next to an `InputActionHandler` it shows the glyph of the effective key of its action (sprite and text) and a string like "Jump (keys {1}{0})" in a `UIComponent`, prioritizing the keys of the last input device; refreshed on binding changes, layout switching and device change.
+
 ### 7. Switchable layouts
 
 Groups with a shared `switchSet` are mutually exclusive: `SetGroupActive(key, true)` turns off the other groups of the set. Binds of an inactive group do not fire, but are editable, and conflicts in it are counted. By default the first group of each set and all standalone groups (no `switchSet`) are active; layout switching does not affect standalone groups.
@@ -365,6 +370,8 @@ Assembly `ru.vortex.sdk.rebind.views`, namespace `Vortex.Sdk.RebindSystem.Views`
 | `SwitchSetHandler` | Layout switching within a set: `Next()` / `Previous()` in config order, active group title in a `UIComponent`. An empty set key logs an error |
 | `ChangesStateHandler` | `SwitcherState` switcher: `On` — differs from factory (`HasChanges()`) |
 | `ResetToFactoryHandler` | Public `ResetAll()` for the "Reset all" button; an open capture is interrupted |
+| `InputActionView` | Control key visualization: fills the linked `UIComponent` with the glyph of the key of the linked `InputActionHandler`'s action (InputBusSystem package; not linked — an error in the log) and a string by pattern. The key is the command's first assigned key among the active priority groups; none there — the first among all active groups, in config group order (the effective layout); none anywhere — empty texts, no sprites. The priority is the groups of the last input device (`PointerModel.LastDevice` of the VirtualCursorSystem package, `RebindModel.GroupsOf`): after a gamepad — the gamepad key, after a keyboard or mouse — the keyboard and mouse key (one group). A device outside the groups (touchscreen, pen) does not change the priority. The last grouped device is shared by all views — one enabled later takes the current priority right away. While the device is not determined (or VirtualCursorSystem is not included) — the `defaultGroup` group (a dropdown of `RebindSettings` groups); not set — no priority. Pattern: `{0}` — key text, `{1}` — modifier text, each followed by `modifierSeparator` (empty without modifiers). "Jump (keys {1}{0})" → "Jump (keys Ctrl+A)". Key text comes from the glyph table; no entry — the Input System human-readable control name. The key sprite goes to the `keySpritePosition` graphic part, modifier sprites (the system allows up to two) to `modifierSpritePosition` and `secondModifierSpritePosition`; parts are picked with a slider, -1 — not shown, overlapping parts — a warning in the inspector. Modifier layers are switched by the same `UIComponent`'s switcher in the `modifiersSwitcherPosition` part (slider, -1 — not switched): the state is the key's modifier count, 0 — none, 1 — one, 2 — two; the switcher has three states in that order. Refreshes on slots of its command, `OnGroupsChanged`, `OnRebuilt` and a change of the last device's groups (mouse ↔ keyboard is the same group, no redraw) |
+| `RebindGlyphTable` | ScriptableObject (`Create → Vortex → Rebind → Glyph Table`): only the association "control path → text symbol + sprite" for keys and modifiers, no logic. Paths are generalized as the system stores them (`<Keyboard>/space`, `<Gamepad>/buttonSouth`), case-insensitive, picked with the Input System picker. A new table and Reset are filled with the full keyboard, mouse and gamepad layout (texts — key labels, gamepad in Xbox style), sprites are assigned by the project. Different glyph styles — different tables |
 | `RebindRollback` | Rollback source for `RollbackHandler` (RollbackSystem package): the point is an `Export()` snapshot, rollback — `Import()`, changes — by a model fingerprint. A rollback with no changes raises no events: `Import` answers `Unchanged` |
 
 Menu layout: a group panel with `RebindGroupHandler` → a row pool on a prefab with `RebindCommandView` → a nested slot pool on a prefab with `RebindSlotView`. The capture panel — `CaptureStateHandler`, `CaptureMouseHandler`, `CaptureCancelHandler`.
@@ -420,6 +427,9 @@ The snapshot is global: it is not tied to a save slot. Export returns the same t
 | A common command's key matches a command of another map | Both slots — `Common`; the operation is applied |
 | A common command's key matches a command of its own map | Usual intra-map rules: `IntraMap` / `IntraMapAllowed` |
 | A command is both common and skipped | Config validation error: a skipped command has no slots |
+| `InputActionView`: the command has no key in the last device's groups | The first key among all active groups in config order |
+| `InputActionView`: input from a device outside the groups (touchscreen, pen) | The priority stays by the previous grouped device; none — `defaultGroup` |
+| `InputActionView` without VirtualCursorSystem (`USING_VORTEX_CURSOR` off) | The priority is `defaultGroup` only |
 
 ## File structure
 
@@ -470,6 +480,8 @@ RebindSystem/
 │   ├── ChangesStateHandler.cs
 │   ├── ResetToFactoryHandler.cs
 │   ├── RebindRollback.cs
+│   ├── InputActionView.cs
+│   ├── RebindGlyphTable.cs
 │   └── ru.vortex.sdk.rebind.views.asmdef
 ├── DefineSettings/
 │   ├── SdkSettings.Rebind.cs             # USING_VORTEX_REBIND toggle

@@ -51,6 +51,15 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Model
         /// </summary>
         public Vector2Data ScrollDelta { get; } = new(Vector2.zero);
 
+        /// <summary>
+        /// Layout устройства последнего пользовательского ввода (<c>Mouse</c>, <c>Keyboard</c>,
+        /// <c>XInputControllerWindows</c>, <c>Touchscreen</c>…); пусто — устройство ещё не определено. Пишется контроллером
+        /// по репортам драйверов: нажатие экшена — всегда, движение указателя — только значимое (фильтр дрейфа), так что
+        /// дрожание мыши и эхо варпа ОС-мыши его не меняют. Свои переносы курсора (фокус) устройства не несут.
+        /// В <see cref="OnUpdateData"/> не транслируется — подписка на <c>LastDevice.OnUpdate</c>.
+        /// </summary>
+        public StringData LastDevice { get; } = new(string.Empty);
+
         /// <summary>Модель в нулевом состоянии; изменения полей (кроме <see cref="Skin"/>) транслируются в <see cref="OnUpdateData"/>.</summary>
         public PointerModel()
         {
@@ -68,7 +77,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Model
 
         /// <summary>
         /// Закрепить владельца за всеми полями модели (<see cref="ScreenPosition"/>, <see cref="Actions"/>,
-        /// <see cref="Skin"/>, <see cref="IsOverUI"/>, <see cref="ScrollDelta"/>). Зовётся контроллером один раз.
+        /// <see cref="Skin"/>, <see cref="IsOverUI"/>, <see cref="ScrollDelta"/>, <see cref="LastDevice"/>). Зовётся
+        /// контроллером один раз.
         /// </summary>
         public void SetOwner(object owner)
         {
@@ -77,6 +87,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Model
             Skin.SetOwner(owner);
             IsOverUI.SetOwner(owner);
             ScrollDelta.SetOwner(owner);
+            LastDevice.SetOwner(owner);
         }
     }
 }

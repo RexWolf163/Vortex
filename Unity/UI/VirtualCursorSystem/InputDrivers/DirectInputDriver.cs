@@ -62,8 +62,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         public override bool NeedsTick => true;
 
         /// <summary>
-        /// Резолв экшена движения (ошибка настройки — LogError, драйвер бездействует) и предупреждение,
-        /// если последний ключ кривой даёт 0 (курсор встанет на полном разгоне).
+        /// Резолв экшена движения (ошибка настройки — LogError, драйвер бездействует), предупреждение,
+        /// если последний ключ кривой даёт 0 (курсор встанет на полном разгоне), и проверка мёртвой зоны:
+        /// больше 0.5 — LogWarning, 1 и выше — LogError (стик не двигает курсор).
         /// </summary>
         public override void Connect()
         {
@@ -81,6 +82,15 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                     $"[DirectInputDriver] speedCurve в последнем ключе ≈ 0 для moveActionId='{moveActionId}'. " +
                     "Курсор встанет после разгона — проверь форму кривой в InputDriverSet.");
             }
+
+            // Мёртвая зона ≥ 1 глушит стик целиком (вектор длиннее 1 даёт отклонение 0), больше половины хода —
+            // почти всегда ошибка настройки.
+            if (deadzone >= 1f)
+                Debug.LogError($"[DirectInputDriver] deadzone = {deadzone} для moveActionId='{moveActionId}': " +
+                               "стик не двигает курсор — проверь мёртвую зону в InputDriverSet.");
+            else if (deadzone > 0.5f)
+                Debug.LogWarning($"[DirectInputDriver] deadzone = {deadzone} для moveActionId='{moveActionId}': " +
+                                 "мёртвая зона больше половины хода стика — проверь настройку в InputDriverSet.");
         }
 
         /// <summary>Сброс экшена и времени удержания.</summary>
@@ -101,7 +111,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             var move = _action.ReadValue<Vector2>();
             var magnitude = move.magnitude;
 
-            if (magnitude < deadzone)
+            if (magnitude <= deadzone) // <=: при deadzone = 0 стик в покое не доходит до деления на нулевую длину
             {
                 _holdTime = 0f; // в деад-зоне — мгновенный сброс; следующий старт пойдёт с начала кривой
                 return;
@@ -119,7 +129,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             var pos = VirtualCursorBus.Data.ScreenPosition.Value + direction * (appliedSpeed * unscaledDeltaTime);
             pos.x = Mathf.Clamp(pos.x, 0f, Screen.width - 1f);
             pos.y = Mathf.Clamp(pos.y, 0f, Screen.height - 1f);
-            Report(pos);
+            Report(pos, DeviceOf(_action));
+            // Отклонение за мёртвой зоной — намеренный ввод: устройство репортится на каждом тике, мимо фильтра дрейфа
+            // (медленный стик набирает его порог десятки кадров, а эхо варпа ОС-мыши переякоривает фильтр).
+            ReportDevice(DeviceOf(_action));
 
             if (warpSystemMouse)
                 Mouse.current?.WarpCursorPosition(pos);

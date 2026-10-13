@@ -44,7 +44,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         private object[] _sources = new object[0];
 
         /// <summary>
-        /// Подписаться на каждую привязку: performed берёт действие, canceled отпускает.
+        /// Подписаться на каждую привязку: performed репортит устройство и берёт действие, canceled отпускает.
         /// Привязка с пустым или неразрезолвленным id пропускается с LogError.
         /// </summary>
         public override void Connect()
@@ -54,7 +54,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             {
                 var b = bindings[i];
                 var source = _sources[i] = new object();
-                if (string.IsNullOrEmpty(b.actionId) || ResolveAction(b.actionId) == null)
+                var inputAction = string.IsNullOrEmpty(b.actionId) ? null : ResolveAction(b.actionId);
+                if (inputAction == null)
                 {
                     Debug.LogError("[ActionInputDriver] Ошибка настройки драйвера управления");
                     continue;
@@ -62,7 +63,11 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 
                 var action = b.action; // фиксируем на итерацию
                 SubscribeAction(b.actionId,
-                    () => Controllers.VirtualCursorController.SetAction(action, true, source),
+                    () =>
+                    {
+                        ReportDevice(DeviceOf(inputAction));
+                        Controllers.VirtualCursorController.SetAction(action, true, source);
+                    },
                     () => Controllers.VirtualCursorController.SetAction(action, false, source));
             }
         }

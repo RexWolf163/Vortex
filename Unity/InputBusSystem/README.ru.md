@@ -229,8 +229,8 @@ var delta = move?.ReadValue<Vector2>() ?? Vector2.zero;
 
 | Ситуация | Поведение |
 |----------|-----------|
-| Несуществующее имя экшена/карты | `KeyNotFoundException` |
-| `RemoveActionUser` для незарегистрированного объекта | Тихий пропуск |
+| Несуществующее имя экшена/карты | `KeyNotFoundException` (кроме `RemoveActionUser`) |
+| `RemoveActionUser` для незарегистрированного объекта или несуществующего экшена | Тихий пропуск — в т.ч. отписка на `App.OnExit` после очистки шины |
 | Подписчик `performed` удалён до `canceled` | `canceled` отбрасывается |
 | Нет подписчиков при `performed` | Тихий пропуск |
 | `Keyboard.current == null` | Предупреждение; нажатия игнорируются |

@@ -32,7 +32,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Render
         /// <summary>Не используется.</summary>
         private bool _subscribed;
 
-        /// <summary>Гейт отрисовки: до первого репорта позиции смена скина не применяется.</summary>
+        /// <summary>
+        /// Гейт отрисовки: до первого репорта позиции смена скина не применяется. Взводится один раз за жизнь рендера
+        /// и переживает выключение.
+        /// </summary>
         private bool _firstReportReceived;
 
         /// <summary>Имена состояний свитчера — известные рендеру скины.</summary>
@@ -55,20 +58,22 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Render
         }
 
         /// <summary>
-        /// Скрыть системный курсор (по флагу), выставить скин hidden (нет такого — состояние 0), взвести гейт первого репорта
-        /// и подписаться на скин и позицию.
+        /// Скрыть системный курсор (по флагу), подписаться на скин и позицию. До первого репорта позиции — скин hidden
+        /// (нет такого — состояние 0); повторное включение после него сразу применяет текущее состояние модели.
         /// </summary>
         private void OnEnable()
         {
             if (hideSystemCursor)
                 Cursor.visible = false;
 
+            // Гейт не сбрасывается: пока рендер был выключен, модель могла не меняться — ждать сдвига незачем.
+            if (_firstReportReceived)
+                Apply();
             // Стартуем скрытым — до первого репорта позиции курсор не рисуется. Нет скина hidden — дефолтный (0).
-            if (_states.Contains(VirtualCursorBus.HideCursor))
+            else if (_states.Contains(VirtualCursorBus.HideCursor))
                 cursorSkin.Set(VirtualCursorBus.HideCursor);
             else
                 cursorSkin.Set(0);
-            _firstReportReceived = false;
 
             VirtualCursorBus.Data.Skin.OnUpdate += OnVisual;
             VirtualCursorBus.Data.ScreenPosition.OnUpdate += OnPosition;

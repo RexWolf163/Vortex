@@ -408,7 +408,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                 if (b.kind != GestureKind.Tap || Count(b.fingers) != _tapMaxFingers) continue;
 
                 if (b.moveCursorToCenter)
-                    Report(_tapCenter);
+                    Report(_tapCenter, Touchscreen.current);
+                ReportDevice(Touchscreen.current);
                 VirtualCursorController.SetAction(b.action, true, _sources[i]);
                 VirtualCursorController.SetAction(b.action, false, _sources[i]);
             }
@@ -426,7 +427,9 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                 if (hold == _holding[i]) continue;
 
                 if (hold && b.moveCursorToCenter)
-                    Report(_center);
+                    Report(_center, Touchscreen.current);
+                if (hold)
+                    ReportDevice(Touchscreen.current);
                 _holding[i] = hold;
                 VirtualCursorController.SetAction(b.action, hold, _sources[i]);
             }

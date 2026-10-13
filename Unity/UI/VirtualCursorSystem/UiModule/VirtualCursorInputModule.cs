@@ -70,6 +70,17 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.UiModule
             base.OnDisable();
         }
 
+        /// <summary>
+        /// Активация модуля EventSystem'ом (в т.ч. повторное включение EventSystem): сброс фронтов и скролла,
+        /// накопленных источником ввода, пока модуль не обрабатывал кадры, — иначе первый Process отдал бы их UGUI
+        /// фантомным кликом в текущей точке. Маска источника отслеживается непрерывно, зажатая кнопка остаётся зажатой.
+        /// </summary>
+        public override void ActivateModule()
+        {
+            base.ActivateModule();
+            _input.EndFrame();
+        }
+
         /// <summary>Штатная обработка кадра, затем сброс фронтов кнопок и скролла кадра.</summary>
         public override void Process()
         {

@@ -64,10 +64,11 @@ Drivers do **not** use `InputActionProperty`: a binding is a string action id re
  ├─ StringData            Skin            ← final skin ("hidden" / requested / "" = base)
  ├─ BoolData              IsOverUI
  ├─ Vector2Data           ScrollDelta     ← scroll impulse
+ ├─ StringData            LastDevice      ← layout of the last input device ("" — not determined)
  └─ event OnPointerMoved                  ← significant move (drift filter)
 
 [VirtualCursorController] (static, partial)
- ├─ ReportPointer(pos, hidesCursor) · SetAction(action, active, source) · ClearActions · SetOverUI · ReportScroll · ReportGesture   (internal — drivers)
+ ├─ ReportPointer(pos, hidesCursor, device) · ReportDevice(device) · SetAction(action, active, source) · ClearActions · SetOverUI · ReportScroll · ReportGesture   (internal — drivers)
  ├─ OnSkin(skin, owner) / OffSkin(owner)  — PointerModel extensions, LIFO stack of skin requests
  └─ Projection: RegisterCamera/UnregisterCamera (LIFO) · TryGetWorldHit · GetWorldProjection · InvalidateProjection
 
@@ -128,8 +129,8 @@ Initialization: `VirtualCursorController` and `VirtualCursorFocusController` sta
 - `InputDriver` — an abstract **POCO**: `Connect()`/`Disconnect()`, `NeedsTick`/`Tick(dt)`, `HidesCursor`, `SupportsPlatform(platform)`. Actions are resolved by a "Map/Action" string id through `InputController` (`[ValueSelector]` dropdown in the inspector).
 - **Drivers do not enable action maps.** Enabling a map is the project's job (e.g. an `InputMapHandler` in the scene); without an enabled map action events don't arrive and polling (`ReadValue`) returns zero.
 - `InputDriverSet` — SO list of drivers (`[SerializeReference]`), `ICoreAsset` → auto-created at `Resources/Settings/InputDriverSet.asset`.
-- `CursorInputLoader` — `IProcess`: registers in `Loader`, in `RunAsync` loads the set, connects the drivers for the current platform, starts the per-frame tick for `NeedsTick` drivers. **Failfast**: module enabled but the asset is missing or the list is empty → exception. On `App.OnExit` all drivers are disconnected.
-- An empty or unresolved action id — `LogError` "Ошибка настройки драйвера управления" in the `Mouse`/`Direct`/`Action`/`MultiTouch`/`Gesture`/`UINavigation` drivers; `ScrollInputDriver` silently disables the direction; `TouchInputDriver` does not validate the id.
+- `CursorInputLoader` — `IProcess`: registers in `Loader`, in `RunAsync` loads the set, connects the drivers for the current platform, starts the per-frame tick for `NeedsTick` drivers. **Failfast**: module enabled but the asset is missing, the list is empty, or no driver supports the current platform → exception. On `App.OnExit` all drivers are disconnected.
+- An empty or unresolved action id — `LogError` "Ошибка настройки драйвера управления" in the `Mouse`/`Direct`/`Action`/`Touch`/`MultiTouch`/`Gesture`/`UINavigation` drivers; `ScrollInputDriver` silently disables the direction.
 
 ### Source arbitration and hiding
 `ReportPointer(pos, hidesCursor)` sets the position (always) and visibility: a hiding source hides the cursor on any report, a non-hiding one brings it back only with a significant move (drift filter, see below) — jitter and warp echo do not clear hiding. A driver declares `HidesCursor` (`TouchInputDriver` in HideOnly/AbsolutePosition → `true`, in Delta → `false`; `MultiTouchInputDriver` and `GestureInputDriver` — the `hidesCursor` field); focus navigation passes its own `hideCursor` flag. A significant move from another source (mouse, stick) brings the cursor back.
@@ -162,7 +163,11 @@ The OS mouse warp (`DirectInputDriver.warpSystemMouse`, `TouchInputDriver` in Ab
 
 **Drift filter** — at the position report entry (`VirtualCursorController.ReportPointer`), shared by all sources; drivers keep no filters of their own. The position is always written; a move is significant if a single report moves more than 3 px (`DriftStepSqr` = 9 px²) or the shift from the drift center exceeds 5 px (`DriftRadiusSqr` = 25 px²); the center moves to the point of the significant move. A significant move clears hiding for a non-hiding source and raises `PointerModel.OnPointerMoved` (after position and skin, synchronously within the report). Fast movement is significant on every step, slow movement once the radius accumulates, jitter in place — never. The controllers' own cursor moves (focus transition, follow) fire the event too — the subscriber filters them out itself.
 
-OS mouse warp echo arrives with a pixel rounding error (≈0.7 px, ≈1.4 px on HiDPI): the 3 px step is above it — echo does not clear hiding and does not leave navigation mode; the focus follow tolerance (2 px) is above it too — echo that nudged the cursor by a fraction of a pixel does not trigger another warp.
+The shift accumulates only within one source — the input device of the report (moves without a device, e.g. focus, are a separate source). A report from a different source than the previous one is not significant and re-anchors the filter: the drift center moves to its point. Otherwise a source would get credit for another source's accumulation — the OS mouse warp echo would top up the threshold after a slow stick and be credited to the mouse. The cost: while warp echo interleaves the stick reports (every few frames), a slow stick (under 3 px per frame) does not accumulate the radius and does not raise `OnPointerMoved` — a confident deflection is what leaves navigation mode and hiding.
+
+OS mouse warp echo arrives with a rounding error to the OS pixel (≈0.7 px; with a scaled window, e.g. a Game view smaller than the render resolution, up to the OS pixel size, ≈2 px per axis). Echo follows the report of the warping source, so it is not significant by the source change — it does not clear hiding, does not leave navigation mode and does not change `LastDevice`; the focus follow tolerance (2 px) is above the rounding error in an unscaled window — echo that nudged the cursor by a fraction of a pixel does not trigger another warp.
+
+**Last input device** — `PointerModel.LastDevice`: the layout of the device of the last user input (`Mouse`, `Keyboard`, `DualShock4GamepadHID`, `Touchscreen`…), empty — not determined. Written by the controller (`ReportDevice`); drivers pass the device of their input (`InputDriver.DeviceOf(action)` — the device of the action's active control): an action press (`ActionInputDriver`, a `UINavigationDriver` step and submit, scroll, multitouch and gesture presses) — always; pointer movement — on a significant move and on a hiding source's report; `DirectInputDriver` — on every tick outside the dead zone, bypassing the drift filter. Cursor moves without a device (focus) do not change it. The same layout — no event. The field is shared: e.g. control glyphs by the last device are built on it (`InputActionView` of the RebindSystem package).
 
 `PointerActionHandler` catches standard UGUI events from any source and splits them by button (Left/Right/Middle → `BaseClick`/`ContextClick`/`AltClick`). An event of another button is passed further up the hierarchy from the parent — a handler on a `Button` descendant does not swallow its click; its own button is consumed.
 
@@ -170,7 +175,7 @@ OS mouse warp echo arrives with a pixel rounding error (≈0.7 px, ≈1.4 px on 
 `PointerAction`: `None`, `BaseClick` (LMB), `ContextClick` (RMB), `AltClick` (MMB). **Do not reorder** — the index is the mask bit and the dominance priority. `PointerActionMask` is a `readonly struct` over `int`: simultaneous actions as bits, `Dominant()` — the active one with the lowest index. `None` has no bit and is never active. A bit is held by a set of holders: a source (an `ActionInputDriver` binding, a `MultiTouchInputDriver` finger) takes and releases the action on its own behalf; the bit stays active while at least one holder remains — releasing one of two actions or fingers on the same action does not clear it. Take and release are idempotent per source. `ActionInputDriver` takes on `performed` and releases on `canceled` (Input System sends `canceled` on window focus loss — no sticking).
 
 ### DirectInputDriver: speed
-`speed × speedCurve(holdTime) × stick²`, direction — the normalized move vector. `holdTime` — seconds the stick is held outside the dead zone: it resets to 0 instantly inside it and grows outside it up to the time of the curve's last key, no further. The curve defines the whole acceleration profile: X — seconds, Y — multiplier for `speed`; a constant curve means no acceleration. `stick` — deflection renormalized from the dead-zone edge (0 at the edge, 1 at full), squared — precision at small deflections. On `Connect` — `LogWarning` if the curve's last key ≈ 0. Ticks on `unscaledDeltaTime`, works during pause. The position is clamped to the screen.
+`speed × speedCurve(holdTime) × stick²`, direction — the normalized move vector. `holdTime` — seconds the stick is held outside the dead zone (the edge belongs to the zone, so with `deadzone = 0` a resting stick does not move the cursor): it resets to 0 instantly inside it and grows outside it up to the time of the curve's last key, no further. The curve defines the whole acceleration profile: X — seconds, Y — multiplier for `speed`; a constant curve means no acceleration. `stick` — deflection renormalized from the dead-zone edge (0 at the edge, 1 at full), squared — precision at small deflections. On `Connect` — `LogWarning` if the curve's last key ≈ 0; `deadzone` above 0.5 — `LogWarning`, 1 or more — `LogError` (the stick does not move the cursor). Ticks on `unscaledDeltaTime`, works during pause. The position is clamped to the screen. The stick's device goes to `LastDevice` on every tick outside the dead zone — deflection beyond it is intentional, the drift filter is not needed to pick the device.
 
 ### ScrollInputDriver: pulse + hold
 Four direction Button actions. **Pulse** — a `pulseStep` impulse on every `performed` (mouse wheel). **Hold** — every frame while a direction is held, `holdSpeed × dt` (D-pad, keys, stick as Button). Either model is disabled by 0 in its field. Impulses are published to `PointerModel.ScrollDelta` (an impulse equal to the previous one is published forcibly — consecutive wheel clicks are not lost); `VirtualCursorInputModule` delivers them to UGUI.
@@ -239,7 +244,7 @@ Drivers with `NeedsTick` are ticked by a self-rescheduling loop through `TimeCon
 Globally subscribed to `Actions`: for each "action → `TweenerHub`" binding press → `Forward`, release → `Back`; on `OnEnable` tweeners are snapped to the current mask. A binding to `None` is never active.
 
 ### Renderers
-- **`UiCursorRenderer`** — the cursor RectTransform on an overlay canvas is placed at `ScreenPosition`; the skin is the `UIStateSwitcher` state with the same name (unknown name → state 0). Hiding needs a state named `hidden`. Position and skin are applied starting from the first position report; `OnEnable` sets the `hidden` state (state 0 if there is none). Optionally hides the system cursor.
+- **`UiCursorRenderer`** — the cursor RectTransform on an overlay canvas is placed at `ScreenPosition`; the skin is the `UIStateSwitcher` state with the same name (unknown name → state 0). Hiding needs a state named `hidden`. Position and skin are applied starting from the first position report: before it `OnEnable` sets the `hidden` state (state 0 if there is none); after it re-enabling applies the model's current position and skin right away. Optionally hides the system cursor.
 - **`OsCursorRenderer`** — `Cursor.SetCursor` (ForceSoftware) from the skin's sprite set: the first set is the default skin, the `hidden` flag hides the OS cursor, the sprite is chosen by `Actions.Dominant()` (`actionsOverride[0..2]` with fallback). Redraws on `Skin` change. Requires a standalone sprite texture (not an atlas).
 
 ### Screen→world projection
@@ -261,7 +266,7 @@ LIFO camera registry (`CameraProvider` on OnEnable/OnDisable); `TryGetWorldHit`/
 - A cursor renderer on an overlay canvas (`UiCursorRenderer`) or `OsCursorRenderer`.
 
 ### Output
-- `PointerModel` (position / actions / skin / over-UI / scroll) — reactive.
+- `PointerModel` (position / actions / skin / over-UI / scroll / last device) — reactive.
 - UGUI events (hover/click/drag/scroll) at the cursor position from any source — through `VirtualCursorInputModule`; direct touches per platform.
 - `FocusModel` (group stack, current focus) — reactive.
 - `GestureModel` (multitouch gesture frame) — reactive.
@@ -272,7 +277,7 @@ LIFO camera registry (`CameraProvider` on OnEnable/OnDisable); `TryGetWorldHit`/
 - Simultaneous actions; a single dominant one for the sprite.
 - Source hiding takes priority over skin requests.
 - The driver tick survives a failure of one driver.
-- `ScreenPosition`/`Actions`/`Skin`/`IsOverUI`/`ScrollDelta`/`CurrentFocus`/`Gesture.Frame` are locked to the controllers.
+- `ScreenPosition`/`Actions`/`Skin`/`IsOverUI`/`ScrollDelta`/`LastDevice`/`CurrentFocus`/`Gesture.Frame` are locked to the controllers.
 
 ---
 
@@ -298,7 +303,7 @@ static Vector3? GetWorldProjection();
 static void     InvalidateProjection();
 
 // internal (package drivers/components):
-// ReportPointer(pos, hidesCursor) · SetAction(action, active, source) · ClearActions · SetOverUI
+// ReportPointer(pos, hidesCursor, device) · ReportDevice(device) · SetAction(action, active, source) · ClearActions · SetOverUI
 // ReportScroll · ReportGesture
 // RegisterCamera / UnregisterCamera · ActiveCamera
 ```
@@ -342,7 +347,7 @@ virtual  bool NeedsTick { get; }
 virtual  void Tick(float unscaledDeltaTime);
 virtual  bool HidesCursor { get; }
 virtual  bool SupportsPlatform(RuntimePlatform platform);
-// helpers: ResolveAction / SubscribeAction / UnsubscribeAction / Report
+// helpers: ResolveAction / SubscribeAction / UnsubscribeAction / Report(screen, device) / ReportDevice(device) / DeviceOf(action)
 ```
 
 ---
@@ -390,6 +395,7 @@ Actions for the drivers (mouse position, move vector, buttons, navigation direct
 |----------|----------|
 | Module disabled | The package assembly does not compile; components in scenes become Missing Script |
 | `InputDriverSet` missing / empty | `CursorInputLoader` throws |
+| No driver in the set supports the current platform | `CursorInputLoader` throws |
 | Driver does not support the platform | Not connected |
 | Action map not enabled | No events, polling returns zero — the cursor does not move from that source |
 | Touch in HideOnly / AbsolutePosition | Cursor hidden until a significant move from another source |
@@ -407,6 +413,10 @@ Actions for the drivers (mouse position, move vector, buttons, navigation direct
 | `FocusTargetComponent` without a parent group | `LogError`, the target is not registered |
 | No candidates in the cone, focus present | Nothing (capturing the nearest — only without focus) |
 | Cursor moved while focused | Significant (`OnPointerMoved`: step > 3 px or > 5 px from the drift center) — focus cleared; smaller — drift |
+| Position report from a different source than the previous one | Not significant, the drift center moves to its point |
+| OS mouse warp echo | Not significant (follows the warping source's report) — hiding, navigation mode and `LastDevice` unchanged |
+| Slow stick (< 3 px per frame) with OS mouse warp | Does not raise `OnPointerMoved` (echo re-anchors the filter); `LastDevice` — the stick's device on every tick |
+| Cursor move without a device (focus) | `LastDevice` unchanged |
 | Focus target moved | The cursor follows once the gap exceeds 2 px |
 | Submit without focus | Nothing |
 | Focus change from `onFocused`/`onUnfocused` | Rejected with `LogError` |

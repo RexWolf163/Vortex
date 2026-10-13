@@ -13,8 +13,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
     /// <summary>
     /// Загрузчик пакета ввода курсора как SDK-модуль. Регистрируется в <see cref="Loader"/> (порядок — через
     /// <see cref="WaitingFor"/>), в <see cref="RunAsync"/> грузит <see cref="InputDriverSet"/> из
-    /// <c>Resources/Settings</c> (failfast: нет ассета / пустой список — исключение), подключает драйверы под
-    /// текущую платформу и заводит покадровый тик для тех, кому он нужен.
+    /// <c>Resources/Settings</c> (failfast: нет ассета / пустой список / ни одного драйвера под платформу — исключение),
+    /// подключает драйверы под текущую платформу и заводит покадровый тик для тех, кому он нужен.
     ///
     /// Тик — самоперепланирующаяся петля через <see cref="TimeController.Accumulate"/> (без скрытого раннера):
     /// <c>try/catch/finally</c> гарантирует продолжение петли при сбое; на исключение конкретного драйвера
@@ -58,7 +58,8 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
 
         /// <summary>
         /// Загрузить <see cref="InputDriverSet"/> (нет ассета / пустой список — исключение), подключить драйверы,
-        /// поддерживающие текущую платформу, запустить тик для нуждающихся и подписать <see cref="Teardown"/> на выход.
+        /// поддерживающие текущую платформу (ни одного — исключение), запустить тик для нуждающихся и подписать
+        /// <see cref="Teardown"/> на выход.
         /// </summary>
         public UniTask RunAsync(CancellationToken cancellationToken)
         {
@@ -73,14 +74,20 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
                     "[CursorInput] InputDriverSet пуст — не задан ни один InputDriver.");
 
             var platform = Application.platform;
+            var connected = 0;
             foreach (var driver in drivers)
             {
                 if (driver == null || !driver.SupportsPlatform(platform))
                     continue;
                 driver.Connect();
+                connected++;
                 if (driver.NeedsTick)
                     _ticking.Add(new TickSlot(driver));
             }
+
+            if (connected == 0)
+                throw new InvalidOperationException(
+                    $"[CursorInput] В InputDriverSet нет ни одного драйвера для платформы {platform}.");
 
             if (_ticking.Count > 0)
                 TimeController.Accumulate(TickAll, TickOwner);

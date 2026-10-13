@@ -35,6 +35,19 @@ namespace Vortex.Unity.UI.UIComponents.Parts
         }
 
         public override void SetDirty() => Dirty(graphic);
+
+        // Маска — системные методы инспектора UIComponent (блок «Maskable»).
+        /// <summary>Maskable графики-<see cref="Image"/>; <see cref="SpriteRenderer"/> или графики нет — <c>null</c>.</summary>
+        internal bool? GetMaskable() => graphic is MaskableGraphic maskableGraphic ? maskableGraphic.maskable : null;
+
+        /// <summary>Выставить maskable графике-<see cref="Image"/>; иначе — ничего. Изменение записывается в Undo.</summary>
+        internal void SetMaskable(bool maskable)
+        {
+            if (graphic is not MaskableGraphic maskableGraphic)
+                return;
+            UnityEditor.Undo.RecordObject(maskableGraphic, "Maskable");
+            maskableGraphic.maskable = maskable;
+        }
 #endif
         public void PutData(Sprite sprite)
         {
