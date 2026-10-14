@@ -20,6 +20,12 @@ namespace Vortex.Unity.DatabaseSystem.Attributes
         /// </summary>
         public bool GroupByType { get; set; }
 
+        /// <summary>
+        /// Сортировка выпадашки по имени записи (регистронезависимо, по итоговому
+        /// отображаемому пути — с учётом префикса <see cref="GroupByType"/>).
+        /// По умолчанию включена; при <c>false</c> записи идут в порядке выдачи базы.
+        /// </summary>
+        public bool SortByName { get; set; } = true;
 
         public DbRecordAttribute(Type @class)
         {

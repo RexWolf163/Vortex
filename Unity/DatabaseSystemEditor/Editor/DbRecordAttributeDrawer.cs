@@ -50,19 +50,24 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
             public readonly RecordTypes? RecordType;
             public readonly Type RecordClass;
             public readonly bool GroupByType;
+            public readonly bool SortByName;
 
-            public CacheKey(RecordTypes? recordType, Type recordClass, bool groupByType)
+            public CacheKey(RecordTypes? recordType, Type recordClass, bool groupByType, bool sortByName)
             {
                 RecordType = recordType;
                 RecordClass = recordClass;
                 GroupByType = groupByType;
+                SortByName = sortByName;
             }
 
             public bool Equals(CacheKey other) =>
-                RecordType == other.RecordType && RecordClass == other.RecordClass && GroupByType == other.GroupByType;
+                RecordType == other.RecordType && RecordClass == other.RecordClass &&
+                GroupByType == other.GroupByType && SortByName == other.SortByName;
 
             public override bool Equals(object obj) => obj is CacheKey o && Equals(o);
-            public override int GetHashCode() => HashCode.Combine(RecordType, RecordClass, GroupByType);
+
+            public override int GetHashCode() =>
+                HashCode.Combine(RecordType, RecordClass, GroupByType, SortByName);
         }
 
         private sealed class CacheEntry
@@ -144,7 +149,8 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
         private static (string[] names, string[] guids) ResolveList(
             DbRecordAttribute attribute, IDriverEditor driver)
         {
-            var key = new CacheKey(attribute.RecordType, attribute.RecordClass, attribute.GroupByType);
+            var key = new CacheKey(attribute.RecordType, attribute.RecordClass, attribute.GroupByType,
+                attribute.SortByName);
             var now = EditorApplication.timeSinceStartup;
 
             if (!Cache.TryGetValue(key, out var entry))
@@ -222,6 +228,10 @@ namespace Vortex.Unity.DatabaseSystemEditor.Editor
 
             names = n.ToArray();
             guids = g.ToArray();
+
+            // Сортируем параллельные массивы синхронно: guids переставляются вслед за names.
+            if (attribute.SortByName)
+                Array.Sort(names, guids, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>Текущий GUID валиден — запись с таким ID существует в Database.</summary>
