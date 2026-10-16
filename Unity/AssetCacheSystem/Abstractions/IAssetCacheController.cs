@@ -9,7 +9,7 @@ namespace Vortex.Unity.AssetCacheSystem.Abstractions
 {
     /// <summary>
     /// Контракт контроллера пакета AssetCacheSystem.
-    /// Consumer-API ровно из двух методов: <see cref="Load{T}"/> и <see cref="Release"/>.
+    /// Consumer-API: <see cref="Load{T}"/> и <see cref="Release"/>, плюс синхронный <see cref="LoadSync{T}"/>.
     /// Остальное — lifecycle, используемый шиной при bootstrap.
     /// </summary>
     public interface IAssetCacheController
@@ -46,10 +46,17 @@ namespace Vortex.Unity.AssetCacheSystem.Abstractions
         /// <param name="owner">Владелец. Не может быть null.</param>
         /// <param name="reference">AssetReference. Не может быть null.</param>
         /// <param name="ct">Токен waiter'а. Отмена waiter'а НЕ прерывает реальную загрузку — она нужна другим.</param>
+        /// <param name="group">
+        /// Группа кэша. <c>null</c>/пусто — дефолтная группа. Неизвестная — ошибка в лог и дефолтная группа.
+        /// </param>
         /// <returns>Загруженный ассет.</returns>
         /// <exception cref="ArgumentNullException">owner или reference == null.</exception>
-        UniTask<T> Load<T>(object owner, AssetReference reference, CancellationToken ct = default)
-            where T : Object;
+        /// <exception cref="OperationCanceledException">
+        /// <paramref name="ct"/> отменён, либо владельца отпустили (<see cref="Release"/>) во время загрузки —
+        /// ассет без удержания не возвращается.
+        /// </exception>
+        UniTask<T> Load<T>(object owner, AssetReference reference, CancellationToken ct = default,
+            string group = null) where T : Object;
 
         /// <summary>
         /// Зарегистрировать <paramref name="owner"/> и синхронно вернуть ассет по <paramref name="reference"/>.
@@ -59,19 +66,20 @@ namespace Vortex.Unity.AssetCacheSystem.Abstractions
         /// <typeparam name="T">Ожидаемый тип ассета. <see cref="UnityEngine.Object"/> и наследники.</typeparam>
         /// <param name="owner">Владелец. Не может быть null.</param>
         /// <param name="reference">AssetReference. Не может быть null.</param>
-        /// <param name="ct">Токен waiter'а. Отмена waiter'а НЕ прерывает реальную загрузку — она нужна другим.</param>
+        /// <param name="group">Группа кэша. См. <see cref="Load{T}"/>.</param>
         /// <returns>Загруженный ассет.</returns>
         /// <exception cref="ArgumentNullException">owner или reference == null.</exception>
-        T LoadSync<T>(object owner, AssetReference reference) where T : Object;
+        T LoadSync<T>(object owner, AssetReference reference, string group = null) where T : Object;
 
         /// <summary>
-        /// Освободить все ассеты владельца. Заодно sweep'ит UnityEngine.Object-owner'ов,
-        /// которые были тихо уничтожены без вызова Release.
-        /// Ассеты без других активных владельцев уходят в survivors (LRU). При переполнении
-        /// survivors самые старые ассеты реально выгружаются через Addressables.Release.
+        /// Освободить все ассеты владельца в группе. Заодно sweep'ит (во всех группах)
+        /// UnityEngine.Object-owner'ов, которые были тихо уничтожены без вызова Release.
+        /// Ассеты без других активных владельцев группы уходят в её survivors (LRU). При переполнении
+        /// survivors группы самые старые ассеты реально выгружаются через Addressables.Release.
         /// </summary>
         /// <param name="owner">Владелец. Не может быть null.</param>
+        /// <param name="group">Группа, в которой владелец грузил. См. <see cref="Load{T}"/>.</param>
         /// <exception cref="ArgumentNullException">owner == null.</exception>
-        void Release(object owner);
+        void Release(object owner, string group = null);
     }
 }

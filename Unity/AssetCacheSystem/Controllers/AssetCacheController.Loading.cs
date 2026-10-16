@@ -14,70 +14,85 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
     {
         /// <inheritdoc/>
         public async UniTask<T> Load<T>(object owner, AssetReference reference,
-            CancellationToken ct = default) where T : Object
+            CancellationToken ct = default, string group = null) where T : Object
         {
             if (owner == null) throw new ArgumentNullException(nameof(owner));
             if (reference == null) throw new ArgumentNullException(nameof(reference));
 
-            RegisterOwner(owner, reference);
+            var cache = ResolveGroup(group);
+            var record = RegisterOwner(cache, owner, reference);
 
             try
             {
+                T result;
+
                 // 1. Уже в кэше (active или survivor) — мгновенный возврат + revive из survivors.
-                if (Model.Handles.TryGetValue(reference, out var ready))
+                if (cache.Handles.TryGetValue(reference, out var ready))
                 {
-                    ReviveFromSurvivor(reference);
+                    ReviveFromSurvivor(cache, reference);
                     if (_debugLogging)
-                        Debug.Log($"[{LogTag}] HIT  ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)}");
-                    return (T)ready.Result;
+                        Debug.Log($"[{LogTag}] HIT  ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)} " +
+                                  $"group={GroupLabel(cache)}");
+                    result = (T)ready.Result;
                 }
-
                 // 2. Идёт inflight — присоединяемся к нему.
-                if (Model.Inflight.TryGetValue(reference, out var slot))
+                else if (cache.Inflight.TryGetValue(reference, out var slot))
                 {
                     if (_debugLogging)
-                        Debug.Log($"[{LogTag}] JOIN ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)}");
-                    var joined = await slot.Completion.Task.AttachExternalCancellation(ct);
-                    return (T)joined;
+                        Debug.Log($"[{LogTag}] JOIN ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)} " +
+                                  $"group={GroupLabel(cache)}");
+                    result = (T)await slot.Completion.Task.AttachExternalCancellation(ct);
+                }
+                // 3. Новая загрузка.
+                else
+                {
+                    result = await StartLoad<T>(cache, reference, ct);
                 }
 
-                // 3. Новая загрузка.
-                return await StartLoad<T>(reference, ct);
+                // Пока грузили, владельца отпустили (Release удаляет запись целиком) — удержания этого Load
+                // больше нет. Отдать ассет без удержания нельзя: его вытеснят/выгрузят из-под держателя.
+                if (!IsSameRecord(cache, owner, record))
+                    throw new OperationCanceledException(
+                        $"[{LogTag}] Owner {OwnerLabel(owner)} was released while loading {ReferenceLabel(reference)}");
+
+                return result;
             }
             catch
             {
-                // Загрузка провалилась или waiter отменён — снимаем lock владельца, иначе
+                // Загрузка провалилась или waiter отменён — снимаем удержание этого Load, иначе
                 // фантомный lock не даст ассету уйти в survivors/выгрузиться. Реальную загрузку
                 // для остальных waiter'ов это не затрагивает (она живёт в StartLoad).
-                UnregisterOwner(owner, reference);
+                UnregisterOwner(cache, owner, reference, record);
                 throw;
             }
         }
 
         /// <inheritdoc/>
-        public T LoadSync<T>(object owner, AssetReference reference) where T : Object
+        public T LoadSync<T>(object owner, AssetReference reference, string group = null) where T : Object
         {
             if (owner == null) throw new ArgumentNullException(nameof(owner));
             if (reference == null) throw new ArgumentNullException(nameof(reference));
 
-            RegisterOwner(owner, reference);
+            var cache = ResolveGroup(group);
+            var record = RegisterOwner(cache, owner, reference);
 
             // 1. Уже в кэше (active или survivor) — мгновенный возврат + revive из survivors.
-            if (Model.Handles.TryGetValue(reference, out var ready))
+            if (cache.Handles.TryGetValue(reference, out var ready))
             {
-                ReviveFromSurvivor(reference);
+                ReviveFromSurvivor(cache, reference);
                 if (_debugLogging)
-                    Debug.Log($"[{LogTag}] HIT  ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)}");
+                    Debug.Log($"[{LogTag}] HIT  ref={ReferenceLabel(reference)} owner={OwnerLabel(owner)} " +
+                              $"group={GroupLabel(cache)}");
                 return (T)ready.Result;
             }
 
             // 2. Идёт inflight — присоединяемся к нему.
-            if (Model.Inflight.TryGetValue(reference, out var slot))
+            if (cache.Inflight.TryGetValue(reference, out var slot))
             {
                 slot.Handle.WaitForCompletion();
                 if (slot.Handle.Status != AsyncOperationStatus.Succeeded)
                 {
-                    UnregisterOwner(owner, reference);
+                    UnregisterOwner(cache, owner, reference, record);
                     return null;
                 }
 
@@ -90,55 +105,56 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             if (handle.Status != AsyncOperationStatus.Succeeded)
             {
                 if (handle.IsValid()) Addressables.Release(handle);
-                UnregisterOwner(owner, reference);
+                UnregisterOwner(cache, owner, reference, record);
                 return null;
             }
 
-            Model.Handles[reference] = handle;
+            cache.Handles[reference] = handle;
             return handle.Result;
         }
 
         /// <summary>
         /// Запуск новой загрузки через <see cref="Addressables.LoadAssetAsync{TObject}(object)"/>.
         /// Создаёт <see cref="InflightLoad"/>-слот, на который подключаются все параллельные
-        /// waiter'ы того же <paramref name="reference"/>. По завершении handle помещается в
-        /// <see cref="AssetCacheModel.Handles"/>, при отсутствии active-владельцев — в survivors.
+        /// waiter'ы того же <paramref name="reference"/> в группе. По завершении handle помещается в
+        /// <see cref="AssetCacheGroupModel.Handles"/>, при отсутствии active-владельцев — в survivors.
         ///
         /// Отмена <paramref name="ct"/> waiter'а НЕ прерывает реальную загрузку — она нужна
         /// другим waiter'ам. После завершения <c>handle.ToUniTask()</c> ct-проверка бросит OCE,
         /// но handle уже корректно учтён в реестре.
         /// </summary>
-        private async UniTask<T> StartLoad<T>(AssetReference reference, CancellationToken ct)
-            where T : Object
+        private async UniTask<T> StartLoad<T>(AssetCacheGroupModel cache, AssetReference reference,
+            CancellationToken ct) where T : Object
         {
+            var model = Model;
             var handle = Addressables.LoadAssetAsync<T>(reference);
             var slot = new InflightLoad
             {
                 Handle = handle,
                 Completion = new UniTaskCompletionSource<Object>()
             };
-            Model.Inflight[reference] = slot;
+            cache.Inflight[reference] = slot;
 
             if (_debugLogging)
-                Debug.Log($"[{LogTag}] LOAD ref={ReferenceLabel(reference)}");
+                Debug.Log($"[{LogTag}] LOAD ref={ReferenceLabel(reference)} group={GroupLabel(cache)}");
 
             try
             {
                 // Внимание: реальная загрузка НЕ привязана к ct waiter'а — она нужна другим waiter'ам.
                 var loaded = await handle.ToUniTask();
 
-                // Пока шла загрузка, мог пройти Cleanup: Model обнулён, наш handle уже освобождён
-                // в Cleanup, waiter'ы там же отменены. Больше делать нечего, выходим отменой.
-                if (Model == null)
+                // Пока шла загрузка, мог пройти Cleanup: наш handle уже освобождён в Cleanup, waiter'ы
+                // там же отменены, а реестр группы принадлежит старой модели. Больше делать нечего.
+                if (Model != model)
                     throw new OperationCanceledException();
 
-                Model.Handles[reference] = handle;
+                cache.Handles[reference] = handle;
                 slot.Completion.TrySetResult(loaded);
 
                 // Если все waiter'ы отменились до завершения — никаких active owner'ов нет.
                 // Помещаем в survivors на случай, если кто-то запросит ref повторно.
-                if (!IsHeldByAnyOwner(reference))
-                    PushSurvivor(reference);
+                if (!IsHeldByAnyOwner(cache, reference))
+                    PushSurvivor(cache, reference);
 
                 // Каллер отменил waiter — бросаем OCE, но handle уже корректно лежит в Handles.
                 ct.ThrowIfCancellationRequested();
@@ -149,55 +165,81 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
                 // Реальный сбой загрузки (не отмена waiter'а). Чистим handle и сообщаем всем waiter'ам.
                 slot.Completion.TrySetException(ex);
                 if (handle.IsValid()) Addressables.Release(handle);
-                Model?.Handles.Remove(reference);
+                cache.Handles.Remove(reference);
                 throw;
             }
             finally
             {
-                Model?.Inflight.Remove(reference);
+                cache.Inflight.Remove(reference);
             }
         }
 
         /// <summary>
-        /// Регистрирует владельца как держателя ассета. Идемпотентно по паре (owner, ref).
+        /// Регистрирует удержание ассета владельцем в группе: каждый Load добавляет одно удержание.
+        /// Счётчик, а не флаг: отмена/провал одного Load снимает только своё удержание и не трогает
+        /// другие Load того же владельца на тот же ref — иначе отменённая, но ещё летящая загрузка
+        /// сняла бы замок живой (повторный Load после отмены).
+        /// Возвращает запись владельца, в которую легло удержание, — поколение: <see cref="Release"/>
+        /// удаляет запись целиком, следующий Load заводит новую. По ней откат и успех Load отличают
+        /// «своё» удержание от удержаний Load, зарегистрированных после Release.
         /// </summary>
-        private void RegisterOwner(object owner, AssetReference reference)
+        private static Dictionary<AssetReference, int> RegisterOwner(AssetCacheGroupModel cache, object owner,
+            AssetReference reference)
         {
-            if (!Model.Locks.TryGetValue(owner, out var refs))
+            if (!cache.Locks.TryGetValue(owner, out var refs))
             {
-                refs = new HashSet<AssetReference>();
-                Model.Locks[owner] = refs;
+                refs = new Dictionary<AssetReference, int>();
+                cache.Locks[owner] = refs;
             }
 
-            refs.Add(reference);
+            refs[reference] = refs.TryGetValue(reference, out var holds) ? holds + 1 : 1;
+            return refs;
         }
 
         /// <summary>
-        /// Снимает удержание <paramref name="reference"/> с <paramref name="owner"/> после
-        /// провала/отмены загрузки. Если ассет всё же успел загрузиться, но активных владельцев
-        /// не осталось — отправляет его в survivors (иначе handle осиротеет: не в survivors —
-        /// не выгрузится по LRU). Null-safe относительно Model (мог пройти Cleanup).
+        /// Запись владельца — та же, в которой регистрировалось удержание: с момента регистрации
+        /// владельца не отпускали (<see cref="Release"/>).
         /// </summary>
-        private void UnregisterOwner(object owner, AssetReference reference)
+        private static bool IsSameRecord(AssetCacheGroupModel cache, object owner,
+            Dictionary<AssetReference, int> record) =>
+            cache.Locks.TryGetValue(owner, out var current) && ReferenceEquals(current, record);
+
+        /// <summary>
+        /// Снимает одно удержание <paramref name="reference"/> с <paramref name="owner"/> после
+        /// провала/отмены загрузки; остальные удержания того же владельца сохраняются. Если удержаний
+        /// ref не осталось ни у кого, а ассет всё же успел загрузиться — отправляет его в survivors
+        /// (иначе handle осиротеет: не в survivors — не выгрузится по LRU). Снимает только в записи
+        /// <paramref name="record"/>, где удержание регистрировалось: после Release владельца или Cleanup
+        /// записи нет либо она уже другая (новые Load того же владельца) — её удержания чужие, выходим.
+        /// </summary>
+        private void UnregisterOwner(AssetCacheGroupModel cache, object owner, AssetReference reference,
+            Dictionary<AssetReference, int> record)
         {
-            if (Model == null) return;
-            if (!Model.Locks.TryGetValue(owner, out var refs)) return;
-            if (!refs.Remove(reference)) return;
+            if (!IsSameRecord(cache, owner, record)) return;
+            var refs = record;
+            if (!refs.TryGetValue(reference, out var holds)) return;
 
+            if (holds > 1)
+            {
+                refs[reference] = holds - 1;
+                return;
+            }
+
+            refs.Remove(reference);
             if (refs.Count == 0)
-                Model.Locks.Remove(owner);
+                cache.Locks.Remove(owner);
 
-            if (!IsHeldByAnyOwner(reference) && Model.Handles.ContainsKey(reference))
-                PushSurvivor(reference);
+            if (!IsHeldByAnyOwner(cache, reference) && cache.Handles.ContainsKey(reference))
+                PushSurvivor(cache, reference);
         }
 
         /// <summary>
-        /// Если ассет был в survivors — изъять, он снова active.
+        /// Если ассет был в survivors группы — изъять, он снова active.
         /// </summary>
-        private void ReviveFromSurvivor(AssetReference reference)
+        private static void ReviveFromSurvivor(AssetCacheGroupModel cache, AssetReference reference)
         {
             // LinkedList.Remove(value) — O(n), для типичных размеров (≤ capacity, обычно 32-128) копейки.
-            Model.Survivors.Remove(reference);
+            cache.Survivors.Remove(reference);
         }
 
         private static string ReferenceLabel(AssetReference r) => r?.AssetGUID ?? "<null>";

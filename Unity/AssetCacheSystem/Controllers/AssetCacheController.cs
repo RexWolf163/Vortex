@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Core.System.Abstractions;
 using Vortex.Unity.AssetCacheSystem.Abstractions;
@@ -30,13 +31,6 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
         public event Action OnReleased;
 
         /// <summary>
-        /// Кэш capacity LRU-буфера survivors, считанный из <c>Settings.Data().AssetCache</c>
-        /// в <see cref="Init"/>. Подмена в рантайме не поддерживается — изменение требует
-        /// <see cref="Cleanup"/> + повторного <see cref="Init"/>.
-        /// </summary>
-        private int _survivorCapacity;
-
-        /// <summary>
         /// Включает <see cref="Debug.Log"/>-трассировку HIT/JOIN/LOAD/REL/SWEEP/EVICT.
         /// Читается из <c>Settings.Data().AssetCacheDebugLogs</c> в <see cref="Init"/>.
         /// </summary>
@@ -56,12 +50,30 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
             }
 
             _debugLogging = config.AssetCacheDebugLogs;
-            _survivorCapacity = config.AssetCache.SurvivorCapacity;
-            Model = new AssetCacheModel();
+            // Ёмкости групп читаются один раз: подмена в рантайме не поддерживается —
+            // изменение требует Cleanup + повторного Init.
+            Model = new AssetCacheModel(new AssetCacheGroupModel(null, config.AssetCache.SurvivorCapacity));
+            foreach (var group in config.AssetCache.Groups)
+            {
+                if (group.Key.IsNullOrWhitespace())
+                {
+                    Debug.LogError($"[{LogTag}] Group with empty key in AssetCacheSettings — skipped.");
+                    continue;
+                }
+
+                if (Model.GetGroup(group.Key) != null)
+                {
+                    Debug.LogError($"[{LogTag}] Duplicate group «{group.Key}» in AssetCacheSettings — skipped.");
+                    continue;
+                }
+
+                Model.AddGroup(new AssetCacheGroupModel(group.Key, group.SurvivorCapacity));
+            }
 
             IsInitialized = true;
             if (_debugLogging)
-                Debug.Log($"[{LogTag}] Initialized. SurvivorCapacity={_survivorCapacity}");
+                Debug.Log($"[{LogTag}] Initialized. SurvivorCapacity={Model.Default.SurvivorCapacity}, " +
+                          $"groups={Model.GetGroups().Count - 1}");
             OnInitialized?.Invoke();
         }
 
@@ -70,23 +82,27 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
         {
             if (!IsInitialized) return;
 
-            // Прерываем все inflight: уведомляем waiter'ов отменой и освобождаем handle'ы.
-            foreach (var pair in Model.Inflight)
+            foreach (var group in Model.GetGroups())
             {
-                pair.Value.Completion.TrySetCanceled();
-                if (pair.Value.Handle.IsValid())
-                    Addressables.Release(pair.Value.Handle);
+                // Прерываем все inflight: уведомляем waiter'ов отменой и освобождаем handle'ы.
+                foreach (var pair in group.Inflight)
+                {
+                    pair.Value.Completion.TrySetCanceled();
+                    if (pair.Value.Handle.IsValid())
+                        Addressables.Release(pair.Value.Handle);
+                }
+
+                // Освобождаем все завершённые handle'ы (active + survivor — все в Handles).
+                foreach (var pair in group.Handles)
+                    if (pair.Value.IsValid())
+                        Addressables.Release(pair.Value);
+
+                group.Inflight.Clear();
+                group.Handles.Clear();
+                group.Locks.Clear();
+                group.Survivors.Clear();
             }
 
-            // Освобождаем все завершённые handle'ы (active + survivor — все в Model.Handles).
-            foreach (var pair in Model.Handles)
-                if (pair.Value.IsValid())
-                    Addressables.Release(pair.Value);
-
-            Model.Inflight.Clear();
-            Model.Handles.Clear();
-            Model.Locks.Clear();
-            Model.Survivors.Clear();
             Model = null;
 
             IsInitialized = false;
@@ -94,5 +110,22 @@ namespace Vortex.Unity.AssetCacheSystem.Controllers
                 Debug.Log($"[{LogTag}] Cleaned up.");
             OnReleased?.Invoke();
         }
+
+        /// <summary>
+        /// Группа для вызова. Пустой ключ — дефолтная. Неизвестный ключ — ошибка в лог и дефолтная группа:
+        /// вызов не теряется, а мисконфиг виден (опечатка в ключе или группа удалена из настроек).
+        /// </summary>
+        private AssetCacheGroupModel ResolveGroup(string group)
+        {
+            var result = Model.GetGroup(group);
+            if (result != null)
+                return result;
+
+            Debug.LogError($"[{LogTag}] Unknown group «{group}» — handled as default group. " +
+                           "Check AssetCacheSettings.");
+            return Model.Default;
+        }
+
+        private static string GroupLabel(AssetCacheGroupModel group) => group.Key ?? "<default>";
     }
 }

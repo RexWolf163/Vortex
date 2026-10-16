@@ -20,7 +20,18 @@ namespace Vortex.Unity.UI.Misc
 
         [SerializeField] private EaseType ease = EaseType.InQuad;
 
+        /// <summary>
+        /// При включении сразу показывать заданное значение: в кадре включения значение выставляется
+        /// без задержки и твина (в т.ч. заданное до <see cref="OnEnable"/>)
+        /// </summary>
+        [SerializeField] private bool instantOnEnable;
+
         private float target;
+
+        /// <summary>
+        /// Кадр последнего включения в режиме <see cref="instantOnEnable"/>; -1 — не было
+        /// </summary>
+        private int _enableFrame = -1;
 
         private readonly AsyncTween _tween = new();
 
@@ -31,10 +42,22 @@ namespace Vortex.Unity.UI.Misc
             slider.minValue = min;
             slider.maxValue = max;
             target = value;
-            if (delay > 0)
+            if (_enableFrame == Time.frameCount)
+                SetInstant();
+            else if (delay > 0)
                 TimeController.Call(Refresh, delay, this);
             else
                 Refresh();
+        }
+
+        /// <summary>
+        /// Значение без задержки и твина: отложенное выставление и идущий твин отменяются
+        /// </summary>
+        private void SetInstant()
+        {
+            TimeController.RemoveCall(this);
+            _tween.Kill();
+            slider.value = target;
         }
 
         private void Refresh()
@@ -55,6 +78,13 @@ namespace Vortex.Unity.UI.Misc
         private void OnEnable()
         {
             TimeController.RemoveCall(this);
+            if (!instantOnEnable)
+                return;
+
+            _enableFrame = Time.frameCount;
+            // Значение задано до включения (в этом же кадре или раньше) — показать его сразу
+            if (!Mathf.Approximately(target, float.MinValue))
+                SetInstant();
         }
 
         private void OnDisable()

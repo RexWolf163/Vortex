@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using Vortex.Unity.AssetCacheSystem.Attributes;
 using Vortex.Unity.AssetCacheSystem.Bus;
 using Vortex.Unity.UI.Misc;
 
@@ -24,6 +25,9 @@ namespace Vortex.Unity.AssetCacheSystem.Handler
 
         [SerializeField, InfoBox("Опционально. Если не выставлено, работает со своим Transform")]
         private Transform targetForInstance;
+
+        [SerializeField, AssetCacheGroup, Tooltip("Группа кэша. Пусто — дефолтная группа.")]
+        private string cacheGroup;
 
         private GameObject _instance;
 
@@ -46,7 +50,7 @@ namespace Vortex.Unity.AssetCacheSystem.Handler
             _cts = null;
             _storage = null;
             Destroy(_instance);
-            AssetCache.Release(this);
+            AssetCache.Release(this, cacheGroup);
             base.OnDisable();
         }
 
@@ -55,7 +59,7 @@ namespace Vortex.Unity.AssetCacheSystem.Handler
             try
             {
                 _cts = new CancellationTokenSource();
-                var go = await AssetCache.Load<GameObject>(this, prefabReference, _cts.Token);
+                var go = await AssetCache.Load<GameObject>(this, prefabReference, _cts.Token, cacheGroup);
                 _instance = Instantiate(go, targetForInstance);
                 if (Data.Count == 0)
                     return;

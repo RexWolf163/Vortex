@@ -9,6 +9,7 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Handlers
     /// <summary>
     /// Хэндлер для воспроизведения звукового аналога для текста из IDataStorage
     /// </summary>
+    [System.Obsolete("Use Vortex.Sdk.AudioLocalizationSystemV2.Handlers.AudioLocaleHandler")]
     public class AudioLocaleHandler : MonoBehaviour
     {
         /// <summary>

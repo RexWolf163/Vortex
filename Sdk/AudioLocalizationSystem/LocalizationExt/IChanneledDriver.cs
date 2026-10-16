@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !USING_VORTEX_AUDIO_LOCALIZATION_V2
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
@@ -35,3 +36,4 @@ namespace Vortex.Core.LocalizationSystem.Bus
         public Dictionary<string, string> GetLanguagePack(string language);
     }
 }
+#endif

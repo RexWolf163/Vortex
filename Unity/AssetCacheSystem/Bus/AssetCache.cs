@@ -21,7 +21,7 @@ namespace Vortex.Unity.AssetCacheSystem.Bus
     /// на <c>Settings.OnInit</c> (с InitValve-семантикой: если Settings уже инициализированы,
     /// вызов происходит сразу) и создаёт <see cref="AssetCacheController"/> через Singleton-доступ.
     ///
-    /// Public API из двух consumer-методов: <see cref="Load{T}"/> и <see cref="Release"/>.
+    /// Public API: consumer-методы <see cref="Load{T}"/> и <see cref="Release"/>, плюс синхронный <see cref="LoadSync{T}"/>.
     /// </summary>
     public static class AssetCache
     {
@@ -58,19 +58,19 @@ namespace Vortex.Unity.AssetCacheSystem.Bus
         /// Запрос ассета. См. <see cref="IAssetCacheController.Load{T}"/>.
         /// </summary>
         public static UniTask<T> Load<T>(object owner, AssetReference reference,
-            CancellationToken ct = default) where T : Object
-            => Controller.Load<T>(owner, reference, ct);
+            CancellationToken ct = default, string group = null) where T : Object
+            => Controller.Load<T>(owner, reference, ct, group);
 
         /// <summary>
         /// Запрос ассета. См. <see cref="IAssetCacheController.LoadSync{T}"/>.
         /// </summary>
-        public static T LoadSync<T>(object owner, AssetReference reference) where T : Object
-            => Controller.LoadSync<T>(owner, reference);
+        public static T LoadSync<T>(object owner, AssetReference reference, string group = null) where T : Object
+            => Controller.LoadSync<T>(owner, reference, group);
 
         /// <summary>
-        /// Освобождение всех ассетов владельца. См. <see cref="IAssetCacheController.Release"/>.
+        /// Освобождение всех ассетов владельца в группе. См. <see cref="IAssetCacheController.Release"/>.
         /// </summary>
-        public static void Release(object owner) => Controller?.Release(owner);
+        public static void Release(object owner, string group = null) => Controller?.Release(owner, group);
 
         [RuntimeInitializeOnLoadMethod]
         private static void Bootstrap()

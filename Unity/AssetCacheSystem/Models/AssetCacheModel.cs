@@ -1,48 +1,64 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Vortex.Unity.AssetCacheSystem.Models
 {
     /// <summary>
-    /// Runtime-реестр пакета AssetCacheSystem.
+    /// Runtime-реестр пакета AssetCacheSystem: набор изолированных групп кэша.
     ///
-    /// Содержит четыре связанные структуры:
-    /// - <see cref="Locks"/> — кто (owner) какие <see cref="AssetReference"/> держит.
-    /// - <see cref="Handles"/> — Addressables-handle на каждый загруженный ассет (один handle = один ref).
-    /// - <see cref="Inflight"/> — текущие незавершённые загрузки для дедупликации параллельных запросов.
-    /// - <see cref="Survivors"/> — FIFO LRU-буфер ассетов без активных владельцев, ждущих eviction.
+    /// <see cref="Default"/> — группа без идентификатора, с ней работают все вызовы без группы.
+    /// Именованные группы — из <c>AssetCacheConfig.Groups</c>. Устройство реестра группы —
+    /// см. <see cref="AssetCacheGroupModel"/>.
     ///
     /// Модель НЕ реактивна: потребители получают результат напрямую через
     /// <c>await AssetCache.Load(...)</c>, никаких подписок на изменения кэша не предусмотрено.
     /// </summary>
     public sealed class AssetCacheModel
     {
-        /// <summary>Кто что держит. Ключ — owner, значение — набор удерживаемых AssetReference.</summary>
-        internal Dictionary<object, HashSet<AssetReference>> Locks { get; } = new();
+        internal AssetCacheModel(AssetCacheGroupModel defaultGroup)
+        {
+            Default = defaultGroup;
+            AllGroups.Add(defaultGroup);
+        }
 
-        /// <summary>Загруженные handle'ы по AssetReference. Один handle на каждый ref.</summary>
-        internal Dictionary<AssetReference, AsyncOperationHandle> Handles { get; } = new();
+        /// <summary>Дефолтная группа (без идентификатора).</summary>
+        public AssetCacheGroupModel Default { get; }
 
-        /// <summary>Текущие незавершённые загрузки. Снимается из словаря после завершения.</summary>
-        internal Dictionary<AssetReference, InflightLoad> Inflight { get; } = new();
+        /// <summary>Именованные группы по ключу. Дефолтной здесь нет.</summary>
+        internal Dictionary<string, AssetCacheGroupModel> Groups { get; } = new();
 
-        /// <summary>FIFO-список survivors: голова — самый старый, хвост — самый новый.</summary>
-        internal LinkedList<AssetReference> Survivors { get; } = new();
+        /// <summary>Все группы: дефолтная первой, далее именованные в порядке настройки.</summary>
+        internal List<AssetCacheGroupModel> AllGroups { get; } = new();
 
-        /// <summary>Возвращает true, если ассет загружен и присутствует в кэше (active или survivor).</summary>
-        public bool IsLoaded(AssetReference reference) => Handles.ContainsKey(reference);
+        /// <summary>Все группы: дефолтная первой, далее именованные в порядке настройки.</summary>
+        public IReadOnlyList<AssetCacheGroupModel> GetGroups() => AllGroups;
 
-        /// <summary>Количество загруженных ассетов (active + survivors).</summary>
-        public int LoadedCount => Handles.Count;
+        /// <summary>
+        /// Группа по ключу. Пустой ключ — <see cref="Default"/>; неизвестный — <c>null</c>.
+        /// </summary>
+        public AssetCacheGroupModel GetGroup(string key) =>
+            string.IsNullOrEmpty(key) ? Default : Groups.GetValueOrDefault(key);
 
-        /// <summary>Количество текущих незавершённых загрузок.</summary>
-        public int InflightCount => Inflight.Count;
+        internal void AddGroup(AssetCacheGroupModel group)
+        {
+            Groups.Add(group.Key, group);
+            AllGroups.Add(group);
+        }
 
-        /// <summary>Количество ассетов в survivor LRU-буфере.</summary>
-        public int SurvivorsCount => Survivors.Count;
+        /// <summary>Возвращает true, если ассет загружен хотя бы в одной группе (active или survivor).</summary>
+        public bool IsLoaded(AssetReference reference) => AllGroups.Any(g => g.IsLoaded(reference));
 
-        /// <summary>Количество зарегистрированных владельцев.</summary>
-        public int OwnersCount => Locks.Count;
+        /// <summary>Количество загруженных handle'ов по всем группам (active + survivors).</summary>
+        public int LoadedCount => AllGroups.Sum(g => g.LoadedCount);
+
+        /// <summary>Количество незавершённых загрузок по всем группам.</summary>
+        public int InflightCount => AllGroups.Sum(g => g.InflightCount);
+
+        /// <summary>Количество ассетов в survivor-буферах всех групп.</summary>
+        public int SurvivorsCount => AllGroups.Sum(g => g.SurvivorsCount);
+
+        /// <summary>Количество уникальных владельцев по всем группам.</summary>
+        public int OwnersCount => AllGroups.SelectMany(g => g.Locks.Keys).Distinct().Count();
     }
 }

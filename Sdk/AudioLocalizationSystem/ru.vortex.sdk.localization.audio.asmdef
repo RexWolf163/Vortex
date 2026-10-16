@@ -22,7 +22,9 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "!USING_VORTEX_AUDIO_LOCALIZATION_V2"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }

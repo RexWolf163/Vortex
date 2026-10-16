@@ -17,6 +17,7 @@ using Vortex.Unity.LocalizationSystem;
 namespace Vortex.Sdk.AudioLocalizationSystem.Preset
 {
     [CreateAssetMenu(fileName = "AudioLocaleData", menuName = "Database/AudioLocaleData")]
+    [Obsolete("Use Vortex.Sdk.AudioLocalizationSystemV2.Preset.AudioLocaleDataPreset")]
     public class AudioLocaleDataPreset : RecordPreset<AudioLocaleData>
     {
         [Serializable, ClassLabel("$Label")]

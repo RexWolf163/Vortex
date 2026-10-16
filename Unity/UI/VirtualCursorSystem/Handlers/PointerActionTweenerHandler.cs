@@ -16,8 +16,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Handlers
     /// На включении состояние твинеров мгновенно (skip) выравнивается по текущей маске: компонент,
     /// включённый при зажатой клавише, сразу показывает «нажато», выключенный — не залипает.
     ///
-    /// Привязка к <see cref="PointerAction.None"/> никогда не активна (<see cref="PointerActionMask.IsActive"/>
-    /// для None — false): её твинер всегда в состоянии Back.
+    /// Привязка к <see cref="PointerAction.None"/> — «покой»: активна, пока не нажата ни одна из клавиш, привязанных
+    /// в этом обработчике (клавиши без привязки покой не сбивают). Её твинер (например, айдл курсора) в Forward без
+    /// нажатий, с нажатием привязанной клавиши уходит в Back, с отпусканием последней привязанной — возвращается
+    /// в Forward. Сама маска при этом не меняется: <see cref="PointerActionMask.IsActive"/> для None по-прежнему false.
     /// </summary>
     [AddComponentMenu("Vortex/Virtual Cursor/Pointer Action Tweener Handler")]
     public class PointerActionTweenerHandler : MonoBehaviour
@@ -26,7 +28,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Handlers
         [Serializable]
         private struct Binding
         {
-            [Tooltip("Клавиша курсора: BaseClick (LMB), ContextClick (RMB), AltClick (MMB).")]
+            [Tooltip("Клавиша курсора: BaseClick (LMB), ContextClick (RMB), AltClick (MMB); None — покой (не нажата ни одна из привязанных здесь клавиш).")]
             public PointerAction action;
 
             [Tooltip("Твинер: нажатие — Forward, отпускание — Back.")]
@@ -46,7 +48,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Handlers
             _lastMask = actions.Value;
             foreach (var binding in bindings)
             {
-                if (_lastMask.IsActive(binding.action)) binding.tweener.Forward(true);
+                if (IsActive(_lastMask, binding.action)) binding.tweener.Forward(true);
                 else binding.tweener.Back(true);
             }
 
@@ -61,14 +63,28 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Handlers
         {
             foreach (var binding in bindings)
             {
-                var isActive = mask.IsActive(binding.action);
-                if (isActive == _lastMask.IsActive(binding.action)) continue;
+                var isActive = IsActive(mask, binding.action);
+                if (isActive == IsActive(_lastMask, binding.action)) continue;
 
                 if (isActive) binding.tweener.Forward();
                 else binding.tweener.Back();
             }
 
             _lastMask = mask;
+        }
+
+        /// <summary>
+        /// Активна ли привязка при маске: клавиша — нажата; <see cref="PointerAction.None"/> — не нажата ни одна из клавиш,
+        /// привязанных в этом обработчике (нажатия клавиш без привязки покой не сбивают)
+        /// </summary>
+        private bool IsActive(PointerActionMask mask, PointerAction action)
+        {
+            if (action != PointerAction.None)
+                return mask.IsActive(action);
+            foreach (var binding in bindings)
+                if (mask.IsActive(binding.action))
+                    return false;
+            return true;
         }
     }
 }

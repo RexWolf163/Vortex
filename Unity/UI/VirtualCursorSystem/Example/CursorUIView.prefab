@@ -234,7 +234,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 0}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -448,7 +448,7 @@ MonoBehaviour:
       data:
         offset: 0
         offsetBack: 0
-        preset: {fileID: 11400000, guid: d6ad16acdb97df447b021ff08ead2542, type: 2}
+        preset: {fileID: 11400000, guid: 9438b05e60bc81b45bbce984786042c2, type: 2}
         targets:
         - {fileID: 2904756391370915970}
         targetsTexts: []
@@ -473,7 +473,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &8623676523049268686
 Transform:
   m_ObjectHideFlags: 0

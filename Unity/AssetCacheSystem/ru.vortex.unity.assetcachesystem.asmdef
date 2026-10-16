@@ -12,6 +12,7 @@
         "UniTask",
         "UniTask.Addressables",
         "ru.vortex.unity.extensions",
+        "ru.vortex.unity.editortools",
         "ru.vortex.unity.CoreAssetsSystem",
         "ru.vortex.unity.ui.misc",
         "ru.vortex.core.assethandle",

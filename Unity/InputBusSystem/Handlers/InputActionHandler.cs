@@ -21,6 +21,8 @@ namespace Vortex.Unity.InputBusSystem.Handlers
 
         private bool _wasSubscribed = false;
 
+        private bool _wasPressed = false;
+
         private void OnEnable()
         {
             if (App.GetState() < AppStates.Running)
@@ -53,12 +55,17 @@ namespace Vortex.Unity.InputBusSystem.Handlers
 
         private void OnPerformed()
         {
+            // Флаг — до Press/onPressed: если они синхронно выключат объект, OnDisable должен отпустить кнопку
+            _wasPressed = true;
             button?.Press();
             onPressed?.Invoke();
         }
 
         private void OnCanceled()
         {
+            if (!_wasPressed)
+                return;
+            _wasPressed = false;
             button?.Release();
             onReleased?.Invoke();
         }

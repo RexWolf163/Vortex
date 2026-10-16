@@ -54,7 +54,7 @@ Lazy loading via Addressables on top of `AssetCache` (dedup, LRU survivors, dest
 
 - `[SerializeField] AssetReference reference` — Addressables asset link.
 - `[NonSerialized] T _cached` — cache of the loaded asset; the only state (the handle is reusable).
-- The handle is the sole owner of its Addressables handle through `AssetCache` (`owner = this`).
+- The handle is the sole owner of its Addressables handle through `AssetCache` (`owner = this`): the cache always holds exactly one key per handle. Overlapping loads of one handle (e.g. a retry after cancellation while the cancelled load is still in flight) are counted by the cache as separate holds of that key.
 
 `LoadAsync(ct)` flow:
 1. If `_cached != null` → warning (repeated Load without Release) + the same instance, without touching `AssetCache`.
@@ -105,4 +105,7 @@ void CloseFullscreen(GallerySpritePreset preset)
 | Repeated `LoadAsync` on `AddressableAssetHandle` without `Release` | Same instance + warning, without touching `AssetCache` |
 | `AddressableAssetHandle.reference == null` | `AssetCache.Load` throws `ArgumentNullException` — fail-fast on a config bug |
 | Project without Addressables, the preset contained `AddressableAssetHandle` | The field deserializes as `null`. The consumer must check for a null handle. No automatic fallback — masking a config bug would be worse |
-| Cancellation via `ct` during loading (Addressable) | `AssetCache.Load` throws `OperationCanceledException`; the handle stays not loaded (retry possible) |
+| Cancellation via `ct` during loading (Addressable) | `AssetCache.Load` throws `OperationCanceledException` and removes that load's hold itself; the handle stays not loaded (retry possible) |
+| Repeated `LoadAsync` on `AddressableAssetHandle` while the previous one (incl. cancelled) is still in flight | A second hold of the same key (`owner = this`). The cancelled load removes only its own hold, the asset stays held by the live one |
+| Two parallel successful `LoadAsync` on `AddressableAssetHandle` | Two holds of one key; one `Release` removes both |
+| `Release` on `AddressableAssetHandle` during loading | No-op (`_cached == null`): once the load completes, the asset is loaded and held until the next `Release` |

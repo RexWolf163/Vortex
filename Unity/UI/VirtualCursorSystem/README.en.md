@@ -241,7 +241,18 @@ Drivers with `NeedsTick` are ticked by a self-rescheduling loop through `TimeCon
 `FocusCenterScrollRect` (on a `ScrollRect`) centers content on the focused element that is a descendant of `content`: along allowed axes, with the `axisTolerance` threshold relative to the previous focus, instantly or animated on unscaled time.
 
 ### Tweeners on keys (`PointerActionTweenerHandler`)
-Globally subscribed to `Actions`: for each "action → `TweenerHub`" binding press → `Forward`, release → `Back`; on `OnEnable` tweeners are snapped to the current mask. A binding to `None` is never active.
+Globally subscribed to `Actions`: for each "action → `TweenerHub`" binding press → `Forward`, release → `Back`; on `OnEnable` tweeners are snapped to the current mask. A binding to `None` means "idle": it is active while none of the keys **bound in this handler** is pressed; unbound keys do not break idle. Its tweener (cursor idle) is `Forward` with nothing pressed, goes `Back` when a bound key is pressed and returns to `Forward` when the last bound key is released. The mask itself is unchanged: `None` is still never active in it.
+
+Example — bindings `None → [idle]`, `BaseClick → [click]` (RMB not bound):
+
+| Event | `[idle]` | `[click]` |
+|---|---|---|
+| Enable, nothing pressed | Forward (instant) | Back (instant) |
+| LMB pressed | Back | Forward |
+| LMB released | Forward | Back |
+| RMB pressed (not bound) | stays Forward | stays Back |
+
+Looping (endless idle) is configured on the `TweenerHub` itself — the handler only switches `Forward` / `Back`.
 
 ### Renderers
 - **`UiCursorRenderer`** — the cursor RectTransform on an overlay canvas is placed at `ScreenPosition`; the skin is the `UIStateSwitcher` state with the same name (unknown name → state 0). Hiding needs a state named `hidden`. Position and skin are applied starting from the first position report: before it `OnEnable` sets the `hidden` state (state 0 if there is none); after it re-enabling applies the model's current position and skin right away. Optionally hides the system cursor.

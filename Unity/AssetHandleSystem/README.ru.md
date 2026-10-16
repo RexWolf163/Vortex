@@ -54,7 +54,7 @@
 
 - `[SerializeField] AssetReference reference` — ссылка на Addressables-ассет.
 - `[NonSerialized] T _cached` — кэш загруженного ассета; единственное состояние (handle переиспользуем).
-- Handle — sole owner своего Addressables-handle через `AssetCache` (`owner = this`).
+- Handle — sole owner своего Addressables-handle через `AssetCache` (`owner = this`): в кэше у handle всегда ровно один ключ. Перекрывающиеся загрузки одного handle (например, повтор после отмены, пока отменённая загрузка ещё в полёте) кэш считает отдельными удержаниями этого ключа.
 
 Flow `LoadAsync(ct)`:
 1. Если `_cached != null` → warning (повторный Load без Release) + тот же экземпляр, без обращения к `AssetCache`.
@@ -105,4 +105,7 @@ void CloseFullscreen(GallerySpritePreset preset)
 | Повторный `LoadAsync` у `AddressableAssetHandle` без `Release` | Тот же экземпляр + warning, без обращения к `AssetCache` |
 | `AddressableAssetHandle.reference == null` | `AssetCache.Load` бросает `ArgumentNullException` — fail-fast конфиг-баг |
 | Проект без Addressables, пресет содержал `AddressableAssetHandle` | Поле десериализуется как `null`. Consumer обязан явно проверять null-handle. Автоматического fallback нет — маскирование конфиг-бага было бы вреднее |
-| Отмена через `ct` во время подгрузки (Addressable) | `AssetCache.Load` выбрасывает `OperationCanceledException`; handle остаётся не-loaded (retry возможен) |
+| Отмена через `ct` во время подгрузки (Addressable) | `AssetCache.Load` выбрасывает `OperationCanceledException` и сам снимает удержание этой загрузки; handle остаётся не-loaded (retry возможен) |
+| Повторный `LoadAsync` у `AddressableAssetHandle`, пока предыдущий (в т.ч. отменённый) ещё в полёте | Второе удержание того же ключа (`owner = this`). Отменённая загрузка снимает только своё удержание, ассет держит живая |
+| Два параллельных успешных `LoadAsync` у `AddressableAssetHandle` | Два удержания одного ключа; один `Release` снимает оба |
+| `Release` у `AddressableAssetHandle` во время подгрузки | No-op (`_cached == null`): после завершения загрузки ассет загружен и удерживается до следующего `Release` |

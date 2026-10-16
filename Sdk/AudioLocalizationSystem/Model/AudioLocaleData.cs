@@ -10,6 +10,7 @@ namespace Vortex.Sdk.AudioLocalizationSystem.Model
     /// Данные локализации для ключа локали
     /// Хранит карту ассоциаций звуковых ассетов относительно разных языков для указанного ключа локализации
     /// </summary>
+    [System.Obsolete("Use Vortex.Sdk.AudioLocalizationSystemV2.Model.AudioLocaleData")]
     public class AudioLocaleData : Record
     {
         public string TextGuid { get; private set; }

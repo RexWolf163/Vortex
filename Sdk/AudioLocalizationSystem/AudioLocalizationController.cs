@@ -13,6 +13,7 @@ using Vortex.Sdk.AudioLocalizationSystem.Model;
 
 namespace Vortex.Sdk.AudioLocalizationSystem
 {
+    [Obsolete("Use Vortex.Sdk.AudioLocalizationSystemV2.AudioLocalizationController")]
     public class AudioLocalizationController : Singleton<AudioLocalizationController>, IProcess
     {
         private static readonly Dictionary<string, AudioLocaleData> Index = new();

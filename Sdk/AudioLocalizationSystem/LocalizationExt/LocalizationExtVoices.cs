@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !USING_VORTEX_AUDIO_LOCALIZATION_V2
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Vortex.Core.Extensions.LogicExtensions;
@@ -58,10 +59,11 @@ namespace Vortex.Core.LocalizationSystem.Bus
             if (channel == LocaleChannels.Default)
                 return GetCurrentLanguage();
             var ch = (byte)channel;
+            // Ленивое чтение кешируем без обратной записи: Set сохранил бы язык в драйвере и поднял
+            // глобальную смену локали — побочный эффект чтения. Сохраняет только явная установка.
             if (CurrentChannelLanguage[ch].IsNullOrWhitespace())
-                SetCurrentChannelLanguage(
-                    ChDriver?.GetChannelLanguage(ch)
-                    ?? Driver.GetDefaultLanguage(), channel); //дефолтный язык
+                CurrentChannelLanguage[ch] = ChDriver?.GetChannelLanguage(ch)
+                                             ?? Driver.GetDefaultLanguage(); //дефолтный язык
             return CurrentChannelLanguage[ch];
         }
 
@@ -150,3 +152,4 @@ namespace Vortex.Core.LocalizationSystem.Bus
         }
     }
 }
+#endif

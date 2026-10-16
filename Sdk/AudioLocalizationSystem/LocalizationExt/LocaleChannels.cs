@@ -1,4 +1,5 @@
-﻿namespace Vortex.Core.LocalizationSystem.Bus
+﻿#if !USING_VORTEX_AUDIO_LOCALIZATION_V2
+namespace Vortex.Core.LocalizationSystem.Bus
 {
     public enum LocaleChannels
     {
@@ -7,3 +8,4 @@
         Voice = 2,
     }
 }
+#endif

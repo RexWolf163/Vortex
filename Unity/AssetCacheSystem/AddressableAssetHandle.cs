@@ -6,6 +6,7 @@ using UnityEngine.AddressableAssets;
 using Vortex.Core.AssetHandleSystem;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
+using Vortex.Unity.AssetCacheSystem.Attributes;
 using Vortex.Unity.AssetCacheSystem.Bus;
 
 namespace Vortex.Unity.AssetCacheSystem
@@ -35,6 +36,8 @@ namespace Vortex.Unity.AssetCacheSystem
 
         [SerializeField] private AssetReference reference;
 
+        [SerializeField, AssetCacheGroup] private string group;
+
         [NonSerialized] private T _cached;
 
         public override bool IsLoaded => _cached != null;
@@ -56,7 +59,7 @@ namespace Vortex.Unity.AssetCacheSystem
 
             // AssetCache сам делает dedup параллельных LoadAsync на одном handle через общий
             // UniTaskCompletionSource; локальный _cached снимает даже это обращение после первого Load.
-            _cached = await AssetCache.Load<T>(this, reference, ct);
+            _cached = await AssetCache.Load<T>(this, reference, ct, group);
             return _cached;
         }
 
@@ -65,7 +68,7 @@ namespace Vortex.Unity.AssetCacheSystem
             // Нечего отпускать (свежий handle или уже отпущен) — идемпотентный no-op.
             if (_cached == null) return;
 
-            AssetCache.Release(this);
+            AssetCache.Release(this, group);
             _cached = null;
         }
     }

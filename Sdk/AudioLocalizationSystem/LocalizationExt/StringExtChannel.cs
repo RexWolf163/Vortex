@@ -1,3 +1,4 @@
+#if !USING_VORTEX_AUDIO_LOCALIZATION_V2
 using Vortex.Core.Extensions.LogicExtensions;
 
 namespace Vortex.Core.LocalizationSystem.Bus
@@ -24,3 +25,4 @@ namespace Vortex.Core.LocalizationSystem.Bus
             Localization.HasChannelTranslate(key, channel) ? Localization.GetChannelTranslate(key, channel) : key;
     }
 }
+#endif

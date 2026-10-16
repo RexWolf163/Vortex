@@ -43,23 +43,42 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
         private sealed class Row
         {
             public string Guid;
+            public string Group;
             public string Name;
             public string TypeName;
             public RefState State;
             public int Refs;
 
-            /// <summary>Позиция в очереди survivors, 1 = голова (выгрузится первой). 0 — не survivor.</summary>
+            /// <summary>Позиция в очереди survivors группы, 1 = голова (выгрузится первой). 0 — не survivor.</summary>
             public int LruPosition;
 
+            /// <summary>Длина очереди survivors группы строки.</summary>
+            public int LruTotal;
+
             public readonly List<string> Owners = new();
+
+            /// <summary>Ключ раскрытия: один ref может лежать в нескольких группах.</summary>
+            public string Key => $"{Group}/{Guid}";
         }
 
+        /// <summary>Снимок заполнения одной группы для сводки.</summary>
+        private sealed class GroupSummary
+        {
+            public string Label;
+            public int Survivors;
+            public int Capacity;
+        }
+
+        private const string DefaultGroupLabel = "<default>";
+
+        private const float GroupWidth = 90f;
         private const float StateWidth = 72f;
         private const float RefsWidth = 46f;
         private const float TypeWidth = 120f;
         private const float LruWidth = 58f;
 
         private readonly List<Row> _rows = new();
+        private readonly List<GroupSummary> _groups = new();
         private readonly HashSet<string> _expanded = new();
 
         private Vector2 _scroll;
@@ -72,7 +91,6 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
         private int _inflightCount;
         private int _ownerCount;
         private int _deadOwnerCount;
-        private int _capacity;
 
         public static void Open()
         {
@@ -123,7 +141,7 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
                 if (GUILayout.Button("Обновить", EditorStyles.toolbarButton, GUILayout.Width(70f)))
                     Rebuild();
 
-                // Отсюда правится SurvivorCapacity — главная настройка, влияющая на то, что видно в окне.
+                // Отсюда правятся группы и их SurvivorCapacity — главная настройка, влияющая на то, что видно в окне.
                 if (GUILayout.Button("Конфиг", EditorStyles.toolbarButton, GUILayout.Width(60f)))
                     MenuController.FindConfig();
 
@@ -144,16 +162,16 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
                                            ? $"   Уничтожено без Release: {_deadOwnerCount} (уйдут ближайшим sweep'ом)"
                                            : ""));
 
-            if (_capacity > 0)
+            // Полоса survivors на каждую группу: ёмкость у групп своя, и вытеснение идёт внутри группы.
+            foreach (var group in _groups)
             {
                 var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
-                EditorGUI.ProgressBar(rect, (float)_survivorCount / _capacity,
-                    $"Survivors {_survivorCount} / {_capacity}");
-            }
-            else
-            {
-                EditorGUILayout.HelpBox("SurvivorCapacity = 0: каждый Release сразу выгружает ассет.",
-                    MessageType.None);
+                if (group.Capacity > 0)
+                    EditorGUI.ProgressBar(rect, (float)group.Survivors / group.Capacity,
+                        $"{group.Label}: survivors {group.Survivors} / {group.Capacity}");
+                else
+                    EditorGUI.LabelField(rect,
+                        $"{group.Label}: SurvivorCapacity = 0 — каждый Release сразу выгружает ассет.");
             }
 
             EditorGUILayout.Space(2f);
@@ -164,6 +182,7 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
                 GUILayout.Label("Ассет", EditorStyles.miniBoldLabel);
+                GUILayout.Label("Группа", EditorStyles.miniBoldLabel, GUILayout.Width(GroupWidth));
                 GUILayout.Label("Состояние", EditorStyles.miniBoldLabel, GUILayout.Width(StateWidth));
                 GUILayout.Label("Ссылок", EditorStyles.miniBoldLabel, GUILayout.Width(RefsWidth));
                 GUILayout.Label("Тип", EditorStyles.miniBoldLabel, GUILayout.Width(TypeWidth));
@@ -187,17 +206,18 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
 
         private void DrawRow(Row row)
         {
-            var expanded = _expanded.Contains(row.Guid);
+            var expanded = _expanded.Contains(row.Key);
 
             using (new EditorGUILayout.HorizontalScope())
             {
                 var toggled = EditorGUILayout.Foldout(expanded, row.Name, true);
                 if (toggled != expanded)
                 {
-                    if (toggled) _expanded.Add(row.Guid);
-                    else _expanded.Remove(row.Guid);
+                    if (toggled) _expanded.Add(row.Key);
+                    else _expanded.Remove(row.Key);
                 }
 
+                GUILayout.Label(row.Group, GUILayout.Width(GroupWidth));
                 GUILayout.Label(StateLabel(row.State), GUILayout.Width(StateWidth));
 
                 // Active без владельцев — аномалия: по контракту такой ref обязан лежать в survivors,
@@ -209,7 +229,7 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
                 GUI.color = color;
 
                 GUILayout.Label(row.TypeName, GUILayout.Width(TypeWidth));
-                GUILayout.Label(row.LruPosition > 0 ? $"{row.LruPosition}/{_survivorCount}" : "—",
+                GUILayout.Label(row.LruPosition > 0 ? $"{row.LruPosition}/{row.LruTotal}" : "—",
                     GUILayout.Width(LruWidth));
             }
 
@@ -233,6 +253,7 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
         private bool Matches(Row row) =>
             string.IsNullOrEmpty(_filter) ||
             row.Name.IndexOf(_filter, System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            row.Group.IndexOf(_filter, System.StringComparison.OrdinalIgnoreCase) >= 0 ||
             row.Guid.IndexOf(_filter, System.StringComparison.OrdinalIgnoreCase) >= 0;
 
         private static string StateLabel(RefState state) => state switch
@@ -253,85 +274,108 @@ namespace Vortex.Unity.AssetCacheSystem.Editor
         }
 
         /// <summary>
-        /// Пересобирает снимок индекса. Считает ссылки одним проходом по <c>Locks</c>: словарь идёт
-        /// owner→refs, а таблице нужен обратный срез ref→владельцы.
+        /// Пересобирает снимок индекса по всем группам. Ссылки считаются внутри группы одним проходом
+        /// по её <c>Locks</c>: словарь идёт owner→refs, а таблице нужен обратный срез ref→владельцы.
+        /// Один ref в двух группах — две строки: у каждой группы свой handle и свои владельцы.
         /// </summary>
         private void Rebuild()
         {
             _rows.Clear();
+            _groups.Clear();
             _loadedCount = _activeCount = _survivorCount = _inflightCount = 0;
             _ownerCount = _deadOwnerCount = 0;
-            _capacity = AssetCache.Config?.SurvivorCapacity ?? 0;
 
             var model = AssetCache.Data;
             if (model == null) return;
 
-            var owners = new Dictionary<AssetReference, List<string>>();
-            foreach (var pair in model.Locks)
+            // Владелец может грузить в нескольких группах — в сводке считаем уникальных.
+            var allOwners = new HashSet<object>();
+
+            foreach (var group in model.GetGroups())
             {
-                _ownerCount++;
-
-                // Уничтоженный MonoBehaviour, не позвавший Release: его lock ещё держит ассеты, пока
-                // очередной Release кого угодно не запустит sweep.
-                var dead = pair.Key is Object uo && uo == null;
-                if (dead) _deadOwnerCount++;
-
-                var label = OwnerLabel(pair.Key, dead);
-                foreach (var reference in pair.Value)
+                var groupLabel = group.Key ?? DefaultGroupLabel;
+                _groups.Add(new GroupSummary
                 {
-                    if (!owners.TryGetValue(reference, out var list))
-                    {
-                        list = new List<string>();
-                        owners[reference] = list;
-                    }
+                    Label = groupLabel,
+                    Survivors = group.Survivors.Count,
+                    Capacity = group.SurvivorCapacity
+                });
 
-                    list.Add(label);
+                var owners = new Dictionary<AssetReference, List<string>>();
+                foreach (var pair in group.Locks)
+                {
+                    // Уничтоженный MonoBehaviour, не позвавший Release: его lock ещё держит ассеты, пока
+                    // очередной Release кого угодно не запустит sweep.
+                    var dead = pair.Key is Object uo && uo == null;
+                    if (allOwners.Add(pair.Key) && dead) _deadOwnerCount++;
+
+                    var label = OwnerLabel(pair.Key, dead);
+                    foreach (var reference in pair.Value.Keys)
+                    {
+                        if (!owners.TryGetValue(reference, out var list))
+                        {
+                            list = new List<string>();
+                            owners[reference] = list;
+                        }
+
+                        list.Add(label);
+                    }
+                }
+
+                var lru = new Dictionary<AssetReference, int>();
+                var position = 0;
+                foreach (var reference in group.Survivors)
+                    lru[reference] = ++position;
+
+                _survivorCount += group.Survivors.Count;
+                _loadedCount += group.Handles.Count;
+                _inflightCount += group.Inflight.Count;
+
+                foreach (var pair in group.Inflight)
+                    _rows.Add(BuildRow(pair.Key, groupLabel, RefState.Inflight, pair.Value.Handle, 0, 0, owners));
+
+                foreach (var pair in group.Handles)
+                {
+                    var survivor = lru.TryGetValue(pair.Key, out var slot);
+                    _rows.Add(BuildRow(pair.Key, groupLabel, survivor ? RefState.Survivor : RefState.Active,
+                        pair.Value, survivor ? slot : 0, group.Survivors.Count, owners));
                 }
             }
 
-            var lru = new Dictionary<AssetReference, int>();
-            var position = 0;
-            foreach (var reference in model.Survivors)
-                lru[reference] = ++position;
-
-            _survivorCount = model.Survivors.Count;
-            _loadedCount = model.Handles.Count;
+            _ownerCount = allOwners.Count;
             _activeCount = _loadedCount - _survivorCount;
-            _inflightCount = model.Inflight.Count;
-
-            foreach (var pair in model.Inflight)
-                _rows.Add(BuildRow(pair.Key, RefState.Inflight, pair.Value.Handle, 0, owners));
-
-            foreach (var pair in model.Handles)
-            {
-                var survivor = lru.TryGetValue(pair.Key, out var slot);
-                _rows.Add(BuildRow(pair.Key, survivor ? RefState.Survivor : RefState.Active,
-                    pair.Value, survivor ? slot : 0, owners));
-            }
 
             // Группируем по состоянию (порядок членов enum), внутри — по убыванию ссылок: сверху то,
-            // что реально держат, снизу кандидаты на выгрузку.
+            // что реально держат, снизу кандидаты на выгрузку (по группе и очереди).
             _rows.Sort((a, b) =>
             {
                 var byState = a.State.CompareTo(b.State);
                 if (byState != 0) return byState;
-                if (a.State == RefState.Survivor) return a.LruPosition.CompareTo(b.LruPosition);
+                if (a.State == RefState.Survivor)
+                {
+                    var byGroup = string.CompareOrdinal(a.Group, b.Group);
+                    return byGroup != 0 ? byGroup : a.LruPosition.CompareTo(b.LruPosition);
+                }
+
                 var byRefs = b.Refs.CompareTo(a.Refs);
                 return byRefs != 0 ? byRefs : string.CompareOrdinal(a.Name, b.Name);
             });
         }
 
-        private static Row BuildRow(AssetReference reference, RefState state, AsyncOperationHandle handle,
-            int lruPosition, IReadOnlyDictionary<AssetReference, List<string>> owners)
+        private static Row BuildRow(AssetReference reference, string group, RefState state,
+            AsyncOperationHandle handle, int lruPosition, int lruTotal,
+            IReadOnlyDictionary<AssetReference, List<string>> owners)
         {
             var guid = reference?.AssetGUID ?? "";
             var row = new Row
             {
                 Guid = guid,
+                Group = group,
                 Name = ResolveName(guid, handle),
                 TypeName = ResolveType(guid, handle),
                 State = state,
-                LruPosition = lruPosition
+                LruPosition = lruPosition,
+                LruTotal = lruTotal
             };
 
             if (reference != null && owners.TryGetValue(reference, out var list))
