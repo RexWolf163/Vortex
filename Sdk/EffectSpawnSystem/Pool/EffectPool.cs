@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Vortex.Sdk.EffectSpawnSystem.Components;
@@ -30,7 +31,10 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
         /// Достать эффект из пула (или создать новый), припарковать в найденный target-layer
         /// и выставить заданные мировые <paramref name="position"/> / <paramref name="rotation"/>.
         /// </summary>
-        internal EffectView Acquire(GameObject prefab, Transform target, Vector3 position, Quaternion rotation)
+        /// <param name="beforeActivate">Вызывается с инстансом, пока он ещё в неактивном Storage — до OnEnable
+        /// компонентов эффекта (например, залить данные)</param>
+        internal EffectView Acquire(GameObject prefab, Transform target, Vector3 position, Quaternion rotation,
+            Action<EffectView> beforeActivate = null)
         {
             if (prefab == null || target == null) return null;
 
@@ -48,6 +52,7 @@ namespace Vortex.Sdk.EffectSpawnSystem.Pool
             }
 
             _activePrefab[view] = prefab;
+            beforeActivate?.Invoke(view);
 
             var layer = ResolveLayerTarget(target);
             var t = view.transform;

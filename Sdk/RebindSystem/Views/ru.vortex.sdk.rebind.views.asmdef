@@ -11,7 +11,8 @@
         "ru.vortex.extenums",
         "Unity.InputSystem",
         "ru.vortex.unity.inputbussystem",
-        "ru.vortex.unity.virtualcursorsystem"
+        "ru.vortex.unity.virtualcursorsystem",
+        "ru.vortex.localization"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

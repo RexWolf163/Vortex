@@ -113,7 +113,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Focus
         /// <summary>
         /// Захват владения моделью фокуса, подписка на позицию курсора и запуск петли сопровождения.
         /// </summary>
-        [RuntimeInitializeOnLoadMethod]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         public static void Init()
         {
             _model = VirtualCursorBus.Focus;

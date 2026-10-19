@@ -1,0 +1,438 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c02b10197397340b6565089b8baded, type: 3}
+  m_Name: RebindGlyphTable
+  m_EditorClassIdentifier: ru.vortex.sdk.rebind.views::Vortex.Sdk.RebindSystem.Views.RebindGlyphTable
+  entries:
+  - path: <Keyboard>/a
+    text: A
+    sprite: {fileID: 0}
+  - path: <Keyboard>/b
+    text: B
+    sprite: {fileID: 0}
+  - path: <Keyboard>/c
+    text: C
+    sprite: {fileID: 0}
+  - path: <Keyboard>/d
+    text: D
+    sprite: {fileID: 0}
+  - path: <Keyboard>/e
+    text: E
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f
+    text: F
+    sprite: {fileID: 0}
+  - path: <Keyboard>/g
+    text: G
+    sprite: {fileID: 0}
+  - path: <Keyboard>/h
+    text: H
+    sprite: {fileID: 0}
+  - path: <Keyboard>/i
+    text: I
+    sprite: {fileID: 0}
+  - path: <Keyboard>/j
+    text: J
+    sprite: {fileID: 0}
+  - path: <Keyboard>/k
+    text: K
+    sprite: {fileID: 0}
+  - path: <Keyboard>/l
+    text: L
+    sprite: {fileID: 0}
+  - path: <Keyboard>/m
+    text: M
+    sprite: {fileID: 0}
+  - path: <Keyboard>/n
+    text: N
+    sprite: {fileID: 0}
+  - path: <Keyboard>/o
+    text: O
+    sprite: {fileID: 0}
+  - path: <Keyboard>/p
+    text: P
+    sprite: {fileID: 0}
+  - path: <Keyboard>/q
+    text: Q
+    sprite: {fileID: 0}
+  - path: <Keyboard>/r
+    text: R
+    sprite: {fileID: 0}
+  - path: <Keyboard>/s
+    text: S
+    sprite: {fileID: 0}
+  - path: <Keyboard>/t
+    text: T
+    sprite: {fileID: 0}
+  - path: <Keyboard>/u
+    text: U
+    sprite: {fileID: 0}
+  - path: <Keyboard>/v
+    text: V
+    sprite: {fileID: 0}
+  - path: <Keyboard>/w
+    text: W
+    sprite: {fileID: 0}
+  - path: <Keyboard>/x
+    text: X
+    sprite: {fileID: 0}
+  - path: <Keyboard>/y
+    text: Y
+    sprite: {fileID: 0}
+  - path: <Keyboard>/z
+    text: Z
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit0
+    text: 0
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit1
+    text: 1
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit2
+    text: 2
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit3
+    text: 3
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit4
+    text: 4
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit5
+    text: 5
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit6
+    text: 6
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit7
+    text: 7
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit8
+    text: 8
+    sprite: {fileID: 0}
+  - path: <Keyboard>/digit9
+    text: 9
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f1
+    text: F1
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f2
+    text: F2
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f3
+    text: F3
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f4
+    text: F4
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f5
+    text: F5
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f6
+    text: F6
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f7
+    text: F7
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f8
+    text: F8
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f9
+    text: F9
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f10
+    text: F10
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f11
+    text: F11
+    sprite: {fileID: 0}
+  - path: <Keyboard>/f12
+    text: F12
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad0
+    text: Num0
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad1
+    text: Num1
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad2
+    text: Num2
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad3
+    text: Num3
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad4
+    text: Num4
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad5
+    text: Num5
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad6
+    text: Num6
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad7
+    text: Num7
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad8
+    text: Num8
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpad9
+    text: Num9
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpadDivide
+    text: Num/
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpadMultiply
+    text: Num*
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpadMinus
+    text: Num-
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpadPlus
+    text: Num+
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpadPeriod
+    text: Num.
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpadEquals
+    text: Num=
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numpadEnter
+    text: NEntr
+    sprite: {fileID: 0}
+  - path: <Keyboard>/space
+    text: Space
+    sprite: {fileID: 0}
+  - path: <Keyboard>/enter
+    text: Enter
+    sprite: {fileID: 0}
+  - path: <Keyboard>/tab
+    text: Tab
+    sprite: {fileID: 0}
+  - path: <Keyboard>/escape
+    text: Esc
+    sprite: {fileID: 0}
+  - path: <Keyboard>/backspace
+    text: Bspc
+    sprite: {fileID: 0}
+  - path: <Keyboard>/delete
+    text: Del
+    sprite: {fileID: 0}
+  - path: <Keyboard>/insert
+    text: Ins
+    sprite: {fileID: 0}
+  - path: <Keyboard>/home
+    text: Home
+    sprite: {fileID: 0}
+  - path: <Keyboard>/end
+    text: End
+    sprite: {fileID: 0}
+  - path: <Keyboard>/pageUp
+    text: PgUp
+    sprite: {fileID: 0}
+  - path: <Keyboard>/pageDown
+    text: PgDn
+    sprite: {fileID: 0}
+  - path: <Keyboard>/upArrow
+    text: UpArrow
+    sprite: {fileID: 0}
+  - path: <Keyboard>/downArrow
+    text: DownArrow
+    sprite: {fileID: 0}
+  - path: <Keyboard>/leftArrow
+    text: LeftArrow
+    sprite: {fileID: 0}
+  - path: <Keyboard>/rightArrow
+    text: RightArrow
+    sprite: {fileID: 0}
+  - path: <Keyboard>/capsLock
+    text: CpsLk
+    sprite: {fileID: 0}
+  - path: <Keyboard>/numLock
+    text: NumLk
+    sprite: {fileID: 0}
+  - path: <Keyboard>/scrollLock
+    text: ScrlLk
+    sprite: {fileID: 0}
+  - path: <Keyboard>/printScreen
+    text: PrtScr
+    sprite: {fileID: 0}
+  - path: <Keyboard>/pause
+    text: Pause
+    sprite: {fileID: 0}
+  - path: <Keyboard>/contextMenu
+    text: Menu
+    sprite: {fileID: 0}
+  - path: <Keyboard>/backquote
+    text: Backquote
+    sprite: {fileID: 0}
+  - path: <Keyboard>/minus
+    text: Minus
+    sprite: {fileID: 0}
+  - path: <Keyboard>/equals
+    text: Equals
+    sprite: {fileID: 0}
+  - path: <Keyboard>/leftBracket
+    text: LeftBracket
+    sprite: {fileID: 0}
+  - path: <Keyboard>/rightBracket
+    text: RightBracket
+    sprite: {fileID: 0}
+  - path: <Keyboard>/backslash
+    text: Backslash
+    sprite: {fileID: 0}
+  - path: <Keyboard>/semicolon
+    text: Semicolon
+    sprite: {fileID: 0}
+  - path: <Keyboard>/quote
+    text: Quote
+    sprite: {fileID: 0}
+  - path: <Keyboard>/comma
+    text: Comma
+    sprite: {fileID: 0}
+  - path: <Keyboard>/period
+    text: Period
+    sprite: {fileID: 0}
+  - path: <Keyboard>/slash
+    text: Slash
+    sprite: {fileID: 0}
+  - path: <Keyboard>/shift
+    text: Shift
+    sprite: {fileID: 0}
+  - path: <Keyboard>/ctrl
+    text: Ctrl
+    sprite: {fileID: 0}
+  - path: <Keyboard>/alt
+    text: Alt
+    sprite: {fileID: 0}
+  - path: <Keyboard>/leftShift
+    text: Shift
+    sprite: {fileID: 0}
+  - path: <Keyboard>/rightShift
+    text: RShift
+    sprite: {fileID: 0}
+  - path: <Keyboard>/leftCtrl
+    text: Ctrl
+    sprite: {fileID: 0}
+  - path: <Keyboard>/rightCtrl
+    text: RCtrl
+    sprite: {fileID: 0}
+  - path: <Keyboard>/leftAlt
+    text: Alt
+    sprite: {fileID: 0}
+  - path: <Keyboard>/rightAlt
+    text: RAlt
+    sprite: {fileID: 0}
+  - path: <Keyboard>/leftMeta
+    text: Win
+    sprite: {fileID: 0}
+  - path: <Keyboard>/rightMeta
+    text: RWin
+    sprite: {fileID: 0}
+  - path: <Mouse>/leftButton
+    text: LBM
+    sprite: {fileID: 0}
+  - path: <Mouse>/rightButton
+    text: RBM
+    sprite: {fileID: 0}
+  - path: <Mouse>/middleButton
+    text: MBM
+    sprite: {fileID: 0}
+  - path: <Mouse>/backButton
+    text: BM4
+    sprite: {fileID: 0}
+  - path: <Mouse>/forwardButton
+    text: BM5
+    sprite: {fileID: 0}
+  - path: <Mouse>/scroll/up
+    text: "Scrll\u2191"
+    sprite: {fileID: 0}
+  - path: <Mouse>/scroll/down
+    text: "Scrll\u2193"
+    sprite: {fileID: 0}
+  - path: <Mouse>/scroll/left
+    text: "Scrll\u2190"
+    sprite: {fileID: 0}
+  - path: <Mouse>/scroll/right
+    text: "Scrll\u2192"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/buttonSouth
+    text: A
+    sprite: {fileID: 0}
+  - path: <Gamepad>/buttonEast
+    text: B
+    sprite: {fileID: 0}
+  - path: <Gamepad>/buttonWest
+    text: X
+    sprite: {fileID: 0}
+  - path: <Gamepad>/buttonNorth
+    text: Y
+    sprite: {fileID: 0}
+  - path: <Gamepad>/leftShoulder
+    text: LB
+    sprite: {fileID: 0}
+  - path: <Gamepad>/rightShoulder
+    text: RB
+    sprite: {fileID: 0}
+  - path: <Gamepad>/leftTrigger
+    text: LT
+    sprite: {fileID: 0}
+  - path: <Gamepad>/rightTrigger
+    text: RT
+    sprite: {fileID: 0}
+  - path: <Gamepad>/start
+    text: Menu
+    sprite: {fileID: 0}
+  - path: <Gamepad>/select
+    text: View
+    sprite: {fileID: 0}
+  - path: <Gamepad>/leftStickPress
+    text: LS
+    sprite: {fileID: 0}
+  - path: <Gamepad>/rightStickPress
+    text: RS
+    sprite: {fileID: 0}
+  - path: <Gamepad>/dpad/up
+    text: "D-Pad\u2191"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/dpad/down
+    text: "D-Pad\u2193"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/dpad/left
+    text: "D-Pad\u2190"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/dpad/right
+    text: "D-Pad\u2192"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/leftStick/up
+    text: "LStck\u2191"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/leftStick/down
+    text: "LStck\u2193"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/leftStick/left
+    text: "LStck\u2190"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/leftStick/right
+    text: "LStck\u2192"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/rightStick/up
+    text: "RStck\u2191"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/rightStick/down
+    text: "RStck\u2193"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/rightStick/left
+    text: "RStck\u2190"
+    sprite: {fileID: 0}
+  - path: <Gamepad>/rightStick/right
+    text: "RStck\u2192"
+    sprite: {fileID: 0}

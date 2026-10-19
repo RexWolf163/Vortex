@@ -6,6 +6,7 @@ using Vortex.Sdk.EffectSpawnSystem.Catalog;
 using Vortex.Sdk.EffectSpawnSystem.Components;
 using Vortex.Sdk.EffectSpawnSystem.Pool;
 using Vortex.Unity.Extensions;
+using Vortex.Unity.UI.Misc;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
@@ -160,6 +161,78 @@ namespace Vortex.Sdk.EffectSpawnSystem.Bus
 
             var rot = rotation ?? Quaternion.identity;
             return Pool.Acquire(prefab, target, pos, rot);
+        }
+
+        /// <summary>
+        /// Спаун эффекта по префабу с данными: до активации эффекта (до <c>OnEnable</c> его компонентов) данные
+        /// заливаются в хранилище эффекта — первый <see cref="DataStorage"/> в префабе (корень или потомки, включая
+        /// выключенные; <c>SetData</c> заменяет данные прошлого цикла пула). Хранилища нет — <c>Debug.LogError</c>,
+        /// эффект всё равно показывается.
+        /// Позиция и ротация — как у <see cref="Spawn(Transform,GameObject,Vector3?,Quaternion?)"/>.
+        /// </summary>
+        /// <param name="data">Данные эффекта: читаются из его хранилища по типу (<c>GetData&lt;T&gt;</c>)</param>
+        public static EffectView SpawnWithData(Transform target, GameObject prefab, object data,
+            Vector3? position = null, Quaternion? rotation = null)
+        {
+            if (target == null)
+            {
+                Debug.LogError("[EffectSpawn] target == null");
+                return null;
+            }
+
+            if (prefab == null)
+            {
+                Debug.LogError("[EffectSpawn] prefab == null");
+                return null;
+            }
+
+            return Pool.Acquire(prefab, target, position ?? target.position, rotation ?? Quaternion.identity,
+                view => FillData(view, data));
+        }
+
+        /// <summary>
+        /// Спаун эффекта по ключу каталога с данными — см. <see cref="SpawnWithData(Transform,GameObject,object,Vector3?,Quaternion?)"/>.
+        /// Без зарегистрированного каталога или для незнакомого ключа — <c>Debug.LogError</c> + null
+        /// </summary>
+        public static EffectView SpawnWithData(Transform target, string key, object data,
+            Vector3? position = null, Quaternion? rotation = null)
+        {
+            if (target == null)
+            {
+                Debug.LogError("[EffectSpawn] target == null");
+                return null;
+            }
+
+            if (_catalog == null)
+            {
+                Debug.LogError(
+                    $"[EffectSpawn] Каталог не зарегистрирован, спаун по ключу '{key}' невозможен. Используйте RegisterCatalog или SpawnWithData(target, prefab, data).");
+                return null;
+            }
+
+            var prefab = _catalog.GetPrefab(key);
+            if (prefab == null)
+            {
+                Debug.LogError($"[EffectSpawn] Ключ '{key}' не найден в каталоге '{_catalog.name}'.");
+                return null;
+            }
+
+            return SpawnWithData(target, prefab, data, position, rotation);
+        }
+
+        /// <summary>
+        /// Залить данные в хранилище эффекта; хранилища нет — ошибка в лог
+        /// </summary>
+        private static void FillData(EffectView view, object data)
+        {
+            var storage = view.GetComponentInChildren<DataStorage>(true);
+            if (storage == null)
+            {
+                Debug.LogError($"[EffectSpawn] В эффекте '{view.name}' нет DataStorage — данные не переданы.", view);
+                return;
+            }
+
+            storage.SetData(data);
         }
 
         /// <summary>

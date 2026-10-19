@@ -5,6 +5,7 @@ using System.Text;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Vortex.Core.LocalizationSystem.Bus;
 using Vortex.Sdk.RebindSystem.Bus;
 using Vortex.Sdk.RebindSystem.Presets;
 using Vortex.Unity.EditorTools.Attributes;
@@ -33,6 +34,8 @@ namespace Vortex.Sdk.RebindSystem.Views
     ///
     /// Глифы (текст-символ и спрайт) берутся из <see cref="RebindGlyphTable"/> — и для основной клавиши, и для
     /// модификаторов. Клавиши нет в таблице — текст по читаемому имени контрола Input System, спрайта нет.
+    /// Текст клавиши локализуется по ключу <see cref="localePrefix"/> + текст (по умолчанию документ <c>GlyphLabels</c>):
+    /// перевод есть — выводится он, нет — текст как есть; смена языка обновляет вывод.
     ///
     /// Паттерн принадлежит представлению: <c>{0}</c> — текст клавиши, <c>{1}</c> — текст модификаторов, каждый
     /// с разделителем после себя (пусто без модификаторов). Пример: «Прыжок (клавиши {1}{0}) позволит перепрыгнуть
@@ -52,6 +55,11 @@ namespace Vortex.Sdk.RebindSystem.Views
 
         [SerializeField, Tooltip("Таблица глифов: текст-символ и спрайт клавиш и модификаторов.")]
         private RebindGlyphTable glyphs;
+
+        [SerializeField, Tooltip("Префикс ключа локализации подписи клавиши: ключ — префикс + текст клавиши (из таблицы " +
+                                 "глифов или читаемое имя контрола). Перевод есть — выводится он, нет — текст как есть. " +
+                                 "Пусто — подписи не локализуются.")]
+        private string localePrefix = "GlyphLabels.";
 
         [SerializeField, AutoLink] private UIComponent component;
 
@@ -118,6 +126,7 @@ namespace Vortex.Sdk.RebindSystem.Views
             RebindBus.OnSlotsChanged += OnSlotsChanged;
             RebindBus.OnGroupsChanged += Refresh;
             RebindBus.OnRebuilt += Refresh;
+            Localization.OnLocalizationChanged += OnLocalizationChanged;
 #if USING_VORTEX_CURSOR
             VirtualCursorBus.Data.LastDevice.OnUpdate += OnDeviceChanged;
 #endif
@@ -131,6 +140,7 @@ namespace Vortex.Sdk.RebindSystem.Views
             RebindBus.OnSlotsChanged -= OnSlotsChanged;
             RebindBus.OnGroupsChanged -= Refresh;
             RebindBus.OnRebuilt -= Refresh;
+            Localization.OnLocalizationChanged -= OnLocalizationChanged;
 #if USING_VORTEX_CURSOR
             VirtualCursorBus.Data.LastDevice.OnUpdate -= OnDeviceChanged;
 #endif
@@ -223,17 +233,35 @@ namespace Vortex.Sdk.RebindSystem.Views
             i < modifiers.Count && glyphs != null ? glyphs.Find(modifiers[i])?.sprite : null;
 
         /// <summary>
-        /// Текст клавиши: текст из таблицы глифов, иначе читаемое имя контрола Input System без устройства.
-        /// Пустой путь — пустая строка.
+        /// Текст клавиши: текст из таблицы глифов, иначе читаемое имя контрола Input System без устройства; затем
+        /// перевод по ключу <see cref="localePrefix"/> + текст, если он есть (нет перевода или префикс пуст — текст как
+        /// есть). Пустой путь — пустая строка.
         /// </summary>
         private string GetText(string path)
         {
             if (string.IsNullOrEmpty(path))
                 return string.Empty;
             var text = glyphs != null ? glyphs.Find(path)?.text : null;
-            return string.IsNullOrEmpty(text)
-                ? InputControlPath.ToHumanReadableString(path, InputControlPath.HumanReadableStringOptions.OmitDevice)
-                : text;
+            if (string.IsNullOrEmpty(text))
+                text = InputControlPath.ToHumanReadableString(path,
+                    InputControlPath.HumanReadableStringOptions.OmitDevice);
+            return Localize(text);
+        }
+
+        /// <summary>Перевод подписи клавиши по ключу <see cref="localePrefix"/> + текст; перевода нет — текст как есть.</summary>
+        private string Localize(string text)
+        {
+            if (string.IsNullOrEmpty(localePrefix) || string.IsNullOrEmpty(text))
+                return text;
+            var key = localePrefix + text;
+            return Localization.HasTranslate(key) ? Localization.GetTranslate(key) : text;
+        }
+
+        /// <summary>Сменился язык — подписи клавиш переводятся заново.</summary>
+        private void OnLocalizationChanged()
+        {
+            if (RebindBus.IsReady)
+                Refresh();
         }
 
 #if UNITY_EDITOR
