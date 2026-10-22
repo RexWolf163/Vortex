@@ -196,8 +196,11 @@ new AsyncTween()
 | `SetToken(CancellationToken)` | External cancellation token |
 | `Run()` | Start (returns self for chaining). Parameters reset after launch |
 | `Kill()` | Cancel animation, invokes `OnKill` |
+| `SetPause(bool)` | Freeze / release: while paused, time does not accumulate and the value holds; after release the animation continues from the same point. Instance flag — survives `Run` and `Kill`: a run started while paused starts frozen |
 
-Properties: `Progress` (float 0..1), `IsPlaying` (bool).
+Properties: `Progress` (float 0..1), `IsPlaying` (bool), `IsPaused` (bool).
+
+The tweener's pause knows nothing about the game pause: the tween's owner sets it (for example, an Sdk-level game pause handler).
 
 ### Shortcuts (AsyncTweenExtensions)
 
@@ -230,7 +233,8 @@ new AsyncTween().SetPivot(rectTransform, newPivot, 0.3f).Run();
 | Situation | Behavior |
 |-----------|----------|
 | Direction change mid-animation | Correct elapsed time recalculation |
-| `AsyncTween` with `duration ≤ 0` | Instant apply + `OnComplete` |
+| `AsyncTween` with `duration ≤ 0` | Instant apply + `OnComplete` (does not wait for pause) |
+| `AsyncTween` paused (`SetPause(true)`) | The loop runs, time does not accumulate, `OnUpdate` is not called; `Kill` and the cancellation token work as usual |
 | `TweenerHub` on `OnDisable` | Removed from `TimeController` queue |
 | `Forward(skip: true)` | Instant transition without animation |
 | `Pulse()` during animation | Pulse queued after current tween |

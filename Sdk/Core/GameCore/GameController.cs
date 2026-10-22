@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.Extensions.ReactiveValues;
+using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Core.System.Abstractions;
 using Vortex.Core.System.Enums;
 using Vortex.Unity.AppSystem.System.TimeSystem;
@@ -212,7 +213,8 @@ namespace Vortex.Sdk.Core.GameCore
             switch (state)
             {
                 case AppStates.Unfocused:
-                    SetPause(true);
+                    if (Settings.Data().PauseOnUnfocus)
+                        SetPause(true);
                     break;
                 case AppStates.Running:
                     break;

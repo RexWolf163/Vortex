@@ -12,7 +12,7 @@
 - Реализует `IReactiveData` — подписка через `OnUpdate` / `OnUpdateData`
 - Составная модель `GameModel` — расширяемый контейнер через `IGameData`
 - Реестр сервисов сессии (`IGameSessionService`) — ожидание готовности внешних движков перед `Play`
-- Автоматическая пауза при потере фокуса приложением
+- Автоматическая пауза при потере фокуса приложением (отключается в настройках `GameSettings`)
 - Сохранение и загрузка через `ISaveable` / `SaveController`
 - Сериализация / десериализация состояния (POCO-поля через `SerializeController`)
 - Editor-режим: создание модели без запуска приложения
@@ -30,9 +30,12 @@
 - `Vortex.Core.AppSystem.Bus` — `App`, `AppStates`
 - `Vortex.Core.ComplexModelSystem` — `ComplexModel<T>`
 - `Vortex.Core.SaveSystem` — `SaveController`, `ISaveable`
+- `Vortex.Core.SettingsSystem` — `Settings` (`PauseOnUnfocus`); расширение `SettingsModel` — `Settings/Model` (asmref в `ru.vortex.settings`)
 
 ### Unity
-- `Vortex.Unity.AppSystem.System.TimeSystem` — `TimeController.Accumulate`
+- `Vortex.Unity.AppSystem.System.TimeSystem` — `TimeController.Accumulate`, `Timer` (`EnableGameDelayForChild`)
+- `Vortex.Unity.UI.FocusRectSystem` — `FocusRectView` (`FocusRectPauseHandler`)
+- `Vortex.Unity.SettingsSystem` — `SettingsPreset` для `GameSettings` (`Settings/Presets`, asmref в `ru.vortex.unity.settings`)
 - `Cysharp.Threading.Tasks` — `UniTask` (save/load)
 
 ## Архитектура
@@ -66,6 +69,17 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 | `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` по состоянию игры |
 | `GameStateCondition` | `UnityUserInterfaceCondition` | Условие показа UI по состоянию |
 | `GameMenuHandler` | `MonoBehaviour` | Обработчик кнопок меню (NewGame, Pause, Exit) |
+| `EnableGameDelayForChild` | `MonoBehaviour` | Аналог `EnableDelayForChild` на `Timer`: дети выключаются при создании и включаются через `delay` после включения объекта; на паузе игры (`Paused`) отсчёт заморожен, после снятия досчитывается остаток; выключение объекта выключает детей и снимает отсчёт; вне игры дети включаются сразу |
+| `FocusRectPauseHandler` | `MonoBehaviour` | Заморозка `FocusRectView` на паузе игры: `Paused` — плавный переход View стоит (`FocusRectView.SetPause`), остальные состояния — идёт; выключение хэндлера отпускает View |
+| `GameSettings` | `SettingsPreset` | Настройки игровой сессии (см. «Настройки») |
+
+### Настройки — `GameSettings`
+
+Пресет настроек `Resources/Settings/GameSettings.asset`: создаётся автоматически при загрузке редактора, значения копируются в `SettingsModel` (`Settings.Data()`). Найти — меню `Tools → Vortex → Configs → Game Settings`.
+
+| Поле | По умолчанию | Назначение |
+|------|--------------|-----------|
+| `pauseOnUnfocus` | вкл | Потеря фокуса приложением (`AppStates.Unfocused`) ставит идущую игру на паузу (`SetPause(true)`). Выключено — игра продолжает идти; приложение в `Unfocused` переходит как прежде (глобальное хранилище пишется сразу). В редакторе потерю фокуса дополнительно глушит `ignorePauseInEditor` в `DebugSettings` |
 
 ### Partial-расширения
 
@@ -102,7 +116,7 @@ GameController (Singleton, IReactiveData, ISaveable, static API)
 ### Гарантии
 - `NewGame()` блокируется до вызова `ExitGame()` (lock-механизм)
 - Перед переходом в `Play` (после `NewGame` и `OnLoad`) `GameController` ждёт готовности всех зарегистрированных `IGameSessionService` без тайм-аута (fail-fast)
-- При `AppStates.Unfocused` — автоматическая пауза
+- При `AppStates.Unfocused` — автоматическая пауза, если включена `GameSettings.pauseOnUnfocus`
 - При `AppStates.Stopping` — очистка ресурсов
 - Смена состояния на то же самое — игнорируется (нет лишних событий)
 
@@ -262,7 +276,8 @@ Analytics.Track("quest_done", GameController.PlayTime);
 | `SetPause(false)` при `State != Paused` | Игнорируется |
 | `GetState()` до первой инициализации | NRE — fail-fast by design |
 | `Get<T>()` для незарегистрированного типа | Возврат `null` из `ComplexModel` |
-| Потеря фокуса (`Unfocused`) | Автоматический `SetPause(true)` |
+| Потеря фокуса (`Unfocused`) | Автоматический `SetPause(true)`, если включена `GameSettings.pauseOnUnfocus` |
+| Потеря фокуса при выключенной `pauseOnUnfocus` | Игра остаётся в `Play`, счёт `PlayTime` идёт |
 | Потеря фокуса во время игры | Игра уходит в `Paused`, счёт `PlayTime` останавливается. Возобновление — только явным `SetPause(false)`: игрок снимает паузу осознанно, автовозобновления нет by design |
 | Потеря фокуса и время приложения | `AppTime` продолжает идти; попутно значение фиксируется в глобальное хранилище, запись сразу |
 | Сохранение прямо из `Play` | В сейв попадает время с учётом незавершённого отрезка |

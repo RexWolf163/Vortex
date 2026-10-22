@@ -19,6 +19,7 @@ namespace Vortex.Unity.UI.FocusRectSystem
     /// Колбэк завершения фокуса вызывается, когда View пришёл в позу: по концу твина, сразу при переходе без твина или
     /// мгновенном, при включении — для запроса к неактивному View. Перебитый запрос (новый запрос в том же кадре, твин
     /// прерван новым переходом) свой колбэк не вызывает.
+    /// Плавный переход можно заморозить (<see cref="SetPause"/>) — View паузу не отслеживает, её ставят снаружи.
     /// Дети View раскладываются по стандартной логике Unity
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -67,6 +68,18 @@ namespace Vortex.Unity.UI.FocusRectSystem
             _targetRule = rule;
             Request(preset, instant, onComplete);
         }
+
+        /// <summary>
+        /// Заморозить / отпустить плавный переход: на паузе View стоит, после снятия переход продолжается с того же
+        /// места. Флаг View: переход, начатый на паузе, стартует замороженным. Мгновенные запросы и приход в цель при
+        /// включении паузу не ждут. Источник паузы — снаружи (например, пауза игры через хэндлер уровня Sdk)
+        /// </summary>
+        public void SetPause(bool paused) => _tween.SetPause(paused);
+
+        /// <summary>
+        /// Переход заморожен (<see cref="SetPause"/>)
+        /// </summary>
+        public bool IsPaused => _tween.IsPaused;
 
         /// <summary>
         /// Возврат в исходную позу по пресету возврата View

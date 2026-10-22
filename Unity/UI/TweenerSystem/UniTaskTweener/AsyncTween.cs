@@ -36,6 +36,11 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
         /// </summary>
         public bool IsPlaying => _cts is { IsCancellationRequested: false };
 
+        /// <summary>
+        /// Анимация заморожена (<see cref="SetPause"/>): время не копится, значение стоит на месте
+        /// </summary>
+        public bool IsPaused { get; private set; }
+
         private uint _id;
 
         #region Fluent API
@@ -94,6 +99,13 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
             _externalToken = token;
             return this;
         }
+
+        /// <summary>
+        /// Заморозить / отпустить анимацию. Флаг экземпляра, а не запуска: переживает <see cref="Run"/> и
+        /// <see cref="Kill"/> — запуск на паузе стартует замороженным. Мгновенный запуск (длительность 0) паузу не
+        /// ждёт
+        /// </summary>
+        public void SetPause(bool paused) => IsPaused = paused;
 
         #endregion
 
@@ -266,6 +278,9 @@ namespace Vortex.Unity.UI.TweenerSystem.UniTaskTweener
             while (elapsed < duration)
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, token);
+                // На паузе время не копится — значение стоит
+                if (IsPaused)
+                    continue;
                 elapsed += Time.deltaTime;
                 Progress = Mathf.Clamp01(elapsed / duration);
                 apply(from, target, easeFn(Progress));
