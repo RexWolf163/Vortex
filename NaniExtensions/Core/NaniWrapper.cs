@@ -329,10 +329,11 @@ namespace Vortex.NaniExtensions.Core
             if (_starting)
                 return true;
 
-            var id = ChoiceHandlerManager?.Actors?.FirstOrDefault()?.Id ?? "";
-            if (!id.IsNullOrWhitespace()
-                && ChoiceHandlerManager != null
-                && ChoiceHandlerManager.GetActorState(id).Visible)
+            // Проверяем ВСЕ хэндлеры выбора: кроме стандартного бывают кастомные (`@choice handler:X`) —
+            // порядок актёров зависит от того, кто создан раньше, и видимым может быть не первый.
+            var choiceManager = ChoiceHandlerManager;
+            if (choiceManager?.Actors != null
+                && choiceManager.Actors.Any(actor => choiceManager.GetActorState(actor.Id).Visible))
                 return true;
 
             return ScriptPlayer is { Playing: true };
