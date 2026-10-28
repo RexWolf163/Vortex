@@ -155,6 +155,16 @@ sliderView.Set(0.75f, 1f);   // value, max
 
 Skips update if value and max are unchanged.
 
+### SliderStepHandler
+
+Step-wise slider change: public `Up()` / `Down()` shift the value by 10% of the range (`normalizedValue ± 0.1`). Called from UnityEvents — buttons, `InputActionHandler` (e.g. on scroll), etc.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `slider` | `Slider` | Target slider (`[AutoLink]`) |
+
+The value is set through the slider itself: `minValue`/`maxValue` bounds, `wholeNumbers` and `onValueChanged` work as with dragging — settings and rollback (`RollbackControl`) pick up the change. With `wholeNumbers` and a range under 10 units the step is rounded — `Up`/`Down` may not move the value.
+
 ### AutoRectSetter
 
 Auto-configure RectTransform via Inspector. `[ExecuteAlways]` — works in both Editor and Play mode.
@@ -220,7 +230,7 @@ Dropdown list component. Consists of four classes:
 
 - `DropDownComponent` — controller: toggle open/close, configuration via `SetList(texts, callback, value)`. Supports sorting (`sorting`), `UnityEvent<int> onSelected`, `closeOnSelected`, `scrollSensitivity`, and `Prev`/`Next` stepping with the `cyclic` flag. When sorting is enabled, builds forward (`_map`) and reverse (`_mapBack`) index maps between sorted and original order. The list position is re-applied on **every** open (at the anchor point for the current direction), not cached from the first one — so the list does not lag behind a button that moved.
 - `DropDownList` — Pool-based list, scroll-positions to selected element via `ScrollRect.normalizedPosition` (the reset also runs on reopening with the same contents, not only via `OnEnable` from `SetActive`). Caches text hash (`string.Join`) — with the same contents, only updates `Current` and scroll without recreating the pool. The `directionSwitcher` field (`UIStateSwitcher`) switches the visual state for the expansion direction.
-- `DropDownItem` — list element. Receives `DropDownListModel` and `IntData` (index) via `IDataStorage`. Visually highlights current element via `UIComponent.SetSwitcher(SwitcherState.On/Off)`. Subscribes to `OnUpdateData` for refresh.
+- `DropDownItem` — list element. Receives `DropDownListModel` and `IntData` (index) via `IDataStorage`. Visually highlights current element via `UIComponent.SetSwitcher(SwitcherState.On/Off)`. Subscribes to `OnUpdateData` for refresh. `IsSelected` — the item is selected (read e.g. by `FocusDropDownSelected` from VirtualCursorSystem; named with future multi-select in mind).
 - `DropDownListModel` — `IReactiveData` model: callbacks (select, close), texts, current selection, `closeOnSelected`, `ScrollSensitivity`. `Dispose()` clears subscribers.
 
 **Expansion direction (`DropDownDirection`).** Enum `{ RightDown, RightTop, LeftDown, LeftTop }` (horizontal + vertical; value order = switcher state order, RightDown = 0 … LeftTop = 3). Default is `RightDown` (right-down). The `autoOrientation` flag enables auto-detection: the screen position of the base `target` point (via `RectTransformUtility.WorldToScreenPoint`, canvas camera; `null` for Overlay) is compared against the screen center — a button left of center expands the list to the right, above center expands downward (and vice versa), so it goes toward the center rather than off the edge. With the flag on, three extra anchor points `targetRightTop` / `targetLeftDown` / `targetLeftTop` appear in the inspector (Odin `[ShowIf]`); a missing point falls back to the mandatory `target` (RightDown). The resolved direction is passed to `DropDownList.Set(...)`, where `directionSwitcher` takes the matching state; the field is annotated with `[StateSwitcher(typeof(DropDownDirection))]`, so the switcher states are labeled with the enum values in the inspector (RightDown = 0 … LeftTop = 3).

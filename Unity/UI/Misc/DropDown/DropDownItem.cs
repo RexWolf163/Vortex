@@ -27,6 +27,11 @@ namespace Vortex.Unity.UI.Misc.DropDown
 
         private DropDownListModel _model;
 
+        /// <summary>
+        /// Пункт выбран
+        /// </summary>
+        public bool IsSelected => _model != null && _model.Current == _index;
+
         private void OnEnable()
         {
             var storage = dataStorage as IDataStorage;

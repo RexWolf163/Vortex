@@ -451,6 +451,28 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Focus
         }
 
         /// <summary>
+        /// Перевести фокус на указанный target — только в режиме навигации (вне его курсор у пользователя,
+        /// фокус не ставится). Для хэндлеров пакета, выбирающих цель по своему контексту (например, выбранный
+        /// пункт выпадающего списка). Перекрывает отложенную авто-передачу фокуса и запоминается в группе target'а.
+        /// </summary>
+        /// <param name="target">Новый фокус; неактивный — игнорируется.</param>
+        internal static void FocusTo(IFocusTarget target)
+        {
+            if (Reject()) return;
+            if (!_navMode || target == null || !target.IsActive) return;
+
+            BeginOperation();
+            try
+            {
+                SetFocusInternal(target, _lastHideCursor);
+            }
+            finally
+            {
+                EndOperation();
+            }
+        }
+
+        /// <summary>
         /// Выход из режима навигации: если есть <c>CurrentFocus</c> — сохраняет его в <c>RememberedFocus</c>
         /// владеющей группы, снимает (<c>SetCurrent(null)</c>) и зовёт <c>NotifyUnfocused</c>.
         /// Видимость курсора здесь не меняется — её задаёт источник, сдвинувший курсор.

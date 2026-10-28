@@ -379,8 +379,30 @@
                 },
                 {
                     "name": "",
+                    "id": "687a4ea1-5b39-4ba1-9f01-1944c391863f",
+                    "path": "<Mouse>/scroll/up",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScrollUp",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "0abe1bab-4c14-4ccc-b004-08ce572c6d61",
                     "path": "<Gamepad>/rightStick/down",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScrollDown",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "d4d0db9a-1440-4652-853a-ba4249dcdc93",
+                    "path": "<Mouse>/scroll/down",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -401,8 +423,30 @@
                 },
                 {
                     "name": "",
+                    "id": "af17b7db-acd1-4441-a236-ed5660068d50",
+                    "path": "<Mouse>/scroll/left",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScrollLeft",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "3583688f-60ae-4ffa-983f-01dc2521f7c8",
                     "path": "<Gamepad>/rightStick/right",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScrollRight",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "174bd34d-09cf-403c-8d93-6d485297fb82",
+                    "path": "<Mouse>/scroll/right",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

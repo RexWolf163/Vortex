@@ -94,7 +94,7 @@
   [IFocusTarget] (контракт) → ScreenPoint · IsActive · NotifyFocused/NotifyUnfocused · Target
 
 Сценовые компоненты (Handlers/):
-  CursorHoverZone · CameraProvider · FocusTargetComponent · FocusCenterScrollRect
+  CursorHoverZone · CameraProvider · FocusTargetComponent · FocusCenterScrollRect · FocusDropDownSelected
   PointerActionHandler · PointerActionTweenerHandler
 
 Рендер (Render/): UiCursorRenderer (UGUI + UIStateSwitcher) | OsCursorRenderer (Cursor.SetCursor)
@@ -240,6 +240,8 @@ UGUI получает ввод из модели курсора, а не из у
 
 `FocusCenterScrollRect` (на `ScrollRect`) центрирует контент на фокусном элементе-потомке `content`: по разрешённым осям, с порогом `axisTolerance` относительно предыдущего фокуса, мгновенно или анимацией на unscaled-времени.
 
+`FocusDropDownSelected` (на корне `DropDownList`, рядом с `FocusGroup` и `FocusCenterScrollRect`) при открытии списка в режиме навигации переводит фокус на выбранный пункт. Без него авто-передача фокуса отдаёт группе списка ближайший к курсору пункт (у кнопки дропдауна), а не текущее значение. Через кадр после включения (пункты пула к этому моменту собраны и зарегистрированы в группе) хэндлер находит первый включённый `DropDownItem` с `IsSelected` и отдаёт его `FocusTargetComponent` во внутренний `VirtualCursorFocusController.FocusTo`; прокрутку к пункту делает `FocusCenterScrollRect` на смене фокуса. Порядок с отложенной авто-передачей в одной волне не важен: `FocusTo` снимает её запрос и запоминает пункт в `RememberedFocus` группы. Вне режима навигации (открытие мышью) — ничего.
+
 ### Твинеры по клавишам (`PointerActionTweenerHandler`)
 Глобально подписан на `Actions`: для каждой привязки «действие → `TweenerHub`» нажатие → `Forward`, отпускание → `Back`; на `OnEnable` твинеры мгновенно выравниваются по текущей маске. Привязка к `None` — «покой»: активна, пока не нажата ни одна из клавиш, **привязанных в этом обработчике**; клавиши без привязки покой не сбивают. Её твинер (айдл курсора) в `Forward` без нажатий, уходит в `Back` с нажатием привязанной клавиши и возвращается в `Forward` с отпусканием последней привязанной. Сама маска не меняется: `None` в ней по-прежнему не бывает активен.
 
@@ -384,6 +386,7 @@ virtual  bool SupportsPlatform(RuntimePlatform platform);
 - `FocusGroup` на корне каждого контекста навигации (HUD, меню, диалог); переключение контекстов — `SetActive`.
 - `FocusTargetComponent` на каждом фокусируемом элементе внутри группы; `onFocused`/`onUnfocused` — подсветка/SFX. Для кнопки `FocusTargetComponent` ставится на объект с обработчиком клика или ниже него (submit поднимается по иерархии, как рейкаст).
 - `FocusCenterScrollRect` на `ScrollRect`-списках.
+- `FocusDropDownSelected` на корне `DropDownList` — фокус на выбранный пункт при открытии.
 
 ---
 
@@ -455,7 +458,7 @@ VirtualCursorSystem/
 │   ├── MouseInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs
 │   ├── ScrollInputDriver.cs  TouchInputDriver.cs  MultiTouchInputDriver.cs  GestureInputDriver.cs  UINavigationDriver.cs
 ├── Handlers/
-│   ├── CursorHoverZone.cs  CameraProvider.cs  FocusTargetComponent.cs  FocusCenterScrollRect.cs
+│   ├── CursorHoverZone.cs  CameraProvider.cs  FocusTargetComponent.cs  FocusCenterScrollRect.cs  FocusDropDownSelected.cs
 │   ├── PointerActionHandler.cs  PointerActionTweenerHandler.cs
 ├── Render/
 │   ├── UiCursorRenderer.cs  OsCursorRenderer.cs

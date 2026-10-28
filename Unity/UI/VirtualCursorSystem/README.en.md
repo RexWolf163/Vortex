@@ -94,7 +94,7 @@ Focus navigation (Focus/):
   [IFocusTarget] (contract) → ScreenPoint · IsActive · NotifyFocused/NotifyUnfocused · Target
 
 Scene components (Handlers/):
-  CursorHoverZone · CameraProvider · FocusTargetComponent · FocusCenterScrollRect
+  CursorHoverZone · CameraProvider · FocusTargetComponent · FocusCenterScrollRect · FocusDropDownSelected
   PointerActionHandler · PointerActionTweenerHandler
 
 Rendering (Render/): UiCursorRenderer (UGUI + UIStateSwitcher) | OsCursorRenderer (Cursor.SetCursor)
@@ -240,6 +240,8 @@ Drivers with `NeedsTick` are ticked by a self-rescheduling loop through `TimeCon
 
 `FocusCenterScrollRect` (on a `ScrollRect`) centers content on the focused element that is a descendant of `content`: along allowed axes, with the `axisTolerance` threshold relative to the previous focus, instantly or animated on unscaled time.
 
+`FocusDropDownSelected` (on the `DropDownList` root, next to `FocusGroup` and `FocusCenterScrollRect`) moves focus to the selected item when the list opens in navigation mode. Without it the automatic focus transfer gives the list group the item nearest to the cursor (next to the dropdown button), not the current value. One frame after enabling (pool items are built and registered in the group by then) the handler finds the first enabled `DropDownItem` with `IsSelected` and passes its `FocusTargetComponent` to the internal `VirtualCursorFocusController.FocusTo`; scrolling to the item is done by `FocusCenterScrollRect` on the focus change. Order relative to the deferred automatic transfer within one wave does not matter: `FocusTo` cancels its request and stores the item in the group's `RememberedFocus`. Outside navigation mode (opened with the mouse) — nothing.
+
 ### Tweeners on keys (`PointerActionTweenerHandler`)
 Globally subscribed to `Actions`: for each "action → `TweenerHub`" binding press → `Forward`, release → `Back`; on `OnEnable` tweeners are snapped to the current mask. A binding to `None` means "idle": it is active while none of the keys **bound in this handler** is pressed; unbound keys do not break idle. Its tweener (cursor idle) is `Forward` with nothing pressed, goes `Back` when a bound key is pressed and returns to `Forward` when the last bound key is released. The mask itself is unchanged: `None` is still never active in it.
 
@@ -384,6 +386,7 @@ Actions for the drivers (mouse position, move vector, buttons, navigation direct
 - `FocusGroup` on the root of each navigation context (HUD, menu, dialog); switching contexts — `SetActive`.
 - `FocusTargetComponent` on every focusable element inside a group; `onFocused`/`onUnfocused` — highlight/SFX. For a button, put `FocusTargetComponent` on the object with the click handler or below it (submit bubbles up the hierarchy like a raycast).
 - `FocusCenterScrollRect` on `ScrollRect` lists.
+- `FocusDropDownSelected` on the `DropDownList` root — focus on the selected item when opened.
 
 ---
 
@@ -455,7 +458,7 @@ VirtualCursorSystem/
 │   ├── MouseInputDriver.cs  DirectInputDriver.cs  ActionInputDriver.cs
 │   ├── ScrollInputDriver.cs  TouchInputDriver.cs  MultiTouchInputDriver.cs  GestureInputDriver.cs  UINavigationDriver.cs
 ├── Handlers/
-│   ├── CursorHoverZone.cs  CameraProvider.cs  FocusTargetComponent.cs  FocusCenterScrollRect.cs
+│   ├── CursorHoverZone.cs  CameraProvider.cs  FocusTargetComponent.cs  FocusCenterScrollRect.cs  FocusDropDownSelected.cs
 │   ├── PointerActionHandler.cs  PointerActionTweenerHandler.cs
 ├── Render/
 │   ├── UiCursorRenderer.cs  OsCursorRenderer.cs
