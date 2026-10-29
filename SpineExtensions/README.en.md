@@ -9,6 +9,7 @@ Bridge between the Vortex framework and Spine (Esoteric Software). Contains subp
 - Reaction of Spine skeletons to `GameStates` transitions (freeze on pause/loading)
 - Skeleton skin swap via `UIStateSwitcher`
 - Desync of identical animations (random offset on the active track)
+- Animation link model (`SpineAnimationLink`: name, track, loop) with skeleton-based picking and test playback in the inspector
 
 Every Tween/Scrub class ships as a pair `SkeletonGraphic` (UGUI) / `SkeletonAnimation` (MeshRenderer) over a common generic base.
 
@@ -31,6 +32,7 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 | TweenerSystem | `TweenLogic` implementations: single-clip and weighted-random animation for `SkeletonGraphic` and `SkeletonAnimation` |
 | UIs | Scene handlers: `FloatData`-driven scrub, Spine/`Animator` freeze on `GameStates`, desync, skin and `MeshRenderer` order switchers |
 | Addressable | Addressable support for Spine: typed `AssetReferenceSkeletonDataAsset` reference, layer gate by skeleton readiness `SpineReadyGateHandler` |
+| Links | Animation link model `SpineAnimationLink`, `MasterLink` attribute and an Odin drawer with an animation dropdown and Play / Stop |
 | DefineSettings | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
 
 ## Dependencies
@@ -273,6 +275,57 @@ Lifecycle:
 ### SpineAnimationLogicBase and asmdef
 
 The `ru.vortex.spine` assembly gained references to `Unity.Addressables`, `ru.vortex.unity.assetcachesystem`, `UniTask` (for addressable skeleton loading). The logic of the `TweenLogic` classes themselves (`SpineAnimationLogicBase` etc.) did not change — this is only the assembly prep for the addressable subfolder. `defineConstraints: ["USING_SPINE"]` is preserved; addressable-specific code is additionally guarded with `#if ENABLE_ADDRESSABLES`.
+
+---
+
+## Links
+
+**Namespace:** `Vortex.SpineExtensions.Links`
+
+### SpineAnimationLink — animation link model
+
+A `[Serializable]` class: pure data, convenient for linking in the inspector. Playback is done by the holder — the code that reads the fields; the type plays nothing by itself.
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `Animation` | `string` | Skeleton animation name; empty — not set |
+| `Track` | `int` | Playback track (≥ 0) |
+| `Loop` | `bool` | Looped playback (default `false`) |
+| `IsEmpty` | `bool` | Animation not set |
+
+Constructor `SpineAnimationLink(animation, track, loop = false)` — for field defaults.
+
+```csharp
+[SerializeField] private SkeletonGraphic spine;
+
+[SerializeField, MasterLink(nameof(spine))]
+private SpineAnimationLink idle = new("idle", 0, true);
+
+private void PlayIdle()
+{
+    if (!idle.IsEmpty)
+        spine.AnimationState.SetAnimation(idle.Track, idle.Animation, idle.Loop);
+}
+```
+
+### MasterLink — skeleton binding
+
+`[MasterLink("fieldName")]` on a `SpineAnimationLink` field: the name of a field of the same object holding the skeleton — `SkeletonGraphic` or `SkeletonAnimation` (any component with `IAnimationStateComponent` and `IHasSkeletonDataAsset`). For an array element the owner is the object holding the array.
+
+### Inspector (Odin drawer, editor only)
+
+One row: animation | track | Loop | Play/Stop.
+
+- **With `MasterLink`** — the animation is picked from the skeleton's animations (searchable popup, `[NONE]` — not set); Play / Stop button.
+- **Without the attribute** — the animation name is a text field, no button.
+- `MasterLink` field not found or not a skeleton — an error under the row; an empty field is not an error (no dropdown, name as text).
+
+Debug playback — Play Mode only (the button is disabled in the editor):
+- **Play** — `SetAnimation` on the track and with the loop flag from the fields; the playback track is remembered.
+- **Stop** — `SetEmptyAnimation` (mix 0) on the remembered track.
+- Stop is shown while the remembered track holds exactly the entry started from the inspector; if the animation finished on its own or code replaced it — Play again.
+
+Debugging does not change the link data and does not get into the build.
 
 ---
 

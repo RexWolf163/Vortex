@@ -165,6 +165,22 @@ Step-wise slider change: public `Up()` / `Down()` shift the value by 10% of the 
 
 The value is set through the slider itself: `minValue`/`maxValue` bounds, `wholeNumbers` and `onValueChanged` work as with dragging — settings and rollback (`RollbackControl`) pick up the change. With `wholeNumbers` and a range under 10 units the step is rounded — `Up`/`Down` may not move the value.
 
+### PointerEventsHandler
+
+Separate reading of UGUI pointer events into UnityEvents — for cases that need distinct press and release (hold): `Button` and `AdvancedButton` expose only click in the inspector. Requires a raycast-target `Graphic` on the object or its children.
+
+| Field | Event |
+|-------|-------|
+| `onPointerDown` | Press over the object |
+| `onPointerUp` | Release after a press on the object — wherever the pointer is |
+| `onPointerClick` | Click: press and release over the object, no drag |
+| `onPointerEnter` | Pointer entered the object |
+| `onPointerExit` | Pointer left the object |
+
+The pointer button is not filtered — events come from any (LMB/RMB/MMB, touch).
+
+Can be placed on an object with `AdvancedButton`: UGUI delivers the event to all handlers of the first object up the hierarchy — the button keeps its visuals and click, the handler provides separate press and release. If the object is disabled during a hold, `onPointerUp` does not arrive (UGUI does not send Up to a disabled object).
+
 ### AutoRectSetter
 
 Auto-configure RectTransform via Inspector. `[ExecuteAlways]` — works in both Editor and Play mode.

@@ -9,6 +9,7 @@
 - Реакция Spine-скелетов на смену `GameStates` (заморозка на паузе/загрузке)
 - Переключение скина скелета через `UIStateSwitcher`
 - Рассинхрон однотипных анимаций (случайный сдвиг по времени трека)
+- Модель ссылки на анимацию (`SpineAnimationLink`: имя, трек, цикл) с выбором из скелета и тестовым запуском в инспекторе
 
 Все Tween- и Scrub-классы реализованы парой `SkeletonGraphic` (UGUI) / `SkeletonAnimation` (MeshRenderer) поверх общей generic-базы.
 
@@ -31,6 +32,7 @@
 | TweenerSystem | `TweenLogic`-реализации: одиночная и взвешенная случайная анимация для `SkeletonGraphic` и `SkeletonAnimation` |
 | UIs | Хэндлеры сцены: скраб-анимация по `FloatData`, заморозка Spine/`Animator` по `GameStates`, рассинхрон, переключатели скина и порядка `MeshRenderer` |
 | Addressable | Addressable-поддержка Spine: типизированная ссылка `AssetReferenceSkeletonDataAsset`, гейт слоёв по готовности скелета `SpineReadyGateHandler` |
+| Links | Модель ссылки на анимацию `SpineAnimationLink`, атрибут `MasterLink` и Odin-drawer с выпадашкой анимаций и Play / Stop |
 | DefineSettings | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
 
 ## Зависимости
@@ -273,6 +275,57 @@ Spine применяет позу в `LateUpdate`.
 ### SpineAnimationLogicBase и asmdef
 
 Сборка `ru.vortex.spine` под коммитом получила ссылки на `Unity.Addressables`, `ru.vortex.unity.assetcachesystem`, `UniTask` (для addressable-загрузки скелетов). Логика самих `TweenLogic`-классов (`SpineAnimationLogicBase` и т. д.) не изменилась — это только подготовка сборки под addressable-подпапку. `defineConstraints: ["USING_SPINE"]` сохранён; addressable-специфичный код дополнительно guard'ится `#if ENABLE_ADDRESSABLES`.
+
+---
+
+## Links
+
+**Namespace:** `Vortex.SpineExtensions.Links`
+
+### SpineAnimationLink — модель ссылки на анимацию
+
+`[Serializable]`-класс: строго данные, удобные для линковки в инспекторе. Запуск по ним делает держатель — код, который читает поля; тип сам ничего не проигрывает.
+
+| Член | Тип | Описание |
+|------|-----|----------|
+| `Animation` | `string` | Имя анимации скелета; пусто — не задана |
+| `Track` | `int` | Трек запуска (≥ 0) |
+| `Loop` | `bool` | Запуск в цикле (по умолчанию `false`) |
+| `IsEmpty` | `bool` | Анимация не задана |
+
+Конструктор `SpineAnimationLink(animation, track, loop = false)` — для значений по умолчанию в полях.
+
+```csharp
+[SerializeField] private SkeletonGraphic spine;
+
+[SerializeField, MasterLink(nameof(spine))]
+private SpineAnimationLink idle = new("idle", 0, true);
+
+private void PlayIdle()
+{
+    if (!idle.IsEmpty)
+        spine.AnimationState.SetAnimation(idle.Track, idle.Animation, idle.Loop);
+}
+```
+
+### MasterLink — связь со скелетом
+
+`[MasterLink("fieldName")]` на поле `SpineAnimationLink`: имя поля того же объекта со ссылкой на скелет — `SkeletonGraphic` или `SkeletonAnimation` (любой компонент с `IAnimationStateComponent` и `IHasSkeletonDataAsset`). Для элемента массива владелец — объект, в котором лежит массив.
+
+### Инспектор (Odin-drawer, только редактор)
+
+Одна строка: анимация | трек | Loop | Play/Stop.
+
+- **С `MasterLink`** — анимация выбирается из анимаций скелета (поисковый попап, `[NONE]` — не задана); кнопка Play / Stop.
+- **Без атрибута** — имя анимации текстовым полем, кнопки нет.
+- Поле `MasterLink` не найдено или содержит не скелет — ошибка под строкой; пустое поле — не ошибка (выпадашки нет, имя текстом).
+
+Отладочный запуск — только в Play Mode (в редакторе кнопка неактивна):
+- **Play** — `SetAnimation` на треке и с циклом из полей, трек запуска запоминается.
+- **Stop** — `SetEmptyAnimation` (mix 0) на запомненном треке.
+- Stop показывается, пока на запомненном треке стоит именно запущенная из инспектора запись; анимация доиграла сама или её сменил код — снова Play.
+
+Отладка не меняет данные ссылки и в билд не попадает.
 
 ---
 
