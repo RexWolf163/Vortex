@@ -36,6 +36,82 @@ Out of scope:
 
 ---
 
+## Usage
+
+### 1. Create a settings preset
+
+`Assets → Create → Vortex → CursorSettings` (the exact menu depends on how the `SettingsPreset` pipeline is registered in your project). Quick access to an existing config — the **Tools → Vortex → Configs → Cursor Settings** menu (pings the asset in Project).
+
+Fill `cursorPacks` — an array of packs by resolution, **in ascending `maxScreenHeight`**. In each pack:
+- `maxScreenHeight` — the upper bound of vertical resolution for this pack.
+- `CursorDefault` — the base set (`CursorHoverEntry`): `Default` is required to activate the system; `Action`/`AltAction` are optional (click feedback); `HideCursor` hides the system cursor.
+- `CursorOnHover[]` — hover variants. Each has a `Name` (key) and its own `Default`/`Action`/`AltAction`/`HideCursor`.
+
+> ⚠️ **Packs must be ordered by ascending `maxScreenHeight`** — hover-key inheritance from an earlier pack depends on it. `OnValidate` warns about order violations. Hover-array lengths no longer have to match.
+
+The minimal configuration is a single pack with a large `maxScreenHeight` (e.g. `99999`): it applies at any resolution.
+
+### 2. Attach `MouseHoverListener` to a UGUI element
+
+```
+EnemyPortrait (UGUI Image)
+├── Image (Raycast Target ✓)
+└── MouseHoverListener (key picked from a dropdown in the inspector)
+```
+
+The dropdown pulls the **merged list of unique keys** (`CursorHoverEntry.Name`) across all packs of the active `CursorSettings` — each pack may have its own set. The designer picks by name. The "[NONE]" item = an empty key disables hover switching for the zone.
+
+### 3. Re-pick the cursor after a resolution change
+
+```csharp
+// In the video-settings apply handler:
+VideoController.ApplyResolution(newResolution);
+CursorController.RefreshResolution();   // picks up the pack for the new Screen.height
+```
+
+### 4. Programmatic hover
+
+If a hover zone is not UGUI (world-space collider, custom raycast logic, hotkey emulation) — call directly by key:
+
+```csharp
+public class WorldHoverTrigger : MonoBehaviour
+{
+    [SerializeField] private string cursorKey = "interact";
+
+    private void OnMouseEnter() => CursorController.OnHover(cursorKey);
+    private void OnMouseExit()  => CursorController.OnUnHover(cursorKey);
+}
+```
+
+### 5. Subscribing to mouse state externally
+
+```csharp
+private void OnEnable()
+{
+    CursorController.MouseKeys.LeftKeyPressed.OnUpdate += OnLmbChanged;
+    CursorController.MouseKeys.HoverKey.OnUpdate += OnHoverChanged;
+}
+
+private void OnDisable()
+{
+    CursorController.MouseKeys.LeftKeyPressed.OnUpdate -= OnLmbChanged;
+    CursorController.MouseKeys.HoverKey.OnUpdate -= OnHoverChanged;
+}
+
+private void OnLmbChanged(bool pressed) { ... }
+private void OnHoverChanged(string key) { ... }
+```
+
+A writeback via `MouseKeys.LeftKeyPressed.Set(true, ?)` from outside won't pass — the owner is bound to the controller.
+
+### 6. Gamepad cursor via stick (optional)
+
+1. Add **`GamepadCursorDriver`** to any always-active object (e.g. the one that owns the `EventSystem`).
+2. Assign the bindings: `moveAction` → `<Gamepad>/leftStick` (Value/Vector2), `leftButtonAction` → `<Gamepad>/buttonSouth`, `rightButtonAction` → `<Gamepad>/buttonEast`. Tune `speed` / `deadzone` if needed.
+3. Done — no `VirtualMouseInput` required: the mouse works as before (the controller themes the OS cursor); the bound move axis moves the same cursor, the button actions click (right → AltAction); over a `HideCursor` zone the cursor hides as usual while the position keeps tracking.
+
+---
+
 ## Architecture
 
 ```
@@ -145,82 +221,6 @@ It drives the **real** system mouse (`Mouse.current`) directly: the `moveAction`
 **Why not `VirtualMouseInput`:** VMI creates a **separate** virtual `Mouse` device; combined with CursorSystem (which renders on the **real** OS cursor) that desyncs — the stick moves the virtual mouse (which the UI reads) while the visible cursor stays put, so clicks land off. Driving the real mouse directly avoids it.
 
 **Bindings** (`InputActionProperty`, set in the inspector — inline action or asset reference): `moveAction` (Value/Vector2 — e.g. the left stick), `leftButtonAction` / `rightButtonAction` (Button — e.g. South / East). **Fields:** `speed` (px/sec), `deadzone`. Buttons are re-asserted each frame while held (so a physical mouse event can't drop the injected press) and cleared once on release (and on disable). Runs on `unscaledDeltaTime`, so it works while the game is paused (menus). Requires a mouse device (desktop) — on a system without a mouse there is no OS cursor for CursorSystem to theme.
-
----
-
-## Usage
-
-### 1. Create a settings preset
-
-`Assets → Create → Vortex → CursorSettings` (the exact menu depends on how the `SettingsPreset` pipeline is registered in your project). Quick access to an existing config — the **Tools → Vortex → Configs → Cursor Settings** menu (pings the asset in Project).
-
-Fill `cursorPacks` — an array of packs by resolution, **in ascending `maxScreenHeight`**. In each pack:
-- `maxScreenHeight` — the upper bound of vertical resolution for this pack.
-- `CursorDefault` — the base set (`CursorHoverEntry`): `Default` is required to activate the system; `Action`/`AltAction` are optional (click feedback); `HideCursor` hides the system cursor.
-- `CursorOnHover[]` — hover variants. Each has a `Name` (key) and its own `Default`/`Action`/`AltAction`/`HideCursor`.
-
-> ⚠️ **Packs must be ordered by ascending `maxScreenHeight`** — hover-key inheritance from an earlier pack depends on it. `OnValidate` warns about order violations. Hover-array lengths no longer have to match.
-
-The minimal configuration is a single pack with a large `maxScreenHeight` (e.g. `99999`): it applies at any resolution.
-
-### 2. Attach `MouseHoverListener` to a UGUI element
-
-```
-EnemyPortrait (UGUI Image)
-├── Image (Raycast Target ✓)
-└── MouseHoverListener (key picked from a dropdown in the inspector)
-```
-
-The dropdown pulls the **merged list of unique keys** (`CursorHoverEntry.Name`) across all packs of the active `CursorSettings` — each pack may have its own set. The designer picks by name. The "[NONE]" item = an empty key disables hover switching for the zone.
-
-### 3. Re-pick the cursor after a resolution change
-
-```csharp
-// In the video-settings apply handler:
-VideoController.ApplyResolution(newResolution);
-CursorController.RefreshResolution();   // picks up the pack for the new Screen.height
-```
-
-### 4. Programmatic hover
-
-If a hover zone is not UGUI (world-space collider, custom raycast logic, hotkey emulation) — call directly by key:
-
-```csharp
-public class WorldHoverTrigger : MonoBehaviour
-{
-    [SerializeField] private string cursorKey = "interact";
-
-    private void OnMouseEnter() => CursorController.OnHover(cursorKey);
-    private void OnMouseExit()  => CursorController.OnUnHover(cursorKey);
-}
-```
-
-### 5. Subscribing to mouse state externally
-
-```csharp
-private void OnEnable()
-{
-    CursorController.MouseKeys.LeftKeyPressed.OnUpdate += OnLmbChanged;
-    CursorController.MouseKeys.HoverKey.OnUpdate += OnHoverChanged;
-}
-
-private void OnDisable()
-{
-    CursorController.MouseKeys.LeftKeyPressed.OnUpdate -= OnLmbChanged;
-    CursorController.MouseKeys.HoverKey.OnUpdate -= OnHoverChanged;
-}
-
-private void OnLmbChanged(bool pressed) { ... }
-private void OnHoverChanged(string key) { ... }
-```
-
-A writeback via `MouseKeys.LeftKeyPressed.Set(true, ?)` from outside won't pass — the owner is bound to the controller.
-
-### 6. Gamepad cursor via stick (optional)
-
-1. Add **`GamepadCursorDriver`** to any always-active object (e.g. the one that owns the `EventSystem`).
-2. Assign the bindings: `moveAction` → `<Gamepad>/leftStick` (Value/Vector2), `leftButtonAction` → `<Gamepad>/buttonSouth`, `rightButtonAction` → `<Gamepad>/buttonEast`. Tune `speed` / `deadzone` if needed.
-3. Done — no `VirtualMouseInput` required: the mouse works as before (the controller themes the OS cursor); the bound move axis moves the same cursor, the button actions click (right → AltAction); over a `HideCursor` zone the cursor hides as usual while the position keeps tracking.
 
 ---
 

@@ -42,6 +42,24 @@ Out of scope:
 
 ---
 
+## Creating a card (for the designer)
+
+1. **Create the preset:** Project → Create → Vortex → Presets → Gallery → Story. You get a `GalleryStoryPreset`.
+2. **Fill the base fields:** Name, Description, Icon (preview for the gallery tile).
+3. **Drag the nani script** into the `script` field in the inspector. The Odin callback immediately:
+   - Copies `script.Path` into the `scriptPath` (serialized) field.
+   - Nulls `script` (not serialized).
+   - Marks the preset dirty for saving.
+4. **Check the InfoBox under `scriptPath`:**
+   - Green (Info) — "OK: `<script_name>` (Path: `<path>`)" — the path is correct, the script is found in the project.
+   - Yellow (Warning) — "Path to the script is not set".
+   - Red (Error) — "Script with Path not found in the project" — the path is set but no nani script with such Path exists. The script may have been deleted or renamed.
+5. **Unlock mark:** `RecordMarksSettings` must contain a mark that story mechanics will apply to the card's `GuidPreset`. The gallery scene designer specifies that mark in `GalleryView.marks`.
+
+The card enters `GalleryView` automatically when its type is allowed and its `GuidPreset` is tagged with a listed mark. Clicking "Show" on the gallery card (`GalleryCardView.Show`) triggers `entry.Show()` → the nani script starts.
+
+---
+
 ## Architecture
 
 ```
@@ -117,24 +135,6 @@ public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
 - **I4.** `Show` subscribes the model to `NaniWrapper.OnNaniStart` and `OnNaniStop`; when **our** script finishes — auto-`Hide()`. Lifecycle is symmetric: `Show → (nani finished) → Hide()`, no external call required.
 - **I5.** Auto-`Hide` is idempotent with a manual `Hide`: if the player clicked "Close" → `Stop()` → OnNaniStop → HandleAutoStop → `Hide()` — the second `Hide` no-ops (PlayedScript is already null).
 - **I6.** Race guard `_active`: auto-`Hide` fires only after our script has actually started (`OnNaniStart` with `PlayedScript.Path == ScriptPath` → `_active = true`, unsubscribe from Start). A foreign `OnNaniStop` in the window between `Show` and our script's start (while `PlayScript` gates Load→Play), with `_active == false`, is ignored — the subscription isn't torn down prematurely. `_active` is `[NonSerialized]`, not saved; it resets at the start of every `Show`, and a stale subscription is inert while `_active == false`.
-
----
-
-## Creating a card (for the designer)
-
-1. **Create the preset:** Project → Create → Vortex → Presets → Gallery → Story. You get a `GalleryStoryPreset`.
-2. **Fill the base fields:** Name, Description, Icon (preview for the gallery tile).
-3. **Drag the nani script** into the `script` field in the inspector. The Odin callback immediately:
-   - Copies `script.Path` into the `scriptPath` (serialized) field.
-   - Nulls `script` (not serialized).
-   - Marks the preset dirty for saving.
-4. **Check the InfoBox under `scriptPath`:**
-   - Green (Info) — "OK: `<script_name>` (Path: `<path>`)" — the path is correct, the script is found in the project.
-   - Yellow (Warning) — "Path to the script is not set".
-   - Red (Error) — "Script with Path not found in the project" — the path is set but no nani script with such Path exists. The script may have been deleted or renamed.
-5. **Unlock mark:** `RecordMarksSettings` must contain a mark that story mechanics will apply to the card's `GuidPreset`. The gallery scene designer specifies that mark in `GalleryView.marks`.
-
-The card enters `GalleryView` automatically when its type is allowed and its `GuidPreset` is tagged with a listed mark. Clicking "Show" on the gallery card (`GalleryCardView.Show`) triggers `entry.Show()` → the nani script starts.
 
 ---
 

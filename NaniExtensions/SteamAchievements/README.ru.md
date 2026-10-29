@@ -37,6 +37,17 @@
 
 ---
 
+## Использование
+
+```
+; в nani-сценарии
+@UnlockSteamAchievement ACH_WIN_FIRST_BATTLE
+```
+
+`ACH_WIN_FIRST_BATTLE` — Steam achievement **ID** из Steamworks (App Admin → Achievements).
+
+---
+
 ## Архитектура
 
 ```
@@ -79,17 +90,6 @@ Nani-команда обязана **существовать всегда** (и
 | `defineConstraints: ["USING_NANINOVELL"]` | Без Naninovel нет `Command` |
 | Без `USING_STEAM` — no-op (варнинг) | Steam-сборки не собраны; вызов скрыт `#if` |
 | Не проверяет наличие `key` в индексе | Гарды (`IsLoaded`, `not found`) — внутри `UnlockAchievement` |
-
----
-
-## Использование
-
-```
-; в nani-сценарии
-@UnlockSteamAchievement ACH_WIN_FIRST_BATTLE
-```
-
-`ACH_WIN_FIRST_BATTLE` — Steam achievement **ID** из Steamworks (App Admin → Achievements).
 
 ---
 

@@ -26,6 +26,76 @@ Sdk-пакет фреймворка Vortex для конфигурируемой
 
 Assembly: `ru.vortex.sdk.game.rewards`. Constraints отсутствуют — пакет компилируется всегда.
 
+## Использование
+
+### 1. Базовый сценарий (один пресет, одна награда из пака)
+
+```csharp
+[SerializeField] private RewardPreset chestPreset;
+
+public void OpenChest(string playerId)
+{
+    var rewards = chestPreset.GetReward();
+    if (rewards == null) return;                    // все веса нулевые
+
+    foreach (var reward in rewards)
+        reward.GiveReward(targetId: playerId);
+}
+```
+
+> 💡 **Важно:** `foreach + GiveReward` допустим, когда кумулятивные эффекты заведомо отсутствуют (валюта, очки, флаги прогресса). Для предметов в инвентарь с ограниченным числом слотов используй pre-check на стороне принимающей системы — см. сценарий 3.
+
+### 2. UI-превью доступности награды
+
+```csharp
+foreach (var reward in chestPreset.RewardPacks[0].Rewards)
+{
+    var canGive = reward.ValidateRewardConditions(playerId);
+    button.interactable = canGive;
+}
+```
+
+### 3. Батч-выдача с пре-проверкой на стороне принимающей системы
+
+```csharp
+var rewards = chestPreset.GetReward();
+if (rewards == null) return;
+
+// Группируем по типу — каждый тип валидируется своей системой
+var items     = rewards.Where(r => r.GetType() == typeof(GiveItemReward));
+var currency  = rewards.Where(r => r.GetType() == typeof(GiveCurrencyReward));
+
+// Принимающая система проверяет кумулятивный эффект
+if (!Inventory.CanFitAll(playerId, items))
+{
+    UI.ShowOverflowDialog();
+    return;
+}
+
+foreach (var reward in rewards)
+    reward.GiveReward(playerId);
+```
+
+После выдачи фильтрация результатов идёт по `RewardResult.Type`:
+
+```csharp
+var results = rewards.Select(r => r.GiveReward(playerId)).ToList();
+var itemsApplied = results.Where(r => r.Type == RewardType.Item).Sum(r => r.AppliedAmount);
+```
+
+### 4. UI-реакция через шину
+
+```csharp
+private void OnEnable()  => RewardBus.OnRewardGiven += ShowFloatingText;
+private void OnDisable() => RewardBus.OnRewardGiven -= ShowFloatingText;
+
+private void ShowFloatingText(RewardEventData data)
+{
+    if (data.Result.Type == RewardType.Currency)
+        floatingTextPool.Spawn($"+{data.Result.AppliedAmount}");
+}
+```
+
 ## Архитектура
 
 ```
@@ -138,76 +208,6 @@ public class GiveItemReward : RewardStrategy
         var applied = Inventory.Give(targetId, itemId, (int)(amount * power));
         return applied > 0 ? RewardResult.Ok(applied) : RewardResult.Fail("InventoryFull");
     }
-}
-```
-
-## Использование
-
-### 1. Базовый сценарий (один пресет, одна награда из пака)
-
-```csharp
-[SerializeField] private RewardPreset chestPreset;
-
-public void OpenChest(string playerId)
-{
-    var rewards = chestPreset.GetReward();
-    if (rewards == null) return;                    // все веса нулевые
-
-    foreach (var reward in rewards)
-        reward.GiveReward(targetId: playerId);
-}
-```
-
-> 💡 **Важно:** `foreach + GiveReward` допустим, когда кумулятивные эффекты заведомо отсутствуют (валюта, очки, флаги прогресса). Для предметов в инвентарь с ограниченным числом слотов используй pre-check на стороне принимающей системы — см. сценарий 3.
-
-### 2. UI-превью доступности награды
-
-```csharp
-foreach (var reward in chestPreset.RewardPacks[0].Rewards)
-{
-    var canGive = reward.ValidateRewardConditions(playerId);
-    button.interactable = canGive;
-}
-```
-
-### 3. Батч-выдача с пре-проверкой на стороне принимающей системы
-
-```csharp
-var rewards = chestPreset.GetReward();
-if (rewards == null) return;
-
-// Группируем по типу — каждый тип валидируется своей системой
-var items     = rewards.Where(r => r.GetType() == typeof(GiveItemReward));
-var currency  = rewards.Where(r => r.GetType() == typeof(GiveCurrencyReward));
-
-// Принимающая система проверяет кумулятивный эффект
-if (!Inventory.CanFitAll(playerId, items))
-{
-    UI.ShowOverflowDialog();
-    return;
-}
-
-foreach (var reward in rewards)
-    reward.GiveReward(playerId);
-```
-
-После выдачи фильтрация результатов идёт по `RewardResult.Type`:
-
-```csharp
-var results = rewards.Select(r => r.GiveReward(playerId)).ToList();
-var itemsApplied = results.Where(r => r.Type == RewardType.Item).Sum(r => r.AppliedAmount);
-```
-
-### 4. UI-реакция через шину
-
-```csharp
-private void OnEnable()  => RewardBus.OnRewardGiven += ShowFloatingText;
-private void OnDisable() => RewardBus.OnRewardGiven -= ShowFloatingText;
-
-private void ShowFloatingText(RewardEventData data)
-{
-    if (data.Result.Type == RewardType.Currency)
-        floatingTextPool.Spawn($"+{data.Result.AppliedAmount}");
 }
 ```
 

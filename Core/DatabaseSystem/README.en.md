@@ -26,6 +26,54 @@ Out of scope: preset loading from disk, asset caching, UI for record selection �
 - `Vortex.Core.LoggerSystem` — error logging
 - `Cysharp.Threading.Tasks` — `UniTask` (async save operations)
 
+## Usage
+
+### Data model creation
+
+```csharp
+public class ProductRecord : Record
+{
+    public float Price { get; set; }
+    public int Quantity { get; set; }
+
+    public override string GetDataForSave()
+        => this.SerializeProperties();
+
+    public override void LoadFromSaveData(string data)
+        => this.CopyFrom(data.DeserializeProperties<ProductRecord>());
+}
+```
+
+### Data access
+
+```csharp
+// Singleton
+var product = Database.GetRecord<ProductRecord>("product-guid");
+product.Quantity -= 1;
+
+// MultiInstance — fresh copy
+var template = Database.GetNewRecord<ProductRecord>("template-guid");
+
+// All records of type
+ProductRecord[] all = Database.GetRecords<ProductRecord>();
+ProductRecord[] copies = Database.GetNewRecords<ProductRecord>();
+
+// Existence check
+bool exists = Database.TestRecord("guid");
+
+// All MultiInstance GUIDs
+string[] guids = Database.GetMultiInstancePresets<ProductRecord>();
+```
+
+### Initialization subscription
+
+```csharp
+Database.OnInit += () =>
+{
+    var settings = Database.GetRecord<GameSettings>("game-settings");
+};
+```
+
 ## Architecture
 
 ```
@@ -152,54 +200,6 @@ Two axes: **accessibility** (private / shared) and **weight** (light / heavy).
 - **Private** (regardless of weight) → **not in Database**. A system's local data lives in its own asset-config; heavy content inside it goes by linkage. Putting private data on the shared bus violates "shared → bus, private → inside the component."
 
 > **Note on AudioSystem.** Use `AudioSystem` (sounds/music via `Database`) as the system for **system-wide** sounds — those shared across the whole app (UI clicks, common SFX, menu background music). **Internal** sounds of loadable/unloadable systems (mini-games, individual scenes, cutscenes) are better wired through **linked sound assets** in that system's own config, rather than registered in the shared `Database`. Otherwise a mini-game's local sound sits in the shared bus for the whole session, although it is needed only while the system is loaded. This is a direct application of the "private-heavy → own asset-config + linkage" axis.
-
-## Usage
-
-### Data model creation
-
-```csharp
-public class ProductRecord : Record
-{
-    public float Price { get; set; }
-    public int Quantity { get; set; }
-
-    public override string GetDataForSave()
-        => this.SerializeProperties();
-
-    public override void LoadFromSaveData(string data)
-        => this.CopyFrom(data.DeserializeProperties<ProductRecord>());
-}
-```
-
-### Data access
-
-```csharp
-// Singleton
-var product = Database.GetRecord<ProductRecord>("product-guid");
-product.Quantity -= 1;
-
-// MultiInstance — fresh copy
-var template = Database.GetNewRecord<ProductRecord>("template-guid");
-
-// All records of type
-ProductRecord[] all = Database.GetRecords<ProductRecord>();
-ProductRecord[] copies = Database.GetNewRecords<ProductRecord>();
-
-// Existence check
-bool exists = Database.TestRecord("guid");
-
-// All MultiInstance GUIDs
-string[] guids = Database.GetMultiInstancePresets<ProductRecord>();
-```
-
-### Initialization subscription
-
-```csharp
-Database.OnInit += () =>
-{
-    var settings = Database.GetRecord<GameSettings>("game-settings");
-};
-```
 
 ## Edge Cases
 

@@ -27,6 +27,54 @@ Unity-реализация драйвера аудиосистемы.
 
 ---
 
+## Использование
+
+### 1. Настройка каналов
+
+1. Создать `AudioChannelsConfig` в Resources
+2. Задать имена каналов: `dialog`, `ui`, `ambient`, `sfx` и т.д.
+3. Каналы станут доступны в dropdown `[AudioChannelName]` и в API `AudioController`
+
+### 2. Создание пресетов
+
+1. `Create → Database → SoundSample` — настроить клипы, диапазоны pitch/volume, канал
+2. `Create → Database → MusicSample` — настроить клип, pitch, volume, канал
+3. Зарегистрировать пресеты в базе данных (уникальный GUID)
+
+### 3. Воспроизведение из кода
+
+```csharp
+// Звук по GUID
+AudioController.PlaySound("explosion_01");
+
+// Звук по экземпляру
+var sound = AudioController.GetSample("explosion_01") as Sound;
+AudioController.PlaySound(sound);
+
+// Музыка
+AudioController.PlayMusic("main_theme");
+
+// Ситуативная музыка
+AudioController.PlayCoverMusic("battle_theme");
+AudioController.StopCoverMusic(); // основная тема восстановится
+```
+
+### 4. Компонент звука
+
+Добавить `AudioHandler` на GameObject, назначить GUID сэмпла через `[DbRecord]`, выбрать канал через `[AudioChannelName]`. Опционально добавить `AudioSource` — если его нет, звук пойдёт через пул `AudioPlayer`.
+
+### 5. Компонент музыки
+
+Добавить `MusicHandler` на GameObject, назначить GUID через `[DbRecord(typeof(Music))]`. Музыка запускается при `OnEnable`, останавливается при `OnDisable`. Для ситуативной музыки — включить `isCoverMusic`.
+
+### 6. UI настроек
+
+- `AudioSwitcher` — переключатель вкл/выкл (Master / Sound / Music)
+- `AudioValueSlider` — слайдер громкости (Master / Sound / Music)
+- `AudioChannelVolumeSlider` — слайдер громкости канала
+
+---
+
 ## AudioDriver
 
 Реализация `IDriver`. Partial-класс из трёх файлов.
@@ -351,54 +399,6 @@ UI-слайдер громкости.
 **Внутренние** звуки подгружаемых-выгружаемых систем (мини-игры, отдельные сцены, катсцены) **не стоит** заводить в общий `Database` — их лучше прописывать через **линкованные ассеты звуков** в конфиге самой этой системы. Иначе локальный звук мини-игры висит в общей шине весь сеанс, хотя нужен только пока система загружена.
 
 Это прямое применение матрицы размещения данных (см. `Core/DatabaseSystem` → «Границы расширения»): общесистемный звук — «общее», его место в шине; внутренний звук системы — «частное», его место в собственном конфиге системы по линковке.
-
----
-
-## Использование
-
-### 1. Настройка каналов
-
-1. Создать `AudioChannelsConfig` в Resources
-2. Задать имена каналов: `dialog`, `ui`, `ambient`, `sfx` и т.д.
-3. Каналы станут доступны в dropdown `[AudioChannelName]` и в API `AudioController`
-
-### 2. Создание пресетов
-
-1. `Create → Database → SoundSample` — настроить клипы, диапазоны pitch/volume, канал
-2. `Create → Database → MusicSample` — настроить клип, pitch, volume, канал
-3. Зарегистрировать пресеты в базе данных (уникальный GUID)
-
-### 3. Воспроизведение из кода
-
-```csharp
-// Звук по GUID
-AudioController.PlaySound("explosion_01");
-
-// Звук по экземпляру
-var sound = AudioController.GetSample("explosion_01") as Sound;
-AudioController.PlaySound(sound);
-
-// Музыка
-AudioController.PlayMusic("main_theme");
-
-// Ситуативная музыка
-AudioController.PlayCoverMusic("battle_theme");
-AudioController.StopCoverMusic(); // основная тема восстановится
-```
-
-### 4. Компонент звука
-
-Добавить `AudioHandler` на GameObject, назначить GUID сэмпла через `[DbRecord]`, выбрать канал через `[AudioChannelName]`. Опционально добавить `AudioSource` — если его нет, звук пойдёт через пул `AudioPlayer`.
-
-### 5. Компонент музыки
-
-Добавить `MusicHandler` на GameObject, назначить GUID через `[DbRecord(typeof(Music))]`. Музыка запускается при `OnEnable`, останавливается при `OnDisable`. Для ситуативной музыки — включить `isCoverMusic`.
-
-### 6. UI настроек
-
-- `AudioSwitcher` — переключатель вкл/выкл (Master / Sound / Music)
-- `AudioValueSlider` — слайдер громкости (Master / Sound / Music)
-- `AudioChannelVolumeSlider` — слайдер громкости канала
 
 ## Редакторские инструменты
 

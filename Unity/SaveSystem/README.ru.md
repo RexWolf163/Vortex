@@ -48,6 +48,41 @@ Unity-слой системы сохранений. Предоставляет �
 
 ---
 
+## Использование
+
+### Индикация прогресса
+
+1. Добавить `UISaveLoadComponent` на UI-элемент
+2. Назначить `title` и `progress` (`UIComponent`)
+3. Указать ключи локализации: `loadingText`, `savingText`, `progressTextPattern`
+4. Формат `progressTextPattern`: `"{0}/{1} — {2} ({3}%)"` — глобальный прогресс, имя модуля, процент модуля
+
+### Работа с сохранениями
+
+```csharp
+// Все сохранения
+var saves = SaveController.GetIndex();
+
+// Сохранение
+SaveController.Save("Слот 1");
+
+// Загрузка
+SaveController.Load(selectedGuid);
+
+// Удаление
+SaveController.Remove(selectedGuid);
+```
+
+### Смена драйвера
+
+1. Открыть ассет `DriverConfig` в Inspector (находится в `Resources/`).
+2. Найти строку для системы `SaveController`.
+3. Выбрать `DriverType` — `PlayerPrefsDriver/SaveSystemDriver` или `FileSystemDriver/FileSystemDriver`.
+4. Нажать «Save Config» — `DriversGenericList.cs` перегенерируется.
+5. Перезапустить Play или editor домен.
+
+---
+
 ## Выбор активного драйвера
 
 Оба драйвера регистрируются автоматически через `[RuntimeInitializeOnLoadMethod]`, но `SystemController.SetDriver` валидирует кандидата против codegen-whitelist `DriversGenericList.WhiteList`, наполняемого из ассета `DriverConfig`. Только драйвер, явно прописанный в whitelist для системы `SaveController`, будет принят; остальные будут вызвать `Dispose()`.
@@ -303,41 +338,6 @@ Bootstrap: `[RuntimeInitializeOnLoadMethod]` → `GlobalSaveController.SetDriver
 | Имя файла инкремента — `.in` | Скрытый файл на Unix/Mac, обычный на Windows |
 | Активный драйвер только один | Через codegen-whitelist `DriversGenericList` |
 | `UISaveLoadComponent` — Coroutine | Обновление каждый кадр, не UniTask |
-
----
-
-## Использование
-
-### Индикация прогресса
-
-1. Добавить `UISaveLoadComponent` на UI-элемент
-2. Назначить `title` и `progress` (`UIComponent`)
-3. Указать ключи локализации: `loadingText`, `savingText`, `progressTextPattern`
-4. Формат `progressTextPattern`: `"{0}/{1} — {2} ({3}%)"` — глобальный прогресс, имя модуля, процент модуля
-
-### Работа с сохранениями
-
-```csharp
-// Все сохранения
-var saves = SaveController.GetIndex();
-
-// Сохранение
-SaveController.Save("Слот 1");
-
-// Загрузка
-SaveController.Load(selectedGuid);
-
-// Удаление
-SaveController.Remove(selectedGuid);
-```
-
-### Смена драйвера
-
-1. Открыть ассет `DriverConfig` в Inspector (находится в `Resources/`).
-2. Найти строку для системы `SaveController`.
-3. Выбрать `DriverType` — `PlayerPrefsDriver/SaveSystemDriver` или `FileSystemDriver/FileSystemDriver`.
-4. Нажать «Save Config» — `DriversGenericList.cs` перегенерируется.
-5. Перезапустить Play или editor домен.
 
 ---
 

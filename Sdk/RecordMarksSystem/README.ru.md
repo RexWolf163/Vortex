@@ -69,6 +69,73 @@
 
 ---
 
+## Использование
+
+### Настройка
+
+1. SO настроек создаётся автоматически (реализует `ICoreAsset`): `Tools → Vortex → Debug → Check Core Assets`, либо на перезагрузке домена при включённом авто-режиме. Вручную — `Create → Vortex → Settings → RecordMarks` в `Assets/Resources/Settings/`.
+2. Заполнить `slotMarks` и `globalMarks` уникальными именами. Рекомендуемая форма — дот-неймспейс: `"gallery.unlocked"`, `"codex.viewed"`, `"shop.everPurchased"`.
+
+### Потребитель
+
+```csharp
+public class GalleryCardView : MonoBehaviour
+{
+    [SerializeField] private string _cardGuid;
+
+    private void OnEnable()
+    {
+        RecordMarksBus.OnMarked += HandleMarked;
+        Refresh();
+    }
+
+    private void OnDisable()
+    {
+        RecordMarksBus.OnMarked -= HandleMarked;
+    }
+
+    private void HandleMarked(string mark, string guid)
+    {
+        if (mark == "gallery.unlocked" && guid == _cardGuid)
+            Refresh();
+    }
+
+    private void Refresh()
+    {
+        var unlocked = RecordMarksBus.IsMarked("gallery.unlocked", _cardGuid);
+        // переключить UI
+    }
+}
+```
+
+### Мутация
+
+```csharp
+// Штатное — только Mark. Идемпотентно.
+RecordMarksBus.Mark("gallery.unlocked", cardGuid);
+
+// Debug/cheat.
+RecordMarksBus.Unmark("gallery.unlocked", cardGuid);
+```
+
+### Прогресс
+
+```csharp
+// RecordMarks знает только сколько помечено. Полный список кандидатов —
+// на стороне consumer'а (обычно перечислением пресетов Database).
+var unlockedCount = RecordMarksBus.GetMarked("gallery.unlocked").Count;
+var total = Database.GetRecords<GalleryCard>().Length;
+Debug.Log($"{unlockedCount} / {total}");
+```
+
+### Editor-окно
+
+`Tools → Vortex → Record Marks → Index` — read-only дамп текущего состояния Bus. Работает только в Play Mode после Bootstrap. В шапке — `Ready` и `Session`; без сессии над per-slot метками подсказка, что они не учитываются. Фильтр по имени, foldout по каждой метке со списком GUID.
+
+`Tools → Vortex → Record Marks → Settings` — подсветить SO-конфиг в Project window.
+
+---
+
 ## Архитектура
 
 ```
@@ -173,73 +240,6 @@ Merge-семантика Vortex-сериализатора: при загруз�
 | `RecordMarksGlobalData : IGlobalData` (`GetGlobalKey() = "Vortex.RecordMarks.Global"`) | Регистрируется рефлексией в `GlobalSaveController` |
 
 Поле `Data` обеих моделей — `internal` + `[IsPOCO]`: снаружи сборки пакета его не заменить и не прочитать (owner-lock у `RecordMarksBus`), а сериализатор Vortex работает с ним рефлексией.
-
----
-
-## Использование
-
-### Настройка
-
-1. SO настроек создаётся автоматически (реализует `ICoreAsset`): `Tools → Vortex → Debug → Check Core Assets`, либо на перезагрузке домена при включённом авто-режиме. Вручную — `Create → Vortex → Settings → RecordMarks` в `Assets/Resources/Settings/`.
-2. Заполнить `slotMarks` и `globalMarks` уникальными именами. Рекомендуемая форма — дот-неймспейс: `"gallery.unlocked"`, `"codex.viewed"`, `"shop.everPurchased"`.
-
-### Потребитель
-
-```csharp
-public class GalleryCardView : MonoBehaviour
-{
-    [SerializeField] private string _cardGuid;
-
-    private void OnEnable()
-    {
-        RecordMarksBus.OnMarked += HandleMarked;
-        Refresh();
-    }
-
-    private void OnDisable()
-    {
-        RecordMarksBus.OnMarked -= HandleMarked;
-    }
-
-    private void HandleMarked(string mark, string guid)
-    {
-        if (mark == "gallery.unlocked" && guid == _cardGuid)
-            Refresh();
-    }
-
-    private void Refresh()
-    {
-        var unlocked = RecordMarksBus.IsMarked("gallery.unlocked", _cardGuid);
-        // переключить UI
-    }
-}
-```
-
-### Мутация
-
-```csharp
-// Штатное — только Mark. Идемпотентно.
-RecordMarksBus.Mark("gallery.unlocked", cardGuid);
-
-// Debug/cheat.
-RecordMarksBus.Unmark("gallery.unlocked", cardGuid);
-```
-
-### Прогресс
-
-```csharp
-// RecordMarks знает только сколько помечено. Полный список кандидатов —
-// на стороне consumer'а (обычно перечислением пресетов Database).
-var unlockedCount = RecordMarksBus.GetMarked("gallery.unlocked").Count;
-var total = Database.GetRecords<GalleryCard>().Length;
-Debug.Log($"{unlockedCount} / {total}");
-```
-
-### Editor-окно
-
-`Tools → Vortex → Record Marks → Index` — read-only дамп текущего состояния Bus. Работает только в Play Mode после Bootstrap. В шапке — `Ready` и `Session`; без сессии над per-slot метками подсказка, что они не учитываются. Фильтр по имени, foldout по каждой метке со списком GUID.
-
-`Tools → Vortex → Record Marks → Settings` — подсветить SO-конфиг в Project window.
 
 ---
 

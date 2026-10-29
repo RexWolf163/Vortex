@@ -40,50 +40,6 @@ No dependencies on other Vortex packages.
 
 ---
 
-## Data model
-
-### `AssetSwapSettings` (`ScriptableSingleton<T>`)
-
-```csharp
-[FilePath("ProjectSettings/VortexAssetSwapSettings.asset", FilePathAttribute.Location.ProjectFolder)]
-internal sealed class AssetSwapSettings : ScriptableSingleton<AssetSwapSettings>
-{
-    [SerializeField] private List<AssetSwapGroup> groups;
-}
-```
-
-### `AssetSwapGroup` (POCO)
-
-```csharp
-[Serializable]
-internal class AssetSwapGroup
-{
-    public int index;             // N — ordinal, unique in the list
-    public int variantsCount;     // K registered variants
-    public string comment;        // optional — "Steam", "GOG", "Censored"
-}
-```
-
-The group name is **computed** as `$"AssetGroup{index}"`, not stored as a string — a single formula, no drift.
-
-### Labels schema
-
-| Role | Label |
-|---|---|
-| Target asset | `AssetGroup{N}` |
-| Variant K of group N | `AssetGroup{N}_Variant{K}` |
-
-### Invariants
-
-- **I1.** `AssetSwapGroup.index` is unique. Duplicate → LogError, the duplicate is dropped (the first entry stays).
-- **I2.** The whole package is Editor-only. Runtime never references it.
-- **I3.** The `AssetGroup{N}` label exists **only** on assets the designer explicitly registered in group N.
-- **I4.** Target's `.meta` is never mutated — only `File.Copy` over the contents.
-- **I5.** The batch of applying one Variant K is atomic at the Unity import level (`StartAssetEditing`/`StopAssetEditing`). File-level atomicity (all `File.Copy` calls succeeded) is not guaranteed; on a partial failure — LogError, restore via git.
-- **I6.** Identifying a target ↔ variant pair — exact match of `Path.GetFileName` including the extension, case-sensitive.
-
----
-
 ## Designer usage
 
 > **Important — about labels.** Our labels (`AssetGroup{N}`, `AssetGroup{N}_Variant{K}`) are native Unity Asset Labels, but they **do not show up in the inspector's predefined-labels dropdown** (Unity caches that list and does not rescan it after `SetLabels` until an editor reload). Therefore **all label operations for this package go through `Project Settings → Vortex/AssetSwap`**, via the buttons described below. Do not type `AssetGroup1` by hand in the inspector — a typo will slip through silently and files will land in the wrong group.
@@ -150,6 +106,50 @@ public static class MyPublishHooks
     }
 }
 ```
+
+---
+
+## Data model
+
+### `AssetSwapSettings` (`ScriptableSingleton<T>`)
+
+```csharp
+[FilePath("ProjectSettings/VortexAssetSwapSettings.asset", FilePathAttribute.Location.ProjectFolder)]
+internal sealed class AssetSwapSettings : ScriptableSingleton<AssetSwapSettings>
+{
+    [SerializeField] private List<AssetSwapGroup> groups;
+}
+```
+
+### `AssetSwapGroup` (POCO)
+
+```csharp
+[Serializable]
+internal class AssetSwapGroup
+{
+    public int index;             // N — ordinal, unique in the list
+    public int variantsCount;     // K registered variants
+    public string comment;        // optional — "Steam", "GOG", "Censored"
+}
+```
+
+The group name is **computed** as `$"AssetGroup{index}"`, not stored as a string — a single formula, no drift.
+
+### Labels schema
+
+| Role | Label |
+|---|---|
+| Target asset | `AssetGroup{N}` |
+| Variant K of group N | `AssetGroup{N}_Variant{K}` |
+
+### Invariants
+
+- **I1.** `AssetSwapGroup.index` is unique. Duplicate → LogError, the duplicate is dropped (the first entry stays).
+- **I2.** The whole package is Editor-only. Runtime never references it.
+- **I3.** The `AssetGroup{N}` label exists **only** on assets the designer explicitly registered in group N.
+- **I4.** Target's `.meta` is never mutated — only `File.Copy` over the contents.
+- **I5.** The batch of applying one Variant K is atomic at the Unity import level (`StartAssetEditing`/`StopAssetEditing`). File-level atomicity (all `File.Copy` calls succeeded) is not guaranteed; on a partial failure — LogError, restore via git.
+- **I6.** Identifying a target ↔ variant pair — exact match of `Path.GetFileName` including the extension, case-sensitive.
 
 ---
 

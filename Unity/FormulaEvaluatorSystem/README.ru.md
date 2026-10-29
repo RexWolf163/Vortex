@@ -18,34 +18,6 @@ Runtime-вычисление поддерживается: `FormulaEvaluator.Cal
 | `ru.vortex.unity.editortools` | DrawingUtility, SearchablePopup, `Elements` |
 | Odin Inspector | `FormulaDrawer` — `OdinAttributeDrawer<FormulaAttribute, string>` (`#if UNITY_EDITOR && ODIN_INSPECTOR`), `SirenixEditorGUI` |
 
-## Формат формулы
-
-```
-"sqrt(3 + {0}^2) * ({1} / {2})"
-```
-
-- `{N}` — слот параметра, N — индекс (от 0)
-- Операторы: `+`, `-`, `*`, `/`, `^` (возведение в степень, правоассоциативное)
-- Скобки: `(`, `)`
-- Константы: `pi`, `e`
-- Функции (1 аргумент): `sqrt`, `abs`, `sin`, `cos`, `tan`, `log`, `floor`, `ceil`, `round`
-- Функции (2 аргумента): `min`, `max`, `pow`
-- Функции (3 аргумента): `clamp(value, min, max)`
-
-## Компоненты
-
-```
-FormulaEvaluatorSystem/
-├── Attributes/
-│   └── FormulaAttribute.cs          → атрибут [Formula("slotsFieldName")]
-├── Model/
-│   └── FormulaSlot.cs               → сериализуемая привязка: memberName + testValue
-├── FormulaEvaluator.cs                 → runtime: Calc / TryCalc (резолв слотов + вычисление)
-├── FormulaParser.cs                    → рекурсивный парсер выражений
-├── FormulaReflectionResolver.cs        → #if UNITY_EDITOR: сбор числовых членов класса
-└── FormulaDrawer.cs                    → OdinAttributeDrawer<FormulaAttribute, string> (#if UNITY_EDITOR && ODIN_INSPECTOR)
-```
-
 ## Использование
 
 ```csharp
@@ -99,6 +71,34 @@ Constants/
 - **Константы**: `const` и `static readonly` числовых типов
 - Числовые типы: `int`, `float`, `double`, `long`, `decimal`, `byte`, `short`, `uint`, `ulong`, `ushort`, `sbyte`
 - Унаследованные `private` члены исключаются (недоступны)
+
+## Формат формулы
+
+```
+"sqrt(3 + {0}^2) * ({1} / {2})"
+```
+
+- `{N}` — слот параметра, N — индекс (от 0)
+- Операторы: `+`, `-`, `*`, `/`, `^` (возведение в степень, правоассоциативное)
+- Скобки: `(`, `)`
+- Константы: `pi`, `e`
+- Функции (1 аргумент): `sqrt`, `abs`, `sin`, `cos`, `tan`, `log`, `floor`, `ceil`, `round`
+- Функции (2 аргумента): `min`, `max`, `pow`
+- Функции (3 аргумента): `clamp(value, min, max)`
+
+## Компоненты
+
+```
+FormulaEvaluatorSystem/
+├── Attributes/
+│   └── FormulaAttribute.cs          → атрибут [Formula("slotsFieldName")]
+├── Model/
+│   └── FormulaSlot.cs               → сериализуемая привязка: memberName + testValue
+├── FormulaEvaluator.cs                 → runtime: Calc / TryCalc (резолв слотов + вычисление)
+├── FormulaParser.cs                    → рекурсивный парсер выражений
+├── FormulaReflectionResolver.cs        → #if UNITY_EDITOR: сбор числовых членов класса
+└── FormulaDrawer.cs                    → OdinAttributeDrawer<FormulaAttribute, string> (#if UNITY_EDITOR && ODIN_INSPECTOR)
+```
 
 ## API
 

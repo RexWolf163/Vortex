@@ -39,6 +39,48 @@
 
 ---
 
+## Использование
+
+### Разблокировка достижения
+
+```csharp
+#if USING_STEAM
+if (SteamBus.IsLoaded)
+    SteamBus.User.UnlockAchievement("ACH_WIN_FIRST_BATTLE");
+#endif
+```
+
+### Проверка состояния
+
+```csharp
+#if USING_STEAM
+var ach = SteamBus.User.GetAchievement("ACH_WIN_FIRST_BATTLE");
+if (ach != null && !ach.IsUnlocked)
+    ShowAchievementHint();
+#endif
+```
+
+### Получение всех достижений
+
+```csharp
+#if USING_STEAM
+var ids = SteamBus.User.GetAllAchievementsID();
+foreach (var id in ids)
+{
+    var ach = SteamBus.User.GetAchievement(id);
+    Debug.Log($"{ach.Name}: {(ach.IsUnlocked ? "Unlocked" : "Locked")}");
+}
+#endif
+```
+
+### Тестирование в Editor
+
+1. Запустите Play Mode с включённым `isEnabled` и `isTestBuild` в `SteamConnectionSettings`
+2. Найдите объект `AchievementsManager [TEST]` в Hierarchy
+3. В Inspector используйте toggle-кнопки для разблокировки/сброса
+
+---
+
 ## Архитектура
 
 ```
@@ -130,48 +172,6 @@ AchievementHandler (Editor-only, Serializable)
 | `ClearAchievement` / `ResetAllAchievements` — Editor-only | Только для тестирования |
 | `AchievementsManager` — Editor-only | Не включается в билд |
 | Не использует Database bus | Независимая от Vortex-шины архитектура |
-
----
-
-## Использование
-
-### Разблокировка достижения
-
-```csharp
-#if USING_STEAM
-if (SteamBus.IsLoaded)
-    SteamBus.User.UnlockAchievement("ACH_WIN_FIRST_BATTLE");
-#endif
-```
-
-### Проверка состояния
-
-```csharp
-#if USING_STEAM
-var ach = SteamBus.User.GetAchievement("ACH_WIN_FIRST_BATTLE");
-if (ach != null && !ach.IsUnlocked)
-    ShowAchievementHint();
-#endif
-```
-
-### Получение всех достижений
-
-```csharp
-#if USING_STEAM
-var ids = SteamBus.User.GetAllAchievementsID();
-foreach (var id in ids)
-{
-    var ach = SteamBus.User.GetAchievement(id);
-    Debug.Log($"{ach.Name}: {(ach.IsUnlocked ? "Unlocked" : "Locked")}");
-}
-#endif
-```
-
-### Тестирование в Editor
-
-1. Запустите Play Mode с включённым `isEnabled` и `isTestBuild` в `SteamConnectionSettings`
-2. Найдите объект `AchievementsManager [TEST]` в Hierarchy
-3. В Inspector используйте toggle-кнопки для разблокировки/сброса
 
 ---
 

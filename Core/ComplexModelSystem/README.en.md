@@ -19,54 +19,6 @@ Out of scope: parameterized constructors, Database registration, platform-specif
 - `Vortex.Core.Extensions.LogicExtensions.SerializationSystem` — `SerializeProperties()`, `DeserializeProperties<T>()`
 - `Vortex.Core.LoggerSystem` — error logging
 
-## Architecture
-
-```
-ComplexModel<T> (abstract, Serializable)
-├── Cache          — static Dictionary<Type, Type[]> (type cache per T)
-├── Index          — Dictionary<Type, T> (component instances)
-├── Init()         — assembly scanning or cache restoration
-├── Get<TU>()      — typed component access
-├── Serialize()    — → JSON (calls BeforeSerialization/AfterSerialization)
-├── Deserialize()  — ← JSON (calls BeforeDeserialization/AfterDeserialization)
-└── abstract hooks — BeforeSerialization, AfterSerialization, BeforeDeserialization, AfterDeserialization
-```
-
-### Init()
-
-1. Clears `Index`
-2. If `Cache` contains types for `T` — creates instances from cache (`Activator.CreateInstance`)
-3. Otherwise — scans all assemblies: finds non-abstract, non-interface types assignable from `T` with a parameterless constructor
-4. Stores discovered types in `Cache[typeof(T)]`
-
-### Requirements for T
-
-- Concrete implementations must have a parameterless constructor
-- Not abstract, not interface
-- `class` constraint
-
-## Contract
-
-### Input
-- `Init()` call for scanning and instance creation
-- `Deserialize(string)` for restoration from JSON
-
-### Output
-- `Get<TU>()` — typed component access
-- `Serialize()` — JSON string via `SerializeController`
-
-### Guarantees
-- Type cache — subsequent `Init()` calls skip assembly scanning (for the same `T`)
-- `Get<TU>()` on missing type — `null` + `Error` log
-- `Deserialize(null/empty)` — `Error` log, index unchanged
-- Exceptions during assembly scanning are caught — `Warning` log
-
-### Limitations
-- One instance per type — duplicate types are not possible
-- `Activator.CreateInstance` — parameterless constructors only
-- Cache is static per `T` — shared across all `ComplexModel<T>` instances
-- Serialization via `SerializeController` (experimental)
-
 ## Usage
 
 ### Model definition
@@ -115,6 +67,54 @@ var restored = new PlayerModel();
 restored.Init();
 restored.Deserialize(json);
 ```
+
+## Architecture
+
+```
+ComplexModel<T> (abstract, Serializable)
+├── Cache          — static Dictionary<Type, Type[]> (type cache per T)
+├── Index          — Dictionary<Type, T> (component instances)
+├── Init()         — assembly scanning or cache restoration
+├── Get<TU>()      — typed component access
+├── Serialize()    — → JSON (calls BeforeSerialization/AfterSerialization)
+├── Deserialize()  — ← JSON (calls BeforeDeserialization/AfterDeserialization)
+└── abstract hooks — BeforeSerialization, AfterSerialization, BeforeDeserialization, AfterDeserialization
+```
+
+### Init()
+
+1. Clears `Index`
+2. If `Cache` contains types for `T` — creates instances from cache (`Activator.CreateInstance`)
+3. Otherwise — scans all assemblies: finds non-abstract, non-interface types assignable from `T` with a parameterless constructor
+4. Stores discovered types in `Cache[typeof(T)]`
+
+### Requirements for T
+
+- Concrete implementations must have a parameterless constructor
+- Not abstract, not interface
+- `class` constraint
+
+## Contract
+
+### Input
+- `Init()` call for scanning and instance creation
+- `Deserialize(string)` for restoration from JSON
+
+### Output
+- `Get<TU>()` — typed component access
+- `Serialize()` — JSON string via `SerializeController`
+
+### Guarantees
+- Type cache — subsequent `Init()` calls skip assembly scanning (for the same `T`)
+- `Get<TU>()` on missing type — `null` + `Error` log
+- `Deserialize(null/empty)` — `Error` log, index unchanged
+- Exceptions during assembly scanning are caught — `Warning` log
+
+### Limitations
+- One instance per type — duplicate types are not possible
+- `Activator.CreateInstance` — parameterless constructors only
+- Cache is static per `T` — shared across all `ComplexModel<T>` instances
+- Serialization via `SerializeController` (experimental)
 
 ## Edge Cases
 

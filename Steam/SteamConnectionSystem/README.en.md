@@ -38,6 +38,50 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Project Setup
+
+1. Add Steamworks.NET to the project
+2. Open `SteamConnectionSettings` in `Resources/Editor/` (created automatically)
+3. Set `steamAppId` to your application ID
+4. Enable `isEnabled` — the `USING_STEAM` symbol is added automatically
+5. For debugging without Steam client, enable `isTestBuild`
+
+### Reading User Data
+
+```csharp
+if (SteamBus.IsLoaded)
+{
+    var name = SteamBus.User.Name;
+    var friends = SteamBus.User.Friends;
+}
+```
+
+### Subscribing to Service Loading
+
+```csharp
+// Connect to Steam initialization moment
+SteamBus.OnCallServices += LoadMyService;
+
+// Subscribe to stats updates
+SteamBus.User.OnUpdated += OnStatsReceived;
+```
+
+### Conditional Compilation in Game Code
+
+```csharp
+#if USING_STEAM
+    SteamBus.User.UnlockAchievement("ACH_001");
+#endif
+
+// Or via const:
+if (SteamBus.SteamEnabled)
+    DoSteamStuff();
+```
+
+---
+
 ## Architecture
 
 ```
@@ -146,50 +190,6 @@ With `isTestBuild = true`, `RestartAppIfNecessary()` is skipped — the applicat
 | `DontDestroyOnLoad` on `SteamManager` | Single instance for entire lifecycle |
 | Steamworks calls forbidden in `OnDestroy` | `SteamAPI.Shutdown()` may have been called already |
 | Platforms: Windows, Linux, macOS | `DefineSymbolManager` filters by standalone platforms |
-
----
-
-## Usage
-
-### Project Setup
-
-1. Add Steamworks.NET to the project
-2. Open `SteamConnectionSettings` in `Resources/Editor/` (created automatically)
-3. Set `steamAppId` to your application ID
-4. Enable `isEnabled` — the `USING_STEAM` symbol is added automatically
-5. For debugging without Steam client, enable `isTestBuild`
-
-### Reading User Data
-
-```csharp
-if (SteamBus.IsLoaded)
-{
-    var name = SteamBus.User.Name;
-    var friends = SteamBus.User.Friends;
-}
-```
-
-### Subscribing to Service Loading
-
-```csharp
-// Connect to Steam initialization moment
-SteamBus.OnCallServices += LoadMyService;
-
-// Subscribe to stats updates
-SteamBus.User.OnUpdated += OnStatsReceived;
-```
-
-### Conditional Compilation in Game Code
-
-```csharp
-#if USING_STEAM
-    SteamBus.User.UnlockAchievement("ACH_001");
-#endif
-
-// Or via const:
-if (SteamBus.SteamEnabled)
-    DoSteamStuff();
-```
 
 ---
 

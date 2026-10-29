@@ -37,6 +37,20 @@
 - `Vortex.Unity.EditorTools.Attributes` — `[AutoLink]`
 - Sirenix Odin Inspector — `[InfoBox]`
 
+## Использование
+
+```csharp
+// На целе (персонаж):
+[RequireComponent(typeof(TransparentFocusHandler))]
+public class Character : MonoBehaviour { /* ... */ }
+
+// На крыше:
+// 1. Добавить SpriteRenderer
+// 2. Добавить RoofTransparentHandler (sprite авто-подвяжется через [AutoLink])
+// 3. Создать дочерние GameObject с TriggerZone (или один на самом объекте)
+// 4. Настроить fadeTime и minAlpha в инспекторе
+```
+
 ## Архитектура
 
 ```
@@ -80,20 +94,6 @@ RoofTransparentSystem/
 - Прозрачность управляется только у `SpriteRenderer` (хардкод цвета через `new Color(1, 1, 1, f)`)
 - Минимум одна `TriggerZone` обязательна — иначе `LogWarning` и handler не подписывается
 - `OnValidate` авто-собирает `TriggerZone` из дочерних объектов, если массив пуст
-
-## Использование
-
-```csharp
-// На целе (персонаж):
-[RequireComponent(typeof(TransparentFocusHandler))]
-public class Character : MonoBehaviour { /* ... */ }
-
-// На крыше:
-// 1. Добавить SpriteRenderer
-// 2. Добавить RoofTransparentHandler (sprite авто-подвяжется через [AutoLink])
-// 3. Создать дочерние GameObject с TriggerZone (или один на самом объекте)
-// 4. Настроить fadeTime и minAlpha в инспекторе
-```
 
 ## Граничные случаи
 

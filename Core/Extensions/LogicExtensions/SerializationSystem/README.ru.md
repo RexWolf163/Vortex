@@ -42,6 +42,106 @@
 
 ---
 
+## Использование
+
+### Разметка типов
+
+```csharp
+[POCO]
+public class PlayerData
+{
+    public string Name { get; set; }
+    public int Level { get; set; }
+    public float Score { get; set; }
+}
+```
+
+### Исключение свойств
+
+```csharp
+[POCO]
+public class QuestModel : Record
+{
+    public QuestState State { get; internal set; }
+    public byte Step { get; internal set; }
+
+    // Не сериализуется — неизменяемые данные из пресета
+    [NotPOCO] public bool Autorun { get; private set; }
+    [NotPOCO] public bool UnFailable { get; internal set; }
+
+    // Не сериализуется — QuestLogic не помечен [POCO]
+    public QuestLogic[] Logics { get; private set; }
+}
+```
+
+### Разметка через интерфейс
+
+```csharp
+[POCO]
+public interface IGameData { }
+
+// Автоматически сериализуем — реализует интерфейс с [POCO]
+public class InventoryData : IGameData
+{
+    public int Gold { get; set; }
+    public int Gems { get; set; }
+}
+```
+
+### Сериализация
+
+```csharp
+var player = new PlayerData { Name = "Test", Level = 42, Score = 3.14f };
+string json = player.SerializeProperties();
+```
+
+### Десериализация
+
+```csharp
+PlayerData restored = json.DeserializeProperties<PlayerData>();
+```
+
+### Полиморфизм
+
+Десериализация восстанавливает конкретный тип из маркера `"__"`. Целевой тип `T` может быть базовым классом или интерфейсом:
+
+```csharp
+IGameData data = json.DeserializeProperties<IGameData>();
+// data будет конкретного типа, записанного в "__"
+```
+
+### Интеграция с SaveSystem через Record
+
+```csharp
+[POCO]
+public class PlayerRecord : Record
+{
+    public string Name { get; set; }
+    public int Level { get; private set; }
+
+    // Ссылка на конфиг-ассет — не затянется (тип без [POCO])
+    public WeaponConfig Weapon { get; set; }
+
+    public override string GetDataForSave() => this.SerializeProperties();
+    public override void LoadFromSaveData(string data)
+        => this.CopyFrom(data.DeserializeProperties<PlayerRecord>());
+}
+```
+
+### Интеграция с ComplexModel
+
+```csharp
+[POCO]
+public interface IGameData { }
+
+public class GameModel : ComplexModel<IGameData>
+{
+    // Все реализации IGameData автоматически сериализуемы
+}
+```
+
+---
+
 ## Архитектура
 
 Partial-класс `SerializeController` разбит на 5 файлов:
@@ -326,106 +426,6 @@ public override void LoadFromSaveData(string data)
 | `Type.GetType()` при десериализации | Тип должен быть доступен в текущем AppDomain |
 | `DateTime` без timezone | Фиксированный формат `yyyy-MM-dd HH:mm:ss` |
 | Глубина десериализации/загрузки ≤ `MaxDepth` (64) | Страховка от битого глубоко-вложенного сейва: превышение → лог + `null`, а не StackOverflow |
-
----
-
-## Использование
-
-### Разметка типов
-
-```csharp
-[POCO]
-public class PlayerData
-{
-    public string Name { get; set; }
-    public int Level { get; set; }
-    public float Score { get; set; }
-}
-```
-
-### Исключение свойств
-
-```csharp
-[POCO]
-public class QuestModel : Record
-{
-    public QuestState State { get; internal set; }
-    public byte Step { get; internal set; }
-
-    // Не сериализуется — неизменяемые данные из пресета
-    [NotPOCO] public bool Autorun { get; private set; }
-    [NotPOCO] public bool UnFailable { get; internal set; }
-
-    // Не сериализуется — QuestLogic не помечен [POCO]
-    public QuestLogic[] Logics { get; private set; }
-}
-```
-
-### Разметка через интерфейс
-
-```csharp
-[POCO]
-public interface IGameData { }
-
-// Автоматически сериализуем — реализует интерфейс с [POCO]
-public class InventoryData : IGameData
-{
-    public int Gold { get; set; }
-    public int Gems { get; set; }
-}
-```
-
-### Сериализация
-
-```csharp
-var player = new PlayerData { Name = "Test", Level = 42, Score = 3.14f };
-string json = player.SerializeProperties();
-```
-
-### Десериализация
-
-```csharp
-PlayerData restored = json.DeserializeProperties<PlayerData>();
-```
-
-### Полиморфизм
-
-Десериализация восстанавливает конкретный тип из маркера `"__"`. Целевой тип `T` может быть базовым классом или интерфейсом:
-
-```csharp
-IGameData data = json.DeserializeProperties<IGameData>();
-// data будет конкретного типа, записанного в "__"
-```
-
-### Интеграция с SaveSystem через Record
-
-```csharp
-[POCO]
-public class PlayerRecord : Record
-{
-    public string Name { get; set; }
-    public int Level { get; private set; }
-
-    // Ссылка на конфиг-ассет — не затянется (тип без [POCO])
-    public WeaponConfig Weapon { get; set; }
-
-    public override string GetDataForSave() => this.SerializeProperties();
-    public override void LoadFromSaveData(string data)
-        => this.CopyFrom(data.DeserializeProperties<PlayerRecord>());
-}
-```
-
-### Интеграция с ComplexModel
-
-```csharp
-[POCO]
-public interface IGameData { }
-
-public class GameModel : ComplexModel<IGameData>
-{
-    // Все реализации IGameData автоматически сериализуемы
-}
-```
 
 ---
 

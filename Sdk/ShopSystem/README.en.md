@@ -36,6 +36,81 @@ Out of scope:
 
 Assembly: `ru.vortex.sdk.shopsystem`. The entire package is guarded by `#if USING_VORTEX_SHOP`; the symbol is toggled by the `shopSdk` switch in the `SdkSettings` asset.
 
+## Usage
+
+### 1. Settings asset
+
+`ShopSettings` implements `ICoreAsset` and is created automatically in `Assets/Resources/Settings/`. If auto-creation is disabled — `Tools → Vortex → Debug → Check Core Assets`. The asset holds the `AfterpayMode` choice.
+
+### 2. Driver registration
+
+In the `DriverConfig` asset: **Reload** → pick `ShopController` as the driver for the `ShopBus` system → **Save Config**. Without an entry in the config `SetDriver` rejects the registration, and bus calls fail with `NullReferenceException`.
+
+### 3. Logics and items
+
+Implement `PaymentLogic` and `DeliveryLogic` subclasses (see API Reference) and mark the classes `[Serializable]` — otherwise they will not appear in the `[SerializeReference]` picker.
+
+Item: `Assets → Create → Database → ShopItem`. Set both logics in the preset and `hiddenInShowcase` if needed. The preset is registered in `Database` like any other record.
+
+### 4. Purchase
+
+```csharp
+public async void OnBuyClicked(string itemGuid)
+{
+    if (ShopBus.IsBusy)
+    {
+        ui.ShowBusyHint();
+        return;
+    }
+
+    var operation = await ShopBus.Buy(itemGuid, count: 1);
+    if (operation == null) return;                 // unknown item
+
+    switch (operation.State.Value)
+    {
+        case PurchaseState.Delivered: ui.ShowSuccess();              break;
+        case PurchaseState.Ready:     ui.ShowClaimButton(operation); break;
+        case PurchaseState.Pending:   ui.ShowRetryButton(operation); break;
+        case PurchaseState.NotStarted:
+        case PurchaseState.Cancelled: ui.ShowRefusal();              break;
+    }
+}
+```
+
+### 5. UI reacting to state
+
+`ShopOperation.State` is reactive — the UI subscribes instead of polling:
+
+```csharp
+private void Bind(ShopOperation operation)
+{
+    operation.State.OnUpdate += OnStateChanged;
+}
+
+private void OnStateChanged(PurchaseState state) => view.Apply(state);
+```
+
+### 6. Unfinished purchases
+
+Restoration of open purchases starts automatically on load. The UI presents whatever stopped at equilibrium:
+
+```csharp
+foreach (var operation in ShopOperationsBus.GetReady())
+    ui.AddClaimCard(operation);       // → ShopBus.ConfirmDelivery(operation)
+
+foreach (var operation in ShopOperationsBus.GetOpen())
+    if (operation.State.Value == PurchaseState.Pending)
+        ui.AddRetryCard(operation);   // → ShopBus.RetryDelivery(operation)
+```
+
+### 7. Cancellation
+
+```csharp
+ShopBus.CancelWithRefund(operation);
+```
+
+Interrupts the process if it is running for this purchase, waits for it to unwind, and then refunds the payment (`Paid` / `Ready` / `Pending`) or closes the order as `Cancelled` (`Ordered`).
+
 ## Architecture
 
 ### Configuration and catalog
@@ -244,81 +319,6 @@ public class ItemDelivery : DeliveryLogic
         => UniTask.FromResult(Inventory.Give(itemId, amount * operation.RequestedCount));
 }
 ```
-
-## Usage
-
-### 1. Settings asset
-
-`ShopSettings` implements `ICoreAsset` and is created automatically in `Assets/Resources/Settings/`. If auto-creation is disabled — `Tools → Vortex → Debug → Check Core Assets`. The asset holds the `AfterpayMode` choice.
-
-### 2. Driver registration
-
-In the `DriverConfig` asset: **Reload** → pick `ShopController` as the driver for the `ShopBus` system → **Save Config**. Without an entry in the config `SetDriver` rejects the registration, and bus calls fail with `NullReferenceException`.
-
-### 3. Logics and items
-
-Implement `PaymentLogic` and `DeliveryLogic` subclasses (see API Reference) and mark the classes `[Serializable]` — otherwise they will not appear in the `[SerializeReference]` picker.
-
-Item: `Assets → Create → Database → ShopItem`. Set both logics in the preset and `hiddenInShowcase` if needed. The preset is registered in `Database` like any other record.
-
-### 4. Purchase
-
-```csharp
-public async void OnBuyClicked(string itemGuid)
-{
-    if (ShopBus.IsBusy)
-    {
-        ui.ShowBusyHint();
-        return;
-    }
-
-    var operation = await ShopBus.Buy(itemGuid, count: 1);
-    if (operation == null) return;                 // unknown item
-
-    switch (operation.State.Value)
-    {
-        case PurchaseState.Delivered: ui.ShowSuccess();              break;
-        case PurchaseState.Ready:     ui.ShowClaimButton(operation); break;
-        case PurchaseState.Pending:   ui.ShowRetryButton(operation); break;
-        case PurchaseState.NotStarted:
-        case PurchaseState.Cancelled: ui.ShowRefusal();              break;
-    }
-}
-```
-
-### 5. UI reacting to state
-
-`ShopOperation.State` is reactive — the UI subscribes instead of polling:
-
-```csharp
-private void Bind(ShopOperation operation)
-{
-    operation.State.OnUpdate += OnStateChanged;
-}
-
-private void OnStateChanged(PurchaseState state) => view.Apply(state);
-```
-
-### 6. Unfinished purchases
-
-Restoration of open purchases starts automatically on load. The UI presents whatever stopped at equilibrium:
-
-```csharp
-foreach (var operation in ShopOperationsBus.GetReady())
-    ui.AddClaimCard(operation);       // → ShopBus.ConfirmDelivery(operation)
-
-foreach (var operation in ShopOperationsBus.GetOpen())
-    if (operation.State.Value == PurchaseState.Pending)
-        ui.AddRetryCard(operation);   // → ShopBus.RetryDelivery(operation)
-```
-
-### 7. Cancellation
-
-```csharp
-ShopBus.CancelWithRefund(operation);
-```
-
-Interrupts the process if it is running for this purchase, waits for it to unwind, and then refunds the payment (`Paid` / `Ready` / `Pending`) or closes the order as `Cancelled` (`Ordered`).
 
 ## Edge cases
 

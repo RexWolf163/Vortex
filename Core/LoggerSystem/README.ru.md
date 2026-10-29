@@ -32,6 +32,40 @@
 
 ---
 
+## Использование
+
+### Вывод сообщений
+
+```csharp
+// Через параметры
+Log.Print(LogLevel.Common, "Initialized", this);
+Log.Print(LogLevel.Warning, "Config not found, using defaults", this);
+Log.Print(LogLevel.Error, "Connection failed", "NetworkManager");
+
+// Через структуру
+var data = new LogData(LogLevel.Error, "Critical failure", this);
+Log.Print(data);
+```
+
+### Реализация драйвера
+
+```csharp
+public class MyDriver : IDriver
+{
+    public event Action OnInit;
+
+    public void Print(LogData log)
+    {
+        Console.WriteLine($"[{log.Level}] [{log.Source}] {log.Message}");
+    }
+
+    public void Init() => OnInit?.Invoke();
+    public void Destroy() { }
+}
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -98,40 +132,6 @@ IDriver : ISystemDriver
 | Один драйвер одновременно | `SystemController` допускает один `IDriver` |
 | Нет фильтрации по уровню в ядре | Ответственность драйвера |
 | `Source` — `System.Object` | Гибкость: строка или типизированный объект |
-
----
-
-## Использование
-
-### Вывод сообщений
-
-```csharp
-// Через параметры
-Log.Print(LogLevel.Common, "Initialized", this);
-Log.Print(LogLevel.Warning, "Config not found, using defaults", this);
-Log.Print(LogLevel.Error, "Connection failed", "NetworkManager");
-
-// Через структуру
-var data = new LogData(LogLevel.Error, "Critical failure", this);
-Log.Print(data);
-```
-
-### Реализация драйвера
-
-```csharp
-public class MyDriver : IDriver
-{
-    public event Action OnInit;
-
-    public void Print(LogData log)
-    {
-        Console.WriteLine($"[{log.Level}] [{log.Source}] {log.Message}");
-    }
-
-    public void Init() => OnInit?.Invoke();
-    public void Destroy() { }
-}
-```
 
 ---
 

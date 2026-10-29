@@ -40,50 +40,6 @@ Editor-only утилита для подмены ассетов на разны�
 
 ---
 
-## Модель данных
-
-### `AssetSwapSettings` (`ScriptableSingleton<T>`)
-
-```csharp
-[FilePath("ProjectSettings/VortexAssetSwapSettings.asset", FilePathAttribute.Location.ProjectFolder)]
-internal sealed class AssetSwapSettings : ScriptableSingleton<AssetSwapSettings>
-{
-    [SerializeField] private List<AssetSwapGroup> groups;
-}
-```
-
-### `AssetSwapGroup` (POCO)
-
-```csharp
-[Serializable]
-internal class AssetSwapGroup
-{
-    public int index;             // N — порядковый номер, уникален в списке
-    public int variantsCount;     // K регистрированных вариантов
-    public string comment;        // опционально — «Steam», «GOG», «Censored»
-}
-```
-
-Имя группы **вычисляется** как `$"AssetGroup{index}"`, а не хранится строкой — единая формула, нет drift'а.
-
-### Схема labels
-
-| Роль | Label |
-|---|---|
-| Target-ассет | `AssetGroup{N}` |
-| Variant K для группы N | `AssetGroup{N}_Variant{K}` |
-
-### Инварианты
-
-- **I1.** `AssetSwapGroup.index` уникален. Дубликат — LogError, дубль дропается (кроме первого вхождения).
-- **I2.** Весь пакет — Editor-only. Runtime к нему не обращается.
-- **I3.** `AssetGroup{N}` label существует **только** на ассетах, зарегистрированных дизайнером в группу N.
-- **I4.** `.meta` target'ов не мутируется — только `File.Copy` над содержимым.
-- **I5.** Batch применения одного Variant K атомарен на уровне Unity import (`StartAssetEditing`/`StopAssetEditing`). Файловая атомарность (все `File.Copy` прошли) — не гарантируется; при частичной ошибке — LogError, откат через git.
-- **I6.** Идентификация пары target ↔ variant — точное совпадение `Path.GetFileName` с расширением, регистрозависимо.
-
----
-
 ## Использование дизайнером
 
 > **Важно про labels.** Наши labels (`AssetGroup{N}`, `AssetGroup{N}_Variant{K}`) — штатные Unity Asset Labels, но **не появляются в выпадашке predefined-списка инспектора** (Unity кэширует этот список и не пересканирует его после SetLabels до перезагрузки редактора). Поэтому **все операции с labels пакета — только через страницу `Project Settings → Vortex/AssetSwap`**, кнопками ниже. Не пытайтесь набирать `AssetGroup1` руками в инспекторе: опечатаетесь — Validator промолчит, файлы пойдут не в ту группу.
@@ -150,6 +106,50 @@ public static class MyPublishHooks
     }
 }
 ```
+
+---
+
+## Модель данных
+
+### `AssetSwapSettings` (`ScriptableSingleton<T>`)
+
+```csharp
+[FilePath("ProjectSettings/VortexAssetSwapSettings.asset", FilePathAttribute.Location.ProjectFolder)]
+internal sealed class AssetSwapSettings : ScriptableSingleton<AssetSwapSettings>
+{
+    [SerializeField] private List<AssetSwapGroup> groups;
+}
+```
+
+### `AssetSwapGroup` (POCO)
+
+```csharp
+[Serializable]
+internal class AssetSwapGroup
+{
+    public int index;             // N — порядковый номер, уникален в списке
+    public int variantsCount;     // K регистрированных вариантов
+    public string comment;        // опционально — «Steam», «GOG», «Censored»
+}
+```
+
+Имя группы **вычисляется** как `$"AssetGroup{index}"`, а не хранится строкой — единая формула, нет drift'а.
+
+### Схема labels
+
+| Роль | Label |
+|---|---|
+| Target-ассет | `AssetGroup{N}` |
+| Variant K для группы N | `AssetGroup{N}_Variant{K}` |
+
+### Инварианты
+
+- **I1.** `AssetSwapGroup.index` уникален. Дубликат — LogError, дубль дропается (кроме первого вхождения).
+- **I2.** Весь пакет — Editor-only. Runtime к нему не обращается.
+- **I3.** `AssetGroup{N}` label существует **только** на ассетах, зарегистрированных дизайнером в группу N.
+- **I4.** `.meta` target'ов не мутируется — только `File.Copy` над содержимым.
+- **I5.** Batch применения одного Variant K атомарен на уровне Unity import (`StartAssetEditing`/`StopAssetEditing`). Файловая атомарность (все `File.Copy` прошли) — не гарантируется; при частичной ошибке — LogError, откат через git.
+- **I6.** Идентификация пары target ↔ variant — точное совпадение `Path.GetFileName` с расширением, регистрозависимо.
 
 ---
 

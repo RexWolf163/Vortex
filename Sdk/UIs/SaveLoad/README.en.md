@@ -58,6 +58,42 @@ Out of scope:
 - Sirenix Odin Inspector — `[Button]`
 - `Hidden/AlphaBlit` shader (Always Included Shaders)
 
+## Usage
+
+### Save list scene
+
+1. On the UI root place `SaveListView` with references to a `Pool` (slot prefab carrying `SaveView`) and a `DataStorage` for the current focus.
+2. On the slot prefab: `SaveView` with `[AutoLink]` to an `IDataStorage` source, references to `slotButton` (`UIComponent`), `slotName`, `timestamp`, `RawImage slotImage`, and the localization keys `autoSavePattern` / `manualSavePattern`.
+3. `Load`/`Remove` buttons: `LoadGameHandler` / `RemoveSaveGameHandler` pointing at the same `DataStorage`.
+
+### Save button
+
+```csharp
+// Add SaveGameHandler to the GameObject carrying the UIComponent button.
+// The save name will look like:  manual_N || <base64 jpeg>
+```
+
+### Screen capture
+
+```csharp
+// Place a CameraCaptureHandler on each camera / canvas,
+// set priority (lower = bottom).
+// Add Hidden/AlphaBlit to Always Included Shaders.
+
+await UniTask.WaitForEndOfFrame(this);
+var screenshot = CameraCaptureHandler.Capture();
+// ... use ...
+UnityEngine.Object.Destroy(screenshot);
+```
+
+### Extracting a preview from an existing save
+
+```csharp
+SaveSummary summary = ...;
+Texture2D preview = SavePreviewController.GetPreview(summary); // or null
+string pureName = summary.GetSavePureName();
+```
+
 ## Architecture
 
 ```
@@ -125,42 +161,6 @@ SaveLoad/
 - A `Canvas.ScreenSpaceCamera` without a `worldCamera` — `LogWarning`, the layer is skipped
 - A save name must not contain the `||` substring (it is stripped via `Replace`)
 - The texture returned by `Capture()` must be destroyed by the caller (`Destroy`)
-
-## Usage
-
-### Save list scene
-
-1. On the UI root place `SaveListView` with references to a `Pool` (slot prefab carrying `SaveView`) and a `DataStorage` for the current focus.
-2. On the slot prefab: `SaveView` with `[AutoLink]` to an `IDataStorage` source, references to `slotButton` (`UIComponent`), `slotName`, `timestamp`, `RawImage slotImage`, and the localization keys `autoSavePattern` / `manualSavePattern`.
-3. `Load`/`Remove` buttons: `LoadGameHandler` / `RemoveSaveGameHandler` pointing at the same `DataStorage`.
-
-### Save button
-
-```csharp
-// Add SaveGameHandler to the GameObject carrying the UIComponent button.
-// The save name will look like:  manual_N || <base64 jpeg>
-```
-
-### Screen capture
-
-```csharp
-// Place a CameraCaptureHandler on each camera / canvas,
-// set priority (lower = bottom).
-// Add Hidden/AlphaBlit to Always Included Shaders.
-
-await UniTask.WaitForEndOfFrame(this);
-var screenshot = CameraCaptureHandler.Capture();
-// ... use ...
-UnityEngine.Object.Destroy(screenshot);
-```
-
-### Extracting a preview from an existing save
-
-```csharp
-SaveSummary summary = ...;
-Texture2D preview = SavePreviewController.GetPreview(summary); // or null
-string pureName = summary.GetSavePureName();
-```
 
 ## Edge cases
 

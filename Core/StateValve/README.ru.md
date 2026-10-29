@@ -19,6 +19,20 @@
 
 - `Vortex.Core.Extensions.ReactiveValues` — `BoolData`
 
+## Использование
+
+```csharp
+var valve = new StateValve(ValveMode.And);        // «идёт» = все ключи открыты
+valve.State.OnUpdate += open => SetPaused(!open);
+
+valve.Close("tutor");      // закрыт → State = false
+valve.Close("countdown");  // ещё один держит
+valve.Open("tutor");       // отпустил, но countdown держит → всё ещё закрыт
+valve.Open("countdown");   // все открыты → State = true
+```
+
+Unity-обёртка (`StateValveHandler`, пакет `ru.vortex.unity.statevalve`) добавляет настройку в инспекторе, whitelist-фильтр ключей и слабую привязку через `IDataStorage`.
+
 ## Модель
 
 ```
@@ -53,17 +67,3 @@ ValveMode { And, Or, Xor }
 
 - **Безобидная вложенность** (подписчик на `State` в колбэке зовёт `Open/Close`) отрабатывает: `BoolData` дедупит (событие только на реальном изменении), порядок last-write-wins, сходящаяся цепочка затихает.
 - **Осциллирующая** (подписчик крутит ключ так, что итог переворачивается обратно) — **ошибка композиции вызывающего**: проявится stack overflow как fail-fast сигнал о встречной петле. Контракт: не сводить самоподдерживающийся цикл.
-
-## Использование
-
-```csharp
-var valve = new StateValve(ValveMode.And);        // «идёт» = все ключи открыты
-valve.State.OnUpdate += open => SetPaused(!open);
-
-valve.Close("tutor");      // закрыт → State = false
-valve.Close("countdown");  // ещё один держит
-valve.Open("tutor");       // отпустил, но countdown держит → всё ещё закрыт
-valve.Open("countdown");   // все открыты → State = true
-```
-
-Unity-обёртка (`StateValveHandler`, пакет `ru.vortex.unity.statevalve`) добавляет настройку в инспекторе, whitelist-фильтр ключей и слабую привязку через `IDataStorage`.

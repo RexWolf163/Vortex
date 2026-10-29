@@ -42,33 +42,6 @@ Out of scope:
 
 ---
 
-## Contract
-
-```csharp
-[Serializable]
-public abstract class AssetHandle<T> where T : class
-{
-    public abstract bool IsLoaded { get; }
-    public abstract T Asset { get; }
-    public abstract UniTask<T> LoadAsync(CancellationToken ct);
-    public UniTask<T> LoadAsync();                    // overload without ct
-    public abstract void Release();
-}
-```
-
-The `where T : class` constraint is minimal. Platform-layer implementations may narrow it to their platform's asset base type.
-
-**Invariants:**
-
-- **I1.** `Asset != null` and `IsLoaded == true` are equivalent.
-- **I2.** Before `Release`: a repeated `LoadAsync` returns the same `T` instance.
-- **I3.** `Release` is idempotent.
-- **I4.** For a direct reference `Release()` is guaranteed to be a no-op.
-- **I5.** The contract contains no references to the platform or loading mechanisms.
-- **I6.** `Release` is not terminal: the handle is reusable — the next `LoadAsync` loads the asset again.
-
----
-
 ## Usage
 
 ### Holder
@@ -96,6 +69,33 @@ void CloseFullscreen(MyCardPreset preset)
     preset.Fullscreen.Release();                         // direct — no-op, lazy — releases
 }
 ```
+
+---
+
+## Contract
+
+```csharp
+[Serializable]
+public abstract class AssetHandle<T> where T : class
+{
+    public abstract bool IsLoaded { get; }
+    public abstract T Asset { get; }
+    public abstract UniTask<T> LoadAsync(CancellationToken ct);
+    public UniTask<T> LoadAsync();                    // overload without ct
+    public abstract void Release();
+}
+```
+
+The `where T : class` constraint is minimal. Platform-layer implementations may narrow it to their platform's asset base type.
+
+**Invariants:**
+
+- **I1.** `Asset != null` and `IsLoaded == true` are equivalent.
+- **I2.** Before `Release`: a repeated `LoadAsync` returns the same `T` instance.
+- **I3.** `Release` is idempotent.
+- **I4.** For a direct reference `Release()` is guaranteed to be a no-op.
+- **I5.** The contract contains no references to the platform or loading mechanisms.
+- **I6.** `Release` is not terminal: the handle is reusable — the next `LoadAsync` loads the asset again.
 
 ---
 

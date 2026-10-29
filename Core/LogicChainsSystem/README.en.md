@@ -39,6 +39,61 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Creating an action
+
+```csharp
+public class ShowNotification : LogicAction
+{
+    public string Message;
+
+    public override void Invoke()
+    {
+        NotificationSystem.Show(Message);
+    }
+}
+```
+
+### Creating a condition
+
+```csharp
+public class PlayerLevelReached : Condition
+{
+    public int TargetLevel;
+
+    protected override void Start()
+    {
+        PlayerModel.OnLevelChanged += OnLevelChanged;
+        if (Check()) RunCallback();
+    }
+
+    private void OnLevelChanged(int level)
+    {
+        if (Check()) RunCallback();
+    }
+
+    public override bool Check() => PlayerModel.Level >= TargetLevel;
+    public override void DeInit() => PlayerModel.OnLevelChanged -= OnLevelChanged;
+}
+```
+
+### Running a chain
+
+```csharp
+// From Database preset
+var guid = LogicChains.AddChain("preset-guid-from-database");
+LogicChains.RunChain(guid);
+
+// From object
+var chain = new LogicChain();
+// ... configure ChainSteps, StartStep ...
+var guid = LogicChains.AddChain(chain);
+LogicChains.RunChain(guid);
+```
+
+---
+
 ## Architecture
 
 ```
@@ -146,61 +201,6 @@ A connector with `TargetStepGuid == "-1"` (`CompleteChainStep`) completes the ch
 | Do not call `RunChain(guid)` again on an active chain | A repeated call re-runs the current step's actions and re-subscribes its conditions without `DeInit` of the previous ones — double firings. Start a chain once |
 
 > ⚠️ **Schema contract:** the step graph must be an acyclic directed graph. A loop through unconditional (0-condition) connectors is unbounded recursion with no stop. If chain presets are edited by non-programmers, consider a visited guard / depth limit in `RunChain`/`CheckConditions` that fails loud instead of `StackOverflowException`.
-
----
-
-## Usage
-
-### Creating an action
-
-```csharp
-public class ShowNotification : LogicAction
-{
-    public string Message;
-
-    public override void Invoke()
-    {
-        NotificationSystem.Show(Message);
-    }
-}
-```
-
-### Creating a condition
-
-```csharp
-public class PlayerLevelReached : Condition
-{
-    public int TargetLevel;
-
-    protected override void Start()
-    {
-        PlayerModel.OnLevelChanged += OnLevelChanged;
-        if (Check()) RunCallback();
-    }
-
-    private void OnLevelChanged(int level)
-    {
-        if (Check()) RunCallback();
-    }
-
-    public override bool Check() => PlayerModel.Level >= TargetLevel;
-    public override void DeInit() => PlayerModel.OnLevelChanged -= OnLevelChanged;
-}
-```
-
-### Running a chain
-
-```csharp
-// From Database preset
-var guid = LogicChains.AddChain("preset-guid-from-database");
-LogicChains.RunChain(guid);
-
-// From object
-var chain = new LogicChain();
-// ... configure ChainSteps, StartStep ...
-var guid = LogicChains.AddChain(chain);
-LogicChains.RunChain(guid);
-```
 
 ---
 

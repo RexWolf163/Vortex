@@ -39,6 +39,41 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Creating a new settings preset
+
+1. Create a partial extension of `SettingsModel` (Core):
+
+```csharp
+namespace Vortex.Core.SettingsSystem.Model
+{
+    public partial class SettingsModel
+    {
+        public int MaxPlayers { get; private set; }
+    }
+}
+```
+
+2. Create a `SettingsPreset` subclass (Unity):
+
+```csharp
+public class GameplaySettings : SettingsPreset
+{
+    [SerializeField] private int maxPlayers = 4;
+    public int MaxPlayers => maxPlayers;
+}
+```
+
+3. Reload Editor — `GameplaySettings.asset` is auto-created in `Resources/Settings/`
+4. Configure values in Inspector
+
+### Navigating to settings
+
+`Menu: Tools > Vortex > Configs > Application Start Config` — opens `StartSettings` asset in Inspector.
+
+---
+
 ## Architecture
 
 ```
@@ -123,41 +158,6 @@ On Play Mode in Editor, loads the scene from `Settings.Data().StartScene`. Allow
 | `StartSceneHandler` is Editor-only | `#if UNITY_EDITOR` |
 | One asset per `SettingsPreset` type | `EditorRegister` checks `resources.Contains(type)` |
 | Loading order is undefined | `Resources.LoadAll` does not guarantee order |
-
----
-
-## Usage
-
-### Creating a new settings preset
-
-1. Create a partial extension of `SettingsModel` (Core):
-
-```csharp
-namespace Vortex.Core.SettingsSystem.Model
-{
-    public partial class SettingsModel
-    {
-        public int MaxPlayers { get; private set; }
-    }
-}
-```
-
-2. Create a `SettingsPreset` subclass (Unity):
-
-```csharp
-public class GameplaySettings : SettingsPreset
-{
-    [SerializeField] private int maxPlayers = 4;
-    public int MaxPlayers => maxPlayers;
-}
-```
-
-3. Reload Editor — `GameplaySettings.asset` is auto-created in `Resources/Settings/`
-4. Configure values in Inspector
-
-### Navigating to settings
-
-`Menu: Tools > Vortex > Configs > Application Start Config` — opens `StartSettings` asset in Inspector.
 
 ---
 

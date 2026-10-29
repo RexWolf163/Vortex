@@ -38,6 +38,31 @@ Unity-реализация драйвера локализации и компо
 
 ---
 
+## Использование
+
+### Настройка
+
+1. Создать Google Sheets с переводами (формат: KEY | English | Russian | ...)
+2. Вставить ID документа и GID листов в `LocalizationPreset`
+3. Нажать `Load Data` в Inspector
+4. Убедиться, что `LocalizationPreset` в `Resources/Localization/`
+
+### Привязка текста к UI
+
+1. Добавить `UIComponent` на GameObject
+2. Добавить `SetTextComponent` на тот же GameObject
+3. Выбрать ключ через dropdown `[LocalizationKey]`
+4. Включить `useLocalization` для перевода
+
+### Кнопка смены языка
+
+1. Добавить `UIComponent` (с кнопкой и текстом)
+2. Добавить `SetLocaleHandler`
+3. Выбрать язык через `[Language]` selector
+4. Включить `useSwitch` для визуального выделения текущего языка
+
+---
+
 ## Архитектура
 
 ### Драйвер
@@ -208,31 +233,6 @@ MENU_EXIT   | Exit         | Выход        |
 ### Автосоздание ассета
 
 `EditorRegister` (InitializeOnLoadMethod) автоматически создаёт `Resources/Localization/LocalizationData.asset` если файл отсутствует.
-
----
-
-## Использование
-
-### Настройка
-
-1. Создать Google Sheets с переводами (формат: KEY | English | Russian | ...)
-2. Вставить ID документа и GID листов в `LocalizationPreset`
-3. Нажать `Load Data` в Inspector
-4. Убедиться, что `LocalizationPreset` в `Resources/Localization/`
-
-### Привязка текста к UI
-
-1. Добавить `UIComponent` на GameObject
-2. Добавить `SetTextComponent` на тот же GameObject
-3. Выбрать ключ через dropdown `[LocalizationKey]`
-4. Включить `useLocalization` для перевода
-
-### Кнопка смены языка
-
-1. Добавить `UIComponent` (с кнопкой и текстом)
-2. Добавить `SetLocaleHandler`
-3. Выбрать язык через `[Language]` selector
-4. Включить `useSwitch` для визуального выделения текущего языка
 
 ---
 

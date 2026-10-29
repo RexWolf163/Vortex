@@ -47,6 +47,64 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Implementing ISaveable
+
+```csharp
+public class InventoryController : ISaveable
+{
+    private ProcessData _processData = new("Inventory");
+
+    public string GetSaveId() => "Inventory";
+
+    public async UniTask<Dictionary<string, string>> GetSaveData(CancellationToken ct)
+    {
+        var data = new Dictionary<string, string>();
+        data["items"] = JsonUtility.ToJson(items);
+        data["gold"] = gold.ToString();
+        return data;
+    }
+
+    public ProcessData GetProcessInfo() => _processData;
+
+    public async UniTask OnLoad(CancellationToken ct)
+    {
+        var data = SaveController.GetData("Inventory");
+        if (data.TryGetValue("items", out var json))
+            items = JsonUtility.FromJson<ItemList>(json);
+        if (data.TryGetValue("gold", out var g))
+            gold = int.Parse(g);
+    }
+}
+```
+
+### Save / Load
+
+```csharp
+// Register
+SaveController.Register(inventoryController);
+
+// Save (new GUID)
+SaveController.Save("Quick Save");
+
+// Save (overwrite)
+SaveController.Save("Quick Save", existingGuid);
+
+// Load
+SaveController.Load(guid);
+
+// List saves
+var saves = SaveController.GetIndex();
+foreach (var (guid, summary) in saves)
+    Debug.Log($"{summary.Name} — {summary.Date}");
+
+// Remove
+SaveController.Remove(guid);
+```
+
+---
+
 ## Architecture
 
 ```
@@ -173,64 +231,6 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 | Data is strings only | `Dictionary<string, string>`, JSON serialization is module's responsibility |
 | `Save`/`Load` return `UniTask` | Caller may `await` or fire-and-forget via `.Forget()`. Exceptions are logged internally |
 | `CancellationToken` declared but unused | Reserved for future use |
-
----
-
-## Usage
-
-### Implementing ISaveable
-
-```csharp
-public class InventoryController : ISaveable
-{
-    private ProcessData _processData = new("Inventory");
-
-    public string GetSaveId() => "Inventory";
-
-    public async UniTask<Dictionary<string, string>> GetSaveData(CancellationToken ct)
-    {
-        var data = new Dictionary<string, string>();
-        data["items"] = JsonUtility.ToJson(items);
-        data["gold"] = gold.ToString();
-        return data;
-    }
-
-    public ProcessData GetProcessInfo() => _processData;
-
-    public async UniTask OnLoad(CancellationToken ct)
-    {
-        var data = SaveController.GetData("Inventory");
-        if (data.TryGetValue("items", out var json))
-            items = JsonUtility.FromJson<ItemList>(json);
-        if (data.TryGetValue("gold", out var g))
-            gold = int.Parse(g);
-    }
-}
-```
-
-### Save / Load
-
-```csharp
-// Register
-SaveController.Register(inventoryController);
-
-// Save (new GUID)
-SaveController.Save("Quick Save");
-
-// Save (overwrite)
-SaveController.Save("Quick Save", existingGuid);
-
-// Load
-SaveController.Load(guid);
-
-// List saves
-var saves = SaveController.GetIndex();
-foreach (var (guid, summary) in saves)
-    Debug.Log($"{summary.Name} — {summary.Date}");
-
-// Remove
-SaveController.Remove(guid);
-```
 
 ---
 

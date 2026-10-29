@@ -20,6 +20,32 @@ Out of scope: logging logic, Core `SettingsModel` properties — these belong to
 - `Vortex.Unity.EditorTools.Attributes` — `[ToggleButton]`, `[Position]`
 - `Sirenix.OdinInspector` — `[PropertyOrder]`
 
+## Usage
+
+### Configuration
+
+1. Create a `DebugSettings` asset (or use the existing one in `StartSettings`)
+2. Enable `DebugMode` (global gate)
+3. Enable desired local toggles
+
+### Asset Access
+
+Menu: `Tools/Vortex/Configs/Debug Settings` (pings the `StartSettings` asset)
+
+### Code Check
+
+```csharp
+// Via SettingsModel (populated from DebugSettings)
+if (Settings.Data().AppStateDebugMode)
+    Log.Print(LogLevel.Common, "state changed", "App");
+```
+
+### Adding a Toggle for a New System
+
+1. Create `Debug/Presets/DebugSettingsExtMySystem.cs` in the system's folder
+2. Add a partial `DebugSettings` with toggle and property
+3. In Core — add a partial `SettingsModel` with the corresponding property
+
 ## Architecture
 
 ```
@@ -68,32 +94,6 @@ The `MyDebugMode` property is `true` only when both `DebugMode` AND `myToggle` a
 ### Limitations
 - Partial extensions are spread across different packages — full toggle list visible only in the asset Inspector
 - Adding a new toggle requires an assembly reference to `ru.vortex.unity.debug`
-
-## Usage
-
-### Configuration
-
-1. Create a `DebugSettings` asset (or use the existing one in `StartSettings`)
-2. Enable `DebugMode` (global gate)
-3. Enable desired local toggles
-
-### Asset Access
-
-Menu: `Tools/Vortex/Configs/Debug Settings` (pings the `StartSettings` asset)
-
-### Code Check
-
-```csharp
-// Via SettingsModel (populated from DebugSettings)
-if (Settings.Data().AppStateDebugMode)
-    Log.Print(LogLevel.Common, "state changed", "App");
-```
-
-### Adding a Toggle for a New System
-
-1. Create `Debug/Presets/DebugSettingsExtMySystem.cs` in the system's folder
-2. Add a partial `DebugSettings` with toggle and property
-3. In Core — add a partial `SettingsModel` with the corresponding property
 
 ## Known Extensions
 

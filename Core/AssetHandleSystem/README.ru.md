@@ -42,33 +42,6 @@
 
 ---
 
-## Контракт
-
-```csharp
-[Serializable]
-public abstract class AssetHandle<T> where T : class
-{
-    public abstract bool IsLoaded { get; }
-    public abstract T Asset { get; }
-    public abstract UniTask<T> LoadAsync(CancellationToken ct);
-    public UniTask<T> LoadAsync();                    // перегрузка без ct
-    public abstract void Release();
-}
-```
-
-Ограничение `where T : class` — минимальное. Реализации платформенного слоя могут сужать его до базового типа ассетов своей платформы.
-
-**Инварианты:**
-
-- **I1.** `Asset != null && IsLoaded == true` — эквивалентны.
-- **I2.** До `Release`: повторный `LoadAsync` возвращает тот же экземпляр `T`.
-- **I3.** `Release` идемпотентен.
-- **I4.** Для прямой ссылки `Release()` — гарантированно no-op.
-- **I5.** Контракт не содержит ссылок на платформу и механизмы загрузки.
-- **I6.** `Release` не терминален: handle переиспользуем — следующий `LoadAsync` грузит ассет заново.
-
----
-
 ## Использование
 
 ### Держатель
@@ -96,6 +69,33 @@ void CloseFullscreen(MyCardPreset preset)
     preset.Fullscreen.Release();                         // прямая ссылка — no-op, ленивая — освобождает
 }
 ```
+
+---
+
+## Контракт
+
+```csharp
+[Serializable]
+public abstract class AssetHandle<T> where T : class
+{
+    public abstract bool IsLoaded { get; }
+    public abstract T Asset { get; }
+    public abstract UniTask<T> LoadAsync(CancellationToken ct);
+    public UniTask<T> LoadAsync();                    // перегрузка без ct
+    public abstract void Release();
+}
+```
+
+Ограничение `where T : class` — минимальное. Реализации платформенного слоя могут сужать его до базового типа ассетов своей платформы.
+
+**Инварианты:**
+
+- **I1.** `Asset != null && IsLoaded == true` — эквивалентны.
+- **I2.** До `Release`: повторный `LoadAsync` возвращает тот же экземпляр `T`.
+- **I3.** `Release` идемпотентен.
+- **I4.** Для прямой ссылки `Release()` — гарантированно no-op.
+- **I5.** Контракт не содержит ссылок на платформу и механизмы загрузки.
+- **I6.** `Release` не терминален: handle переиспользуем — следующий `LoadAsync` грузит ассет заново.
 
 ---
 

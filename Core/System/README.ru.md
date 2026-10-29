@@ -43,6 +43,85 @@
 
 ---
 
+## Использование
+
+### Создание системного контроллера
+
+```csharp
+public interface IMyDriver : ISystemDriver
+{
+    string LoadConfig();
+}
+
+public class MySystem : SystemController<MySystem, IMyDriver>
+{
+    protected override void OnDriverConnect()
+    {
+        var config = Driver.LoadConfig();
+    }
+
+    protected override void OnDriverDisconnect() { }
+}
+```
+
+### Использование DateTimeTimer
+
+```csharp
+var timer = new DateTimeTimer(TimeSpan.FromMinutes(30));
+
+if (!timer.IsComplete())
+{
+    var remains = timer.GetTimeRemains();
+    Console.WriteLine($"Осталось: {remains.Minutes}м {remains.Seconds}с");
+}
+```
+
+### Отложенная подписка на систему
+
+```csharp
+Database.OnInit += () =>
+{
+    // Вызовется сразу, если Database уже инициализирована
+    // Или отложится до инициализации
+    var record = Database.GetRecord<MyRecord>("id");
+};
+```
+
+### IProcess для Loader
+
+```csharp
+public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
+{
+    public ProcessData GetProcessInfo() => _processData;
+
+    public async UniTask RunAsync(CancellationToken ct)
+    {
+        _processData = new ProcessData("My System") { Size = 10, Progress = 0 };
+        // загрузка ...
+    }
+
+    public Type[] WaitingFor() => new[] { typeof(Database) };
+}
+```
+
+### Ожидание группы загрузчиков (DelayedObserver)
+
+```csharp
+INeedDelay[] loaders = { spineLoader, audioLoader, sceneLoader };
+
+var observer = new DelayedObserver(
+    loaders,
+    callbackGood:   () => stateSwitcher.Set(DelayedState.Ready),
+    callbackOnError: failed => Debug.LogError($"Failed: {failed.GetType().Name}"),
+    callOnError: true   // продолжить и вызвать callbackGood даже после ошибок
+);
+
+// При уничтожении хэндлера — отписаться от ещё незавершившихся:
+observer.Dispose();
+```
+
+---
+
 ## Архитектура
 
 ### Singleton\<T\>
@@ -225,85 +304,6 @@ DelayedObserver : IDisposable
 | `IDataSource.OnUpdateLink` — link-level | Сигнализирует только замену/пересоздание ссылок, выдаваемых через `IDataStorage.GetData<T>()`. НЕ сигнализирует об изменении внутреннего состояния уже выданных объектов и о добавлении новых без замены существующих |
 | `INeedDelay` не предполагает re-fire | Любой объект завершается ровно один раз — либо `OnReady`, либо `OnError`. После этого `IsCompleted=true` навсегда |
 | `DelayedObserver` хранит подписки в `HashSet` | Повторное появление одного и того же `INeedDelay` в массиве — игнорируется (защита от двойной подписки) |
-
----
-
-## Использование
-
-### Создание системного контроллера
-
-```csharp
-public interface IMyDriver : ISystemDriver
-{
-    string LoadConfig();
-}
-
-public class MySystem : SystemController<MySystem, IMyDriver>
-{
-    protected override void OnDriverConnect()
-    {
-        var config = Driver.LoadConfig();
-    }
-
-    protected override void OnDriverDisconnect() { }
-}
-```
-
-### Использование DateTimeTimer
-
-```csharp
-var timer = new DateTimeTimer(TimeSpan.FromMinutes(30));
-
-if (!timer.IsComplete())
-{
-    var remains = timer.GetTimeRemains();
-    Console.WriteLine($"Осталось: {remains.Minutes}м {remains.Seconds}с");
-}
-```
-
-### Отложенная подписка на систему
-
-```csharp
-Database.OnInit += () =>
-{
-    // Вызовется сразу, если Database уже инициализирована
-    // Или отложится до инициализации
-    var record = Database.GetRecord<MyRecord>("id");
-};
-```
-
-### IProcess для Loader
-
-```csharp
-public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
-{
-    public ProcessData GetProcessInfo() => _processData;
-
-    public async UniTask RunAsync(CancellationToken ct)
-    {
-        _processData = new ProcessData("My System") { Size = 10, Progress = 0 };
-        // загрузка ...
-    }
-
-    public Type[] WaitingFor() => new[] { typeof(Database) };
-}
-```
-
-### Ожидание группы загрузчиков (DelayedObserver)
-
-```csharp
-INeedDelay[] loaders = { spineLoader, audioLoader, sceneLoader };
-
-var observer = new DelayedObserver(
-    loaders,
-    callbackGood:   () => stateSwitcher.Set(DelayedState.Ready),
-    callbackOnError: failed => Debug.LogError($"Failed: {failed.GetType().Name}"),
-    callOnError: true   // продолжить и вызвать callbackGood даже после ошибок
-);
-
-// При уничтожении хэндлера — отписаться от ещё незавершившихся:
-observer.Dispose();
-```
 
 ---
 

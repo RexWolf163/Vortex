@@ -26,6 +26,54 @@
 - `Vortex.Core.LoggerSystem` — логирование ошибок
 - `Cysharp.Threading.Tasks` — `UniTask` (асинхронные операции сохранения)
 
+## Использование
+
+### Создание модели данных
+
+```csharp
+public class ProductRecord : Record
+{
+    public float Price { get; set; }
+    public int Quantity { get; set; }
+
+    public override string GetDataForSave()
+        => this.SerializeProperties();
+
+    public override void LoadFromSaveData(string data)
+        => this.CopyFrom(data.DeserializeProperties<ProductRecord>());
+}
+```
+
+### Доступ к данным
+
+```csharp
+// Singleton
+var product = Database.GetRecord<ProductRecord>("product-guid");
+product.Quantity -= 1;
+
+// MultiInstance — новая копия
+var template = Database.GetNewRecord<ProductRecord>("template-guid");
+
+// Все записи типа
+ProductRecord[] all = Database.GetRecords<ProductRecord>();
+ProductRecord[] copies = Database.GetNewRecords<ProductRecord>();
+
+// Проверка существования
+bool exists = Database.TestRecord("guid");
+
+// GUID всех MultiInstance
+string[] guids = Database.GetMultiInstancePresets<ProductRecord>();
+```
+
+### Подписка на инициализацию
+
+```csharp
+Database.OnInit += () =>
+{
+    var settings = Database.GetRecord<GameSettings>("game-settings");
+};
+```
+
 ## Архитектура
 
 ```
@@ -152,54 +200,6 @@ Database — это **шина общих данных**, а не хранили
 - **Частное** (вне зависимости от веса) → **не в Database**. Локальные данные системы живут в её собственном ассет-конфиге; тяжёлое внутри — по линковке. Класть частное в общую шину — нарушение «общее → шина, частное → внутри компонента».
 
 > **Примечание про AudioSystem.** `AudioSystem` (звуки/музыка через `Database`) применять как систему под **общесистемные** звуки — те, что шарятся по всему приложению (клики UI, общие SFX, фоновая музыка меню). **Внутренние** звуки подгружаемых-выгружаемых систем (мини-игры, отдельные сцены, катсцены) лучше прописывать через **линкованные ассеты звуков** в конфиге самой этой системы, а не заводить в общий `Database`. Иначе локальный звук мини-игры висит в общей шине весь сеанс, хотя нужен только пока система загружена. Это прямое применение оси «частное-тяжёлое → отдельный ассет-конфиг + линковка».
-
-## Использование
-
-### Создание модели данных
-
-```csharp
-public class ProductRecord : Record
-{
-    public float Price { get; set; }
-    public int Quantity { get; set; }
-
-    public override string GetDataForSave()
-        => this.SerializeProperties();
-
-    public override void LoadFromSaveData(string data)
-        => this.CopyFrom(data.DeserializeProperties<ProductRecord>());
-}
-```
-
-### Доступ к данным
-
-```csharp
-// Singleton
-var product = Database.GetRecord<ProductRecord>("product-guid");
-product.Quantity -= 1;
-
-// MultiInstance — новая копия
-var template = Database.GetNewRecord<ProductRecord>("template-guid");
-
-// Все записи типа
-ProductRecord[] all = Database.GetRecords<ProductRecord>();
-ProductRecord[] copies = Database.GetNewRecords<ProductRecord>();
-
-// Проверка существования
-bool exists = Database.TestRecord("guid");
-
-// GUID всех MultiInstance
-string[] guids = Database.GetMultiInstancePresets<ProductRecord>();
-```
-
-### Подписка на инициализацию
-
-```csharp
-Database.OnInit += () =>
-{
-    var settings = Database.GetRecord<GameSettings>("game-settings");
-};
-```
 
 ## Граничные случаи
 

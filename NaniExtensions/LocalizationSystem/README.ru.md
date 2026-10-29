@@ -28,6 +28,25 @@
 
 ---
 
+## Использование
+
+### Настройка
+
+1. Убедиться, что структура папок локализации Naninovel настроена
+2. Открыть `LocalizationPreset` в `Resources/Localization/`
+3. Указать `path` (или перетащить папку), назначить `files` и `languages`
+4. Выбрать `defaultLanguage`
+5. `Vortex/Localization/(Nani) Load data`
+
+### UI настроек языка
+
+1. Добавить `NaniLocaleHandler` на GameObject
+2. Назначить `DropDownComponent`
+3. Выбрать `mode` (Default / Dialogue / Voice)
+4. Настроить `whiteList` — доступные языки для этого канала
+
+---
+
 ## Архитектура
 
 ### Драйвер
@@ -175,25 +194,6 @@ Inspector `LocalizationPreset`:
 Пункт меню доступен только после успешной инициализации драйвера (валидация `_isSet`).
 
 Автосоздание ассета при `InitializeOnLoadMethod` если `LocalizationPreset` отсутствует в Resources.
-
----
-
-## Использование
-
-### Настройка
-
-1. Убедиться, что структура папок локализации Naninovel настроена
-2. Открыть `LocalizationPreset` в `Resources/Localization/`
-3. Указать `path` (или перетащить папку), назначить `files` и `languages`
-4. Выбрать `defaultLanguage`
-5. `Vortex/Localization/(Nani) Load data`
-
-### UI настроек языка
-
-1. Добавить `NaniLocaleHandler` на GameObject
-2. Назначить `DropDownComponent`
-3. Выбрать `mode` (Default / Dialogue / Voice)
-4. Настроить `whiteList` — доступные языки для этого канала
 
 ---
 

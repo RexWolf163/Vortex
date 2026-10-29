@@ -30,6 +30,29 @@ Out of scope:
 
 ---
 
+## Usage
+
+1. Open `DriverConfig` via menu **Tools/Vortex/Configs/Drivers Config**
+2. Click **Reload** to discover all systems
+3. Assign a driver to each system via dropdown
+4. Click **Save Config** — `DriversGenericList.cs` is generated
+5. On application start, drivers connect via `SystemController.SetDriver()` with whitelist validation
+
+```csharp
+// Create a system
+public class MyService : SystemController<MyService, IMyDriver> { ... }
+
+// Create a driver
+public class MyServiceDriver : IMyDriver { ... }
+
+// In DriverConfig: Reload → select MyServiceDriver → Save Config
+
+// Runtime (inside driver):
+MyService.SetDriver(this); // validated against DriversGenericList.WhiteList
+```
+
+---
+
 ## Architecture
 
 ```
@@ -82,29 +105,6 @@ Used in `SystemController<T, TD>.SetDriver()` for runtime validation: only the d
 - Cannot save configuration with empty assignments
 - Cannot connect an incompatible driver at runtime
 - Early error detection: log on project load if configuration is out of sync
-
----
-
-## Usage
-
-1. Open `DriverConfig` via menu **Tools/Vortex/Configs/Drivers Config**
-2. Click **Reload** to discover all systems
-3. Assign a driver to each system via dropdown
-4. Click **Save Config** — `DriversGenericList.cs` is generated
-5. On application start, drivers connect via `SystemController.SetDriver()` with whitelist validation
-
-```csharp
-// Create a system
-public class MyService : SystemController<MyService, IMyDriver> { ... }
-
-// Create a driver
-public class MyServiceDriver : IMyDriver { ... }
-
-// In DriverConfig: Reload → select MyServiceDriver → Save Config
-
-// Runtime (inside driver):
-MyService.SetDriver(this); // validated against DriversGenericList.WhiteList
-```
 
 ---
 

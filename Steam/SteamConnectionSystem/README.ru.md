@@ -38,6 +38,50 @@
 
 ---
 
+## Использование
+
+### Настройка проекта
+
+1. Подключите Steamworks.NET к проекту
+2. Откройте `SteamConnectionSettings` в `Resources/Editor/` (создаётся автоматически)
+3. Укажите `steamAppId` вашего приложения
+4. Включите `isEnabled` — символ `USING_STEAM` добавится автоматически
+5. Для отладки без Steam-клиента включите `isTestBuild`
+
+### Чтение данных пользователя
+
+```csharp
+if (SteamBus.IsLoaded)
+{
+    var name = SteamBus.User.Name;
+    var friends = SteamBus.User.Friends;
+}
+```
+
+### Подписка на загрузку сервисов
+
+```csharp
+// Подключение к моменту инициализации Steam
+SteamBus.OnCallServices += LoadMyService;
+
+// Подписка на обновление статистики
+SteamBus.User.OnUpdated += OnStatsReceived;
+```
+
+### Условная компиляция в игровом коде
+
+```csharp
+#if USING_STEAM
+    SteamBus.User.UnlockAchievement("ACH_001");
+#endif
+
+// Или через const:
+if (SteamBus.SteamEnabled)
+    DoSteamStuff();
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -146,50 +190,6 @@ Settings (internal)
 | `DontDestroyOnLoad` на `SteamManager` | Единственный экземпляр на весь жизненный цикл |
 | Steamworks-вызовы запрещены в `OnDestroy` | `SteamAPI.Shutdown()` уже мог быть вызван |
 | Платформы: Windows, Linux, macOS | `DefineSymbolManager` фильтрует по standalone-платформам |
-
----
-
-## Использование
-
-### Настройка проекта
-
-1. Подключите Steamworks.NET к проекту
-2. Откройте `SteamConnectionSettings` в `Resources/Editor/` (создаётся автоматически)
-3. Укажите `steamAppId` вашего приложения
-4. Включите `isEnabled` — символ `USING_STEAM` добавится автоматически
-5. Для отладки без Steam-клиента включите `isTestBuild`
-
-### Чтение данных пользователя
-
-```csharp
-if (SteamBus.IsLoaded)
-{
-    var name = SteamBus.User.Name;
-    var friends = SteamBus.User.Friends;
-}
-```
-
-### Подписка на загрузку сервисов
-
-```csharp
-// Подключение к моменту инициализации Steam
-SteamBus.OnCallServices += LoadMyService;
-
-// Подписка на обновление статистики
-SteamBus.User.OnUpdated += OnStatsReceived;
-```
-
-### Условная компиляция в игровом коде
-
-```csharp
-#if USING_STEAM
-    SteamBus.User.UnlockAchievement("ACH_001");
-#endif
-
-// Или через const:
-if (SteamBus.SteamEnabled)
-    DoSteamStuff();
-```
 
 ---
 

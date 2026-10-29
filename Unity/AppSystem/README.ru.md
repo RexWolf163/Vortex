@@ -19,6 +19,18 @@ Unity-адаптация жизненного цикла приложения.
 - `Vortex.Unity.EditorTools.Attributes` — `[ToggleButton]` (для `DebugSettings`)
 - `UnityEngine` — `MonoBehaviour`, `Application.Quit()`
 
+## Использование
+
+### Настройка сцены
+
+Разместить `AppStateHandler` на persistent GameObject (не уничтожается при смене сцен). Компонент автоматически подписывается на `App.OnStateChanged` в `Awake`.
+
+### Debug
+
+В ассете `DebugSettings` включить `DebugMode` (глобальный) и `appStates` (локальный). После этого все переходы состояний будут логироваться в `App.SetState()`.
+
+---
+
 ## Архитектура
 
 ```
@@ -76,18 +88,6 @@ Partial-расширение `DebugSettings`. Добавляет toggle `appStat
 Свойство `AppStateDebugMode` — `true` только если включены и глобальный `DebugMode`, и локальный `appStates`. Используется в `App.SetState()` для условного логирования переходов.
 
 Также добавляет toggle `ignorePauseInEditor` (свойство `IgnorePauseInEditor`). Когда включён, `AppStateHandler` в редакторе игнорирует `OnApplicationFocus(false)` / `OnApplicationPause(true)` — переходы в `Unfocused` не происходят (удобно при отладке вне фокуса окна Unity).
-
----
-
-## Использование
-
-### Настройка сцены
-
-Разместить `AppStateHandler` на persistent GameObject (не уничтожается при смене сцен). Компонент автоматически подписывается на `App.OnStateChanged` в `Awake`.
-
-### Debug
-
-В ассете `DebugSettings` включить `DebugMode` (глобальный) и `appStates` (локальный). После этого все переходы состояний будут логироваться в `App.SetState()`.
 
 ## Граничные случаи
 

@@ -24,6 +24,33 @@ Out of scope: graphics quality, VSync, frame rate, render settings.
 
 ---
 
+## Usage
+
+### Minimal Setup
+
+The driver registers automatically via `[RuntimeInitializeOnLoadMethod]`. No additional actions required.
+
+### Video Settings UI
+
+1. Create a `DropDownComponent` on the scene
+2. Add `ScreenResolutionHandler`, assign the `DropDownComponent` reference
+3. For modes — add `ScreenModeHandler`, assign `DropDownComponent`, populate `whiteList` with desired modes
+4. If needed — set `localeTagPrefix` for mode name localization
+
+### Mode Localization
+
+Localization keys are formed as `{localeTagPrefix}{ScreenMode}`:
+
+```
+# Example with localeTagPrefix = "settings.video."
+settings.video.FullScreenWindow    → Fullscreen Window
+settings.video.Windowed            → Windowed
+settings.video.ExclusiveFullScreen → Exclusive Fullscreen
+settings.video.MaximizedWindow     → Maximized Window
+```
+
+---
+
 ## VideoDriver
 
 `IVideoDriver` implementation. Partial class across two files.
@@ -112,33 +139,6 @@ ScreenResolutionHandler (MonoBehaviour)
 **Behavior:**
 - `OnEnable` — copies resolution list from `VideoController`, passes to `DropDownComponent` with current index
 - On selection — calls `VideoController.SetResolution()`
-
----
-
-## Usage
-
-### Minimal Setup
-
-The driver registers automatically via `[RuntimeInitializeOnLoadMethod]`. No additional actions required.
-
-### Video Settings UI
-
-1. Create a `DropDownComponent` on the scene
-2. Add `ScreenResolutionHandler`, assign the `DropDownComponent` reference
-3. For modes — add `ScreenModeHandler`, assign `DropDownComponent`, populate `whiteList` with desired modes
-4. If needed — set `localeTagPrefix` for mode name localization
-
-### Mode Localization
-
-Localization keys are formed as `{localeTagPrefix}{ScreenMode}`:
-
-```
-# Example with localeTagPrefix = "settings.video."
-settings.video.FullScreenWindow    → Fullscreen Window
-settings.video.Windowed            → Windowed
-settings.video.ExclusiveFullScreen → Exclusive Fullscreen
-settings.video.MaximizedWindow     → Maximized Window
-```
 
 ---
 

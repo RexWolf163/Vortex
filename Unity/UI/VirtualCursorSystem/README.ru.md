@@ -46,6 +46,31 @@
 
 ---
 
+## Использование
+
+### 1. Включить модуль
+В `SdkSettings` включить `cursorInputSdk` → **ApplyChanges** (дефайн `USING_VORTEX_CURSOR`, пересборка).
+
+### 2. Настроить InputDriverSet
+`CoreAssetsController` авто-создаст `Resources/Settings/InputDriverSet.asset`. Добавить драйверы, назначить id экшенов из дропдауна. Для Android + Desktop — два `TouchInputDriver`: `HideOnly` + `MobileOnly` (Button `<Touchscreen>/primaryTouch`) и `Delta` + `DesktopOnly` (Value `<Touchscreen>/delta`).
+
+### 3. Input Actions
+Экшены под драйверы (позиция мыши, вектор движения, кнопки, направления навигации, submit, скролл, касание). Для `MultiTouchInputDriver` и `GestureInputDriver` — экшены на касания целиком: `<Touchscreen>/touch*/position`, для кнопок пальцев — `<Touchscreen>/touch*/press`. Карту виртуального курсора включить на стороне проекта (например, `InputMapHandler` на постоянной сцене). Экшены кнопок `ActionInputDriver` — тип **Button** (по `performed` действие ставится, по `canceled` снимается); с PassThrough отпускание тоже приходит как `performed`, и действие залипает. Клик по UI — тот же экшен: UGUI-модуль пакета читает маску действий, отдельный экшен для UI не нужен.
+
+### 4. Сцена
+- На `EventSystem` — `VirtualCursorInputModule` вместо `InputSystemUIInputModule` (`VirtualCursorBaseInput` добавится сам). Для мобильных — `nativeTouch` с `MobileOnly`.
+- Оверлей `Canvas` (Screen Space - Overlay, поверх всего UI) + курсор с `UIStateSwitcher` (состояние 0 — скин по умолчанию, `hidden` — скрытый, остальные по именам скинов) + `UiCursorRenderer`. Raycast у графики курсора отключить.
+- Опционально: `PointerActionTweenerHandler` на курсоре (анимация нажатия), `CameraProvider` на камере, `CursorHoverZone` на элементах UI (одна зона — один рейкаст), `PointerActionHandler` для RMB/MMB.
+
+### 5. Фокус-навигация (опционально)
+- В `InputDriverSet` — `UINavigationDriver`: 4 направления + submit, `coneAngleDeg`, `hideCursorOnFocus`, `captureFocusIfFree`.
+- `FocusGroup` на корне каждого контекста навигации (HUD, меню, диалог); переключение контекстов — `SetActive`.
+- `FocusTargetComponent` на каждом фокусируемом элементе внутри группы; `onFocused`/`onUnfocused` — подсветка/SFX. Для кнопки `FocusTargetComponent` ставится на объект с обработчиком клика или ниже него (submit поднимается по иерархии, как рейкаст).
+- `FocusCenterScrollRect` на `ScrollRect`-списках.
+- `FocusDropDownSelected` на корне `DropDownList` — фокус на выбранный пункт при открытии.
+
+---
+
 ## Архитектура
 
 ```
@@ -362,31 +387,6 @@ virtual  bool HidesCursor { get; }
 virtual  bool SupportsPlatform(RuntimePlatform platform);
 // helpers: ResolveAction / SubscribeAction / UnsubscribeAction / Report(screen, device) / ReportDevice(device) / DeviceOf(action)
 ```
-
----
-
-## Использование
-
-### 1. Включить модуль
-В `SdkSettings` включить `cursorInputSdk` → **ApplyChanges** (дефайн `USING_VORTEX_CURSOR`, пересборка).
-
-### 2. Настроить InputDriverSet
-`CoreAssetsController` авто-создаст `Resources/Settings/InputDriverSet.asset`. Добавить драйверы, назначить id экшенов из дропдауна. Для Android + Desktop — два `TouchInputDriver`: `HideOnly` + `MobileOnly` (Button `<Touchscreen>/primaryTouch`) и `Delta` + `DesktopOnly` (Value `<Touchscreen>/delta`).
-
-### 3. Input Actions
-Экшены под драйверы (позиция мыши, вектор движения, кнопки, направления навигации, submit, скролл, касание). Для `MultiTouchInputDriver` и `GestureInputDriver` — экшены на касания целиком: `<Touchscreen>/touch*/position`, для кнопок пальцев — `<Touchscreen>/touch*/press`. Карту виртуального курсора включить на стороне проекта (например, `InputMapHandler` на постоянной сцене). Экшены кнопок `ActionInputDriver` — тип **Button** (по `performed` действие ставится, по `canceled` снимается); с PassThrough отпускание тоже приходит как `performed`, и действие залипает. Клик по UI — тот же экшен: UGUI-модуль пакета читает маску действий, отдельный экшен для UI не нужен.
-
-### 4. Сцена
-- На `EventSystem` — `VirtualCursorInputModule` вместо `InputSystemUIInputModule` (`VirtualCursorBaseInput` добавится сам). Для мобильных — `nativeTouch` с `MobileOnly`.
-- Оверлей `Canvas` (Screen Space - Overlay, поверх всего UI) + курсор с `UIStateSwitcher` (состояние 0 — скин по умолчанию, `hidden` — скрытый, остальные по именам скинов) + `UiCursorRenderer`. Raycast у графики курсора отключить.
-- Опционально: `PointerActionTweenerHandler` на курсоре (анимация нажатия), `CameraProvider` на камере, `CursorHoverZone` на элементах UI (одна зона — один рейкаст), `PointerActionHandler` для RMB/MMB.
-
-### 5. Фокус-навигация (опционально)
-- В `InputDriverSet` — `UINavigationDriver`: 4 направления + submit, `coneAngleDeg`, `hideCursorOnFocus`, `captureFocusIfFree`.
-- `FocusGroup` на корне каждого контекста навигации (HUD, меню, диалог); переключение контекстов — `SetActive`.
-- `FocusTargetComponent` на каждом фокусируемом элементе внутри группы; `onFocused`/`onUnfocused` — подсветка/SFX. Для кнопки `FocusTargetComponent` ставится на объект с обработчиком клика или ниже него (submit поднимается по иерархии, как рейкаст).
-- `FocusCenterScrollRect` на `ScrollRect`-списках.
-- `FocusDropDownSelected` на корне `DropDownList` — фокус на выбранный пункт при открытии.
 
 ---
 

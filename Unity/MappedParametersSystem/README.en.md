@@ -45,6 +45,55 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Creating a parameter map
+
+1. Open `ParametersMapStorage` — the asset is auto-created by `EditorRegister` in `Resources/MapsConfig/`
+2. Select model type (`IMappedModel`) in `guid` dropdown
+3. Add base parameters (`baseParams`) — string names
+4. Add derived parameters (`mappedParams`) — name, parents with costs, `CostLogic` when >1 parent
+5. `Sort` button — order by dependencies
+
+### MonoBehaviour storage
+
+```csharp
+public class CharacterStatsStorage : MappedModelStorage
+{
+    public override event Action OnUpdateLink;
+
+    protected override void Init()
+    {
+        _data = ParameterMaps.GetModel<CharacterStats>();
+        _data.OnUpdate += () => OnUpdateLink?.Invoke();
+    }
+}
+
+// Usage
+var storage = GetComponent<CharacterStatsStorage>();
+var stats = storage.GetData<CharacterStats>();
+```
+
+### Inspector attributes
+
+```csharp
+public class SkillButton : MonoBehaviour
+{
+    [MappedParameter(typeof(CharacterStats))]
+    public string targetParameter;
+
+    [MappedModel]
+    public string modelType;
+}
+```
+
+### Clipboard
+
+- Inspector → `To Clipboard` button — JSON to clipboard
+- Inspector → `From Clipboard` button — load from clipboard with validation
+
+---
+
 ## Architecture
 
 ```
@@ -151,55 +200,6 @@ Both drawers support a `Find` button — navigates to the `ParametersMapStorage`
 | `WaitingFor() → null` | No dependencies on other processes |
 | `Cost` on `MappedParameterPreset` is always 0 | Cost is stored in `MappedParameterLink`, not in the parameter itself |
 | Editor validation on every change | Recursive `SearchTop` for cycle detection |
-
----
-
-## Usage
-
-### Creating a parameter map
-
-1. Open `ParametersMapStorage` — the asset is auto-created by `EditorRegister` in `Resources/MapsConfig/`
-2. Select model type (`IMappedModel`) in `guid` dropdown
-3. Add base parameters (`baseParams`) — string names
-4. Add derived parameters (`mappedParams`) — name, parents with costs, `CostLogic` when >1 parent
-5. `Sort` button — order by dependencies
-
-### MonoBehaviour storage
-
-```csharp
-public class CharacterStatsStorage : MappedModelStorage
-{
-    public override event Action OnUpdateLink;
-
-    protected override void Init()
-    {
-        _data = ParameterMaps.GetModel<CharacterStats>();
-        _data.OnUpdate += () => OnUpdateLink?.Invoke();
-    }
-}
-
-// Usage
-var storage = GetComponent<CharacterStatsStorage>();
-var stats = storage.GetData<CharacterStats>();
-```
-
-### Inspector attributes
-
-```csharp
-public class SkillButton : MonoBehaviour
-{
-    [MappedParameter(typeof(CharacterStats))]
-    public string targetParameter;
-
-    [MappedModel]
-    public string modelType;
-}
-```
-
-### Clipboard
-
-- Inspector → `To Clipboard` button — JSON to clipboard
-- Inspector → `From Clipboard` button — load from clipboard with validation
 
 ---
 

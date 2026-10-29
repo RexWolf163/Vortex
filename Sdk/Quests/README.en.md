@@ -46,6 +46,130 @@ Out of scope:
 - **UniTask** — async logic execution
 - **Odin Inspector** — inspector attributes
 
+## Usage
+
+### Creating a Quest
+
+1. Create a `QuestLogic` subclass:
+```csharp
+[Serializable]
+public class CollectItemsLogic : QuestLogic
+{
+    [SerializeField] private int targetCount;
+
+    public override async UniTask<bool> Run(CancellationToken token)
+    {
+        while (Inventory.Count < targetCount)
+        {
+            if (token.IsCancellationRequested) return false;
+            await UniTask.Yield(token);
+        }
+        return true;
+    }
+}
+```
+
+2. Create a `QuestConditionLogic` subclass (optional):
+```csharp
+[Serializable]
+public class LevelReached : QuestConditionLogic
+{
+    [SerializeField] private int level;
+    public override bool Check() => PlayerData.Level >= level;
+}
+```
+
+3. Create a `QuestPreset` via **Assets → Create → Database → Quest Preset**
+4. Configure in inspector: start conditions, logics, autorun, unFailable
+
+### Looped quest (`AlwaysFail`)
+
+`AlwaysFail` is a logic returning a hard `false`. On a quest with **`unFailable = true`** it turns completion into a restart: `false` → the quest goes to `Locked` (not `Failed`), is not added to `CompletedQuests`, and a start-condition re-check launches it again.
+
+Building a looping quest:
+1. Enable **`unFailable`** on the quest.
+2. Add **`AlwaysFail`** as the **last** logic (after the useful work and rewards).
+3. Start conditions set the loop cadence: while they hold — the quest loops (one pass per frame; `AlwaysFail` yields a frame via `UniTask.Yield`, so the frame never hangs); a transient condition (event) makes the quest wait for the next trigger.
+
+Logic list shape: `[…useful logics…] → [reward] → AlwaysFail`. Without `unFailable`, `AlwaysFail` simply ends the quest as `Failed`.
+
+### Interrupt Conditions and `Blocked`
+
+`InterruptConditions` are authored in the preset next to the start ones, but the fold between groups is **OR** (any fires → block). The condition type is the same as for start (`QuestConditionLogic`).
+
+```csharp
+// The quest is available UNTIL any of the bosses is defeated.
+// interruptConditions: [ group{ BossDefeated("boss_1") },
+//                        group{ BossDefeated("boss_2") } ]   // OR: any boss blocks
+// blockRemovable = false                                      // permanent block
+```
+
+- Empty `interruptConditions` ⇒ the quest is non-interruptible (as before).
+- Interruption fires on a running quest too: its logic is cancelled, progress is reset.
+- `blockRemovable = true` — once the conditions clear, the quest returns to `Locked` and restarts from scratch.
+
+### Reactive Condition Re-checks
+
+Each `QuestConditionLogic` manages its own subscriptions via `InitListeners()`/`DisposeListeners()`:
+
+```csharp
+[Serializable]
+public class ExampleStarted : QuestConditionLogic
+{
+    public override bool Check() => ExampleEngine.IsPlaying;
+
+    public override void InitListeners()
+    {
+        ExampleEngine.OnStart += QuestController.CheckQuestStartConditions;
+    }
+
+    public override void DisposeListeners()
+    {
+        ExampleEngine.OnStart -= QuestController.CheckQuestStartConditions;
+    }
+}
+```
+
+`QuestConditions.Check()` automatically calls `DisposeListeners` before checking and `InitListeners` only for conditions that returned `false` — subscriptions only live while the condition is unmet.
+
+#### Why both levels are AND (atomic deterministic tracking)
+
+Both conditions within a group (`QuestConditions.Check` → all AND) and groups between each other (`CheckQuestStart` → `StartConditions.All`) are combined by **AND with lazy short-circuit**. This is intentional, not redundancy: at any moment the quest is subscribed to exactly **one** unmet condition — the "blocker" (first `false` in the first unmet group), and the rest are re-checked only when it opens (a re-check cascades the subscription to the next blocker). Hence:
+
+- **atomicity** — a single active subscription at a time;
+- **determinism** — the blocker is always well-defined (left to right).
+
+> ⚠️ **Do not switch the inner level to OR.** An OR-group is true when *any* of its conditions holds, so it becomes true when *any* of them opens — you would have to subscribe to **all** conditions of an unmet group (no single blocker). That breaks atomic tracking. The organizational grouping (group name) is **not** a logical OR: the condition tree evaluates as a **flat AND**.
+
+To express OR / NOR / XOR / nested AND **inside** a group without breaking that atomicity, wrap the conditions in **`LogicGateCondition`** — a single `QuestConditionLogic` that folds its children by a selectable mode (`OR` = any, `NOT` = none/NOR, `XOR` = exactly one, `AND` = all). It deliberately subscribes to **all** its children (alternativeness — the result can change from any of them), so the group's own atomic AND-tracking stays intact; the "flat AND" invariant of the group is preserved because the combinator lives *inside one* condition. Trees nest freely (a `LogicGateCondition` may contain another) — this is how complex trees are built, e.g. `OR` over two sets each folded by `AND`: `LogicGateCondition{ Or, [ LogicGateCondition{ And, [...] }, LogicGateCondition{ And, [...] } ] }`. A `NOT`-mode `LogicGateCondition` over a single child is the replacement for the removed per-condition `inverted` flag (e.g. "quest **not** complete" = `LogicGateCondition{ Not, [ QuestCompleted(id) ] }`). *(The class was renamed from `OrNotCondition`; existing `[SerializeReference]` references are preserved via `[MovedFrom]`.)*
+
+Alternative path — `SetListener`/`RemoveListener` for `IReactiveData`:
+
+```csharp
+[Serializable]
+public class ExampleVariableCondition : QuestConditionLogic
+{
+    public override bool Check() => /* ... */;
+
+    public override void InitListeners()
+    {
+        QuestController.SetListener(GameController.Instance, this);
+        QuestController.SetListener(ExampleVariableListener.Instance, this);
+    }
+
+    public override void DisposeListeners()
+    {
+        QuestController.RemoveListener(this);
+    }
+}
+```
+
+`SetListener` subscribes to `IReactiveData.OnUpdateData` with reference counting — one subscription per `IReactiveData` regardless of the number of conditions. `RemoveListener` unsubscribes when no sources remain.
+
+### UI Binding
+
+Place `QuestDataStorage` on the scene, specify the quest GUID. View components access `QuestModel` via `IDataStorage.GetData<QuestModel>()`.
+
 ## Architecture
 
 ```
@@ -173,130 +297,6 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 - Quests are strictly MultiInstance records (each game gets fresh copies)
 - Per-quest linked CTS: cancelling one quest (on block) does not touch the others; the global `CancellationTokenSource` is for group-wide teardown (new game/load)
 - `QuestConditionLogic.Check()` is synchronous, does not support async conditions
-
-## Usage
-
-### Creating a Quest
-
-1. Create a `QuestLogic` subclass:
-```csharp
-[Serializable]
-public class CollectItemsLogic : QuestLogic
-{
-    [SerializeField] private int targetCount;
-
-    public override async UniTask<bool> Run(CancellationToken token)
-    {
-        while (Inventory.Count < targetCount)
-        {
-            if (token.IsCancellationRequested) return false;
-            await UniTask.Yield(token);
-        }
-        return true;
-    }
-}
-```
-
-2. Create a `QuestConditionLogic` subclass (optional):
-```csharp
-[Serializable]
-public class LevelReached : QuestConditionLogic
-{
-    [SerializeField] private int level;
-    public override bool Check() => PlayerData.Level >= level;
-}
-```
-
-3. Create a `QuestPreset` via **Assets → Create → Database → Quest Preset**
-4. Configure in inspector: start conditions, logics, autorun, unFailable
-
-### Looped quest (`AlwaysFail`)
-
-`AlwaysFail` is a logic returning a hard `false`. On a quest with **`unFailable = true`** it turns completion into a restart: `false` → the quest goes to `Locked` (not `Failed`), is not added to `CompletedQuests`, and a start-condition re-check launches it again.
-
-Building a looping quest:
-1. Enable **`unFailable`** on the quest.
-2. Add **`AlwaysFail`** as the **last** logic (after the useful work and rewards).
-3. Start conditions set the loop cadence: while they hold — the quest loops (one pass per frame; `AlwaysFail` yields a frame via `UniTask.Yield`, so the frame never hangs); a transient condition (event) makes the quest wait for the next trigger.
-
-Logic list shape: `[…useful logics…] → [reward] → AlwaysFail`. Without `unFailable`, `AlwaysFail` simply ends the quest as `Failed`.
-
-### Interrupt Conditions and `Blocked`
-
-`InterruptConditions` are authored in the preset next to the start ones, but the fold between groups is **OR** (any fires → block). The condition type is the same as for start (`QuestConditionLogic`).
-
-```csharp
-// The quest is available UNTIL any of the bosses is defeated.
-// interruptConditions: [ group{ BossDefeated("boss_1") },
-//                        group{ BossDefeated("boss_2") } ]   // OR: any boss blocks
-// blockRemovable = false                                      // permanent block
-```
-
-- Empty `interruptConditions` ⇒ the quest is non-interruptible (as before).
-- Interruption fires on a running quest too: its logic is cancelled, progress is reset.
-- `blockRemovable = true` — once the conditions clear, the quest returns to `Locked` and restarts from scratch.
-
-### Reactive Condition Re-checks
-
-Each `QuestConditionLogic` manages its own subscriptions via `InitListeners()`/`DisposeListeners()`:
-
-```csharp
-[Serializable]
-public class ExampleStarted : QuestConditionLogic
-{
-    public override bool Check() => ExampleEngine.IsPlaying;
-
-    public override void InitListeners()
-    {
-        ExampleEngine.OnStart += QuestController.CheckQuestStartConditions;
-    }
-
-    public override void DisposeListeners()
-    {
-        ExampleEngine.OnStart -= QuestController.CheckQuestStartConditions;
-    }
-}
-```
-
-`QuestConditions.Check()` automatically calls `DisposeListeners` before checking and `InitListeners` only for conditions that returned `false` — subscriptions only live while the condition is unmet.
-
-#### Why both levels are AND (atomic deterministic tracking)
-
-Both conditions within a group (`QuestConditions.Check` → all AND) and groups between each other (`CheckQuestStart` → `StartConditions.All`) are combined by **AND with lazy short-circuit**. This is intentional, not redundancy: at any moment the quest is subscribed to exactly **one** unmet condition — the "blocker" (first `false` in the first unmet group), and the rest are re-checked only when it opens (a re-check cascades the subscription to the next blocker). Hence:
-
-- **atomicity** — a single active subscription at a time;
-- **determinism** — the blocker is always well-defined (left to right).
-
-> ⚠️ **Do not switch the inner level to OR.** An OR-group is true when *any* of its conditions holds, so it becomes true when *any* of them opens — you would have to subscribe to **all** conditions of an unmet group (no single blocker). That breaks atomic tracking. The organizational grouping (group name) is **not** a logical OR: the condition tree evaluates as a **flat AND**.
-
-To express OR / NOR / XOR / nested AND **inside** a group without breaking that atomicity, wrap the conditions in **`LogicGateCondition`** — a single `QuestConditionLogic` that folds its children by a selectable mode (`OR` = any, `NOT` = none/NOR, `XOR` = exactly one, `AND` = all). It deliberately subscribes to **all** its children (alternativeness — the result can change from any of them), so the group's own atomic AND-tracking stays intact; the "flat AND" invariant of the group is preserved because the combinator lives *inside one* condition. Trees nest freely (a `LogicGateCondition` may contain another) — this is how complex trees are built, e.g. `OR` over two sets each folded by `AND`: `LogicGateCondition{ Or, [ LogicGateCondition{ And, [...] }, LogicGateCondition{ And, [...] } ] }`. A `NOT`-mode `LogicGateCondition` over a single child is the replacement for the removed per-condition `inverted` flag (e.g. "quest **not** complete" = `LogicGateCondition{ Not, [ QuestCompleted(id) ] }`). *(The class was renamed from `OrNotCondition`; existing `[SerializeReference]` references are preserved via `[MovedFrom]`.)*
-
-Alternative path — `SetListener`/`RemoveListener` for `IReactiveData`:
-
-```csharp
-[Serializable]
-public class ExampleVariableCondition : QuestConditionLogic
-{
-    public override bool Check() => /* ... */;
-
-    public override void InitListeners()
-    {
-        QuestController.SetListener(GameController.Instance, this);
-        QuestController.SetListener(ExampleVariableListener.Instance, this);
-    }
-
-    public override void DisposeListeners()
-    {
-        QuestController.RemoveListener(this);
-    }
-}
-```
-
-`SetListener` subscribes to `IReactiveData.OnUpdateData` with reference counting — one subscription per `IReactiveData` regardless of the number of conditions. `RemoveListener` unsubscribes when no sources remain.
-
-### UI Binding
-
-Place `QuestDataStorage` on the scene, specify the quest GUID. View components access `QuestModel` via `IDataStorage.GetData<QuestModel>()`.
 
 ## Edge Cases
 

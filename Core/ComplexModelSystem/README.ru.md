@@ -19,54 +19,6 @@
 - `Vortex.Core.Extensions.LogicExtensions.SerializationSystem` — `SerializeProperties()`, `DeserializeProperties<T>()`
 - `Vortex.Core.LoggerSystem` — логирование ошибок
 
-## Архитектура
-
-```
-ComplexModel<T> (abstract, Serializable)
-├── Cache          — static Dictionary<Type, Type[]> (кэш типов по T)
-├── Index          — Dictionary<Type, T> (экземпляры компонентов)
-├── Init()         — сканирование сборок или восстановление из кэша
-├── Get<TU>()      — доступ к компоненту по типу
-├── Serialize()    — → JSON (вызывает BeforeSerialization/AfterSerialization)
-├── Deserialize()  — ← JSON (вызывает BeforeDeserialization/AfterDeserialization)
-└── abstract hooks — BeforeSerialization, AfterSerialization, BeforeDeserialization, AfterDeserialization
-```
-
-### Init()
-
-1. Очистка `Index`
-2. Если `Cache` содержит типы для `T` — создание экземпляров из кэша (`Activator.CreateInstance`)
-3. Иначе — сканирование всех сборок: поиск не-abstract, не-interface типов, assignable от `T`, с безпараметрическим конструктором
-4. Сохранение найденных типов в `Cache[typeof(T)]`
-
-### Требования к T
-
-- Конкретные реализации должны иметь безпараметрический конструктор
-- Не abstract, не interface
-- `class` constraint
-
-## Контракт
-
-### Вход
-- Вызов `Init()` для сканирования и создания экземпляров
-- `Deserialize(string)` для восстановления из JSON
-
-### Выход
-- `Get<TU>()` — типизированный доступ к компоненту
-- `Serialize()` — JSON-строка через `SerializeController`
-
-### Гарантии
-- Кэш типов — повторные `Init()` не сканируют сборки (для одного `T`)
-- `Get<TU>()` при отсутствии типа — `null` + лог `Error`
-- `Deserialize(null/empty)` — лог `Error`, индекс не изменяется
-- Исключения при сканировании сборок перехватываются — лог `Warning`
-
-### Ограничения
-- Один экземпляр на тип — дубликаты типов невозможны
-- `Activator.CreateInstance` — только безпараметрические конструкторы
-- Кэш статический по `T` — общий для всех экземпляров `ComplexModel<T>`
-- Сериализация через `SerializeController` (experimental)
-
 ## Использование
 
 ### Определение модели
@@ -115,6 +67,54 @@ var restored = new PlayerModel();
 restored.Init();
 restored.Deserialize(json);
 ```
+
+## Архитектура
+
+```
+ComplexModel<T> (abstract, Serializable)
+├── Cache          — static Dictionary<Type, Type[]> (кэш типов по T)
+├── Index          — Dictionary<Type, T> (экземпляры компонентов)
+├── Init()         — сканирование сборок или восстановление из кэша
+├── Get<TU>()      — доступ к компоненту по типу
+├── Serialize()    — → JSON (вызывает BeforeSerialization/AfterSerialization)
+├── Deserialize()  — ← JSON (вызывает BeforeDeserialization/AfterDeserialization)
+└── abstract hooks — BeforeSerialization, AfterSerialization, BeforeDeserialization, AfterDeserialization
+```
+
+### Init()
+
+1. Очистка `Index`
+2. Если `Cache` содержит типы для `T` — создание экземпляров из кэша (`Activator.CreateInstance`)
+3. Иначе — сканирование всех сборок: поиск не-abstract, не-interface типов, assignable от `T`, с безпараметрическим конструктором
+4. Сохранение найденных типов в `Cache[typeof(T)]`
+
+### Требования к T
+
+- Конкретные реализации должны иметь безпараметрический конструктор
+- Не abstract, не interface
+- `class` constraint
+
+## Контракт
+
+### Вход
+- Вызов `Init()` для сканирования и создания экземпляров
+- `Deserialize(string)` для восстановления из JSON
+
+### Выход
+- `Get<TU>()` — типизированный доступ к компоненту
+- `Serialize()` — JSON-строка через `SerializeController`
+
+### Гарантии
+- Кэш типов — повторные `Init()` не сканируют сборки (для одного `T`)
+- `Get<TU>()` при отсутствии типа — `null` + лог `Error`
+- `Deserialize(null/empty)` — лог `Error`, индекс не изменяется
+- Исключения при сканировании сборок перехватываются — лог `Warning`
+
+### Ограничения
+- Один экземпляр на тип — дубликаты типов невозможны
+- `Activator.CreateInstance` — только безпараметрические конструкторы
+- Кэш статический по `T` — общий для всех экземпляров `ComplexModel<T>`
+- Сериализация через `SerializeController` (experimental)
 
 ## Граничные случаи
 

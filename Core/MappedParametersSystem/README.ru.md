@@ -37,6 +37,54 @@
 
 ---
 
+## Использование
+
+### Реализация модели данных
+
+```csharp
+public class CharacterStats : IMappedModel
+{
+    public event Action OnUpdate;
+
+    private Dictionary<string, GenericParameter> _parameters = new();
+    private ParametersMap _map;
+
+    public void Init(ParametersMap map)
+    {
+        _map = map;
+        _parameters.Clear();
+        foreach (var param in map.GetParameters())
+        {
+            param.OnUpdate += () => OnUpdate?.Invoke();
+            _parameters[param.Name] = param;
+        }
+    }
+
+    public string[] GetParameters() => _parameters.Keys.ToArray();
+    public int GetValue(string name) => _parameters.TryGetValue(name, out var p) ? p.Value : 0;
+    public GenericParameter GetParameterAsContainer(string name) => _parameters.GetValueOrDefault(name);
+    public IParameterLink[] GetParents(string name) => _map?.GetParameterMap(name)?.Parents ?? Array.Empty<IParameterLink>();
+}
+```
+
+### Получение модели в runtime
+
+```csharp
+// Новый экземпляр
+var stats = ParameterMaps.GetModel<CharacterStats>() as CharacterStats;
+
+// Инициализация существующего
+var stats = new CharacterStats();
+ParameterMaps.InitMap(stats);
+
+// Работа с параметрами
+var strength = stats.GetParameterAsContainer("Strength");
+strength.OnUpdate += () => Console.WriteLine($"Strength: {strength.Value}");
+strength.SetValue(10);
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -143,54 +191,6 @@ IDriverMappedParameters : ISystemDriver
 | `GetParameters()` создаёт новый массив | Каждый вызов — независимые экземпляры `GenericParameter` |
 | `GetModel<T>()` требует безпараметрический конструктор | `Activator.CreateInstance(type)` |
 | `null` при ошибках | Тип не `IMappedModel`, карта не найдена, `FullName == null` |
-
----
-
-## Использование
-
-### Реализация модели данных
-
-```csharp
-public class CharacterStats : IMappedModel
-{
-    public event Action OnUpdate;
-
-    private Dictionary<string, GenericParameter> _parameters = new();
-    private ParametersMap _map;
-
-    public void Init(ParametersMap map)
-    {
-        _map = map;
-        _parameters.Clear();
-        foreach (var param in map.GetParameters())
-        {
-            param.OnUpdate += () => OnUpdate?.Invoke();
-            _parameters[param.Name] = param;
-        }
-    }
-
-    public string[] GetParameters() => _parameters.Keys.ToArray();
-    public int GetValue(string name) => _parameters.TryGetValue(name, out var p) ? p.Value : 0;
-    public GenericParameter GetParameterAsContainer(string name) => _parameters.GetValueOrDefault(name);
-    public IParameterLink[] GetParents(string name) => _map?.GetParameterMap(name)?.Parents ?? Array.Empty<IParameterLink>();
-}
-```
-
-### Получение модели в runtime
-
-```csharp
-// Новый экземпляр
-var stats = ParameterMaps.GetModel<CharacterStats>() as CharacterStats;
-
-// Инициализация существующего
-var stats = new CharacterStats();
-ParameterMaps.InitMap(stats);
-
-// Работа с параметрами
-var strength = stats.GetParameterAsContainer("Strength");
-strength.OnUpdate += () => Console.WriteLine($"Strength: {strength.Value}");
-strength.SetValue(10);
-```
 
 ---
 

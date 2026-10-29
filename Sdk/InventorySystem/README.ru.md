@@ -17,6 +17,59 @@
 
 Собирается при включённом тумблере `itemsSdk` в `SdkSettings` — под тем же define-ключом `USING_VORTEX_ITEMS`, что и пакет предметов; отдельного тумблера нет. Сборка: `ru.vortex.sdk.inventorysystem`, ссылается на `ru.vortex.sdk.itemssystem`. Обратной зависимости нет — пакет предметов об инвентарях не знает. Требуется Odin Inspector.
 
+## Использование
+
+### 1. Объявить инвентарь в пресете хозяина
+
+```csharp
+public class ChestPreset : RecordPreset<ChestModel>
+{
+    [SerializeField] private Inventory inventory;
+    public Inventory Inventory => inventory;
+}
+
+public class ChestModel : Record
+{
+    public Inventory Inventory { get; private set; }
+    // ...
+}
+```
+
+Инвентарь переезжает в модель через `CopyFrom` при построении записи — как обычное свойство. Верификаторы, политика и стартовое наполнение приезжают из настройки.
+
+### 2. Настроить в инспекторе
+
+Набор верификаторов (полиморфный выбор класса), политика пачек, стартовое наполнение (пары «пресет предмета + количество»).
+
+### 3. Операции
+
+```csharp
+if (chest.Inventory.Add(item)) { /* размещён */ }
+
+var taken = chest.Inventory.Take(item);          // изъять целиком
+var part  = chest.Inventory.TakeAmount(item, 5); // отделить 5 из пачки
+chest.Inventory.Drop(item);                      // изъять и уничтожить
+
+item.Move(from: chest.Inventory, to: bag.Inventory);
+```
+
+### 4. Читать состав и занятое
+
+```csharp
+foreach (var it in chest.Inventory.Items) { /* ... */ }
+
+foreach (var v in chest.Inventory.Verifiers)
+    ShowBar(v.GetCurrent(chest.Inventory), v.GetMax(chest.Inventory)); // фильтры отдадут 0/0
+```
+
+### 5. Уничтожение
+
+```csharp
+chest.Inventory.Dispose(); // содержимое удаляется рекурсивно, затем событие OnInventoryDestroyed
+```
+
+Событие приходит после удаления содержимого — оно для уборки, не для подбора. Кому содержимое нужно (высыпать на землю), забирает его до `Dispose`.
+
 ## Архитектура
 
 | Единица | Роль |
@@ -103,59 +156,6 @@
 - Однородность предметов при слиянии определяется совпадением типа и наличием свойства пачки; состав и состояние прочих свойств не сверяются — за корректность стекуемых типов отвечает настройка.
 - Верификаторы гейтят только размещение. Запретов на изъятие в этой версии нет.
 - Идентичность класса свойства в сохранении — полное имя со сборкой; переименование сборки ломает сохранения предметов.
-
-## Использование
-
-### 1. Объявить инвентарь в пресете хозяина
-
-```csharp
-public class ChestPreset : RecordPreset<ChestModel>
-{
-    [SerializeField] private Inventory inventory;
-    public Inventory Inventory => inventory;
-}
-
-public class ChestModel : Record
-{
-    public Inventory Inventory { get; private set; }
-    // ...
-}
-```
-
-Инвентарь переезжает в модель через `CopyFrom` при построении записи — как обычное свойство. Верификаторы, политика и стартовое наполнение приезжают из настройки.
-
-### 2. Настроить в инспекторе
-
-Набор верификаторов (полиморфный выбор класса), политика пачек, стартовое наполнение (пары «пресет предмета + количество»).
-
-### 3. Операции
-
-```csharp
-if (chest.Inventory.Add(item)) { /* размещён */ }
-
-var taken = chest.Inventory.Take(item);          // изъять целиком
-var part  = chest.Inventory.TakeAmount(item, 5); // отделить 5 из пачки
-chest.Inventory.Drop(item);                      // изъять и уничтожить
-
-item.Move(from: chest.Inventory, to: bag.Inventory);
-```
-
-### 4. Читать состав и занятое
-
-```csharp
-foreach (var it in chest.Inventory.Items) { /* ... */ }
-
-foreach (var v in chest.Inventory.Verifiers)
-    ShowBar(v.GetCurrent(chest.Inventory), v.GetMax(chest.Inventory)); // фильтры отдадут 0/0
-```
-
-### 5. Уничтожение
-
-```csharp
-chest.Inventory.Dispose(); // содержимое удаляется рекурсивно, затем событие OnInventoryDestroyed
-```
-
-Событие приходит после удаления содержимого — оно для уборки, не для подбора. Кому содержимое нужно (высыпать на землю), забирает его до `Dispose`.
 
 ## API
 

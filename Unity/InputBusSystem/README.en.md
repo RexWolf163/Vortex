@@ -32,6 +32,62 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Action subscription from code
+
+```csharp
+InputController.AddActionUser("Player/Jump", this, OnJumpPerformed, OnJumpCanceled);
+
+// Unsubscribe
+InputController.RemoveActionUser("Player/Jump", this);
+```
+
+`this` serves as the identification key. A repeated `AddActionUser` with the same object will not create a duplicate.
+
+### Polling a value (GetAction)
+
+For analog input (sticks, triggers, cursor delta), where you need the value on demand rather than a callback subscription, `GetAction("Map/Action")` returns the `InputAction` directly — then `ReadValue<T>()` / `IsPressed()` in your own `Update`:
+
+```csharp
+var move = InputController.GetAction("Player/Move");
+var delta = move?.ReadValue<Vector2>() ?? Vector2.zero;
+```
+
+`null` — key not found. This is an escape hatch around the LIFO routing: the caller reads the value itself, the bus is not involved in polling (in the editor the method runs `Init` on demand if needed).
+
+### Subscription via Inspector (InputActionHandler)
+
+`InputActionHandler` component on a GameObject:
+- `inputAction` — action from dropdown (composite id `Map/Action`, grouped into map folders)
+- `button` — optional reference to `AdvancedButton`
+- `onPressed` / `onReleased` — Unity Events
+
+### Pointer position (InputPointerHandler)
+
+`InputPointerHandler` subscribes to an action by the bus rules (LIFO) and, on **every** event of it, emits the current pointer position through a single `UnityEvent<Vector2>` (`onPoint`, screen coordinates via `Pointer.current`). Unlike `InputActionHandler` (two events, press/release), this is one method carrying a vector value; what to do with the point and when to start/stop catching is up to the subscriber (e.g. by enabling/disabling the object via a press action).
+
+- `inputAction` — the action whose event = the moment to emit the position (e.g. `CursorPosition`)
+- `onPoint` — `UnityEvent<Vector2>`, invoked on every action event with the current position
+
+Subscription is deferred until `AppStates.Running` (as in `InputActionHandler`); auto-unsubscribe in `OnDisable`/`OnDestroy`.
+
+### Map activation (InputMapHandler)
+
+`InputMapHandler` component on a GameObject:
+- `inputMap` — map from dropdown
+
+The map is active as long as at least one `InputMapHandler` for it is enabled in the scene.
+
+### Direct key binding (KeyboardHandler)
+
+`KeyboardHandler` component on a GameObject:
+- `buttonCode` — array of individual keys (any triggers activation)
+- `buttonsCombinations` — array of combinations (last key is the trigger, others are modifiers)
+- `button`, `onPressed`, `onReleased` — same as `InputActionHandler`
+
+---
+
 ## Architecture
 
 ```
@@ -149,62 +205,6 @@ public readonly object Owner;
 public Action OnPerformed { get; }
 public Action OnCanceled { get; }
 ```
-
----
-
-## Usage
-
-### Action subscription from code
-
-```csharp
-InputController.AddActionUser("Player/Jump", this, OnJumpPerformed, OnJumpCanceled);
-
-// Unsubscribe
-InputController.RemoveActionUser("Player/Jump", this);
-```
-
-`this` serves as the identification key. A repeated `AddActionUser` with the same object will not create a duplicate.
-
-### Polling a value (GetAction)
-
-For analog input (sticks, triggers, cursor delta), where you need the value on demand rather than a callback subscription, `GetAction("Map/Action")` returns the `InputAction` directly — then `ReadValue<T>()` / `IsPressed()` in your own `Update`:
-
-```csharp
-var move = InputController.GetAction("Player/Move");
-var delta = move?.ReadValue<Vector2>() ?? Vector2.zero;
-```
-
-`null` — key not found. This is an escape hatch around the LIFO routing: the caller reads the value itself, the bus is not involved in polling (in the editor the method runs `Init` on demand if needed).
-
-### Subscription via Inspector (InputActionHandler)
-
-`InputActionHandler` component on a GameObject:
-- `inputAction` — action from dropdown (composite id `Map/Action`, grouped into map folders)
-- `button` — optional reference to `AdvancedButton`
-- `onPressed` / `onReleased` — Unity Events
-
-### Pointer position (InputPointerHandler)
-
-`InputPointerHandler` subscribes to an action by the bus rules (LIFO) and, on **every** event of it, emits the current pointer position through a single `UnityEvent<Vector2>` (`onPoint`, screen coordinates via `Pointer.current`). Unlike `InputActionHandler` (two events, press/release), this is one method carrying a vector value; what to do with the point and when to start/stop catching is up to the subscriber (e.g. by enabling/disabling the object via a press action).
-
-- `inputAction` — the action whose event = the moment to emit the position (e.g. `CursorPosition`)
-- `onPoint` — `UnityEvent<Vector2>`, invoked on every action event with the current position
-
-Subscription is deferred until `AppStates.Running` (as in `InputActionHandler`); auto-unsubscribe in `OnDisable`/`OnDestroy`.
-
-### Map activation (InputMapHandler)
-
-`InputMapHandler` component on a GameObject:
-- `inputMap` — map from dropdown
-
-The map is active as long as at least one `InputMapHandler` for it is enabled in the scene.
-
-### Direct key binding (KeyboardHandler)
-
-`KeyboardHandler` component on a GameObject:
-- `buttonCode` — array of individual keys (any triggers activation)
-- `buttonsCombinations` — array of combinations (last key is the trigger, others are modifiers)
-- `button`, `onPressed`, `onReleased` — same as `InputActionHandler`
 
 ---
 

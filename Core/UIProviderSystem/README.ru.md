@@ -43,6 +43,54 @@
 
 ---
 
+## Использование
+
+### Создание условия
+
+```csharp
+[Serializable]
+public class PlayerDeadCondition : UserInterfaceCondition
+{
+    protected override void Run()
+    {
+        PlayerModel.OnDeath += RunCallback;
+        PlayerModel.OnRespawn += RunCallback;
+        RunCallback();
+    }
+
+    public override void DeInit()
+    {
+        PlayerModel.OnDeath -= RunCallback;
+        PlayerModel.OnRespawn -= RunCallback;
+    }
+
+    public override ConditionAnswer Check()
+    {
+        return PlayerModel.IsDead ? ConditionAnswer.Open : ConditionAnswer.Close;
+    }
+}
+```
+
+### Ручное управление
+
+```csharp
+UIProvider.Open("settings-menu-guid");
+UIProvider.Close("settings-menu-guid");
+UIProvider.CloseAll();
+
+var openUIs = UIProvider.GetOpenedUIs();
+```
+
+### Подписка на события
+
+```csharp
+// Safe subscribe — если UI уже открыт, callback вызовется сразу
+uiData.OnOpen += () => Debug.Log("Opened");
+uiData.OnClose += () => Debug.Log("Closed");
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -155,54 +203,6 @@ UserInterfaceTypes
 | `Close` приоритетнее `Open` в условиях | Первый `Close` прерывает проверку |
 | Позиция — `(int, int)` | Целочисленные пиксели |
 | GUID пресета должен быть уникален | Дубликаты перезаписывают запись в индексе |
-
----
-
-## Использование
-
-### Создание условия
-
-```csharp
-[Serializable]
-public class PlayerDeadCondition : UserInterfaceCondition
-{
-    protected override void Run()
-    {
-        PlayerModel.OnDeath += RunCallback;
-        PlayerModel.OnRespawn += RunCallback;
-        RunCallback();
-    }
-
-    public override void DeInit()
-    {
-        PlayerModel.OnDeath -= RunCallback;
-        PlayerModel.OnRespawn -= RunCallback;
-    }
-
-    public override ConditionAnswer Check()
-    {
-        return PlayerModel.IsDead ? ConditionAnswer.Open : ConditionAnswer.Close;
-    }
-}
-```
-
-### Ручное управление
-
-```csharp
-UIProvider.Open("settings-menu-guid");
-UIProvider.Close("settings-menu-guid");
-UIProvider.CloseAll();
-
-var openUIs = UIProvider.GetOpenedUIs();
-```
-
-### Подписка на события
-
-```csharp
-// Safe subscribe — если UI уже открыт, callback вызовется сразу
-uiData.OnOpen += () => Debug.Log("Opened");
-uiData.OnClose += () => Debug.Log("Closed");
-```
 
 ---
 

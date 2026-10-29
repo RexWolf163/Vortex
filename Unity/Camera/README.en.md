@@ -6,6 +6,22 @@ Assembly: `ru.vortex.unity.camera`
 Namespace: `Vortex.Unity.Camera`  
 Layer: 2 (Unity)
 
+## Scene Setup
+
+```
+Scene
+├── Map Camera                    # GameObject with Camera
+│   ├── CameraDataStorage         # data holder
+│   └── CameraMoveHandler         # smooth following
+│       source → Map Camera (CameraDataStorage)
+├── Map
+│   ├── Borders                   # RectTransform movement zone
+│   │   └── BordersHandler        # cameraName = "Map Camera"
+│   └── Objects
+│       └── Player
+│           └── FocusHandler      # cameraName = "Map Camera"
+```
+
 ## Architecture
 
 ```
@@ -177,22 +193,6 @@ Modes (`FocusMode`):
 ### BordersHandler
 
 Declarative `RectTransform` border binding. `SetData` adds, `RemoveData` removes.
-
-## Scene Setup
-
-```
-Scene
-├── Map Camera                    # GameObject with Camera
-│   ├── CameraDataStorage         # data holder
-│   └── CameraMoveHandler         # smooth following
-│       source → Map Camera (CameraDataStorage)
-├── Map
-│   ├── Borders                   # RectTransform movement zone
-│   │   └── BordersHandler        # cameraName = "Map Camera"
-│   └── Objects
-│       └── Player
-│           └── FocusHandler      # cameraName = "Map Camera"
-```
 
 ## Edge Cases
 

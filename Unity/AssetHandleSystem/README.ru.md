@@ -40,32 +40,6 @@
 
 ---
 
-## Реализации
-
-Обе сужают ограничение контракта до `where T : UnityEngine.Object`.
-
-### `DirectAssetHandle<T>`
-
-Прямая ссылка на ассет. Одно поле `[SerializeField] T asset`. `LoadAsync` возвращает `UniTask.FromResult(asset)`, `Release` — пустой метод. Ассет в памяти, пока жив пресет. Работает в любом проекте, в том числе без Addressables; подходит для лёгких и всегда нужных ассетов.
-
-### `AddressableAssetHandle<T>`
-
-Ленивая подгрузка через Addressables поверх `AssetCache` (dedup, LRU-survivors, sweep destroyed owners — бесплатно). Собирается только при `ENABLE_ADDRESSABLES`.
-
-- `[SerializeField] AssetReference reference` — ссылка на Addressables-ассет.
-- `[NonSerialized] T _cached` — кэш загруженного ассета; единственное состояние (handle переиспользуем).
-- Handle — sole owner своего Addressables-handle через `AssetCache` (`owner = this`): в кэше у handle всегда ровно один ключ. Перекрывающиеся загрузки одного handle (например, повтор после отмены, пока отменённая загрузка ещё в полёте) кэш считает отдельными удержаниями этого ключа.
-
-Flow `LoadAsync(ct)`:
-1. Если `_cached != null` → warning (повторный Load без Release) + тот же экземпляр, без обращения к `AssetCache`.
-2. Иначе — `await AssetCache.Load<T>(this, reference, ct)` → сохранить в `_cached`.
-
-Flow `Release()`:
-1. Если `_cached == null` — no-op.
-2. `AssetCache.Release(this)`; `_cached = null`. Handle снова готов к `LoadAsync`.
-
----
-
 ## Использование
 
 ### Пресет
@@ -94,6 +68,32 @@ void CloseFullscreen(GallerySpritePreset preset)
     preset.Fullscreen.Release();                          // Direct — no-op, Addressable — освобождает
 }
 ```
+
+---
+
+## Реализации
+
+Обе сужают ограничение контракта до `where T : UnityEngine.Object`.
+
+### `DirectAssetHandle<T>`
+
+Прямая ссылка на ассет. Одно поле `[SerializeField] T asset`. `LoadAsync` возвращает `UniTask.FromResult(asset)`, `Release` — пустой метод. Ассет в памяти, пока жив пресет. Работает в любом проекте, в том числе без Addressables; подходит для лёгких и всегда нужных ассетов.
+
+### `AddressableAssetHandle<T>`
+
+Ленивая подгрузка через Addressables поверх `AssetCache` (dedup, LRU-survivors, sweep destroyed owners — бесплатно). Собирается только при `ENABLE_ADDRESSABLES`.
+
+- `[SerializeField] AssetReference reference` — ссылка на Addressables-ассет.
+- `[NonSerialized] T _cached` — кэш загруженного ассета; единственное состояние (handle переиспользуем).
+- Handle — sole owner своего Addressables-handle через `AssetCache` (`owner = this`): в кэше у handle всегда ровно один ключ. Перекрывающиеся загрузки одного handle (например, повтор после отмены, пока отменённая загрузка ещё в полёте) кэш считает отдельными удержаниями этого ключа.
+
+Flow `LoadAsync(ct)`:
+1. Если `_cached != null` → warning (повторный Load без Release) + тот же экземпляр, без обращения к `AssetCache`.
+2. Иначе — `await AssetCache.Load<T>(this, reference, ct)` → сохранить в `_cached`.
+
+Flow `Release()`:
+1. Если `_cached == null` — no-op.
+2. `AssetCache.Release(this)`; `_cached = null`. Handle снова готов к `LoadAsync`.
 
 ---
 

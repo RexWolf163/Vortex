@@ -38,117 +38,6 @@ Out of scope:
 - `Vortex.Unity.SettingsSystem` — `SettingsPreset` for `GameSettings` (`Settings/Presets`, asmref into `ru.vortex.unity.settings`)
 - `Cysharp.Threading.Tasks` — `UniTask` (save/load)
 
-## Architecture
-
-```
-GameController (Singleton, IReactiveData, ISaveable, static API)
-├── GameModel (ComplexModel<IGameData>)
-│   ├── State: GameStates
-│   └── Dictionary<Type, IGameData>   ← packages register their data
-├── SessionServices (HashSet<IGameSessionService>)
-│                                       ← engines whose readiness GameController
-│                                          waits for before entering Play
-├── OnNewGame                          ← new game event
-├── OnGameStateChanged                 ← state change event
-├── OnLoadGame                         ← load complete event
-├── OnUpdate / OnUpdateData            ← reactive subscription (IReactiveData)
-├── CallUpdateEvent()                  ← batching via TimeController.Accumulate
-└── Serialize / Deserialize            ← JSON serialization (POCO fields)
-```
-
-### Components
-
-| Class | Type | Purpose |
-|-------|------|---------|
-| `GameController` | `Singleton<T>`, `IReactiveData`, `ISaveable`, partial, static | Game management bus |
-| `GameModel` | `ComplexModel<IGameData>` | Composite data model |
-| `GameTimeData` | `IGameData` | Timings inside the save body: playthrough time, its start date, app-time snapshot |
-| `AppTimeData` | `IGlobalData` | Total time in the application — a global storage module (key `Vortex.AppTime`) |
-| `IGameSessionService` | `interface` | Game session service contract — `IsReady` + `Name` |
-| `GameStates` | `enum` | Off, Play, Win, Fail, Paused, Loading |
-| `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` by game state |
-| `GameStateCondition` | `UnityUserInterfaceCondition` | UI display condition by state |
-| `GameMenuHandler` | `MonoBehaviour` | Menu button handler (NewGame, Pause, Exit) |
-| `EnableGameDelayForChild` | `MonoBehaviour` | `EnableDelayForChild` counterpart on `Timer`: children are disabled on creation and enabled `delay` after the object is enabled; while the game is paused (`Paused`) the countdown is frozen, after release the remainder is counted; disabling the object disables the children and drops the countdown; outside play mode children are enabled at once |
-| `FocusRectPauseHandler` | `MonoBehaviour` | Freezes `FocusRectView` on game pause: `Paused` — the View's smooth transition holds (`FocusRectView.SetPause`), other states — it runs; disabling the handler releases the View |
-| `GameSettings` | `SettingsPreset` | Game session settings (see "Settings") |
-
-### Settings — `GameSettings`
-
-Settings preset `Resources/Settings/GameSettings.asset`: created automatically when the editor loads; its values are copied into `SettingsModel` (`Settings.Data()`). To locate it — menu `Tools → Vortex → Configs → Game Settings`.
-
-| Field | Default | Purpose |
-|-------|---------|---------|
-| `pauseOnUnfocus` | on | Application focus loss (`AppStates.Unfocused`) pauses a running game (`SetPause(true)`). When off, the game keeps running; the application still enters `Unfocused` as before (the global storage is written immediately). In the editor, focus loss is additionally suppressed by `ignorePauseInEditor` in `DebugSettings` |
-
-### Partial Extensions
-
-`GameController` is a partial class. Other packages extend it without modifying the main file:
-- `QuestControllerExtEditor` subscribes to `OnEditorGetData`
-- Projects can add their own partial extensions
-
-## Contract
-
-### Input
-- `App.OnStateChanged` — reaction to global application states
-- `GameModel.IGameData` — marker for registering data in the composite model
-- `IGameSessionService` — contract for a service whose readiness `GameController` awaits before `Play`
-
-### Output
-- `GameController.GetState()` — current state
-- `GameController.Get<T>()` — access to registered data
-- `GameController.RegisterSessionService(service)` / `UnregisterSessionService(service)` — session service registration
-- `GameController.OnGameStateChanged` — state change event
-- `GameController.OnNewGame` — new game event
-- `GameController.OnLoadGame` — load complete event
-- `GameController.OnUpdate` — static data update subscription (proxies `OnUpdateData`)
-- `GameController.CallUpdateEvent()` — invoke `OnUpdateData` with batching via `TimeController.Accumulate`
-- `GameController.NewGameAsync(token)` — async variant of `NewGame()` that awaits session services
-- `GameController.WinGame()` / `GameController.FailGame()` — end the current game as a win/loss (`Play`/`Paused` → `Win`/`Fail`); ignored outside an active session, does not close the session
-- `GameController.PlayTime` (`TimeSpan`) — current playthrough time, including the open interval
-- `GameController.AppTime` (`TimeSpan`) — total time in the application across all launches
-- `GameController.SessionStarted` (`DateTime`) — start date of the current playthrough
-
-### Editor
-
-`GameControllerExtEditor` — the editor API for tools: `EditorModules()` (model modules: type → instance), `EditorResetModule(type)`, `EditorResetAll()`, `EditorCommit()`. Built on `ComplexModel.GetEditorIndex()` and `ComplexModel.EditorResetModule(type)`, with no reflection.
-
-### Guarantees
-- `NewGame()` is blocked until `ExitGame()` is called (lock mechanism)
-- Before transitioning to `Play` (after `NewGame` and `OnLoad`), `GameController` waits for all registered `IGameSessionService` to become ready, with no timeout (fail-fast)
-- On `AppStates.Unfocused` — automatic pause, if `GameSettings.pauseOnUnfocus` is on
-- On `AppStates.Stopping` — resource cleanup
-- Setting the same state — ignored (no redundant events)
-
-### Constraints
-- One `GameController` instance per application
-- `ExitGame()` is required before a subsequent `NewGame()`
-- `_data` is lazily created — fail-fast on `GetState()` before initialization
-
-## Game Data window
-
-`Tools/Vortex/SaveData/Game Index` (`GameCore/Editor/GameDataIndexWindow.cs`). The mode depends on Play Mode. The global storage window `Global Index` sits next to it in the same submenu.
-
-**Outside Play Mode — index of the project's modules.** All `GameModel.IGameData` implementations (`TypeCache`): type, assembly, default values (read-only). Problems that make the model skip a module are flagged:
-
-- no public parameterless constructor — the module will not be created;
-- open generic type — the model will not create it;
-- an instance creation error — with the exception text.
-
-"Refresh" rebuilds the index; after a recompilation it is rebuilt automatically.
-
-**In Play Mode — model contents with live editing.** Modules by type (`GameController.EditorModules()`):
-
-- a changed value is written into the module immediately, followed by `CallUpdateEvent` — subscribers (views, quest conditions) react as usual;
-- "Reset" on a module recreates it with default values, "Reset all" (with confirmation) rebuilds the whole model as a new game would;
-- the header shows the current `GameStates`; outside a session (`Off`) a hint says a new game will rebuild the model.
-
-**How it differs from the `Global Index` window.** The game model has no keys — modules are addressed by type, so duplicates are impossible and there is no key column. There is no "Settings" button either: the model has no settings asset of its own. The main difference is that the model lives only within a session and reaches the disk with the save: edits from the window write nothing by themselves. Outside Play Mode, accessing the model creates a temporary instance, so the values shown there are the defaults.
-
-**Which properties are shown.** Exactly those the serializer saves: getter and setter, a public getter or `[IsPOCO]`, no `[NotPOCO]`. The property list and value fields come from the shared `EditorTools/DataTools/PocoInspector.cs` — the same one used by the `Global Index` window. Simple types (`bool`, `int`, `long`, `float`, `double`, `string`, `enum`) are editable, everything else is shown as a read-only serializer string.
-
-A field marked `[NotPOCO]` never shows up in the window. If a module should be readable by name rather than by id, a separate POCO property is added — as done for quests (`QuestModel.QuestName`).
-
 ## Usage
 
 ### Starting and Ending a Game
@@ -266,6 +155,117 @@ Deliberate decisions, recorded so they are not revisited:
 - the application counter is the global storage module `AppTimeData` rather than a direct `PlayerPrefs` write: the storage provides atomic writes, immediate writes on focus loss and termination, and backups without extra code;
 - the legacy `PlayerPrefs` key `Vortex.GameTime.AppSeconds` is migrated once and deleted when the next launch has read the migrated value from the storage: deletion is guaranteed to follow a successful write;
 - the application counter lives in SDK.Game rather than the core because it is analytics data for SDK consumers, not system-time infrastructure (`AppModel` holds the reference point).
+
+## Architecture
+
+```
+GameController (Singleton, IReactiveData, ISaveable, static API)
+├── GameModel (ComplexModel<IGameData>)
+│   ├── State: GameStates
+│   └── Dictionary<Type, IGameData>   ← packages register their data
+├── SessionServices (HashSet<IGameSessionService>)
+│                                       ← engines whose readiness GameController
+│                                          waits for before entering Play
+├── OnNewGame                          ← new game event
+├── OnGameStateChanged                 ← state change event
+├── OnLoadGame                         ← load complete event
+├── OnUpdate / OnUpdateData            ← reactive subscription (IReactiveData)
+├── CallUpdateEvent()                  ← batching via TimeController.Accumulate
+└── Serialize / Deserialize            ← JSON serialization (POCO fields)
+```
+
+### Components
+
+| Class | Type | Purpose |
+|-------|------|---------|
+| `GameController` | `Singleton<T>`, `IReactiveData`, `ISaveable`, partial, static | Game management bus |
+| `GameModel` | `ComplexModel<IGameData>` | Composite data model |
+| `GameTimeData` | `IGameData` | Timings inside the save body: playthrough time, its start date, app-time snapshot |
+| `AppTimeData` | `IGlobalData` | Total time in the application — a global storage module (key `Vortex.AppTime`) |
+| `IGameSessionService` | `interface` | Game session service contract — `IsReady` + `Name` |
+| `GameStates` | `enum` | Off, Play, Win, Fail, Paused, Loading |
+| `GameStateHandler` | `MonoBehaviour` | `UIStateSwitcher` by game state |
+| `GameStateCondition` | `UnityUserInterfaceCondition` | UI display condition by state |
+| `GameMenuHandler` | `MonoBehaviour` | Menu button handler (NewGame, Pause, Exit) |
+| `EnableGameDelayForChild` | `MonoBehaviour` | `EnableDelayForChild` counterpart on `Timer`: children are disabled on creation and enabled `delay` after the object is enabled; while the game is paused (`Paused`) the countdown is frozen, after release the remainder is counted; disabling the object disables the children and drops the countdown; outside play mode children are enabled at once |
+| `FocusRectPauseHandler` | `MonoBehaviour` | Freezes `FocusRectView` on game pause: `Paused` — the View's smooth transition holds (`FocusRectView.SetPause`), other states — it runs; disabling the handler releases the View |
+| `GameSettings` | `SettingsPreset` | Game session settings (see "Settings") |
+
+### Settings — `GameSettings`
+
+Settings preset `Resources/Settings/GameSettings.asset`: created automatically when the editor loads; its values are copied into `SettingsModel` (`Settings.Data()`). To locate it — menu `Tools → Vortex → Configs → Game Settings`.
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `pauseOnUnfocus` | on | Application focus loss (`AppStates.Unfocused`) pauses a running game (`SetPause(true)`). When off, the game keeps running; the application still enters `Unfocused` as before (the global storage is written immediately). In the editor, focus loss is additionally suppressed by `ignorePauseInEditor` in `DebugSettings` |
+
+### Partial Extensions
+
+`GameController` is a partial class. Other packages extend it without modifying the main file:
+- `QuestControllerExtEditor` subscribes to `OnEditorGetData`
+- Projects can add their own partial extensions
+
+## Contract
+
+### Input
+- `App.OnStateChanged` — reaction to global application states
+- `GameModel.IGameData` — marker for registering data in the composite model
+- `IGameSessionService` — contract for a service whose readiness `GameController` awaits before `Play`
+
+### Output
+- `GameController.GetState()` — current state
+- `GameController.Get<T>()` — access to registered data
+- `GameController.RegisterSessionService(service)` / `UnregisterSessionService(service)` — session service registration
+- `GameController.OnGameStateChanged` — state change event
+- `GameController.OnNewGame` — new game event
+- `GameController.OnLoadGame` — load complete event
+- `GameController.OnUpdate` — static data update subscription (proxies `OnUpdateData`)
+- `GameController.CallUpdateEvent()` — invoke `OnUpdateData` with batching via `TimeController.Accumulate`
+- `GameController.NewGameAsync(token)` — async variant of `NewGame()` that awaits session services
+- `GameController.WinGame()` / `GameController.FailGame()` — end the current game as a win/loss (`Play`/`Paused` → `Win`/`Fail`); ignored outside an active session, does not close the session
+- `GameController.PlayTime` (`TimeSpan`) — current playthrough time, including the open interval
+- `GameController.AppTime` (`TimeSpan`) — total time in the application across all launches
+- `GameController.SessionStarted` (`DateTime`) — start date of the current playthrough
+
+### Editor
+
+`GameControllerExtEditor` — the editor API for tools: `EditorModules()` (model modules: type → instance), `EditorResetModule(type)`, `EditorResetAll()`, `EditorCommit()`. Built on `ComplexModel.GetEditorIndex()` and `ComplexModel.EditorResetModule(type)`, with no reflection.
+
+### Guarantees
+- `NewGame()` is blocked until `ExitGame()` is called (lock mechanism)
+- Before transitioning to `Play` (after `NewGame` and `OnLoad`), `GameController` waits for all registered `IGameSessionService` to become ready, with no timeout (fail-fast)
+- On `AppStates.Unfocused` — automatic pause, if `GameSettings.pauseOnUnfocus` is on
+- On `AppStates.Stopping` — resource cleanup
+- Setting the same state — ignored (no redundant events)
+
+### Constraints
+- One `GameController` instance per application
+- `ExitGame()` is required before a subsequent `NewGame()`
+- `_data` is lazily created — fail-fast on `GetState()` before initialization
+
+## Game Data window
+
+`Tools/Vortex/SaveData/Game Index` (`GameCore/Editor/GameDataIndexWindow.cs`). The mode depends on Play Mode. The global storage window `Global Index` sits next to it in the same submenu.
+
+**Outside Play Mode — index of the project's modules.** All `GameModel.IGameData` implementations (`TypeCache`): type, assembly, default values (read-only). Problems that make the model skip a module are flagged:
+
+- no public parameterless constructor — the module will not be created;
+- open generic type — the model will not create it;
+- an instance creation error — with the exception text.
+
+"Refresh" rebuilds the index; after a recompilation it is rebuilt automatically.
+
+**In Play Mode — model contents with live editing.** Modules by type (`GameController.EditorModules()`):
+
+- a changed value is written into the module immediately, followed by `CallUpdateEvent` — subscribers (views, quest conditions) react as usual;
+- "Reset" on a module recreates it with default values, "Reset all" (with confirmation) rebuilds the whole model as a new game would;
+- the header shows the current `GameStates`; outside a session (`Off`) a hint says a new game will rebuild the model.
+
+**How it differs from the `Global Index` window.** The game model has no keys — modules are addressed by type, so duplicates are impossible and there is no key column. There is no "Settings" button either: the model has no settings asset of its own. The main difference is that the model lives only within a session and reaches the disk with the save: edits from the window write nothing by themselves. Outside Play Mode, accessing the model creates a temporary instance, so the values shown there are the defaults.
+
+**Which properties are shown.** Exactly those the serializer saves: getter and setter, a public getter or `[IsPOCO]`, no `[NotPOCO]`. The property list and value fields come from the shared `EditorTools/DataTools/PocoInspector.cs` — the same one used by the `Global Index` window. Simple types (`bool`, `int`, `long`, `float`, `double`, `string`, `enum`) are editable, everything else is shown as a read-only serializer string.
+
+A field marked `[NotPOCO]` never shows up in the window. If a module should be readable by name rather than by id, a separate POCO property is added — as done for quests (`QuestModel.QuestName`).
 
 ## Edge Cases
 

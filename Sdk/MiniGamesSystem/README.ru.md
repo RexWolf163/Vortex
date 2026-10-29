@@ -41,6 +41,105 @@
 ### Внешние
 - **Odin Inspector** — атрибуты инспектора (`InfoBox`, `ValueDropdown`, `GUIColor`)
 
+## Использование
+
+### Создание новой миниигры из шаблона
+
+1. В окне Project выбрать целевую папку
+2. **Assets → Create → Vortex Templates → MiniGame**
+3. Ввести название миниигры
+4. Шаблонизатор создаст структуру файлов
+
+### Структура реализации
+
+Каждая миниигра повторяет паттерн:
+
+```
+MyGame/
+├── Abstractions/
+│   └── IMyGameController.cs       ← интерфейс контроллера
+├── Config/
+│   └── MyGameGeneralConfig.cs     ← ScriptableObject-конфигурация
+├── Controllers/
+│   ├── MyGameController.cs        ← игровая логика
+│   └── MyGameDataExtLogic.cs      ← extension-методы View → Controller
+├── Models/
+│   ├── MyGameData.cs              ← модель данных
+│   └── MyGamePlayConfig.cs        ← параметры запуска
+├── View/
+│   └── MyGameFieldView.cs         ← визуальное представление
+├── Editor/
+│   └── MyGameMenuController.cs    ← editor-утилиты
+└── Prefabs/
+```
+
+### Реализация контроллера
+
+```csharp
+public class MyGameController : MiniGameController<MyGameController, MyGameData>, IMyGameController
+{
+    public override void Play()
+    {
+        Data.StartTimer(OnTimerRunOut);
+        Data.OnGameStateChanged -= OnStateLogic;
+        Data.OnGameStateChanged += OnStateLogic;
+        SetState(MiniGameStates.Play);
+    }
+
+    public void PlayerAction(MyPieceData piece)
+    {
+        // игровая логика
+        if (CheckWinCondition())
+            SetState(MiniGameStates.Win);
+    }
+
+    private void OnTimerRunOut()
+    {
+        SetState(CheckWinCondition() ? MiniGameStates.Win : MiniGameStates.Fail);
+    }
+
+    private void OnStateLogic(MiniGameStates state)
+    {
+        switch (state)
+        {
+            case MiniGameStates.Play:
+                Data.Timer.Resume();
+                break;
+            case MiniGameStates.Off:
+                Data.OnGameStateChanged -= OnStateLogic;
+                break;
+            default:
+                if (!Data.Timer.IsComplete)
+                    Data.Timer.SetPause();
+                break;
+        }
+    }
+}
+```
+
+### Связка View → Controller через ExtLogic
+
+```csharp
+// ExtLogic
+public static class MyGameDataExtLogic
+{
+    public static void PlayerAction(this MyPieceData piece) =>
+        MiniGamesController.GetController<IMyGameController>().PlayerAction(piece);
+}
+
+// View вызывает extension-метод на данных — не знает о контроллере
+private void OnClick() => _data.PlayerAction();
+```
+
+### Запуск из внешнего кода
+
+```csharp
+await MyGameHub.Play(new MyGamePlayConfig { Difficulty = 1 });
+
+MyGameHub.Instance.OnWin += HandleWin;
+MyGameHub.Instance.OnFail += HandleFail;
+```
+
 ## Архитектура
 
 ```
@@ -168,105 +267,6 @@
 - Тип контроллера задаётся строкой — при переименовании / смене assembly будет `NullReferenceException`
 - Префаб View должен содержать `DataStorage` на корневом GameObject
 - `Data.State` изменяется только через `Controller.SetState()` (кроме debug-инструментов)
-
-## Использование
-
-### Создание новой миниигры из шаблона
-
-1. В окне Project выбрать целевую папку
-2. **Assets → Create → Vortex Templates → MiniGame**
-3. Ввести название миниигры
-4. Шаблонизатор создаст структуру файлов
-
-### Структура реализации
-
-Каждая миниигра повторяет паттерн:
-
-```
-MyGame/
-├── Abstractions/
-│   └── IMyGameController.cs       ← интерфейс контроллера
-├── Config/
-│   └── MyGameGeneralConfig.cs     ← ScriptableObject-конфигурация
-├── Controllers/
-│   ├── MyGameController.cs        ← игровая логика
-│   └── MyGameDataExtLogic.cs      ← extension-методы View → Controller
-├── Models/
-│   ├── MyGameData.cs              ← модель данных
-│   └── MyGamePlayConfig.cs        ← параметры запуска
-├── View/
-│   └── MyGameFieldView.cs         ← визуальное представление
-├── Editor/
-│   └── MyGameMenuController.cs    ← editor-утилиты
-└── Prefabs/
-```
-
-### Реализация контроллера
-
-```csharp
-public class MyGameController : MiniGameController<MyGameController, MyGameData>, IMyGameController
-{
-    public override void Play()
-    {
-        Data.StartTimer(OnTimerRunOut);
-        Data.OnGameStateChanged -= OnStateLogic;
-        Data.OnGameStateChanged += OnStateLogic;
-        SetState(MiniGameStates.Play);
-    }
-
-    public void PlayerAction(MyPieceData piece)
-    {
-        // игровая логика
-        if (CheckWinCondition())
-            SetState(MiniGameStates.Win);
-    }
-
-    private void OnTimerRunOut()
-    {
-        SetState(CheckWinCondition() ? MiniGameStates.Win : MiniGameStates.Fail);
-    }
-
-    private void OnStateLogic(MiniGameStates state)
-    {
-        switch (state)
-        {
-            case MiniGameStates.Play:
-                Data.Timer.Resume();
-                break;
-            case MiniGameStates.Off:
-                Data.OnGameStateChanged -= OnStateLogic;
-                break;
-            default:
-                if (!Data.Timer.IsComplete)
-                    Data.Timer.SetPause();
-                break;
-        }
-    }
-}
-```
-
-### Связка View → Controller через ExtLogic
-
-```csharp
-// ExtLogic
-public static class MyGameDataExtLogic
-{
-    public static void PlayerAction(this MyPieceData piece) =>
-        MiniGamesController.GetController<IMyGameController>().PlayerAction(piece);
-}
-
-// View вызывает extension-метод на данных — не знает о контроллере
-private void OnClick() => _data.PlayerAction();
-```
-
-### Запуск из внешнего кода
-
-```csharp
-await MyGameHub.Play(new MyGamePlayConfig { Difficulty = 1 });
-
-MyGameHub.Instance.OnWin += HandleWin;
-MyGameHub.Instance.OnFail += HandleFail;
-```
 
 ## Редакторные инструменты
 

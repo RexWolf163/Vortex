@@ -43,6 +43,85 @@ This package has no dependencies on other Vortex packages. It is the root depend
 
 ---
 
+## Usage
+
+### Creating a system controller
+
+```csharp
+public interface IMyDriver : ISystemDriver
+{
+    string LoadConfig();
+}
+
+public class MySystem : SystemController<MySystem, IMyDriver>
+{
+    protected override void OnDriverConnect()
+    {
+        var config = Driver.LoadConfig();
+    }
+
+    protected override void OnDriverDisconnect() { }
+}
+```
+
+### Using DateTimeTimer
+
+```csharp
+var timer = new DateTimeTimer(TimeSpan.FromMinutes(30));
+
+if (!timer.IsComplete())
+{
+    var remains = timer.GetTimeRemains();
+    Console.WriteLine($"Remaining: {remains.Minutes}m {remains.Seconds}s");
+}
+```
+
+### Deferred system subscription
+
+```csharp
+Database.OnInit += () =>
+{
+    // Called immediately if Database is already initialized
+    // Or deferred until initialization
+    var record = Database.GetRecord<MyRecord>("id");
+};
+```
+
+### IProcess for Loader
+
+```csharp
+public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
+{
+    public ProcessData GetProcessInfo() => _processData;
+
+    public async UniTask RunAsync(CancellationToken ct)
+    {
+        _processData = new ProcessData("My System") { Size = 10, Progress = 0 };
+        // loading ...
+    }
+
+    public Type[] WaitingFor() => new[] { typeof(Database) };
+}
+```
+
+### Waiting for a group of loaders (DelayedObserver)
+
+```csharp
+INeedDelay[] loaders = { spineLoader, audioLoader, sceneLoader };
+
+var observer = new DelayedObserver(
+    loaders,
+    callbackGood:   () => stateSwitcher.Set(DelayedState.Ready),
+    callbackOnError: failed => Debug.LogError($"Failed: {failed.GetType().Name}"),
+    callOnError: true   // proceed and invoke callbackGood even after errors
+);
+
+// On handler destruction — detach from any still-pending objects:
+observer.Dispose();
+```
+
+---
+
 ## Architecture
 
 ### Singleton\<T\>
@@ -225,85 +304,6 @@ Constructor specifics:
 | `IDataSource.OnUpdateLink` is link-level | Only signals replacement/recreation of references exposed through `IDataStorage.GetData<T>()`. Does NOT signal internal state changes of previously exposed objects, nor addition of new ones without replacing existing |
 | `INeedDelay` does not re-fire | Any object completes exactly once — either `OnReady` or `OnError`. After that `IsCompleted=true` permanently |
 | `DelayedObserver` stores subscriptions in a `HashSet` | Repeated occurrences of the same `INeedDelay` in the array are ignored (protection from double-subscription) |
-
----
-
-## Usage
-
-### Creating a system controller
-
-```csharp
-public interface IMyDriver : ISystemDriver
-{
-    string LoadConfig();
-}
-
-public class MySystem : SystemController<MySystem, IMyDriver>
-{
-    protected override void OnDriverConnect()
-    {
-        var config = Driver.LoadConfig();
-    }
-
-    protected override void OnDriverDisconnect() { }
-}
-```
-
-### Using DateTimeTimer
-
-```csharp
-var timer = new DateTimeTimer(TimeSpan.FromMinutes(30));
-
-if (!timer.IsComplete())
-{
-    var remains = timer.GetTimeRemains();
-    Console.WriteLine($"Remaining: {remains.Minutes}m {remains.Seconds}s");
-}
-```
-
-### Deferred system subscription
-
-```csharp
-Database.OnInit += () =>
-{
-    // Called immediately if Database is already initialized
-    // Or deferred until initialization
-    var record = Database.GetRecord<MyRecord>("id");
-};
-```
-
-### IProcess for Loader
-
-```csharp
-public class MyDriver : Singleton<MyDriver>, IMyDriver, IProcess
-{
-    public ProcessData GetProcessInfo() => _processData;
-
-    public async UniTask RunAsync(CancellationToken ct)
-    {
-        _processData = new ProcessData("My System") { Size = 10, Progress = 0 };
-        // loading ...
-    }
-
-    public Type[] WaitingFor() => new[] { typeof(Database) };
-}
-```
-
-### Waiting for a group of loaders (DelayedObserver)
-
-```csharp
-INeedDelay[] loaders = { spineLoader, audioLoader, sceneLoader };
-
-var observer = new DelayedObserver(
-    loaders,
-    callbackGood:   () => stateSwitcher.Set(DelayedState.Ready),
-    callbackOnError: failed => Debug.LogError($"Failed: {failed.GetType().Name}"),
-    callOnError: true   // proceed and invoke callbackGood even after errors
-);
-
-// On handler destruction — detach from any still-pending objects:
-observer.Dispose();
-```
 
 ---
 

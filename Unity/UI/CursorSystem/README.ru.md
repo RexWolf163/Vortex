@@ -36,6 +36,82 @@
 
 ---
 
+## Использование
+
+### 1. Создать пресет настроек
+
+`Assets → Create → Vortex → CursorSettings` (точное меню зависит от того, как зарегистрирован `SettingsPreset`-pipeline в проекте). Быстрый доступ к существующему конфигу — меню **Tools → Vortex → Configs → Cursor Settings** (подсветит ассет в Project).
+
+Заполни `cursorPacks` — массив пакетов по разрешениям, **по возрастанию `maxScreenHeight`**. В каждом пакете:
+- `maxScreenHeight` — верхняя граница вертикального разрешения для этого пакета.
+- `CursorDefault` — базовый набор (`CursorHoverEntry`): `Default` обязателен для активации системы; `Action`/`AltAction` опциональны (feedback на клик); `HideCursor` — спрятать системный курсор.
+- `CursorOnHover[]` — hover-варианты. У каждого `Name` (ключ), свои `Default`/`Action`/`AltAction`/`HideCursor`.
+
+> ⚠️ **Пакеты обязаны идти по возрастанию `maxScreenHeight`** — от этого зависит наследование hover-ключей от более раннего пакета. `OnValidate` предупредит о нарушении порядка. Длины hover-массивов совпадать больше не обязаны.
+
+Минимальная конфигурация — один пакет с большим `maxScreenHeight` (например, `99999`): он применяется на любом разрешении.
+
+### 2. Повесить `MouseHoverListener` на UGUI-элемент
+
+```
+EnemyPortrait (UGUI Image)
+├── Image (Raycast Target ✓)
+└── MouseHoverListener (key выбирается из dropdown в инспекторе)
+```
+
+Dropdown подтягивает **объединённый список уникальных ключей** (`CursorHoverEntry.Name`) по всем пакетам активного `CursorSettings` — у каждого пакета может быть свой набор. Дизайнер выбирает по имени. Пункт «[NONE]» = пустой ключ отключает hover-смену для зоны.
+
+### 3. Перевыбор курсора после смены разрешения
+
+```csharp
+// В обработчике применения видеонастроек:
+VideoController.ApplyResolution(newResolution);
+CursorController.RefreshResolution();   // подхватит пакет под новый Screen.height
+```
+
+### 4. Программный hover
+
+Если hover-зона не UGUI (world-space коллайдер, кастомная raycast-логика, hotkey-эмуляция) — зови напрямую по ключу:
+
+```csharp
+public class WorldHoverTrigger : MonoBehaviour
+{
+    [SerializeField] private string cursorKey = "interact";
+
+    private void OnMouseEnter() => CursorController.OnHover(cursorKey);
+    private void OnMouseExit()  => CursorController.OnUnHover(cursorKey);
+}
+```
+
+### 5. Подписка на состояние мыши снаружи
+
+```csharp
+private void OnEnable()
+{
+    CursorController.MouseKeys.LeftKeyPressed.OnUpdate += OnLmbChanged;
+    CursorController.MouseKeys.HoverKey.OnUpdate += OnHoverChanged;
+}
+
+private void OnDisable()
+{
+    CursorController.MouseKeys.LeftKeyPressed.OnUpdate -= OnLmbChanged;
+    CursorController.MouseKeys.HoverKey.OnUpdate -= OnHoverChanged;
+}
+
+private void OnLmbChanged(bool pressed) { ... }
+private void OnHoverChanged(string key) { ... }
+```
+
+Writeback через `MouseKeys.LeftKeyPressed.Set(true, ?)` снаружи не пройдёт — owner закреплён за контроллером.
+
+### 6. Геймпад-курсор от стика (опционально)
+
+1. Добавь **`GamepadCursorDriver`** на любой всегда-активный объект (например, тот, где висит `EventSystem`).
+2. Назначь привязки: `moveAction` → `<Gamepad>/leftStick` (Value/Vector2), `leftButtonAction` → `<Gamepad>/buttonSouth`, `rightButtonAction` → `<Gamepad>/buttonEast`. При нужде подстрой `speed` / `deadzone`.
+3. Готово — `VirtualMouseInput` не нужен: мышь работает как раньше (контроллер стилизует ОС-курсор); привязанная ось движения двигает тот же курсор, кнопки-экшены кликают (правая → AltAction); над зоной с `HideCursor` курсор скрывается как обычно, позиция при этом трекается.
+
+---
+
 ## Архитектура
 
 ```
@@ -145,82 +221,6 @@ CursorController.RefreshResolution();
 **Почему не `VirtualMouseInput`:** VMI создаёт **отдельное** виртуальное устройство `Mouse`; в связке с CursorSystem (которая рисует по **реальному** ОС-курсору) это рассинхронит — стик двигает виртуальную мышь (её читает UI), а видимый курсор стоит → клики уходят мимо. Прямой драйв реальной мыши это исключает.
 
 **Привязки** (`InputActionProperty`, задаются в инспекторе — инлайн-экшен или ссылка на ассет): `moveAction` (Value/Vector2 — например, левый стик), `leftButtonAction` / `rightButtonAction` (Button — например, South / East). **Поля:** `speed` (px/сек), `deadzone`. Кнопки переприсваиваются каждый кадр пока зажаты (чтобы событие физической мыши не сбросило инъекцию) и снимаются один раз на отпускании (и при выключении). Работает на `unscaledDeltaTime`, поэтому действует и на паузе (меню). Требует устройство мыши (десктоп) — на системе без мыши нет ОС-курсора, который стилизует CursorSystem.
-
----
-
-## Использование
-
-### 1. Создать пресет настроек
-
-`Assets → Create → Vortex → CursorSettings` (точное меню зависит от того, как зарегистрирован `SettingsPreset`-pipeline в проекте). Быстрый доступ к существующему конфигу — меню **Tools → Vortex → Configs → Cursor Settings** (подсветит ассет в Project).
-
-Заполни `cursorPacks` — массив пакетов по разрешениям, **по возрастанию `maxScreenHeight`**. В каждом пакете:
-- `maxScreenHeight` — верхняя граница вертикального разрешения для этого пакета.
-- `CursorDefault` — базовый набор (`CursorHoverEntry`): `Default` обязателен для активации системы; `Action`/`AltAction` опциональны (feedback на клик); `HideCursor` — спрятать системный курсор.
-- `CursorOnHover[]` — hover-варианты. У каждого `Name` (ключ), свои `Default`/`Action`/`AltAction`/`HideCursor`.
-
-> ⚠️ **Пакеты обязаны идти по возрастанию `maxScreenHeight`** — от этого зависит наследование hover-ключей от более раннего пакета. `OnValidate` предупредит о нарушении порядка. Длины hover-массивов совпадать больше не обязаны.
-
-Минимальная конфигурация — один пакет с большим `maxScreenHeight` (например, `99999`): он применяется на любом разрешении.
-
-### 2. Повесить `MouseHoverListener` на UGUI-элемент
-
-```
-EnemyPortrait (UGUI Image)
-├── Image (Raycast Target ✓)
-└── MouseHoverListener (key выбирается из dropdown в инспекторе)
-```
-
-Dropdown подтягивает **объединённый список уникальных ключей** (`CursorHoverEntry.Name`) по всем пакетам активного `CursorSettings` — у каждого пакета может быть свой набор. Дизайнер выбирает по имени. Пункт «[NONE]» = пустой ключ отключает hover-смену для зоны.
-
-### 3. Перевыбор курсора после смены разрешения
-
-```csharp
-// В обработчике применения видеонастроек:
-VideoController.ApplyResolution(newResolution);
-CursorController.RefreshResolution();   // подхватит пакет под новый Screen.height
-```
-
-### 4. Программный hover
-
-Если hover-зона не UGUI (world-space коллайдер, кастомная raycast-логика, hotkey-эмуляция) — зови напрямую по ключу:
-
-```csharp
-public class WorldHoverTrigger : MonoBehaviour
-{
-    [SerializeField] private string cursorKey = "interact";
-
-    private void OnMouseEnter() => CursorController.OnHover(cursorKey);
-    private void OnMouseExit()  => CursorController.OnUnHover(cursorKey);
-}
-```
-
-### 5. Подписка на состояние мыши снаружи
-
-```csharp
-private void OnEnable()
-{
-    CursorController.MouseKeys.LeftKeyPressed.OnUpdate += OnLmbChanged;
-    CursorController.MouseKeys.HoverKey.OnUpdate += OnHoverChanged;
-}
-
-private void OnDisable()
-{
-    CursorController.MouseKeys.LeftKeyPressed.OnUpdate -= OnLmbChanged;
-    CursorController.MouseKeys.HoverKey.OnUpdate -= OnHoverChanged;
-}
-
-private void OnLmbChanged(bool pressed) { ... }
-private void OnHoverChanged(string key) { ... }
-```
-
-Writeback через `MouseKeys.LeftKeyPressed.Set(true, ?)` снаружи не пройдёт — owner закреплён за контроллером.
-
-### 6. Геймпад-курсор от стика (опционально)
-
-1. Добавь **`GamepadCursorDriver`** на любой всегда-активный объект (например, тот, где висит `EventSystem`).
-2. Назначь привязки: `moveAction` → `<Gamepad>/leftStick` (Value/Vector2), `leftButtonAction` → `<Gamepad>/buttonSouth`, `rightButtonAction` → `<Gamepad>/buttonEast`. При нужде подстрой `speed` / `deadzone`.
-3. Готово — `VirtualMouseInput` не нужен: мышь работает как раньше (контроллер стилизует ОС-курсор); привязанная ось движения двигает тот же курсор, кнопки-экшены кликают (правая → AltAction); над зоной с `HideCursor` курсор скрывается как обычно, позиция при этом трекается.
 
 ---
 

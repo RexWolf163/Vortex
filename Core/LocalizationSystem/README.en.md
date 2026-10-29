@@ -36,6 +36,32 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Translate a string
+
+```csharp
+// Strict translation — "##!key!##" if key missing
+string text = "MENU_START".Translate();
+
+// Soft translation — original string if key missing
+string label = "Settings".TryTranslate();
+```
+
+### Change language
+
+```csharp
+Localization.SetCurrentLanguage("Russian");
+```
+
+### Subscribe to language change
+
+```csharp
+Localization.OnLocalizationChanged += RefreshUI;
+```
+
+---
+
 ## Architecture
 
 ```
@@ -128,32 +154,6 @@ StringExt (extension methods)
 | Keys are case-insensitive | The index is built with `StringComparer.OrdinalIgnoreCase` — both `Translate` and `TryTranslate` look up keys ignoring case |
 | `"##!key!##"` on missing key | Visual debug marker |
 | Index fully rebuilt on language change | Driver clears and refills |
-
----
-
-## Usage
-
-### Translate a string
-
-```csharp
-// Strict translation — "##!key!##" if key missing
-string text = "MENU_START".Translate();
-
-// Soft translation — original string if key missing
-string label = "Settings".TryTranslate();
-```
-
-### Change language
-
-```csharp
-Localization.SetCurrentLanguage("Russian");
-```
-
-### Subscribe to language change
-
-```csharp
-Localization.OnLocalizationChanged += RefreshUI;
-```
 
 ---
 

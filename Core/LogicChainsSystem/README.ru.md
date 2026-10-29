@@ -39,6 +39,61 @@
 
 ---
 
+## Использование
+
+### Создание действия
+
+```csharp
+public class ShowNotification : LogicAction
+{
+    public string Message;
+
+    public override void Invoke()
+    {
+        NotificationSystem.Show(Message);
+    }
+}
+```
+
+### Создание условия
+
+```csharp
+public class PlayerLevelReached : Condition
+{
+    public int TargetLevel;
+
+    protected override void Start()
+    {
+        PlayerModel.OnLevelChanged += OnLevelChanged;
+        if (Check()) RunCallback();
+    }
+
+    private void OnLevelChanged(int level)
+    {
+        if (Check()) RunCallback();
+    }
+
+    public override bool Check() => PlayerModel.Level >= TargetLevel;
+    public override void DeInit() => PlayerModel.OnLevelChanged -= OnLevelChanged;
+}
+```
+
+### Запуск цепочки
+
+```csharp
+// Из пресета Database
+var guid = LogicChains.AddChain("preset-guid-from-database");
+LogicChains.RunChain(guid);
+
+// Из объекта
+var chain = new LogicChain();
+// ... настройка ChainSteps, StartStep ...
+var guid = LogicChains.AddChain(chain);
+LogicChains.RunChain(guid);
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -146,61 +201,6 @@ AddChain → RunChain → [Enter Step]
 | Не запускать `RunChain(guid)` повторно по активной цепочке | Повторный вызов заново отработает действия текущего этапа и заново подпишет его условия без `DeInit` предыдущих — двойные срабатывания. Запуск цепочки — один раз |
 
 > ⚠️ **Контракт схемы:** граф шагов должен быть ацикличным направленным. Петля через безусловные (0 условий) коннекторы = неограниченная рекурсия без стопа. Если пресеты цепочек редактируют не-программисты — рассмотрите visited-гард/лимит глубины в `RunChain`/`CheckConditions` с fail-loud вместо `StackOverflowException`.
-
----
-
-## Использование
-
-### Создание действия
-
-```csharp
-public class ShowNotification : LogicAction
-{
-    public string Message;
-
-    public override void Invoke()
-    {
-        NotificationSystem.Show(Message);
-    }
-}
-```
-
-### Создание условия
-
-```csharp
-public class PlayerLevelReached : Condition
-{
-    public int TargetLevel;
-
-    protected override void Start()
-    {
-        PlayerModel.OnLevelChanged += OnLevelChanged;
-        if (Check()) RunCallback();
-    }
-
-    private void OnLevelChanged(int level)
-    {
-        if (Check()) RunCallback();
-    }
-
-    public override bool Check() => PlayerModel.Level >= TargetLevel;
-    public override void DeInit() => PlayerModel.OnLevelChanged -= OnLevelChanged;
-}
-```
-
-### Запуск цепочки
-
-```csharp
-// Из пресета Database
-var guid = LogicChains.AddChain("preset-guid-from-database");
-LogicChains.RunChain(guid);
-
-// Из объекта
-var chain = new LogicChain();
-// ... настройка ChainSteps, StartStep ...
-var guid = LogicChains.AddChain(chain);
-LogicChains.RunChain(guid);
-```
 
 ---
 

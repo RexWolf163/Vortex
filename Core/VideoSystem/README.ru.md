@@ -19,6 +19,26 @@
 
 ---
 
+## Использование
+
+```csharp
+// Подписка на готовность
+VideoController.OnInit += () =>
+{
+    var resolutions = VideoController.GetResolutionsList();
+    var modes = VideoController.GetScreenModes();
+    var current = VideoController.GetResolution();
+};
+
+// Установка разрешения
+VideoController.SetResolution("1920x1080");
+
+// Установка режима
+VideoController.SetScreenMode("FullScreenWindow");
+```
+
+---
+
 ## VideoController
 
 Статический контроллер. Наследует `SystemController<VideoController, IVideoDriver>`.
@@ -83,26 +103,6 @@ Enum режимов экрана. Зеркалит `UnityEngine.FullScreenMode` 
 | `FullScreenWindow` | Полноэкранное окно (все платформы) |
 | `Windowed` | Оконный режим (десктоп) |
 | `MaximizedWindow` | Развёрнутое окно (Windows, macOS) |
-
----
-
-## Использование
-
-```csharp
-// Подписка на готовность
-VideoController.OnInit += () =>
-{
-    var resolutions = VideoController.GetResolutionsList();
-    var modes = VideoController.GetScreenModes();
-    var current = VideoController.GetResolution();
-};
-
-// Установка разрешения
-VideoController.SetResolution("1920x1080");
-
-// Установка режима
-VideoController.SetScreenMode("FullScreenWindow");
-```
 
 ---
 

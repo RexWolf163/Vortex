@@ -43,6 +43,54 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Creating a condition
+
+```csharp
+[Serializable]
+public class PlayerDeadCondition : UserInterfaceCondition
+{
+    protected override void Run()
+    {
+        PlayerModel.OnDeath += RunCallback;
+        PlayerModel.OnRespawn += RunCallback;
+        RunCallback();
+    }
+
+    public override void DeInit()
+    {
+        PlayerModel.OnDeath -= RunCallback;
+        PlayerModel.OnRespawn -= RunCallback;
+    }
+
+    public override ConditionAnswer Check()
+    {
+        return PlayerModel.IsDead ? ConditionAnswer.Open : ConditionAnswer.Close;
+    }
+}
+```
+
+### Manual control
+
+```csharp
+UIProvider.Open("settings-menu-guid");
+UIProvider.Close("settings-menu-guid");
+UIProvider.CloseAll();
+
+var openUIs = UIProvider.GetOpenedUIs();
+```
+
+### Event subscription
+
+```csharp
+// Safe subscribe — if UI is already open, callback fires immediately
+uiData.OnOpen += () => Debug.Log("Opened");
+uiData.OnClose += () => Debug.Log("Closed");
+```
+
+---
+
 ## Architecture
 
 ```
@@ -155,54 +203,6 @@ UserInterfaceTypes
 | `Close` takes priority over `Open` in conditions | First `Close` aborts checking |
 | Position is `(int, int)` | Integer pixels |
 | Preset GUID must be unique | Duplicates overwrite index entry |
-
----
-
-## Usage
-
-### Creating a condition
-
-```csharp
-[Serializable]
-public class PlayerDeadCondition : UserInterfaceCondition
-{
-    protected override void Run()
-    {
-        PlayerModel.OnDeath += RunCallback;
-        PlayerModel.OnRespawn += RunCallback;
-        RunCallback();
-    }
-
-    public override void DeInit()
-    {
-        PlayerModel.OnDeath -= RunCallback;
-        PlayerModel.OnRespawn -= RunCallback;
-    }
-
-    public override ConditionAnswer Check()
-    {
-        return PlayerModel.IsDead ? ConditionAnswer.Open : ConditionAnswer.Close;
-    }
-}
-```
-
-### Manual control
-
-```csharp
-UIProvider.Open("settings-menu-guid");
-UIProvider.Close("settings-menu-guid");
-UIProvider.CloseAll();
-
-var openUIs = UIProvider.GetOpenedUIs();
-```
-
-### Event subscription
-
-```csharp
-// Safe subscribe — if UI is already open, callback fires immediately
-uiData.OnOpen += () => Debug.Log("Opened");
-uiData.OnClose += () => Debug.Log("Closed");
-```
 
 ---
 

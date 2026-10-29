@@ -27,6 +27,54 @@ Out of scope: spatial audio (3D), simultaneous mixing of multiple music tracks, 
 
 ---
 
+## Usage
+
+### 1. Channel Setup
+
+1. Create `AudioChannelsConfig` in Resources
+2. Define channel names: `dialog`, `ui`, `ambient`, `sfx`, etc.
+3. Channels become available in `[AudioChannelName]` dropdown and `AudioController` API
+
+### 2. Creating Presets
+
+1. `Create → Database → SoundSample` — configure clips, pitch/volume ranges, channel
+2. `Create → Database → MusicSample` — configure clip, pitch, volume, channel
+3. Register presets in the database (unique GUID)
+
+### 3. Playback from Code
+
+```csharp
+// Sound by GUID
+AudioController.PlaySound("explosion_01");
+
+// Sound by instance
+var sound = AudioController.GetSample("explosion_01") as Sound;
+AudioController.PlaySound(sound);
+
+// Music
+AudioController.PlayMusic("main_theme");
+
+// Situational music
+AudioController.PlayCoverMusic("battle_theme");
+AudioController.StopCoverMusic(); // main theme restores
+```
+
+### 4. Sound Component
+
+Add `AudioHandler` to a GameObject, assign sample GUID via `[DbRecord]`, select channel via `[AudioChannelName]`. Optionally add an `AudioSource` — if absent, the sound goes through `AudioPlayer`'s pool.
+
+### 5. Music Component
+
+Add `MusicHandler` to a GameObject, assign GUID via `[DbRecord(typeof(Music))]`. Music starts on `OnEnable`, stops on `OnDisable`. For situational music — enable `isCoverMusic`.
+
+### 6. Settings UI
+
+- `AudioSwitcher` — on/off toggle (Master / Sound / Music)
+- `AudioValueSlider` — volume slider (Master / Sound / Music)
+- `AudioChannelVolumeSlider` — channel volume slider
+
+---
+
 ## AudioDriver
 
 `IDriver` implementation. Partial class across three files.
@@ -351,54 +399,6 @@ UI volume slider.
 **Internal** sounds of loadable/unloadable systems (mini-games, individual scenes, cutscenes) should **not** be registered in the shared `Database` — they are better wired through **linked sound assets** in that system's own config. Otherwise a mini-game's local sound sits in the shared bus for the whole session, although it is needed only while the system is loaded.
 
 This is a direct application of the data placement matrix (see `Core/DatabaseSystem` → "Extension boundaries"): a system-wide sound is "shared", its home is the bus; a system's internal sound is "private", its home is the system's own config via linkage.
-
----
-
-## Usage
-
-### 1. Channel Setup
-
-1. Create `AudioChannelsConfig` in Resources
-2. Define channel names: `dialog`, `ui`, `ambient`, `sfx`, etc.
-3. Channels become available in `[AudioChannelName]` dropdown and `AudioController` API
-
-### 2. Creating Presets
-
-1. `Create → Database → SoundSample` — configure clips, pitch/volume ranges, channel
-2. `Create → Database → MusicSample` — configure clip, pitch, volume, channel
-3. Register presets in the database (unique GUID)
-
-### 3. Playback from Code
-
-```csharp
-// Sound by GUID
-AudioController.PlaySound("explosion_01");
-
-// Sound by instance
-var sound = AudioController.GetSample("explosion_01") as Sound;
-AudioController.PlaySound(sound);
-
-// Music
-AudioController.PlayMusic("main_theme");
-
-// Situational music
-AudioController.PlayCoverMusic("battle_theme");
-AudioController.StopCoverMusic(); // main theme restores
-```
-
-### 4. Sound Component
-
-Add `AudioHandler` to a GameObject, assign sample GUID via `[DbRecord]`, select channel via `[AudioChannelName]`. Optionally add an `AudioSource` — if absent, the sound goes through `AudioPlayer`'s pool.
-
-### 5. Music Component
-
-Add `MusicHandler` to a GameObject, assign GUID via `[DbRecord(typeof(Music))]`. Music starts on `OnEnable`, stops on `OnDisable`. For situational music — enable `isCoverMusic`.
-
-### 6. Settings UI
-
-- `AudioSwitcher` — on/off toggle (Master / Sound / Music)
-- `AudioValueSlider` — volume slider (Master / Sound / Music)
-- `AudioChannelVolumeSlider` — channel volume slider
 
 ## Editor Tools
 

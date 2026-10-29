@@ -40,6 +40,20 @@
 
 ---
 
+## Создание карточки (для дизайнера)
+
+1. **Создать пресет:** Project → Create → Vortex → Presets → Gallery → Sprite. Получится `GallerySpritePreset`.
+2. **Заполнить базовые поля:** Name, Description, Icon (превью для галлерейной плитки).
+3. **Выбрать реализацию `AssetHandle<Sprite>`:** в инспекторе кликнуть по полю `fullscreen`, Odin picker предложит:
+   - **`DirectAssetHandle<Sprite>`** — прямая ссылка. Fullscreen всегда в памяти. Подходит для лёгких/всегда-нужных.
+   - **`AddressableAssetHandle<Sprite>`** — Addressables lazy-load. Ассет грузится по требованию, выгружается по `Release`.
+4. **Указать ассет** в выбранной реализации.
+5. **Метка разблокировки:** в `RecordMarksSettings` должна быть метка, которой сюжет пометит `GuidPreset` карточки для «разблокирована». Дизайнер галлерейной сцены указывает эту метку в `GalleryView.marks`.
+
+Карточка автоматически попадает в `GalleryView`, если её тип разрешён `allowedTypes` (или не запрещён `deniedTypes`), а `GuidPreset` помечен нужной меткой.
+
+---
+
 ## Архитектура
 
 ```
@@ -135,20 +149,6 @@ public static class GallerySpriteController
 - **I2.** Handle модели — независимый deep-clone handle пресета: состояние загрузки (`_cached`) не разделяется.
 - **I3.** Только один viewer активен в момент времени (registry).
 - **I4.** `Show`/`Hide` — синхронные (требование `IGalleryEntry`), внутри — только зов bus.
-
----
-
-## Создание карточки (для дизайнера)
-
-1. **Создать пресет:** Project → Create → Vortex → Presets → Gallery → Sprite. Получится `GallerySpritePreset`.
-2. **Заполнить базовые поля:** Name, Description, Icon (превью для галлерейной плитки).
-3. **Выбрать реализацию `AssetHandle<Sprite>`:** в инспекторе кликнуть по полю `fullscreen`, Odin picker предложит:
-   - **`DirectAssetHandle<Sprite>`** — прямая ссылка. Fullscreen всегда в памяти. Подходит для лёгких/всегда-нужных.
-   - **`AddressableAssetHandle<Sprite>`** — Addressables lazy-load. Ассет грузится по требованию, выгружается по `Release`.
-4. **Указать ассет** в выбранной реализации.
-5. **Метка разблокировки:** в `RecordMarksSettings` должна быть метка, которой сюжет пометит `GuidPreset` карточки для «разблокирована». Дизайнер галлерейной сцены указывает эту метку в `GalleryView.marks`.
-
-Карточка автоматически попадает в `GalleryView`, если её тип разрешён `allowedTypes` (или не запрещён `deniedTypes`), а `GuidPreset` помечен нужной меткой.
 
 ---
 

@@ -40,136 +40,6 @@ Out of scope:
 
 ---
 
-## Architecture
-
-```
-LogicChainPreset : RecordPreset<LogicChain>  (ScriptableObject)
-  ├── startStep: string (GUID)
-  ├── chainSteps: ChainStepPreset[]
-  ├── ChainSteps → Dictionary<string, ChainStep>  ← conversion via CopyFrom
-  └── Editor: GetStepsList(), TestStartStep(), OnValidate()
-
-ChainStepPreset [Serializable, ClassLabel]
-  ├── guid, name, description
-  ├── actions: LogicAction[]               ← [SerializeReference]
-  ├── connectors: ConnectorPreset[]        ← [SerializeReference]
-  └── Editor: EditorInit(owner), GetStepName()
-
-ConnectorPreset [Serializable, ClassLabel]
-  ├── targetStepGuid: string               ← [ValueDropdown] from chain steps
-  ├── conditions: Condition[]              ← [SerializeReference]
-  └── Editor: GetTargets(), GetConnectorName()
-
-UnityLogicAction : LogicAction
-  └── abstract NameAction → [ClassLabel("@NameAction")]
-
-LoadScene : UnityLogicAction
-  ├── SceneName                            ← [ValueDropdown] from Build Settings
-  ├── _additiveMode: bool
-  └── _async: bool                         ← default true
-
-UnLoadScene : UnityLogicAction
-  ├── SceneName                            ← [ValueDropdown] from Build Settings
-  └── _async: bool                         ← default true
-
-LogicChainStarter : MonoBehaviour
-  ├── logicChain: string                   ← [DbRecord(LogicChain, MultiInstance)]
-  └── Start → Database.OnInit += CallChain
-```
-
-### Preset → Runtime Conversion
-
-`LogicChainPreset` stores `ChainStepPreset[]` in Inspector. When `ChainSteps` is accessed, each `ChainStepPreset` is converted to `ChainStep` via `ObjectExtCopy.CopyFrom`. `ConnectorPreset` is similarly converted to `Connector`. This ensures multi-instance — each `Database.GetNewRecord<LogicChain>` call creates an independent copy.
-
-### Inspector Integration
-
-- `ChainStepPreset` — `[ClassLabel("@GetStepName()")]` displays step name in collection
-- `ConnectorPreset` — `[ClassLabel("@GetConnectorName()")]` displays transition target: `"to «StepName»"`, `"Complete this chain"`, or `"Empty Connector"`
-- `startStep` — `[ValueDropdown]` from step list, red highlight on invalid GUID
-- `targetStepGuid` — `[ValueDropdown]` from chain steps (excluding current) + `"_CompleteChain"`
-- `LogicAction[]` and `Condition[]` — `[SerializeReference, HideReferenceObjectPicker]` for polymorphism
-
----
-
-## Element distribution across packages
-
-Actions (`LogicAction`) and conditions (`Condition`) are not concentrated in a single package — **each package contributes its own chain elements**, next to the functionality they exercise. They appear in the `[SerializeReference]` inspector dropdowns automatically through Odin type-scanning (no manual registration). This is the same `package-composition-first` principle used across the rest of the framework (see `COMPOSITION.md`).
-
-To use an element, its package just needs to be present in the project — removing the package drops its elements from the dropdowns while the rest of the chain still compiles.
-
-| Element | Kind | Package | Purpose |
-|---------|------|---------|---------|
-| `LoadScene` | Action | `ru.vortex.unity.logicchains` | Load a scene (single/additive, sync/async) |
-| `UnLoadScene` | Action | `ru.vortex.unity.logicchains` | Unload a scene (sync/async) |
-| `SceneLoaded` | Condition | `ru.vortex.unity.logicconditions` | Scene is loaded (sees Additive scenes too) |
-| `SystemsLoaded` | Condition | `ru.vortex.unity.logicconditions` | `App.GetState() == Running` (Vortex systems ready) |
-| `MinTimeCondition` | Condition | `ru.vortex.unity.logicconditions` | ≥ N seconds elapsed (minimum step duration) |
-| `OpenUI` | Action | `ru.vortex.unity.uiprovider` | Open an interface via `UIProvider.Open` |
-| `CloseUI` | Action | `ru.vortex.unity.uiprovider` | Close an interface via `UIProvider.Close` |
-| `CloseAllUI` | Action | `ru.vortex.unity.uiprovider` | Close all common interfaces |
-| `NaninovelInitialized` | Condition | `ru.vortex.nani.core` | Naninovel engine initialised (`Engine.Initialized`) |
-
-**Reentrancy convention.** Actions that touch scenes or UI (`LoadScene`, `UnLoadScene`, `OpenUI`, `CloseUI`, `CloseAllUI`) defer the real work to the end of the frame via `TimeController.Call`/`Accumulate`. The reason: `Invoke()` is called from the chain-advance stack (`RunChain → CheckConditions → RunChain`), and a synchronous scene load/UI close right inside that call would re-enter. A custom action that changes scenes/UI should follow the same pattern.
-
----
-
-## Conditions (LogicConditionsSystem)
-
-Separate assembly `ru.vortex.unity.logicconditions`. Base class `UnityCondition : Condition` with `[ClassLabel("@ConditionName")]`.
-
-| Condition | Description | Check |
-|-----------|-------------|-------|
-| `SceneLoaded` | Waits for a scene to load by name | `GetSceneByName(name).IsValid() && isLoaded` — sees Additive scenes too, not only the active one; subscribes to `SceneManager.sceneLoaded` |
-| `SystemsLoaded` | Waits for `App.GetState() == Running` | Subscribes to `App.OnStateChanged` |
-| `MinTimeCondition` | Minimum wait time (seconds) | `DateTime.UtcNow >= target` via `TimeController` |
-
-All conditions follow the pattern: check in `Start()` → if already fulfilled, `RunCallback()` immediately; otherwise subscribe to event.
-
-`NaninovelInitialized` (the Naninovel engine readiness condition) lives in the `ru.vortex.nani.core` package — see the "Element distribution across packages" table.
-
----
-
-## Contract
-
-### Input
-
-- `LogicChainPreset` created via `Create > Database > Logic Chain`
-- Steps, actions, conditions configured in Inspector
-- Launch: `LogicChainStarter` on scene or `LogicChains.AddChain(presetGuid)` from code
-
-### Output
-
-- Chain executes according to Core logic: steps → actions → conditions → transitions
-
-### API
-
-| Component | Purpose |
-|-----------|---------|
-| `LogicChainPreset` | ScriptableObject, created via `Database/Logic Chain` |
-| `LogicChainStarter` | MonoBehaviour, launches chain on `Database.OnInit` |
-| `UnityLogicAction` | Base class for Unity actions |
-| `UnityCondition` | Base class for Unity conditions |
-
-### Built-in Actions
-
-| Action | Description |
-|--------|-------------|
-| `LoadScene` | Scene loading (sync/async, single/additive) via `TimeController.Call` |
-| `UnLoadScene` | Scene unloading (sync/async) via `TimeController.Call` |
-
-For the full list of actions and conditions across all packages, see "Element distribution across packages".
-
-### Constraints
-
-| Constraint | Reason |
-|------------|--------|
-| `LogicChainStarter` triggers on `Database.OnInit` | Requires Database initialization |
-| `LoadScene` executes via `TimeController.Call` | Guarantees main thread execution |
-| Actions and conditions are `[SerializeReference]` | Polymorphism, but no drag & drop assets |
-| Step GUIDs generated on creation | `Crypto.GetNewGuid()` in field initializer |
-
----
-
 ## Usage
 
 ### Creating a chain
@@ -300,6 +170,136 @@ public class ButtonClicked : UnityCondition
     protected override string ConditionName => $"Wait click «{buttonId}»";
 }
 ```
+
+---
+
+## Architecture
+
+```
+LogicChainPreset : RecordPreset<LogicChain>  (ScriptableObject)
+  ├── startStep: string (GUID)
+  ├── chainSteps: ChainStepPreset[]
+  ├── ChainSteps → Dictionary<string, ChainStep>  ← conversion via CopyFrom
+  └── Editor: GetStepsList(), TestStartStep(), OnValidate()
+
+ChainStepPreset [Serializable, ClassLabel]
+  ├── guid, name, description
+  ├── actions: LogicAction[]               ← [SerializeReference]
+  ├── connectors: ConnectorPreset[]        ← [SerializeReference]
+  └── Editor: EditorInit(owner), GetStepName()
+
+ConnectorPreset [Serializable, ClassLabel]
+  ├── targetStepGuid: string               ← [ValueDropdown] from chain steps
+  ├── conditions: Condition[]              ← [SerializeReference]
+  └── Editor: GetTargets(), GetConnectorName()
+
+UnityLogicAction : LogicAction
+  └── abstract NameAction → [ClassLabel("@NameAction")]
+
+LoadScene : UnityLogicAction
+  ├── SceneName                            ← [ValueDropdown] from Build Settings
+  ├── _additiveMode: bool
+  └── _async: bool                         ← default true
+
+UnLoadScene : UnityLogicAction
+  ├── SceneName                            ← [ValueDropdown] from Build Settings
+  └── _async: bool                         ← default true
+
+LogicChainStarter : MonoBehaviour
+  ├── logicChain: string                   ← [DbRecord(LogicChain, MultiInstance)]
+  └── Start → Database.OnInit += CallChain
+```
+
+### Preset → Runtime Conversion
+
+`LogicChainPreset` stores `ChainStepPreset[]` in Inspector. When `ChainSteps` is accessed, each `ChainStepPreset` is converted to `ChainStep` via `ObjectExtCopy.CopyFrom`. `ConnectorPreset` is similarly converted to `Connector`. This ensures multi-instance — each `Database.GetNewRecord<LogicChain>` call creates an independent copy.
+
+### Inspector Integration
+
+- `ChainStepPreset` — `[ClassLabel("@GetStepName()")]` displays step name in collection
+- `ConnectorPreset` — `[ClassLabel("@GetConnectorName()")]` displays transition target: `"to «StepName»"`, `"Complete this chain"`, or `"Empty Connector"`
+- `startStep` — `[ValueDropdown]` from step list, red highlight on invalid GUID
+- `targetStepGuid` — `[ValueDropdown]` from chain steps (excluding current) + `"_CompleteChain"`
+- `LogicAction[]` and `Condition[]` — `[SerializeReference, HideReferenceObjectPicker]` for polymorphism
+
+---
+
+## Element distribution across packages
+
+Actions (`LogicAction`) and conditions (`Condition`) are not concentrated in a single package — **each package contributes its own chain elements**, next to the functionality they exercise. They appear in the `[SerializeReference]` inspector dropdowns automatically through Odin type-scanning (no manual registration). This is the same `package-composition-first` principle used across the rest of the framework (see `COMPOSITION.md`).
+
+To use an element, its package just needs to be present in the project — removing the package drops its elements from the dropdowns while the rest of the chain still compiles.
+
+| Element | Kind | Package | Purpose |
+|---------|------|---------|---------|
+| `LoadScene` | Action | `ru.vortex.unity.logicchains` | Load a scene (single/additive, sync/async) |
+| `UnLoadScene` | Action | `ru.vortex.unity.logicchains` | Unload a scene (sync/async) |
+| `SceneLoaded` | Condition | `ru.vortex.unity.logicconditions` | Scene is loaded (sees Additive scenes too) |
+| `SystemsLoaded` | Condition | `ru.vortex.unity.logicconditions` | `App.GetState() == Running` (Vortex systems ready) |
+| `MinTimeCondition` | Condition | `ru.vortex.unity.logicconditions` | ≥ N seconds elapsed (minimum step duration) |
+| `OpenUI` | Action | `ru.vortex.unity.uiprovider` | Open an interface via `UIProvider.Open` |
+| `CloseUI` | Action | `ru.vortex.unity.uiprovider` | Close an interface via `UIProvider.Close` |
+| `CloseAllUI` | Action | `ru.vortex.unity.uiprovider` | Close all common interfaces |
+| `NaninovelInitialized` | Condition | `ru.vortex.nani.core` | Naninovel engine initialised (`Engine.Initialized`) |
+
+**Reentrancy convention.** Actions that touch scenes or UI (`LoadScene`, `UnLoadScene`, `OpenUI`, `CloseUI`, `CloseAllUI`) defer the real work to the end of the frame via `TimeController.Call`/`Accumulate`. The reason: `Invoke()` is called from the chain-advance stack (`RunChain → CheckConditions → RunChain`), and a synchronous scene load/UI close right inside that call would re-enter. A custom action that changes scenes/UI should follow the same pattern.
+
+---
+
+## Conditions (LogicConditionsSystem)
+
+Separate assembly `ru.vortex.unity.logicconditions`. Base class `UnityCondition : Condition` with `[ClassLabel("@ConditionName")]`.
+
+| Condition | Description | Check |
+|-----------|-------------|-------|
+| `SceneLoaded` | Waits for a scene to load by name | `GetSceneByName(name).IsValid() && isLoaded` — sees Additive scenes too, not only the active one; subscribes to `SceneManager.sceneLoaded` |
+| `SystemsLoaded` | Waits for `App.GetState() == Running` | Subscribes to `App.OnStateChanged` |
+| `MinTimeCondition` | Minimum wait time (seconds) | `DateTime.UtcNow >= target` via `TimeController` |
+
+All conditions follow the pattern: check in `Start()` → if already fulfilled, `RunCallback()` immediately; otherwise subscribe to event.
+
+`NaninovelInitialized` (the Naninovel engine readiness condition) lives in the `ru.vortex.nani.core` package — see the "Element distribution across packages" table.
+
+---
+
+## Contract
+
+### Input
+
+- `LogicChainPreset` created via `Create > Database > Logic Chain`
+- Steps, actions, conditions configured in Inspector
+- Launch: `LogicChainStarter` on scene or `LogicChains.AddChain(presetGuid)` from code
+
+### Output
+
+- Chain executes according to Core logic: steps → actions → conditions → transitions
+
+### API
+
+| Component | Purpose |
+|-----------|---------|
+| `LogicChainPreset` | ScriptableObject, created via `Database/Logic Chain` |
+| `LogicChainStarter` | MonoBehaviour, launches chain on `Database.OnInit` |
+| `UnityLogicAction` | Base class for Unity actions |
+| `UnityCondition` | Base class for Unity conditions |
+
+### Built-in Actions
+
+| Action | Description |
+|--------|-------------|
+| `LoadScene` | Scene loading (sync/async, single/additive) via `TimeController.Call` |
+| `UnLoadScene` | Scene unloading (sync/async) via `TimeController.Call` |
+
+For the full list of actions and conditions across all packages, see "Element distribution across packages".
+
+### Constraints
+
+| Constraint | Reason |
+|------------|--------|
+| `LogicChainStarter` triggers on `Database.OnInit` | Requires Database initialization |
+| `LoadScene` executes via `TimeController.Call` | Guarantees main thread execution |
+| Actions and conditions are `[SerializeReference]` | Polymorphism, but no drag & drop assets |
+| Step GUIDs generated on creation | `Crypto.GetNewGuid()` in field initializer |
 
 ---
 

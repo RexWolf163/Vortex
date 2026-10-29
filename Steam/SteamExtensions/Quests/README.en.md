@@ -39,6 +39,20 @@ Out of scope:
 
 ---
 
+## Usage
+
+1. In a quest asset add the `Activate Achievements Logic` step to the logic array.
+2. Fill `name` (label) and `achievementId` (Steamworks achievement ID).
+
+```
+QuestLogic[]:
+  - RunNaniScript ...
+  - ActivateAchievementsLogic { name: "First Win", achievementId: "ACH_WIN_FIRST" }
+  - ...
+```
+
+---
+
 ## Architecture
 
 ```
@@ -87,20 +101,6 @@ IncrementAchievementsLogic — commented out (draft, out of build)
 | `defineConstraints: ["USING_VORTEX_QUESTS"]` | `QuestLogic` unavailable without the quest system |
 | No-op without `USING_STEAM` (`return false`) | Steam assemblies not built; call hidden by `#if` |
 | Does not validate `achievementId` | The guard (`GetAchievement != null`) is inside `UnlockAchievement`; the step is always `true` |
-
----
-
-## Usage
-
-1. In a quest asset add the `Activate Achievements Logic` step to the logic array.
-2. Fill `name` (label) and `achievementId` (Steamworks achievement ID).
-
-```
-QuestLogic[]:
-  - RunNaniScript ...
-  - ActivateAchievementsLogic { name: "First Win", achievementId: "ACH_WIN_FIRST" }
-  - ...
-```
 
 ---
 

@@ -19,6 +19,20 @@ It is a **primitive, not a system**: instantiated with `new` (like `ReactiveValu
 
 - `Vortex.Core.Extensions.ReactiveValues` — `BoolData`
 
+## Usage
+
+```csharp
+var valve = new StateValve(ValveMode.And);        // "running" = all keys open
+valve.State.OnUpdate += open => SetPaused(!open);
+
+valve.Close("tutor");      // closed → State = false
+valve.Close("countdown");  // another holds it
+valve.Open("tutor");       // released, but countdown still holds → still closed
+valve.Open("countdown");   // all open → State = true
+```
+
+The Unity wrapper (`StateValveHandler`, package `ru.vortex.unity.statevalve`) adds inspector configuration, a whitelist key filter, and loose binding via `IDataStorage`.
+
 ## Model
 
 ```
@@ -53,17 +67,3 @@ The valve adds **no guards, deliberately**.
 
 - **Benign nesting** (a `State` subscriber calls `Open/Close` from its callback) resolves fine: `BoolData` dedups (the event fires only on a real change), last-write-wins, a converging chain settles.
 - **Oscillating** re-entrancy (a subscriber toggles a key so the result flips back) is a **caller composition error**: it surfaces as a stack overflow — the correct fail-fast signal of a feedback loop. Contract: do not wire a self-sustaining loop.
-
-## Usage
-
-```csharp
-var valve = new StateValve(ValveMode.And);        // "running" = all keys open
-valve.State.OnUpdate += open => SetPaused(!open);
-
-valve.Close("tutor");      // closed → State = false
-valve.Close("countdown");  // another holds it
-valve.Open("tutor");       // released, but countdown still holds → still closed
-valve.Open("countdown");   // all open → State = true
-```
-
-The Unity wrapper (`StateValveHandler`, package `ru.vortex.unity.statevalve`) adds inspector configuration, a whitelist key filter, and loose binding via `IDataStorage`.

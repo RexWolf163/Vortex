@@ -54,6 +54,58 @@ The version is selected by the `audioLocalizationV2` toggle in `SdkSettings` (pa
 
 The package does not use `AssetHandle<T>` implementations directly (`DirectAssetHandle` in `Vortex.Unity.AssetHandleSystem`, `AddressableAssetHandle` in `Vortex.Unity.AssetCacheSystem`) — the designer picks one in the preset.
 
+## Usage
+
+### Creating a Preset
+
+1. `Create → Database → AudioLocaleDataV2`
+2. Set `textGuid` — the localization string key
+3. Set `channel` — the voice line audio channel
+4. Fill `voices` — "language → clip handle" pairs: pick the handle implementation (`DirectAssetHandle` / `AddressableAssetHandle`) and the clip; for addressable — the cache group
+5. Check the error block above `voices`: the inspector reports an empty key, an empty channel, an empty or duplicate language, an unset handle and a handle without a clip (for `DirectAssetHandle` / `AddressableAssetHandle`). The check is recomputed at most once per second
+
+### Playback from Code
+
+```csharp
+// By text key
+AudioLocalizationController.PlayForText("quest_intro_text_guid");
+```
+
+### Playback via Handler
+
+1. Add `AudioLocaleHandler` to a GameObject
+2. Set `source` — a component with `IDataStorage` providing `StringData`
+3. When `StringData.Value` changes, voice playback triggers automatically. An already voiced value is not replayed until it changes: re-enabling the component (hiding/showing UI) or relinking the storage doesn't restart the line. A change to an empty value also counts — after it the same line is voiced again
+
+### Direct Data Access
+
+```csharp
+var data = Database.GetRecord<AudioLocaleData>(guid);
+
+// Clip handle for the current language. Load/Release are the holder's job: the record's handle is shared,
+// and AudioLocalizationController uses the same one.
+AssetHandle<AudioClip> handle = data.GetLocale();
+```
+
+### Editor tool «Bulk rough toolkit»
+
+The `AudioLocaleDataPreset` inspector exposes a foldout group `Bulk rough toolkit` (Russian label: «Грубый инструментарий массовой замены»). It bundles **Editor-only** helpers for the common patterns of rebuilding voice references. Every action calls `EditorUtility.SetDirty` — changes get into the commit.
+
+Clips are looked up by exact `AudioClip` file name in the project (`AssetDatabase`, case-insensitive). A handle is retargeted keeping its implementation: `DirectAssetHandle` gets a new clip reference, `AddressableAssetHandle` gets a new asset GUID in its `AssetReference` (the cache group is kept). A clip that isn't addressable yet must be marked addressable by hand.
+
+| Button | What it does | Why useful |
+|---|---|---|
+| `Update Voices Array` | For each `voice`, takes the handle's current clip and checks its name contains a dot. Then looks for a clip named `"{TextGuid}.{voice.language}"` and retargets the handle to it. | After renaming the preset's `textGuid` — rewire voice references in bulk to the new key |
+| `Замена первой части ключа` (Replace first key segment) | Reads the `charName` field; for every `voice`, looks for a clip named `"{charName}.{oldSuffix}"` where `oldSuffix` is the remainder of the old clip name after the first dot, and retargets the handle. Also rewires the preset's `textGuid` to the localization key `"{charName}.{Name}"` (resolved via `Localization.GetLocalizationKeys()`, case-insensitive). | Cloning a preset for another character: change the prefix, voices automatically point to that character's recordings |
+| `Скопировать первую запись под другой язык` (Copy first entry to another language) | Reads the `_newLanguage` field. Uses the first `voice` as a template, replaces the substring `.{templateLang}` with `.{newLanguage}` inside its clip name, looks up the matching clip and appends a new `voice` entry for `_newLanguage` with a handle of the same implementation. If an entry for that language already exists, the action is skipped; if the clip isn't found — `InvalidOperationException`. | Adding a new language: first locale is done; stub the rest with one click |
+
+**Naming convention** the toolkit exploits:
+- The clip file name looks like `Character.{anything}.{lang}.{index}` or similar — language sits in one of the dot-separated positions.
+- `textGuid` looks like `Character.LineKey`.
+- `voice.language` matches the locale code from `Localization`.
+
+When the convention is broken, the toolkit **silently skips** the entry (it checks for a dot in the name, that the target clip exists, etc.) — nothing crashes, but nothing useful happens either. The exception is copying to a language: a missing clip throws. This is by contract: a «rough toolkit» is a best-effort helper, and the result needs a manual sanity check.
+
 ## Architecture
 
 ```
@@ -133,58 +185,6 @@ AudioLocaleHandler (MonoBehaviour)
 The package only calls the handle's `LoadAsync`/`Release`. What "unload" means is up to the implementation:
 - `DirectAssetHandle` — no-op: the clip lives with the preset (V1 behaviour);
 - `AddressableAssetHandle` — `AssetCache.Release` in the group selected in the handle's `group` field. The actual unload follows that group's survivor capacity (0 — right after `Release`). It's worth creating a dedicated group for voice lines in `AssetCacheSettings`, so the stream of lines doesn't evict other assets' survivors.
-
-## Usage
-
-### Creating a Preset
-
-1. `Create → Database → AudioLocaleDataV2`
-2. Set `textGuid` — the localization string key
-3. Set `channel` — the voice line audio channel
-4. Fill `voices` — "language → clip handle" pairs: pick the handle implementation (`DirectAssetHandle` / `AddressableAssetHandle`) and the clip; for addressable — the cache group
-5. Check the error block above `voices`: the inspector reports an empty key, an empty channel, an empty or duplicate language, an unset handle and a handle without a clip (for `DirectAssetHandle` / `AddressableAssetHandle`). The check is recomputed at most once per second
-
-### Playback from Code
-
-```csharp
-// By text key
-AudioLocalizationController.PlayForText("quest_intro_text_guid");
-```
-
-### Playback via Handler
-
-1. Add `AudioLocaleHandler` to a GameObject
-2. Set `source` — a component with `IDataStorage` providing `StringData`
-3. When `StringData.Value` changes, voice playback triggers automatically. An already voiced value is not replayed until it changes: re-enabling the component (hiding/showing UI) or relinking the storage doesn't restart the line. A change to an empty value also counts — after it the same line is voiced again
-
-### Direct Data Access
-
-```csharp
-var data = Database.GetRecord<AudioLocaleData>(guid);
-
-// Clip handle for the current language. Load/Release are the holder's job: the record's handle is shared,
-// and AudioLocalizationController uses the same one.
-AssetHandle<AudioClip> handle = data.GetLocale();
-```
-
-### Editor tool «Bulk rough toolkit»
-
-The `AudioLocaleDataPreset` inspector exposes a foldout group `Bulk rough toolkit` (Russian label: «Грубый инструментарий массовой замены»). It bundles **Editor-only** helpers for the common patterns of rebuilding voice references. Every action calls `EditorUtility.SetDirty` — changes get into the commit.
-
-Clips are looked up by exact `AudioClip` file name in the project (`AssetDatabase`, case-insensitive). A handle is retargeted keeping its implementation: `DirectAssetHandle` gets a new clip reference, `AddressableAssetHandle` gets a new asset GUID in its `AssetReference` (the cache group is kept). A clip that isn't addressable yet must be marked addressable by hand.
-
-| Button | What it does | Why useful |
-|---|---|---|
-| `Update Voices Array` | For each `voice`, takes the handle's current clip and checks its name contains a dot. Then looks for a clip named `"{TextGuid}.{voice.language}"` and retargets the handle to it. | After renaming the preset's `textGuid` — rewire voice references in bulk to the new key |
-| `Замена первой части ключа` (Replace first key segment) | Reads the `charName` field; for every `voice`, looks for a clip named `"{charName}.{oldSuffix}"` where `oldSuffix` is the remainder of the old clip name after the first dot, and retargets the handle. Also rewires the preset's `textGuid` to the localization key `"{charName}.{Name}"` (resolved via `Localization.GetLocalizationKeys()`, case-insensitive). | Cloning a preset for another character: change the prefix, voices automatically point to that character's recordings |
-| `Скопировать первую запись под другой язык` (Copy first entry to another language) | Reads the `_newLanguage` field. Uses the first `voice` as a template, replaces the substring `.{templateLang}` with `.{newLanguage}` inside its clip name, looks up the matching clip and appends a new `voice` entry for `_newLanguage` with a handle of the same implementation. If an entry for that language already exists, the action is skipped; if the clip isn't found — `InvalidOperationException`. | Adding a new language: first locale is done; stub the rest with one click |
-
-**Naming convention** the toolkit exploits:
-- The clip file name looks like `Character.{anything}.{lang}.{index}` or similar — language sits in one of the dot-separated positions.
-- `textGuid` looks like `Character.LineKey`.
-- `voice.language` matches the locale code from `Localization`.
-
-When the convention is broken, the toolkit **silently skips** the entry (it checks for a dot in the name, that the target clip exists, etc.) — nothing crashes, but nothing useful happens either. The exception is copying to a language: a missing clip throws. This is by contract: a «rough toolkit» is a best-effort helper, and the result needs a manual sanity check.
 
 ## Edge Cases
 

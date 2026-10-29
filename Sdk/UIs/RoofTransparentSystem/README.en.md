@@ -37,6 +37,20 @@ When the toggle is off, the define is removed from PlayerSettings and the packag
 - `Vortex.Unity.EditorTools.Attributes` — `[AutoLink]`
 - Sirenix Odin Inspector — `[InfoBox]`
 
+## Usage
+
+```csharp
+// On the target (character):
+[RequireComponent(typeof(TransparentFocusHandler))]
+public class Character : MonoBehaviour { /* ... */ }
+
+// On the roof:
+// 1. Add a SpriteRenderer
+// 2. Add a RoofTransparentHandler (sprite is auto-linked via [AutoLink])
+// 3. Create child GameObjects with TriggerZone (or one on the object itself)
+// 4. Configure fadeTime and minAlpha in the inspector
+```
+
 ## Architecture
 
 ```
@@ -80,20 +94,6 @@ RoofTransparentSystem/
 - Alpha is controlled only on `SpriteRenderer` (color is hardcoded as `new Color(1, 1, 1, f)`)
 - At least one `TriggerZone` is required — otherwise `LogWarning` and the handler does not subscribe
 - `OnValidate` auto-collects child `TriggerZone` components if the array is empty
-
-## Usage
-
-```csharp
-// On the target (character):
-[RequireComponent(typeof(TransparentFocusHandler))]
-public class Character : MonoBehaviour { /* ... */ }
-
-// On the roof:
-// 1. Add a SpriteRenderer
-// 2. Add a RoofTransparentHandler (sprite is auto-linked via [AutoLink])
-// 3. Create child GameObjects with TriggerZone (or one on the object itself)
-// 4. Configure fadeTime and minAlpha in the inspector
-```
 
 ## Edge cases
 

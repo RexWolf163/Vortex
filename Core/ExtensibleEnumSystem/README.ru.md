@@ -37,6 +37,66 @@ Type-safe enum-подобные расширяемые наборы значен
 
 ---
 
+## Использование
+
+### Объявление набора
+
+```csharp
+public sealed class CombatState : ExtensibleEnum
+{
+    public static readonly CombatState Idle  = new(nameof(Idle),  0);
+    public static readonly CombatState Block = new(nameof(Block), 1);
+    public static readonly CombatState Parry = new(nameof(Parry), 2);
+
+    public static IReadOnlyList<CombatState> All => GetAll<CombatState>();
+
+    private CombatState(string key, int order) : base(key, order) { }
+}
+```
+
+### Использование в модели
+
+```csharp
+public class CharacterModel
+{
+    public ExtEnumData<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
+    public ExtEnumData<CombatState> CombatMode { get; } = new(CombatState.Idle);
+}
+```
+
+### Чтение, установка, проверки
+
+```csharp
+character.MoveMode.Set(MoveState.Run);                      // type-safe ✓
+if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equality
+if (character.MoveMode.Is(MoveState.Run)) { ... }           // явная проверка
+character.MoveMode.OnUpdate += v => Refresh(v);             // реактивность
+int slot = character.MoveMode.Index;                        // → индекс слота визуального состояния
+string key = character.MoveMode.Key;                        // → save без обёртки ExtEnumData
+```
+
+### Сериализация / десериализация
+
+```csharp
+var json = character.SerializeProperties();
+// поле MoveMode: "Value" : "MyGame.States.MoveState.Run"
+
+var restored = json.DeserializeProperties<CharacterModel>();
+restored.MoveMode.Value == MoveState.Run;                    // ✓ ссылочное равенство
+```
+
+### Lookup по ключу
+
+```csharp
+var run = ExtensibleEnum.GetByKey<MoveState>("Run");          // → MoveState.Run
+var any = ExtensibleEnum.GetByKey(typeof(MoveState), "Walk"); // → MoveState.Walk
+
+foreach (var s in ExtensibleEnum.GetAll<MoveState>())
+    Console.WriteLine($"{s.Order}: {s.Key}");
+```
+
+---
+
 ## Архитектура
 
 ### ExtensibleEnum
@@ -202,66 +262,6 @@ SerializeController.RegisterCustomSerializer(
 ```
 
 После регистрации любое свойство типа `ExtensibleEnum`-наследника или `ExtEnumData<T>.Value` сериализуется как обычная JSON-строка, без раскрытия в объект.
-
----
-
-## Использование
-
-### Объявление набора
-
-```csharp
-public sealed class CombatState : ExtensibleEnum
-{
-    public static readonly CombatState Idle  = new(nameof(Idle),  0);
-    public static readonly CombatState Block = new(nameof(Block), 1);
-    public static readonly CombatState Parry = new(nameof(Parry), 2);
-
-    public static IReadOnlyList<CombatState> All => GetAll<CombatState>();
-
-    private CombatState(string key, int order) : base(key, order) { }
-}
-```
-
-### Использование в модели
-
-```csharp
-public class CharacterModel
-{
-    public ExtEnumData<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
-    public ExtEnumData<CombatState> CombatMode { get; } = new(CombatState.Idle);
-}
-```
-
-### Чтение, установка, проверки
-
-```csharp
-character.MoveMode.Set(MoveState.Run);                      // type-safe ✓
-if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equality
-if (character.MoveMode.Is(MoveState.Run)) { ... }           // явная проверка
-character.MoveMode.OnUpdate += v => Refresh(v);             // реактивность
-int slot = character.MoveMode.Index;                        // → индекс слота визуального состояния
-string key = character.MoveMode.Key;                        // → save без обёртки ExtEnumData
-```
-
-### Сериализация / десериализация
-
-```csharp
-var json = character.SerializeProperties();
-// поле MoveMode: "Value" : "MyGame.States.MoveState.Run"
-
-var restored = json.DeserializeProperties<CharacterModel>();
-restored.MoveMode.Value == MoveState.Run;                    // ✓ ссылочное равенство
-```
-
-### Lookup по ключу
-
-```csharp
-var run = ExtensibleEnum.GetByKey<MoveState>("Run");          // → MoveState.Run
-var any = ExtensibleEnum.GetByKey(typeof(MoveState), "Walk"); // → MoveState.Walk
-
-foreach (var s in ExtensibleEnum.GetAll<MoveState>())
-    Console.WriteLine($"{s.Order}: {s.Key}");
-```
 
 ---
 

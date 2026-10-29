@@ -32,6 +32,47 @@
 
 ---
 
+## Использование
+
+### Добавление настроек для новой системы
+
+1. Создать partial-расширение `SettingsModel`:
+
+```csharp
+namespace Vortex.Core.SettingsSystem.Model
+{
+    public partial class SettingsModel
+    {
+        public float MusicVolume { get; private set; }
+        public float SfxVolume { get; private set; }
+    }
+}
+```
+
+2. Создать `SettingsPreset`-наследник (Unity-слой):
+
+```csharp
+public class AudioSettings : SettingsPreset
+{
+    [SerializeField, Range(0f, 1f)] private float musicVolume = 0.8f;
+    [SerializeField, Range(0f, 1f)] private float sfxVolume = 1f;
+
+    public float MusicVolume => musicVolume;
+    public float SfxVolume => sfxVolume;
+}
+```
+
+3. Ассет создастся автоматически в `Resources/Settings/` при загрузке Editor.
+
+### Чтение настроек
+
+```csharp
+var startScene = Settings.Data().StartScene;
+var debugMode = Settings.Data().DebugMode;
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -95,47 +136,6 @@ SettingsModel : SystemModel  (partial)
 | Свойства `SettingsModel` — `private set` | Заполняются только через `CopyFrom` (Reflection) |
 | Имя свойства в модели = имя свойства в пресете | `ObjectExtCopy` сопоставляет по имени |
 | Порядок загрузки пресетов не гарантирован | При конфликте побеждает последний загруженный |
-
----
-
-## Использование
-
-### Добавление настроек для новой системы
-
-1. Создать partial-расширение `SettingsModel`:
-
-```csharp
-namespace Vortex.Core.SettingsSystem.Model
-{
-    public partial class SettingsModel
-    {
-        public float MusicVolume { get; private set; }
-        public float SfxVolume { get; private set; }
-    }
-}
-```
-
-2. Создать `SettingsPreset`-наследник (Unity-слой):
-
-```csharp
-public class AudioSettings : SettingsPreset
-{
-    [SerializeField, Range(0f, 1f)] private float musicVolume = 0.8f;
-    [SerializeField, Range(0f, 1f)] private float sfxVolume = 1f;
-
-    public float MusicVolume => musicVolume;
-    public float SfxVolume => sfxVolume;
-}
-```
-
-3. Ассет создастся автоматически в `Resources/Settings/` при загрузке Editor.
-
-### Чтение настроек
-
-```csharp
-var startScene = Settings.Data().StartScene;
-var debugMode = Settings.Data().DebugMode;
-```
 
 ---
 

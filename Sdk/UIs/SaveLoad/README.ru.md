@@ -58,6 +58,42 @@ UI-обёртка над `SaveController` (Core SaveSystem): представл�
 - Sirenix Odin Inspector — `[Button]`
 - Шейдер `Hidden/AlphaBlit` (Always Included Shaders)
 
+## Использование
+
+### Сцена со списком сейвов
+
+1. На корне UI разместить `SaveListView` со ссылками на `Pool` (префаб слота со `SaveView`) и `DataStorage` для текущего фокуса.
+2. На префабе слота: `SaveView` с `[AutoLink]` на источник `IDataStorage`, ссылками на `slotButton` (`UIComponent`), `slotName`, `timestamp`, `RawImage slotImage` и ключи локализации `autoSavePattern` / `manualSavePattern`.
+3. Кнопки `Load`/`Remove`: `LoadGameHandler` / `RemoveSaveGameHandler` с тем же `DataStorage`.
+
+### Кнопка «Сохранить»
+
+```csharp
+// На GameObject с UIComponent (кнопкой) добавить SaveGameHandler.
+// Имя сейва будет вида:  manual_N || <base64 jpeg>
+```
+
+### Захват экрана
+
+```csharp
+// На каждой камере / канвасе разместить CameraCaptureHandler,
+// проставить priority (меньше — ниже).
+// В Always Included Shaders добавить Hidden/AlphaBlit.
+
+await UniTask.WaitForEndOfFrame(this);
+var screenshot = CameraCaptureHandler.Capture();
+// ... использовать ...
+UnityEngine.Object.Destroy(screenshot);
+```
+
+### Извлечение превью из существующего сейва
+
+```csharp
+SaveSummary summary = ...;
+Texture2D preview = SavePreviewController.GetPreview(summary); // либо null
+string pureName = summary.GetSavePureName();
+```
+
 ## Архитектура
 
 ```
@@ -125,42 +161,6 @@ SaveLoad/
 - Для `Canvas.ScreenSpaceCamera` без `worldCamera` — `LogWarning`, слой пропускается
 - Имя сейва не должно содержать подстроки `||` (она вырезается через `Replace`)
 - Возвращённую `Capture()` текстуру обязан уничтожить вызывающий код (`Destroy`)
-
-## Использование
-
-### Сцена со списком сейвов
-
-1. На корне UI разместить `SaveListView` со ссылками на `Pool` (префаб слота со `SaveView`) и `DataStorage` для текущего фокуса.
-2. На префабе слота: `SaveView` с `[AutoLink]` на источник `IDataStorage`, ссылками на `slotButton` (`UIComponent`), `slotName`, `timestamp`, `RawImage slotImage` и ключи локализации `autoSavePattern` / `manualSavePattern`.
-3. Кнопки `Load`/`Remove`: `LoadGameHandler` / `RemoveSaveGameHandler` с тем же `DataStorage`.
-
-### Кнопка «Сохранить»
-
-```csharp
-// На GameObject с UIComponent (кнопкой) добавить SaveGameHandler.
-// Имя сейва будет вида:  manual_N || <base64 jpeg>
-```
-
-### Захват экрана
-
-```csharp
-// На каждой камере / канвасе разместить CameraCaptureHandler,
-// проставить priority (меньше — ниже).
-// В Always Included Shaders добавить Hidden/AlphaBlit.
-
-await UniTask.WaitForEndOfFrame(this);
-var screenshot = CameraCaptureHandler.Capture();
-// ... использовать ...
-UnityEngine.Object.Destroy(screenshot);
-```
-
-### Извлечение превью из существующего сейва
-
-```csharp
-SaveSummary summary = ...;
-Texture2D preview = SavePreviewController.GetPreview(summary); // либо null
-string pureName = summary.GetSavePureName();
-```
 
 ## Граничные случаи
 

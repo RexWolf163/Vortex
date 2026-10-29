@@ -65,6 +65,35 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Project setup
+
+1. Enable the package toggle in `Tools → Vortex → Configs → SDK Settings`.
+2. `Create → Vortex → Settings → Content Tags`, put the asset into `Resources`. To find it later — `Tools → Vortex → Content Tags → Settings`.
+3. Declare the tags: key plus a note on why the tag exists.
+4. Create the edition bundles and tick the tags enabled in each.
+5. Pick `activeBundle`.
+
+### Marking up content
+
+```csharp
+// Any system can ask directly — not only UI.
+if (ContentBus.IsActive("store_links"))
+    BuildStoreSection();
+```
+
+On a scene: `ContentTagGateHandler` where the state is configured by a switcher; `ContentTagObjectHandler` where the section simply must not be there.
+
+### Before building an edition
+
+1. Set the required `activeBundle` in the asset.
+2. Open `Tools → Vortex → Content Tags → Index` and press **Обновить** (Refresh).
+3. Check the edition contents and the "declared but unused" and "used but undeclared" sections — the latter means a typo in a component or a deleted declaration.
+4. **Find** on a holder row: an open scene selects the object, a prefab opens in prefab mode with the object selected, a closed scene pings the asset.
+
+---
+
 ## Architecture
 
 ```
@@ -191,35 +220,6 @@ A bundle lists what is enabled, but content **without tags is always visible**. 
 | `tags`, `mode` | Same as above |
 | `targets` | Objects the component drives; never its own object |
 | `invert` | Show the targets when the condition is not met |
-
----
-
-## Usage
-
-### Project setup
-
-1. Enable the package toggle in `Tools → Vortex → Configs → SDK Settings`.
-2. `Create → Vortex → Settings → Content Tags`, put the asset into `Resources`. To find it later — `Tools → Vortex → Content Tags → Settings`.
-3. Declare the tags: key plus a note on why the tag exists.
-4. Create the edition bundles and tick the tags enabled in each.
-5. Pick `activeBundle`.
-
-### Marking up content
-
-```csharp
-// Any system can ask directly — not only UI.
-if (ContentBus.IsActive("store_links"))
-    BuildStoreSection();
-```
-
-On a scene: `ContentTagGateHandler` where the state is configured by a switcher; `ContentTagObjectHandler` where the section simply must not be there.
-
-### Before building an edition
-
-1. Set the required `activeBundle` in the asset.
-2. Open `Tools → Vortex → Content Tags → Index` and press **Обновить** (Refresh).
-3. Check the edition contents and the "declared but unused" and "used but undeclared" sections — the latter means a typo in a component or a deleted declaration.
-4. **Find** on a holder row: an open scene selects the object, a prefab opens in prefab mode with the object selected, a closed scene pings the asset.
 
 ---
 

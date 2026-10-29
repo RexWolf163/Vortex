@@ -32,6 +32,62 @@
 
 ---
 
+## Использование
+
+### Подписка на экшен из кода
+
+```csharp
+InputController.AddActionUser("Player/Jump", this, OnJumpPerformed, OnJumpCanceled);
+
+// Отписка
+InputController.RemoveActionUser("Player/Jump", this);
+```
+
+`this` используется как ключ идентификации. Повторный `AddActionUser` с тем же объектом не создаст дубликат.
+
+### Polling-чтение значения (GetAction)
+
+Для аналогового ввода (стики, триггеры, курсорная дельта), где нужна не callback-подписка, а само значение по требованию, `GetAction("Карта/Экшен")` отдаёт `InputAction` напрямую — дальше `ReadValue<T>()` / `IsPressed()` в своём `Update`:
+
+```csharp
+var move = InputController.GetAction("Player/Move");
+var delta = move?.ReadValue<Vector2>() ?? Vector2.zero;
+```
+
+`null` — ключ не найден. Это escape-hatch мимо LIFO-маршрутизации: значение читает сам вызывающий, шина в polling не участвует (в эдиторе метод при необходимости сам поднимает `Init`).
+
+### Подписка через Inspector (InputActionHandler)
+
+Компонент `InputActionHandler` на GameObject:
+- `inputAction` — экшен из dropdown (составной id `Карта/Экшен`, сгруппирован по картам в папки)
+- `button` — опционально, ссылка на `AdvancedButton`
+- `onPressed` / `onReleased` — Unity Events
+
+### Позиция указателя (InputPointerHandler)
+
+Компонент `InputPointerHandler` подписывается на экшен по правилам шины (LIFO) и на **каждое** его событие отдаёт наружу текущую позицию указателя одним `UnityEvent<Vector2>` (`onPoint`, screen-координаты через `Pointer.current`). В отличие от `InputActionHandler` (два события press/release) — один метод со значением вектора; что делать с точкой и когда начинать/заканчивать ловлю решает подписчик (например, включением/выключением объекта по press-экшену).
+
+- `inputAction` — экшен, событие которого = момент отдать позицию (напр. `CursorPosition`)
+- `onPoint` — `UnityEvent<Vector2>`, вызывается на каждое событие экшена с текущей позицией
+
+Подписка отложена до `AppStates.Running` (как в `InputActionHandler`), автоотписка в `OnDisable`/`OnDestroy`.
+
+### Активация карты (InputMapHandler)
+
+Компонент `InputMapHandler` на GameObject:
+- `inputMap` — карта из dropdown
+
+Карта активна, пока хотя бы один `InputMapHandler` для неё включён в сцене.
+
+### Прямая привязка клавиш (KeyboardHandler)
+
+Компонент `KeyboardHandler` на GameObject:
+- `buttonCode` — массив отдельных клавиш (любая вызовет срабатывание)
+- `buttonsCombinations` — массив комбинаций (последняя клавиша — активирующая, остальные — модификаторы)
+- `button`, `onPressed`, `onReleased` — аналогично `InputActionHandler`
+
+---
+
 ## Архитектура
 
 ```
@@ -149,62 +205,6 @@ public readonly object Owner;
 public Action OnPerformed { get; }
 public Action OnCanceled { get; }
 ```
-
----
-
-## Использование
-
-### Подписка на экшен из кода
-
-```csharp
-InputController.AddActionUser("Player/Jump", this, OnJumpPerformed, OnJumpCanceled);
-
-// Отписка
-InputController.RemoveActionUser("Player/Jump", this);
-```
-
-`this` используется как ключ идентификации. Повторный `AddActionUser` с тем же объектом не создаст дубликат.
-
-### Polling-чтение значения (GetAction)
-
-Для аналогового ввода (стики, триггеры, курсорная дельта), где нужна не callback-подписка, а само значение по требованию, `GetAction("Карта/Экшен")` отдаёт `InputAction` напрямую — дальше `ReadValue<T>()` / `IsPressed()` в своём `Update`:
-
-```csharp
-var move = InputController.GetAction("Player/Move");
-var delta = move?.ReadValue<Vector2>() ?? Vector2.zero;
-```
-
-`null` — ключ не найден. Это escape-hatch мимо LIFO-маршрутизации: значение читает сам вызывающий, шина в polling не участвует (в эдиторе метод при необходимости сам поднимает `Init`).
-
-### Подписка через Inspector (InputActionHandler)
-
-Компонент `InputActionHandler` на GameObject:
-- `inputAction` — экшен из dropdown (составной id `Карта/Экшен`, сгруппирован по картам в папки)
-- `button` — опционально, ссылка на `AdvancedButton`
-- `onPressed` / `onReleased` — Unity Events
-
-### Позиция указателя (InputPointerHandler)
-
-Компонент `InputPointerHandler` подписывается на экшен по правилам шины (LIFO) и на **каждое** его событие отдаёт наружу текущую позицию указателя одним `UnityEvent<Vector2>` (`onPoint`, screen-координаты через `Pointer.current`). В отличие от `InputActionHandler` (два события press/release) — один метод со значением вектора; что делать с точкой и когда начинать/заканчивать ловлю решает подписчик (например, включением/выключением объекта по press-экшену).
-
-- `inputAction` — экшен, событие которого = момент отдать позицию (напр. `CursorPosition`)
-- `onPoint` — `UnityEvent<Vector2>`, вызывается на каждое событие экшена с текущей позицией
-
-Подписка отложена до `AppStates.Running` (как в `InputActionHandler`), автоотписка в `OnDisable`/`OnDestroy`.
-
-### Активация карты (InputMapHandler)
-
-Компонент `InputMapHandler` на GameObject:
-- `inputMap` — карта из dropdown
-
-Карта активна, пока хотя бы один `InputMapHandler` для неё включён в сцене.
-
-### Прямая привязка клавиш (KeyboardHandler)
-
-Компонент `KeyboardHandler` на GameObject:
-- `buttonCode` — массив отдельных клавиш (любая вызовет срабатывание)
-- `buttonsCombinations` — массив комбинаций (последняя клавиша — активирующая, остальные — модификаторы)
-- `button`, `onPressed`, `onReleased` — аналогично `InputActionHandler`
 
 ---
 

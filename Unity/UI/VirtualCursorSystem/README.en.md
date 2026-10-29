@@ -46,6 +46,31 @@ Drivers do **not** use `InputActionProperty`: a binding is a string action id re
 
 ---
 
+## Usage
+
+### 1. Enable the module
+In `SdkSettings` enable `cursorInputSdk` → **ApplyChanges** (define `USING_VORTEX_CURSOR`, recompile).
+
+### 2. Configure InputDriverSet
+`CoreAssetsController` auto-creates `Resources/Settings/InputDriverSet.asset`. Add drivers, assign action ids from the dropdown. For Android + Desktop — two `TouchInputDriver`s: `HideOnly` + `MobileOnly` (Button `<Touchscreen>/primaryTouch`) and `Delta` + `DesktopOnly` (Value `<Touchscreen>/delta`).
+
+### 3. Input Actions
+Actions for the drivers (mouse position, move vector, buttons, navigation directions, submit, scroll, touch). For `MultiTouchInputDriver` and `GestureInputDriver` — actions bound to touches as a whole: `<Touchscreen>/touch*/position`, and `<Touchscreen>/touch*/press` for finger buttons. Enable the virtual cursor map on the project side (e.g. an `InputMapHandler` in the persistent scene). `ActionInputDriver` button actions are of type **Button** (the action is set on `performed`, cleared on `canceled`); with PassThrough the release also arrives as `performed` and the action sticks. A UI click uses the same action: the package's UGUI module reads the action mask, no separate UI action is needed.
+
+### 4. Scene
+- On the `EventSystem` — `VirtualCursorInputModule` instead of `InputSystemUIInputModule` (`VirtualCursorBaseInput` is added automatically). For mobile — `nativeTouch` with `MobileOnly`.
+- Overlay `Canvas` (Screen Space - Overlay, above all UI) + a cursor with a `UIStateSwitcher` (state 0 — default skin, `hidden` — hidden, others by skin names) + `UiCursorRenderer`. Disable raycast on the cursor graphics.
+- Optional: `PointerActionTweenerHandler` on the cursor (press animation), `CameraProvider` on the camera, `CursorHoverZone` on UI elements (one zone — one raycast), `PointerActionHandler` for RMB/MMB.
+
+### 5. Focus navigation (optional)
+- In `InputDriverSet` — `UINavigationDriver`: 4 directions + submit, `coneAngleDeg`, `hideCursorOnFocus`, `captureFocusIfFree`.
+- `FocusGroup` on the root of each navigation context (HUD, menu, dialog); switching contexts — `SetActive`.
+- `FocusTargetComponent` on every focusable element inside a group; `onFocused`/`onUnfocused` — highlight/SFX. For a button, put `FocusTargetComponent` on the object with the click handler or below it (submit bubbles up the hierarchy like a raycast).
+- `FocusCenterScrollRect` on `ScrollRect` lists.
+- `FocusDropDownSelected` on the `DropDownList` root — focus on the selected item when opened.
+
+---
+
 ## Architecture
 
 ```
@@ -362,31 +387,6 @@ virtual  bool HidesCursor { get; }
 virtual  bool SupportsPlatform(RuntimePlatform platform);
 // helpers: ResolveAction / SubscribeAction / UnsubscribeAction / Report(screen, device) / ReportDevice(device) / DeviceOf(action)
 ```
-
----
-
-## Usage
-
-### 1. Enable the module
-In `SdkSettings` enable `cursorInputSdk` → **ApplyChanges** (define `USING_VORTEX_CURSOR`, recompile).
-
-### 2. Configure InputDriverSet
-`CoreAssetsController` auto-creates `Resources/Settings/InputDriverSet.asset`. Add drivers, assign action ids from the dropdown. For Android + Desktop — two `TouchInputDriver`s: `HideOnly` + `MobileOnly` (Button `<Touchscreen>/primaryTouch`) and `Delta` + `DesktopOnly` (Value `<Touchscreen>/delta`).
-
-### 3. Input Actions
-Actions for the drivers (mouse position, move vector, buttons, navigation directions, submit, scroll, touch). For `MultiTouchInputDriver` and `GestureInputDriver` — actions bound to touches as a whole: `<Touchscreen>/touch*/position`, and `<Touchscreen>/touch*/press` for finger buttons. Enable the virtual cursor map on the project side (e.g. an `InputMapHandler` in the persistent scene). `ActionInputDriver` button actions are of type **Button** (the action is set on `performed`, cleared on `canceled`); with PassThrough the release also arrives as `performed` and the action sticks. A UI click uses the same action: the package's UGUI module reads the action mask, no separate UI action is needed.
-
-### 4. Scene
-- On the `EventSystem` — `VirtualCursorInputModule` instead of `InputSystemUIInputModule` (`VirtualCursorBaseInput` is added automatically). For mobile — `nativeTouch` with `MobileOnly`.
-- Overlay `Canvas` (Screen Space - Overlay, above all UI) + a cursor with a `UIStateSwitcher` (state 0 — default skin, `hidden` — hidden, others by skin names) + `UiCursorRenderer`. Disable raycast on the cursor graphics.
-- Optional: `PointerActionTweenerHandler` on the cursor (press animation), `CameraProvider` on the camera, `CursorHoverZone` on UI elements (one zone — one raycast), `PointerActionHandler` for RMB/MMB.
-
-### 5. Focus navigation (optional)
-- In `InputDriverSet` — `UINavigationDriver`: 4 directions + submit, `coneAngleDeg`, `hideCursorOnFocus`, `captureFocusIfFree`.
-- `FocusGroup` on the root of each navigation context (HUD, menu, dialog); switching contexts — `SetActive`.
-- `FocusTargetComponent` on every focusable element inside a group; `onFocused`/`onUnfocused` — highlight/SFX. For a button, put `FocusTargetComponent` on the object with the click handler or below it (submit bubbles up the hierarchy like a raycast).
-- `FocusCenterScrollRect` on `ScrollRect` lists.
-- `FocusDropDownSelected` on the `DropDownList` root — focus on the selected item when opened.
 
 ---
 

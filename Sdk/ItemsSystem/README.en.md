@@ -19,70 +19,6 @@ The package compiles when the `itemsSdk` toggle is enabled in `SdkSettings` (def
 
 Assembly: `ru.vortex.sdk.itemssystem`. Odin Inspector required.
 
-## Architecture
-
-| Unit | Role |
-|------|------|
-| `ItemPreset` | Authoring asset: property set, category key. The single authoring surface |
-| `ItemModel` | Item instance. Two property containers, `OnChanged` event, resolved category |
-| `ItemProperty` | Property base. The storage type of the set |
-| `IItemProperty` | Root marker for purpose interfaces. The query type is anything derived from it |
-| `ItemCategory` | Extensible enum of categories. Domain values are declared outside the package; only `Unknown` ships with it |
-| `ItemsBus` | Static controller: item construction, property-set changes |
-
-### Two property containers
-
-Item properties live in two non-public dictionaries.
-
-| Container | Key | Saved | Purpose |
-|-----------|-----|-------|---------|
-| Set | concrete property class | yes | merge on load, each property stored exactly once |
-| Index | purpose interface | no | O(1) lookup, rebuilt on construction and on set change |
-
-This storage makes the central invariant structural: **at most one property per purpose interface**. Two properties on the same interface physically do not fit into the index — the conflict surfaces on insertion.
-
-The cost is memory. At 10,000 items the subsystem takes roughly 16–20 MB. The trade is deliberate: against a build where textures alone are measured in gigabytes, this is a fraction of a percent of the memory budget.
-
-### Reactivity
-
-An item has one event — `OnChanged` — raised when a property value or the property set changes. Whoever changes a value (a controller of count, durability, decaying weight) calls, through the property, the protected `ItemProperty.NotifyChanged(owner)`, which raises `ItemModel.NotifyChanged()` (internal). So a change reaches the consumer without polling and without a global counter: an inventory subscribes to its items' `OnChanged` and re-emits it as its own event.
-
-Derived values are recomputed on demand — a consumer reading total mass always sees the current value, including decay. A cache is added only where a profile shows a problem.
-
-## Contract
-
-**Input.** A preset identifier, optionally saved state.
-
-**Guarantees.**
-
-| # | Invariant |
-|---|-----------|
-| Inv-1 | At most one property per purpose interface within an item |
-| Inv-2 | The set changes only through the bus |
-| Inv-3 | Authoring data is not saved and is taken anew on every construction |
-
-**Limitations.**
-
-- Raising `OnChanged` on a property value change is the responsibility of the owning controller (it calls `NotifyChanged(owner)` after the mutation). The package neither guarantees nor can verify it.
-- `OnItemCreated` fires on every construction. Loading a large collection means thousands of consecutive invocations — handlers must be cheap.
-- An exception in a handler is not isolated and aborts loading. That is preferable to a silently half-built item.
-- Property class identity in a save is the assembly-qualified type name. Renaming or moving a property class is a breaking change for saves.
-
-## Separating authoring data from saved data
-
-The serialization default is "saved". A missing exclusion mark on an authoring field means the value goes into the save, overrides the authoring value on load, and the balance patch **silently** stops reaching existing items. The failure is invisible and surfaces late.
-
-Property fields fall into two categories:
-
-| Category | Example | Mark |
-|----------|---------|------|
-| Authoring | base mass, maximum durability | `[NotPOCO]` |
-| Gameplay state | current durability | none |
-
-A private setter does **not** exclude a field from the save: selection looks at getter visibility and at the presence of a setter of any access level. These are two independent mechanisms.
-
-A property meant to be added at runtime must have no authoring fields: it has no source preset, and on recreation from a save such fields arrive as zeros.
-
 ## Usage
 
 ### 1. Declare a purpose interface
@@ -189,6 +125,70 @@ ItemsBus.OnItemCreated += item =>
 ```
 
 The event fires both on creation from a preset and on restoration from a save, so domain assembly is written once.
+
+## Architecture
+
+| Unit | Role |
+|------|------|
+| `ItemPreset` | Authoring asset: property set, category key. The single authoring surface |
+| `ItemModel` | Item instance. Two property containers, `OnChanged` event, resolved category |
+| `ItemProperty` | Property base. The storage type of the set |
+| `IItemProperty` | Root marker for purpose interfaces. The query type is anything derived from it |
+| `ItemCategory` | Extensible enum of categories. Domain values are declared outside the package; only `Unknown` ships with it |
+| `ItemsBus` | Static controller: item construction, property-set changes |
+
+### Two property containers
+
+Item properties live in two non-public dictionaries.
+
+| Container | Key | Saved | Purpose |
+|-----------|-----|-------|---------|
+| Set | concrete property class | yes | merge on load, each property stored exactly once |
+| Index | purpose interface | no | O(1) lookup, rebuilt on construction and on set change |
+
+This storage makes the central invariant structural: **at most one property per purpose interface**. Two properties on the same interface physically do not fit into the index — the conflict surfaces on insertion.
+
+The cost is memory. At 10,000 items the subsystem takes roughly 16–20 MB. The trade is deliberate: against a build where textures alone are measured in gigabytes, this is a fraction of a percent of the memory budget.
+
+### Reactivity
+
+An item has one event — `OnChanged` — raised when a property value or the property set changes. Whoever changes a value (a controller of count, durability, decaying weight) calls, through the property, the protected `ItemProperty.NotifyChanged(owner)`, which raises `ItemModel.NotifyChanged()` (internal). So a change reaches the consumer without polling and without a global counter: an inventory subscribes to its items' `OnChanged` and re-emits it as its own event.
+
+Derived values are recomputed on demand — a consumer reading total mass always sees the current value, including decay. A cache is added only where a profile shows a problem.
+
+## Contract
+
+**Input.** A preset identifier, optionally saved state.
+
+**Guarantees.**
+
+| # | Invariant |
+|---|-----------|
+| Inv-1 | At most one property per purpose interface within an item |
+| Inv-2 | The set changes only through the bus |
+| Inv-3 | Authoring data is not saved and is taken anew on every construction |
+
+**Limitations.**
+
+- Raising `OnChanged` on a property value change is the responsibility of the owning controller (it calls `NotifyChanged(owner)` after the mutation). The package neither guarantees nor can verify it.
+- `OnItemCreated` fires on every construction. Loading a large collection means thousands of consecutive invocations — handlers must be cheap.
+- An exception in a handler is not isolated and aborts loading. That is preferable to a silently half-built item.
+- Property class identity in a save is the assembly-qualified type name. Renaming or moving a property class is a breaking change for saves.
+
+## Separating authoring data from saved data
+
+The serialization default is "saved". A missing exclusion mark on an authoring field means the value goes into the save, overrides the authoring value on load, and the balance patch **silently** stops reaching existing items. The failure is invisible and surfaces late.
+
+Property fields fall into two categories:
+
+| Category | Example | Mark |
+|----------|---------|------|
+| Authoring | base mass, maximum durability | `[NotPOCO]` |
+| Gameplay state | current durability | none |
+
+A private setter does **not** exclude a field from the save: selection looks at getter visibility and at the presence of a setter of any access level. These are two independent mechanisms.
+
+A property meant to be added at runtime must have no authoring fields: it has no source preset, and on recreation from a save such fields arrive as zeros.
 
 ## API
 

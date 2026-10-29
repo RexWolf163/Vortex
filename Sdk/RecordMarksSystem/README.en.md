@@ -69,6 +69,73 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Setup
+
+1. The settings SO is created automatically (implements `ICoreAsset`): `Tools → Vortex → Debug → Check Core Assets`, or on domain reload when auto-mode is on. Manually — `Create → Vortex → Settings → RecordMarks` in `Assets/Resources/Settings/`.
+2. Fill `slotMarks` and `globalMarks` with unique names. Dot-namespace is recommended: `"gallery.unlocked"`, `"codex.viewed"`, `"shop.everPurchased"`.
+
+### Consumer
+
+```csharp
+public class GalleryCardView : MonoBehaviour
+{
+    [SerializeField] private string _cardGuid;
+
+    private void OnEnable()
+    {
+        RecordMarksBus.OnMarked += HandleMarked;
+        Refresh();
+    }
+
+    private void OnDisable()
+    {
+        RecordMarksBus.OnMarked -= HandleMarked;
+    }
+
+    private void HandleMarked(string mark, string guid)
+    {
+        if (mark == "gallery.unlocked" && guid == _cardGuid)
+            Refresh();
+    }
+
+    private void Refresh()
+    {
+        var unlocked = RecordMarksBus.IsMarked("gallery.unlocked", _cardGuid);
+        // toggle UI
+    }
+}
+```
+
+### Mutation
+
+```csharp
+// Standard flow — Mark only. Idempotent.
+RecordMarksBus.Mark("gallery.unlocked", cardGuid);
+
+// Debug/cheat.
+RecordMarksBus.Unmark("gallery.unlocked", cardGuid);
+```
+
+### Progress
+
+```csharp
+// RecordMarks knows only how many are marked. The full candidate list is
+// the consumer's side (usually enumerating Database presets).
+var unlockedCount = RecordMarksBus.GetMarked("gallery.unlocked").Count;
+var total = Database.GetRecords<GalleryCard>().Length;
+Debug.Log($"{unlockedCount} / {total}");
+```
+
+### Editor window
+
+`Tools → Vortex → Record Marks → Index` — read-only dump of the current Bus state. Available only in Play Mode after Bootstrap. The header shows `Ready` and `Session`; without a session a hint above per-slot marks says they are not counted. Name filter, foldout per mark with the list of GUIDs.
+
+`Tools → Vortex → Record Marks → Settings` — ping the SO in Project window.
+
+---
+
 ## Architecture
 
 ```
@@ -173,73 +240,6 @@ Creation: automatic — the SO implements `ICoreAsset`, the Core Assets controll
 | `RecordMarksGlobalData : IGlobalData` (`GetGlobalKey() = "Vortex.RecordMarks.Global"`) | Registered via reflection in `GlobalSaveController` |
 
 The `Data` field of both models is `internal` + `[IsPOCO]`: outside the package assembly it can neither be replaced nor read (owner-lock held by `RecordMarksBus`), while the Vortex serializer accesses it via reflection.
-
----
-
-## Usage
-
-### Setup
-
-1. The settings SO is created automatically (implements `ICoreAsset`): `Tools → Vortex → Debug → Check Core Assets`, or on domain reload when auto-mode is on. Manually — `Create → Vortex → Settings → RecordMarks` in `Assets/Resources/Settings/`.
-2. Fill `slotMarks` and `globalMarks` with unique names. Dot-namespace is recommended: `"gallery.unlocked"`, `"codex.viewed"`, `"shop.everPurchased"`.
-
-### Consumer
-
-```csharp
-public class GalleryCardView : MonoBehaviour
-{
-    [SerializeField] private string _cardGuid;
-
-    private void OnEnable()
-    {
-        RecordMarksBus.OnMarked += HandleMarked;
-        Refresh();
-    }
-
-    private void OnDisable()
-    {
-        RecordMarksBus.OnMarked -= HandleMarked;
-    }
-
-    private void HandleMarked(string mark, string guid)
-    {
-        if (mark == "gallery.unlocked" && guid == _cardGuid)
-            Refresh();
-    }
-
-    private void Refresh()
-    {
-        var unlocked = RecordMarksBus.IsMarked("gallery.unlocked", _cardGuid);
-        // toggle UI
-    }
-}
-```
-
-### Mutation
-
-```csharp
-// Standard flow — Mark only. Idempotent.
-RecordMarksBus.Mark("gallery.unlocked", cardGuid);
-
-// Debug/cheat.
-RecordMarksBus.Unmark("gallery.unlocked", cardGuid);
-```
-
-### Progress
-
-```csharp
-// RecordMarks knows only how many are marked. The full candidate list is
-// the consumer's side (usually enumerating Database presets).
-var unlockedCount = RecordMarksBus.GetMarked("gallery.unlocked").Count;
-var total = Database.GetRecords<GalleryCard>().Length;
-Debug.Log($"{unlockedCount} / {total}");
-```
-
-### Editor window
-
-`Tools → Vortex → Record Marks → Index` — read-only dump of the current Bus state. Available only in Play Mode after Bootstrap. The header shows `Ready` and `Session`; without a session a hint above per-slot marks says they are not counted. Name filter, foldout per mark with the list of GUIDs.
-
-`Tools → Vortex → Record Marks → Settings` — ping the SO in Project window.
 
 ---
 

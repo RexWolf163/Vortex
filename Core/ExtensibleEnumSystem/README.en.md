@@ -37,6 +37,66 @@ The custom converter for `SerializeController` is registered automatically in th
 
 ---
 
+## Usage
+
+### Declaring a set
+
+```csharp
+public sealed class CombatState : ExtensibleEnum
+{
+    public static readonly CombatState Idle  = new(nameof(Idle),  0);
+    public static readonly CombatState Block = new(nameof(Block), 1);
+    public static readonly CombatState Parry = new(nameof(Parry), 2);
+
+    public static IReadOnlyList<CombatState> All => GetAll<CombatState>();
+
+    private CombatState(string key, int order) : base(key, order) { }
+}
+```
+
+### Using in a model
+
+```csharp
+public class CharacterModel
+{
+    public ExtEnumData<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
+    public ExtEnumData<CombatState> CombatMode { get; } = new(CombatState.Idle);
+}
+```
+
+### Read, set, check
+
+```csharp
+character.MoveMode.Set(MoveState.Run);                      // type-safe ✓
+if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equality
+if (character.MoveMode.Is(MoveState.Run)) { ... }           // explicit
+character.MoveMode.OnUpdate += v => Refresh(v);             // reactivity
+int slot = character.MoveMode.Index;                        // → visual state slot index
+string key = character.MoveMode.Key;                        // → save without ExtEnumData wrapper
+```
+
+### Serialization / deserialization
+
+```csharp
+var json = character.SerializeProperties();
+// MoveMode field: "Value" : "MyGame.States.MoveState.Run"
+
+var restored = json.DeserializeProperties<CharacterModel>();
+restored.MoveMode.Value == MoveState.Run;                    // ✓ reference equality
+```
+
+### Lookup by key
+
+```csharp
+var run = ExtensibleEnum.GetByKey<MoveState>("Run");          // → MoveState.Run
+var any = ExtensibleEnum.GetByKey(typeof(MoveState), "Walk"); // → MoveState.Walk
+
+foreach (var s in ExtensibleEnum.GetAll<MoveState>())
+    Console.WriteLine($"{s.Order}: {s.Key}");
+```
+
+---
+
 ## Architecture
 
 ### ExtensibleEnum
@@ -202,66 +262,6 @@ SerializeController.RegisterCustomSerializer(
 ```
 
 After registration, any property whose type is an `ExtensibleEnum` subclass or `ExtEnumData<T>.Value` is serialized as an ordinary JSON string, not expanded into an object.
-
----
-
-## Usage
-
-### Declaring a set
-
-```csharp
-public sealed class CombatState : ExtensibleEnum
-{
-    public static readonly CombatState Idle  = new(nameof(Idle),  0);
-    public static readonly CombatState Block = new(nameof(Block), 1);
-    public static readonly CombatState Parry = new(nameof(Parry), 2);
-
-    public static IReadOnlyList<CombatState> All => GetAll<CombatState>();
-
-    private CombatState(string key, int order) : base(key, order) { }
-}
-```
-
-### Using in a model
-
-```csharp
-public class CharacterModel
-{
-    public ExtEnumData<MoveState>   MoveMode   { get; } = new(MoveState.Idle);
-    public ExtEnumData<CombatState> CombatMode { get; } = new(CombatState.Idle);
-}
-```
-
-### Read, set, check
-
-```csharp
-character.MoveMode.Set(MoveState.Run);                      // type-safe ✓
-if (character.MoveMode.Value == MoveState.Run) { ... }      // reference equality
-if (character.MoveMode.Is(MoveState.Run)) { ... }           // explicit
-character.MoveMode.OnUpdate += v => Refresh(v);             // reactivity
-int slot = character.MoveMode.Index;                        // → visual state slot index
-string key = character.MoveMode.Key;                        // → save without ExtEnumData wrapper
-```
-
-### Serialization / deserialization
-
-```csharp
-var json = character.SerializeProperties();
-// MoveMode field: "Value" : "MyGame.States.MoveState.Run"
-
-var restored = json.DeserializeProperties<CharacterModel>();
-restored.MoveMode.Value == MoveState.Run;                    // ✓ reference equality
-```
-
-### Lookup by key
-
-```csharp
-var run = ExtensibleEnum.GetByKey<MoveState>("Run");          // → MoveState.Run
-var any = ExtensibleEnum.GetByKey(typeof(MoveState), "Walk"); // → MoveState.Walk
-
-foreach (var s in ExtensibleEnum.GetAll<MoveState>())
-    Console.WriteLine($"{s.Order}: {s.Key}");
-```
 
 ---
 

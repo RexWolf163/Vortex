@@ -42,6 +42,106 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Type marking
+
+```csharp
+[POCO]
+public class PlayerData
+{
+    public string Name { get; set; }
+    public int Level { get; set; }
+    public float Score { get; set; }
+}
+```
+
+### Excluding properties
+
+```csharp
+[POCO]
+public class QuestModel : Record
+{
+    public QuestState State { get; internal set; }
+    public byte Step { get; internal set; }
+
+    // Not serialized — immutable data from preset
+    [NotPOCO] public bool Autorun { get; private set; }
+    [NotPOCO] public bool UnFailable { get; internal set; }
+
+    // Not serialized — QuestLogic is not marked [POCO]
+    public QuestLogic[] Logics { get; private set; }
+}
+```
+
+### Marking via interface
+
+```csharp
+[POCO]
+public interface IGameData { }
+
+// Automatically serializable — implements a [POCO] interface
+public class InventoryData : IGameData
+{
+    public int Gold { get; set; }
+    public int Gems { get; set; }
+}
+```
+
+### Serialization
+
+```csharp
+var player = new PlayerData { Name = "Test", Level = 42, Score = 3.14f };
+string json = player.SerializeProperties();
+```
+
+### Deserialization
+
+```csharp
+PlayerData restored = json.DeserializeProperties<PlayerData>();
+```
+
+### Polymorphism
+
+Deserialization restores the concrete type from the `"__"` marker. Target type `T` can be a base class or interface:
+
+```csharp
+IGameData data = json.DeserializeProperties<IGameData>();
+// data will be the concrete type stored in "__"
+```
+
+### SaveSystem integration via Record
+
+```csharp
+[POCO]
+public class PlayerRecord : Record
+{
+    public string Name { get; set; }
+    public int Level { get; private set; }
+
+    // Reference to a config asset — won't be pulled in (type lacks [POCO])
+    public WeaponConfig Weapon { get; set; }
+
+    public override string GetDataForSave() => this.SerializeProperties();
+    public override void LoadFromSaveData(string data)
+        => this.CopyFrom(data.DeserializeProperties<PlayerRecord>());
+}
+```
+
+### ComplexModel integration
+
+```csharp
+[POCO]
+public interface IGameData { }
+
+public class GameModel : ComplexModel<IGameData>
+{
+    // All IGameData implementations are automatically serializable
+}
+```
+
+---
+
 ## Architecture
 
 Partial class `SerializeController` split into 5 files:
@@ -327,106 +427,6 @@ An object whose type is marked `[POCO]` (or implements an interface with `[POCO]
 | `Type.GetType()` on deserialization | Type must be available in current AppDomain |
 | `DateTime` without timezone | Fixed format `yyyy-MM-dd HH:mm:ss` |
 | Deserialization/upload depth ≤ `MaxDepth` (64) | Guard against a corrupt deeply-nested save: overflow → log + `null`, not a StackOverflow |
-
----
-
-## Usage
-
-### Type marking
-
-```csharp
-[POCO]
-public class PlayerData
-{
-    public string Name { get; set; }
-    public int Level { get; set; }
-    public float Score { get; set; }
-}
-```
-
-### Excluding properties
-
-```csharp
-[POCO]
-public class QuestModel : Record
-{
-    public QuestState State { get; internal set; }
-    public byte Step { get; internal set; }
-
-    // Not serialized — immutable data from preset
-    [NotPOCO] public bool Autorun { get; private set; }
-    [NotPOCO] public bool UnFailable { get; internal set; }
-
-    // Not serialized — QuestLogic is not marked [POCO]
-    public QuestLogic[] Logics { get; private set; }
-}
-```
-
-### Marking via interface
-
-```csharp
-[POCO]
-public interface IGameData { }
-
-// Automatically serializable — implements a [POCO] interface
-public class InventoryData : IGameData
-{
-    public int Gold { get; set; }
-    public int Gems { get; set; }
-}
-```
-
-### Serialization
-
-```csharp
-var player = new PlayerData { Name = "Test", Level = 42, Score = 3.14f };
-string json = player.SerializeProperties();
-```
-
-### Deserialization
-
-```csharp
-PlayerData restored = json.DeserializeProperties<PlayerData>();
-```
-
-### Polymorphism
-
-Deserialization restores the concrete type from the `"__"` marker. Target type `T` can be a base class or interface:
-
-```csharp
-IGameData data = json.DeserializeProperties<IGameData>();
-// data will be the concrete type stored in "__"
-```
-
-### SaveSystem integration via Record
-
-```csharp
-[POCO]
-public class PlayerRecord : Record
-{
-    public string Name { get; set; }
-    public int Level { get; private set; }
-
-    // Reference to a config asset — won't be pulled in (type lacks [POCO])
-    public WeaponConfig Weapon { get; set; }
-
-    public override string GetDataForSave() => this.SerializeProperties();
-    public override void LoadFromSaveData(string data)
-        => this.CopyFrom(data.DeserializeProperties<PlayerRecord>());
-}
-```
-
-### ComplexModel integration
-
-```csharp
-[POCO]
-public interface IGameData { }
-
-public class GameModel : ComplexModel<IGameData>
-{
-    // All IGameData implementations are automatically serializable
-}
-```
 
 ---
 

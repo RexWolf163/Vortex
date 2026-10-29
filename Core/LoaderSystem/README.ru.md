@@ -40,6 +40,44 @@
 
 ---
 
+## Использование
+
+### Регистрация в драйвере (Layer 2)
+
+```csharp
+[RuntimeInitializeOnLoadMethod]
+private static void Init()
+{
+    if (MyService.SetDriver(Instance))
+        Loader.Register(Instance);
+}
+```
+
+### Реализация IProcess
+
+```csharp
+public class AudioDriver : IProcess
+{
+    public Type[] WaitingFor() => new[] { typeof(DatabaseDriver), typeof(SettingsDriver) };
+
+    public async UniTask RunAsync(CancellationToken token)
+    {
+        // Инициализация после Database и Settings
+        await LoadAudioBank(token);
+    }
+
+    public ProcessData GetProcessInfo() => _processData;
+}
+```
+
+### Одиночная загрузка
+
+```csharp
+await Loader.RunAlone(hotReloadModule);
+```
+
+---
+
 ## Архитектура
 
 Статический класс `Loader`. Единственная точка входа для управления загрузкой.
@@ -142,44 +180,6 @@ OnComplete → App.SetState(Running)
 | `_isRunning` не сбрасывается | Повторный `Run()` невозможен без перезапуска |
 | `CancellationTokenSource` — изменяемое static-поле | `_cts` не `readonly`: `RunAlone()` отменяет, освобождает и пересоздаёт токен-источник перед одиночной загрузкой |
 | `Queue` — `Dictionary<Type, IProcess>` | Один экземпляр на тип |
-
----
-
-## Использование
-
-### Регистрация в драйвере (Layer 2)
-
-```csharp
-[RuntimeInitializeOnLoadMethod]
-private static void Init()
-{
-    if (MyService.SetDriver(Instance))
-        Loader.Register(Instance);
-}
-```
-
-### Реализация IProcess
-
-```csharp
-public class AudioDriver : IProcess
-{
-    public Type[] WaitingFor() => new[] { typeof(DatabaseDriver), typeof(SettingsDriver) };
-
-    public async UniTask RunAsync(CancellationToken token)
-    {
-        // Инициализация после Database и Settings
-        await LoadAudioBank(token);
-    }
-
-    public ProcessData GetProcessInfo() => _processData;
-}
-```
-
-### Одиночная загрузка
-
-```csharp
-await Loader.RunAlone(hotReloadModule);
-```
 
 ---
 

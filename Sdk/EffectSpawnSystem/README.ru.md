@@ -22,6 +22,69 @@
 
 ---
 
+## Использование
+
+### Простой случай — снаряд взрывается
+
+```csharp
+public class Bullet : MonoBehaviour
+{
+    [SerializeField] private GameObject explosionPrefab;
+
+    private void OnCollisionEnter(Collision c)
+    {
+        // позиция = bullet.position (дефолт), ротация = identity (дефолт)
+        EffectSpawn.Spawn(transform, explosionPrefab);
+        Destroy(gameObject);
+    }
+}
+```
+
+### По ключу из каталога с кастомной ротацией
+
+```csharp
+public class Weapon : MonoBehaviour
+{
+    [EffectKey] [SerializeField] private string muzzleFlash;
+    [EffectKey] [SerializeField] private string impactSparks;
+
+    // дефолтная позиция (muzzle.position), дефолтная ротация (identity)
+    private void Fire(Transform muzzle) => EffectSpawn.Spawn(muzzle, muzzleFlash);
+
+    // кастомные позиция (точка попадания) и ротация (по нормали поверхности)
+    private void OnImpact(Transform owner, Vector3 hitPoint, Vector3 normal)
+        => EffectSpawn.Spawn(owner, impactSparks, hitPoint, Quaternion.LookRotation(normal));
+}
+```
+
+### Регистрация каталога
+
+Регистрация **автоматическая** — код в бутстрапе не нужен. `EffectSpawn.RegisterCatalog()` помечен `[RuntimeInitializeOnLoadMethod]` и при старте сам загружает singleton-каталог через `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. Достаточно, чтобы в проекте был единственный ассет `EffectsCatalog`. Ручной перегрузки с параметром и метода `UnregisterCatalog` нет.
+
+### EffectsLayer на сцене
+
+```
+Scene Root
+├── World
+│   ├── Player
+│   ├── Enemy
+│   └── ...
+└── Visuals
+    └── EffectsLayer  (EffectsLayer-компонент, Target = self)
+        └── (сюда паркуются все эффекты сцены)
+```
+
+Если у конкретного врага нужно держать эффекты локально (двигаются вместе с ним):
+```
+Enemy
+├── EffectsLayer  (Target = LocalEffects)
+│   └── LocalEffects
+│       └── (сюда паркуются эффекты, заспауненные на этом враге)
+└── Mesh
+```
+
+---
+
 ## Архитектура
 
 ### Двухслойное хранилище (lazy auto-create)
@@ -212,69 +275,6 @@ GAME-CODE
 ```
 
 При выходе из паузы — `Pool.ResumeAll`, `_paused = false`, отсчёт duration возобновляется.
-
----
-
-## Использование
-
-### Простой случай — снаряд взрывается
-
-```csharp
-public class Bullet : MonoBehaviour
-{
-    [SerializeField] private GameObject explosionPrefab;
-
-    private void OnCollisionEnter(Collision c)
-    {
-        // позиция = bullet.position (дефолт), ротация = identity (дефолт)
-        EffectSpawn.Spawn(transform, explosionPrefab);
-        Destroy(gameObject);
-    }
-}
-```
-
-### По ключу из каталога с кастомной ротацией
-
-```csharp
-public class Weapon : MonoBehaviour
-{
-    [EffectKey] [SerializeField] private string muzzleFlash;
-    [EffectKey] [SerializeField] private string impactSparks;
-
-    // дефолтная позиция (muzzle.position), дефолтная ротация (identity)
-    private void Fire(Transform muzzle) => EffectSpawn.Spawn(muzzle, muzzleFlash);
-
-    // кастомные позиция (точка попадания) и ротация (по нормали поверхности)
-    private void OnImpact(Transform owner, Vector3 hitPoint, Vector3 normal)
-        => EffectSpawn.Spawn(owner, impactSparks, hitPoint, Quaternion.LookRotation(normal));
-}
-```
-
-### Регистрация каталога
-
-Регистрация **автоматическая** — код в бутстрапе не нужен. `EffectSpawn.RegisterCatalog()` помечен `[RuntimeInitializeOnLoadMethod]` и при старте сам загружает singleton-каталог через `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. Достаточно, чтобы в проекте был единственный ассет `EffectsCatalog`. Ручной перегрузки с параметром и метода `UnregisterCatalog` нет.
-
-### EffectsLayer на сцене
-
-```
-Scene Root
-├── World
-│   ├── Player
-│   ├── Enemy
-│   └── ...
-└── Visuals
-    └── EffectsLayer  (EffectsLayer-компонент, Target = self)
-        └── (сюда паркуются все эффекты сцены)
-```
-
-Если у конкретного врага нужно держать эффекты локально (двигаются вместе с ним):
-```
-Enemy
-├── EffectsLayer  (Target = LocalEffects)
-│   └── LocalEffects
-│       └── (сюда паркуются эффекты, заспауненные на этом враге)
-└── Mesh
-```
 
 ---
 

@@ -21,6 +21,71 @@ Out of scope: playback, fade transitions, source pooling, settings persistence �
 - `Vortex.Core.DatabaseSystem` — `Record` (base class for samples)
 - `Vortex.Core.LoggerSystem` — error logging
 
+## Usage
+
+### Settings
+
+```csharp
+// Read
+bool soundOn = AudioController.Settings.SoundOn;
+float musicVol = AudioController.Settings.MusicVolume;
+bool masterOn = AudioController.Settings.MasterOn;
+
+// Modify
+AudioController.SetMasterState(false);     // mute everything
+AudioController.SetSoundState(false);      // mute sounds
+AudioController.SetMusicVolume(0.5f);      // music volume 50%
+AudioController.SetMasterVolume(0.8f);     // master volume 80%
+
+// Subscribe
+AudioController.OnSettingsChanged += () => UpdateUI();
+```
+
+### Channels
+
+```csharp
+// Channel list
+var channels = AudioController.GetChannelsList();
+
+// Channel volume
+float vol = AudioController.GetChVolume("dialog");
+AudioController.SetChVolume("dialog", 0.7f);
+
+// Calculated volume including Master and type
+float finalVol = AudioController.GetSoundVolume("ui");  // Master × Sound × Channel
+
+// Extension on AudioChannel
+var channel = AudioController.GetChannel("ambient");
+channel.SetVolume(0.5f);
+```
+
+### Playback
+
+```csharp
+// Sound (fire-and-forget)
+AudioController.PlaySound(sample);
+AudioController.PlaySound(sample, loop: true);
+AudioController.StopAllSounds();
+
+// Sound with a control handle (see the wrappers section)
+var voice = AudioController.PlaySoundWithControl(sample);
+voice.OnFinished += OnDone;
+
+// Main music
+AudioController.PlayMusic(music, fadingStart: true, fadingEnd: true);
+AudioController.StopMusic();
+
+// Situational music
+AudioController.PlayCoverMusic(battleTheme);
+AudioController.StopCoverMusic(); // main theme restores (driver)
+```
+
+### Sample Retrieval
+
+```csharp
+IAudioSample sample = AudioController.GetSample("explosion_01");
+```
+
 ## Architecture
 
 ```
@@ -121,71 +186,6 @@ The `object` parameter represents a platform-specific audio data type. Typing is
 - `AudioChannel.Volume` / `Mute` have `internal set` — modification through `SetChVolume` or `FromSave`
 - `AudioSample<T>.GetDataForSave()` returns `null` — samples do not participate in the save system
 - `MusicSample<T>` is abstract — direct instantiation is not possible
-
-## Usage
-
-### Settings
-
-```csharp
-// Read
-bool soundOn = AudioController.Settings.SoundOn;
-float musicVol = AudioController.Settings.MusicVolume;
-bool masterOn = AudioController.Settings.MasterOn;
-
-// Modify
-AudioController.SetMasterState(false);     // mute everything
-AudioController.SetSoundState(false);      // mute sounds
-AudioController.SetMusicVolume(0.5f);      // music volume 50%
-AudioController.SetMasterVolume(0.8f);     // master volume 80%
-
-// Subscribe
-AudioController.OnSettingsChanged += () => UpdateUI();
-```
-
-### Channels
-
-```csharp
-// Channel list
-var channels = AudioController.GetChannelsList();
-
-// Channel volume
-float vol = AudioController.GetChVolume("dialog");
-AudioController.SetChVolume("dialog", 0.7f);
-
-// Calculated volume including Master and type
-float finalVol = AudioController.GetSoundVolume("ui");  // Master × Sound × Channel
-
-// Extension on AudioChannel
-var channel = AudioController.GetChannel("ambient");
-channel.SetVolume(0.5f);
-```
-
-### Playback
-
-```csharp
-// Sound (fire-and-forget)
-AudioController.PlaySound(sample);
-AudioController.PlaySound(sample, loop: true);
-AudioController.StopAllSounds();
-
-// Sound with a control handle (see the wrappers section)
-var voice = AudioController.PlaySoundWithControl(sample);
-voice.OnFinished += OnDone;
-
-// Main music
-AudioController.PlayMusic(music, fadingStart: true, fadingEnd: true);
-AudioController.StopMusic();
-
-// Situational music
-AudioController.PlayCoverMusic(battleTheme);
-AudioController.StopCoverMusic(); // main theme restores (driver)
-```
-
-### Sample Retrieval
-
-```csharp
-IAudioSample sample = AudioController.GetSample("explosion_01");
-```
 
 ## Playback control via wrappers (`AudioSampleWrapper`)
 

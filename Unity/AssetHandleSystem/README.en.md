@@ -40,32 +40,6 @@ If the project uses Addressables only, the abstraction is overkill — use `Asse
 
 ---
 
-## Implementations
-
-Both narrow the contract constraint to `where T : UnityEngine.Object`.
-
-### `DirectAssetHandle<T>`
-
-Direct reference to an asset. Single field `[SerializeField] T asset`. `LoadAsync` returns `UniTask.FromResult(asset)`, `Release` is empty. The asset stays in memory while the preset lives. Works in any project, including without Addressables; suits light and always-needed assets.
-
-### `AddressableAssetHandle<T>`
-
-Lazy loading via Addressables on top of `AssetCache` (dedup, LRU survivors, destroyed-owner sweep — for free). Compiled only with `ENABLE_ADDRESSABLES`.
-
-- `[SerializeField] AssetReference reference` — Addressables asset link.
-- `[NonSerialized] T _cached` — cache of the loaded asset; the only state (the handle is reusable).
-- The handle is the sole owner of its Addressables handle through `AssetCache` (`owner = this`): the cache always holds exactly one key per handle. Overlapping loads of one handle (e.g. a retry after cancellation while the cancelled load is still in flight) are counted by the cache as separate holds of that key.
-
-`LoadAsync(ct)` flow:
-1. If `_cached != null` → warning (repeated Load without Release) + the same instance, without touching `AssetCache`.
-2. Otherwise — `await AssetCache.Load<T>(this, reference, ct)` → store in `_cached`.
-
-`Release()` flow:
-1. If `_cached == null` — no-op.
-2. `AssetCache.Release(this)`; `_cached = null`. The handle is ready for `LoadAsync` again.
-
----
-
 ## Usage
 
 ### Preset
@@ -94,6 +68,32 @@ void CloseFullscreen(GallerySpritePreset preset)
     preset.Fullscreen.Release();                          // Direct — no-op, Addressable — releases
 }
 ```
+
+---
+
+## Implementations
+
+Both narrow the contract constraint to `where T : UnityEngine.Object`.
+
+### `DirectAssetHandle<T>`
+
+Direct reference to an asset. Single field `[SerializeField] T asset`. `LoadAsync` returns `UniTask.FromResult(asset)`, `Release` is empty. The asset stays in memory while the preset lives. Works in any project, including without Addressables; suits light and always-needed assets.
+
+### `AddressableAssetHandle<T>`
+
+Lazy loading via Addressables on top of `AssetCache` (dedup, LRU survivors, destroyed-owner sweep — for free). Compiled only with `ENABLE_ADDRESSABLES`.
+
+- `[SerializeField] AssetReference reference` — Addressables asset link.
+- `[NonSerialized] T _cached` — cache of the loaded asset; the only state (the handle is reusable).
+- The handle is the sole owner of its Addressables handle through `AssetCache` (`owner = this`): the cache always holds exactly one key per handle. Overlapping loads of one handle (e.g. a retry after cancellation while the cancelled load is still in flight) are counted by the cache as separate holds of that key.
+
+`LoadAsync(ct)` flow:
+1. If `_cached != null` → warning (repeated Load without Release) + the same instance, without touching `AssetCache`.
+2. Otherwise — `await AssetCache.Load<T>(this, reference, ct)` → store in `_cached`.
+
+`Release()` flow:
+1. If `_cached == null` — no-op.
+2. `AssetCache.Release(this)`; `_cached = null`. The handle is ready for `LoadAsync` again.
 
 ---
 

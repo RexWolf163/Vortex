@@ -39,6 +39,48 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Unlocking an Achievement
+
+```csharp
+#if USING_STEAM
+if (SteamBus.IsLoaded)
+    SteamBus.User.UnlockAchievement("ACH_WIN_FIRST_BATTLE");
+#endif
+```
+
+### Checking State
+
+```csharp
+#if USING_STEAM
+var ach = SteamBus.User.GetAchievement("ACH_WIN_FIRST_BATTLE");
+if (ach != null && !ach.IsUnlocked)
+    ShowAchievementHint();
+#endif
+```
+
+### Getting All Achievements
+
+```csharp
+#if USING_STEAM
+var ids = SteamBus.User.GetAllAchievementsID();
+foreach (var id in ids)
+{
+    var ach = SteamBus.User.GetAchievement(id);
+    Debug.Log($"{ach.Name}: {(ach.IsUnlocked ? "Unlocked" : "Locked")}");
+}
+#endif
+```
+
+### Testing in Editor
+
+1. Enter Play Mode with `isEnabled` and `isTestBuild` enabled in `SteamConnectionSettings`
+2. Find the `AchievementsManager [TEST]` object in Hierarchy
+3. In Inspector, use toggle buttons to unlock/clear achievements
+
+---
+
 ## Architecture
 
 ```
@@ -130,48 +172,6 @@ AchievementHandler (Editor-only, Serializable)
 | `ClearAchievement` / `ResetAllAchievements` — Editor-only | Testing only |
 | `AchievementsManager` — Editor-only | Not included in builds |
 | Does not use Database bus | Architecture independent of the Vortex bus |
-
----
-
-## Usage
-
-### Unlocking an Achievement
-
-```csharp
-#if USING_STEAM
-if (SteamBus.IsLoaded)
-    SteamBus.User.UnlockAchievement("ACH_WIN_FIRST_BATTLE");
-#endif
-```
-
-### Checking State
-
-```csharp
-#if USING_STEAM
-var ach = SteamBus.User.GetAchievement("ACH_WIN_FIRST_BATTLE");
-if (ach != null && !ach.IsUnlocked)
-    ShowAchievementHint();
-#endif
-```
-
-### Getting All Achievements
-
-```csharp
-#if USING_STEAM
-var ids = SteamBus.User.GetAllAchievementsID();
-foreach (var id in ids)
-{
-    var ach = SteamBus.User.GetAchievement(id);
-    Debug.Log($"{ach.Name}: {(ach.IsUnlocked ? "Unlocked" : "Locked")}");
-}
-#endif
-```
-
-### Testing in Editor
-
-1. Enter Play Mode with `isEnabled` and `isTestBuild` enabled in `SteamConnectionSettings`
-2. Find the `AchievementsManager [TEST]` object in Hierarchy
-3. In Inspector, use toggle buttons to unlock/clear achievements
 
 ---
 

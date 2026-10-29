@@ -30,6 +30,29 @@
 
 ---
 
+## Использование
+
+1. Открыть `DriverConfig` через меню **Tools/Vortex/Configs/Drivers Config**
+2. Нажать **Reload** для обнаружения всех систем
+3. Назначить драйвер каждой системе через dropdown
+4. Нажать **Save Config** — сгенерируется `DriversGenericList.cs`
+5. При старте приложения драйверы подключаются через `SystemController.SetDriver()` с валидацией по белому списку
+
+```csharp
+// Создание системы
+public class MyService : SystemController<MyService, IMyDriver> { ... }
+
+// Создание драйвера
+public class MyServiceDriver : IMyDriver { ... }
+
+// В DriverConfig: Reload → выбрать MyServiceDriver → Save Config
+
+// Runtime (внутри драйвера):
+MyService.SetDriver(this); // валидация по DriversGenericList.WhiteList
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -82,29 +105,6 @@ ScriptableObject (`ICoreAsset`), хранит массив `DriverRecord[]`. Р�
 - Невозможно сохранить конфигурацию с пустыми назначениями
 - Невозможно подключить несовместимый драйвер в runtime
 - Раннее выявление ошибок: лог при загрузке проекта, если конфигурация рассинхронизирована
-
----
-
-## Использование
-
-1. Открыть `DriverConfig` через меню **Tools/Vortex/Configs/Drivers Config**
-2. Нажать **Reload** для обнаружения всех систем
-3. Назначить драйвер каждой системе через dropdown
-4. Нажать **Save Config** — сгенерируется `DriversGenericList.cs`
-5. При старте приложения драйверы подключаются через `SystemController.SetDriver()` с валидацией по белому списку
-
-```csharp
-// Создание системы
-public class MyService : SystemController<MyService, IMyDriver> { ... }
-
-// Создание драйвера
-public class MyServiceDriver : IMyDriver { ... }
-
-// В DriverConfig: Reload → выбрать MyServiceDriver → Save Config
-
-// Runtime (внутри драйвера):
-MyService.SetDriver(this); // валидация по DriversGenericList.WhiteList
-```
 
 ---
 

@@ -45,6 +45,55 @@ Unity-слой системы параметрических карт. Пред�
 
 ---
 
+## Использование
+
+### Создание карты параметров
+
+1. Открыть `ParametersMapStorage` — ассет авто-создаётся `EditorRegister` в `Resources/MapsConfig/`
+2. В `guid` выбрать тип модели (`IMappedModel`) из dropdown
+3. Добавить базовые параметры (`baseParams`) — строковые имена
+4. Добавить производные параметры (`mappedParams`) — имя, родители с стоимостями, `CostLogic` при >1 родителе
+5. Кнопка `Sort` — упорядочить по зависимостям
+
+### MonoBehaviour-хранилище
+
+```csharp
+public class CharacterStatsStorage : MappedModelStorage
+{
+    public override event Action OnUpdateLink;
+
+    protected override void Init()
+    {
+        _data = ParameterMaps.GetModel<CharacterStats>();
+        _data.OnUpdate += () => OnUpdateLink?.Invoke();
+    }
+}
+
+// Использование
+var storage = GetComponent<CharacterStatsStorage>();
+var stats = storage.GetData<CharacterStats>();
+```
+
+### Inspector-атрибуты
+
+```csharp
+public class SkillButton : MonoBehaviour
+{
+    [MappedParameter(typeof(CharacterStats))]
+    public string targetParameter;
+
+    [MappedModel]
+    public string modelType;
+}
+```
+
+### Clipboard
+
+- Inspector → кнопка `To Clipboard` — JSON в буфер обмена
+- Inspector → кнопка `From Clipboard` — загрузка из буфера с валидацией
+
+---
+
 ## Архитектура
 
 ```
@@ -151,55 +200,6 @@ MappedModelStorage : MonoBehaviour, IDataStorage  (abstract)
 | `WaitingFor() → null` | Нет зависимостей от других процессов |
 | `Cost` на `MappedParameterPreset` — всегда 0 | Стоимость хранится в `MappedParameterLink`, а не в самом параметре |
 | Editor-валидация при каждом изменении | Рекурсивный `SearchTop` для обнаружения циклов |
-
----
-
-## Использование
-
-### Создание карты параметров
-
-1. Открыть `ParametersMapStorage` — ассет авто-создаётся `EditorRegister` в `Resources/MapsConfig/`
-2. В `guid` выбрать тип модели (`IMappedModel`) из dropdown
-3. Добавить базовые параметры (`baseParams`) — строковые имена
-4. Добавить производные параметры (`mappedParams`) — имя, родители с стоимостями, `CostLogic` при >1 родителе
-5. Кнопка `Sort` — упорядочить по зависимостям
-
-### MonoBehaviour-хранилище
-
-```csharp
-public class CharacterStatsStorage : MappedModelStorage
-{
-    public override event Action OnUpdateLink;
-
-    protected override void Init()
-    {
-        _data = ParameterMaps.GetModel<CharacterStats>();
-        _data.OnUpdate += () => OnUpdateLink?.Invoke();
-    }
-}
-
-// Использование
-var storage = GetComponent<CharacterStatsStorage>();
-var stats = storage.GetData<CharacterStats>();
-```
-
-### Inspector-атрибуты
-
-```csharp
-public class SkillButton : MonoBehaviour
-{
-    [MappedParameter(typeof(CharacterStats))]
-    public string targetParameter;
-
-    [MappedModel]
-    public string modelType;
-}
-```
-
-### Clipboard
-
-- Inspector → кнопка `To Clipboard` — JSON в буфер обмена
-- Inspector → кнопка `From Clipboard` — загрузка из буфера с валидацией
 
 ---
 

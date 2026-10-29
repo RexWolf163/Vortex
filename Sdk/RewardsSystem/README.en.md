@@ -26,6 +26,76 @@ Out of scope:
 
 Assembly: `ru.vortex.sdk.game.rewards`. No constraints — compiled unconditionally.
 
+## Usage
+
+### 1. Basic scenario (one preset, one pack rolled)
+
+```csharp
+[SerializeField] private RewardPreset chestPreset;
+
+public void OpenChest(string playerId)
+{
+    var rewards = chestPreset.GetReward();
+    if (rewards == null) return;                    // all weights are zero
+
+    foreach (var reward in rewards)
+        reward.GiveReward(targetId: playerId);
+}
+```
+
+> 💡 **Note:** `foreach + GiveReward` is acceptable when cumulative effects are known to be absent (currency, points, progress flags). For items going into an inventory with a limited slot count, do a pre-check on the receiving system — see scenario 3.
+
+### 2. UI preview for reward availability
+
+```csharp
+foreach (var reward in chestPreset.RewardPacks[0].Rewards)
+{
+    var canGive = reward.ValidateRewardConditions(playerId);
+    button.interactable = canGive;
+}
+```
+
+### 3. Batch dispatch with a pre-check on the receiving system
+
+```csharp
+var rewards = chestPreset.GetReward();
+if (rewards == null) return;
+
+// Group by type — each type is validated by its own system
+var items    = rewards.Where(r => r.GetType() == typeof(GiveItemReward));
+var currency = rewards.Where(r => r.GetType() == typeof(GiveCurrencyReward));
+
+// The receiving system checks the cumulative effect
+if (!Inventory.CanFitAll(playerId, items))
+{
+    UI.ShowOverflowDialog();
+    return;
+}
+
+foreach (var reward in rewards)
+    reward.GiveReward(playerId);
+```
+
+After dispatch, filter results by `RewardResult.Type`:
+
+```csharp
+var results = rewards.Select(r => r.GiveReward(playerId)).ToList();
+var itemsApplied = results.Where(r => r.Type == RewardType.Item).Sum(r => r.AppliedAmount);
+```
+
+### 4. UI reaction via the bus
+
+```csharp
+private void OnEnable()  => RewardBus.OnRewardGiven += ShowFloatingText;
+private void OnDisable() => RewardBus.OnRewardGiven -= ShowFloatingText;
+
+private void ShowFloatingText(RewardEventData data)
+{
+    if (data.Result.Type == RewardType.Currency)
+        floatingTextPool.Spawn($"+{data.Result.AppliedAmount}");
+}
+```
+
 ## Architecture
 
 ```
@@ -138,76 +208,6 @@ public class GiveItemReward : RewardStrategy
         var applied = Inventory.Give(targetId, itemId, (int)(amount * power));
         return applied > 0 ? RewardResult.Ok(applied) : RewardResult.Fail("InventoryFull");
     }
-}
-```
-
-## Usage
-
-### 1. Basic scenario (one preset, one pack rolled)
-
-```csharp
-[SerializeField] private RewardPreset chestPreset;
-
-public void OpenChest(string playerId)
-{
-    var rewards = chestPreset.GetReward();
-    if (rewards == null) return;                    // all weights are zero
-
-    foreach (var reward in rewards)
-        reward.GiveReward(targetId: playerId);
-}
-```
-
-> 💡 **Note:** `foreach + GiveReward` is acceptable when cumulative effects are known to be absent (currency, points, progress flags). For items going into an inventory with a limited slot count, do a pre-check on the receiving system — see scenario 3.
-
-### 2. UI preview for reward availability
-
-```csharp
-foreach (var reward in chestPreset.RewardPacks[0].Rewards)
-{
-    var canGive = reward.ValidateRewardConditions(playerId);
-    button.interactable = canGive;
-}
-```
-
-### 3. Batch dispatch with a pre-check on the receiving system
-
-```csharp
-var rewards = chestPreset.GetReward();
-if (rewards == null) return;
-
-// Group by type — each type is validated by its own system
-var items    = rewards.Where(r => r.GetType() == typeof(GiveItemReward));
-var currency = rewards.Where(r => r.GetType() == typeof(GiveCurrencyReward));
-
-// The receiving system checks the cumulative effect
-if (!Inventory.CanFitAll(playerId, items))
-{
-    UI.ShowOverflowDialog();
-    return;
-}
-
-foreach (var reward in rewards)
-    reward.GiveReward(playerId);
-```
-
-After dispatch, filter results by `RewardResult.Type`:
-
-```csharp
-var results = rewards.Select(r => r.GiveReward(playerId)).ToList();
-var itemsApplied = results.Where(r => r.Type == RewardType.Item).Sum(r => r.AppliedAmount);
-```
-
-### 4. UI reaction via the bus
-
-```csharp
-private void OnEnable()  => RewardBus.OnRewardGiven += ShowFloatingText;
-private void OnDisable() => RewardBus.OnRewardGiven -= ShowFloatingText;
-
-private void ShowFloatingText(RewardEventData data)
-{
-    if (data.Result.Type == RewardType.Currency)
-        floatingTextPool.Spawn($"+{data.Result.AppliedAmount}");
 }
 ```
 

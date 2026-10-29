@@ -6,6 +6,22 @@ Assembly: `ru.vortex.unity.camera`
 Namespace: `Vortex.Unity.Camera`  
 Слой: 2 (Unity)
 
+## Настройка сцены
+
+```
+Scene
+├── Map Camera                    # GameObject с Camera
+│   ├── CameraDataStorage         # хранилище модели
+│   └── CameraMoveHandler         # плавное следование
+│       source → Map Camera (CameraDataStorage)
+├── Map
+│   ├── Borders                   # RectTransform зоны перемещения
+│   │   └── BordersHandler        # cameraName = "Map Camera"
+│   └── Objects
+│       └── Player
+│           └── FocusHandler      # cameraName = "Map Camera"
+```
+
 ## Архитектура
 
 ```
@@ -177,22 +193,6 @@ public class MyHandler : CameraHandler
 ### BordersHandler
 
 Декларативная привязка `RectTransform` как границы камеры. `SetData` добавляет, `RemoveData` удаляет.
-
-## Настройка сцены
-
-```
-Scene
-├── Map Camera                    # GameObject с Camera
-│   ├── CameraDataStorage         # хранилище модели
-│   └── CameraMoveHandler         # плавное следование
-│       source → Map Camera (CameraDataStorage)
-├── Map
-│   ├── Borders                   # RectTransform зоны перемещения
-│   │   └── BordersHandler        # cameraName = "Map Camera"
-│   └── Objects
-│       └── Player
-│           └── FocusHandler      # cameraName = "Map Camera"
-```
 
 ## Граничные случаи
 

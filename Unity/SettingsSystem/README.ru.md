@@ -39,6 +39,41 @@ Unity-слой системы настроек. Предоставляет др�
 
 ---
 
+## Использование
+
+### Создание нового пресета настроек
+
+1. Создать partial-расширение `SettingsModel` (Core):
+
+```csharp
+namespace Vortex.Core.SettingsSystem.Model
+{
+    public partial class SettingsModel
+    {
+        public int MaxPlayers { get; private set; }
+    }
+}
+```
+
+2. Создать наследник `SettingsPreset` (Unity):
+
+```csharp
+public class GameplaySettings : SettingsPreset
+{
+    [SerializeField] private int maxPlayers = 4;
+    public int MaxPlayers => maxPlayers;
+}
+```
+
+3. Перезагрузить Editor — ассет `GameplaySettings.asset` создастся автоматически в `Resources/Settings/`
+4. Настроить значения в Inspector
+
+### Навигация к настройкам
+
+`Menu: Tools > Vortex > Configs > Application Start Config` — открывает ассет `StartSettings` в Inspector.
+
+---
+
 ## Архитектура
 
 ```
@@ -123,41 +158,6 @@ MenuController  (Editor, static)
 | `StartSceneHandler` только в Editor | `#if UNITY_EDITOR` |
 | Один ассет на тип `SettingsPreset` | `EditorRegister` проверяет `resources.Contains(type)` |
 | Порядок загрузки не определён | `Resources.LoadAll` не гарантирует порядок |
-
----
-
-## Использование
-
-### Создание нового пресета настроек
-
-1. Создать partial-расширение `SettingsModel` (Core):
-
-```csharp
-namespace Vortex.Core.SettingsSystem.Model
-{
-    public partial class SettingsModel
-    {
-        public int MaxPlayers { get; private set; }
-    }
-}
-```
-
-2. Создать наследник `SettingsPreset` (Unity):
-
-```csharp
-public class GameplaySettings : SettingsPreset
-{
-    [SerializeField] private int maxPlayers = 4;
-    public int MaxPlayers => maxPlayers;
-}
-```
-
-3. Перезагрузить Editor — ассет `GameplaySettings.asset` создастся автоматически в `Resources/Settings/`
-4. Настроить значения в Inspector
-
-### Навигация к настройкам
-
-`Menu: Tools > Vortex > Configs > Application Start Config` — открывает ассет `StartSettings` в Inspector.
 
 ---
 

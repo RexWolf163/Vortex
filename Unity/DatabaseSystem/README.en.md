@@ -27,6 +27,53 @@ Out of scope: storage logic, GUID access, saving — these belong to Core (Layer
 
 ---
 
+## Usage
+
+### 1. Creating a preset
+
+```csharp
+[CreateAssetMenu(menuName = "Database/Product")]
+public class ProductPreset : RecordPreset<ProductRecord>
+{
+    [SerializeField] private float price;
+    [SerializeField] private int quantity;
+
+    public float Price => price;
+    public int Quantity => quantity;
+}
+```
+
+For `CopyFrom()` to work correctly, data must be accessible through public getter properties with names matching `Record` properties.
+
+### 2. ResourcesDriver setup
+
+Place presets in `Assets/Resources/Database/`. Assign driver in `DriverConfig`.
+
+### 3. AddressablesDriver setup
+
+1. Specify labels in `DatabaseSettings.databaseLabels`
+2. Assign driver in `DriverConfig`
+3. Mark presets: the **Mark as DatabasePreset** item (see "Editor Tools") or manually in the Addressables window
+
+### 4. DbRecord attribute
+
+```csharp
+[SerializeField, DbRecord(typeof(Sound))]
+private string audioSample;
+```
+
+### 5. Editor API
+
+```csharp
+#if UNITY_EDITOR
+var driver = Database.GetDriver() as IDriverEditor;
+driver?.ReloadDatabase();
+var preset = driver?.GetPresetForRecord(guid);
+#endif
+```
+
+---
+
 ## Drivers
 
 ### DatabaseDriverBase
@@ -150,53 +197,6 @@ Properties:
 - `databaseLabels` — `string[]`, Addressable asset labels
 - In Editor: `[ValueDropdown("GetLabels")]` — dropdown from all labels assigned in Addressable Asset Settings
 - `SettingsModelExtDatabase` (partial `SettingsModel`) — `DatabaseLabels` property
-
----
-
-## Usage
-
-### 1. Creating a preset
-
-```csharp
-[CreateAssetMenu(menuName = "Database/Product")]
-public class ProductPreset : RecordPreset<ProductRecord>
-{
-    [SerializeField] private float price;
-    [SerializeField] private int quantity;
-
-    public float Price => price;
-    public int Quantity => quantity;
-}
-```
-
-For `CopyFrom()` to work correctly, data must be accessible through public getter properties with names matching `Record` properties.
-
-### 2. ResourcesDriver setup
-
-Place presets in `Assets/Resources/Database/`. Assign driver in `DriverConfig`.
-
-### 3. AddressablesDriver setup
-
-1. Specify labels in `DatabaseSettings.databaseLabels`
-2. Assign driver in `DriverConfig`
-3. Mark presets: the **Mark as DatabasePreset** item (see "Editor Tools") or manually in the Addressables window
-
-### 4. DbRecord attribute
-
-```csharp
-[SerializeField, DbRecord(typeof(Sound))]
-private string audioSample;
-```
-
-### 5. Editor API
-
-```csharp
-#if UNITY_EDITOR
-var driver = Database.GetDriver() as IDriverEditor;
-driver?.ReloadDatabase();
-var preset = driver?.GetPresetForRecord(guid);
-#endif
-```
 
 ## Editor Tools
 

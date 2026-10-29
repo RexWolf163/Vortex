@@ -37,6 +37,54 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Implementing a data model
+
+```csharp
+public class CharacterStats : IMappedModel
+{
+    public event Action OnUpdate;
+
+    private Dictionary<string, GenericParameter> _parameters = new();
+    private ParametersMap _map;
+
+    public void Init(ParametersMap map)
+    {
+        _map = map;
+        _parameters.Clear();
+        foreach (var param in map.GetParameters())
+        {
+            param.OnUpdate += () => OnUpdate?.Invoke();
+            _parameters[param.Name] = param;
+        }
+    }
+
+    public string[] GetParameters() => _parameters.Keys.ToArray();
+    public int GetValue(string name) => _parameters.TryGetValue(name, out var p) ? p.Value : 0;
+    public GenericParameter GetParameterAsContainer(string name) => _parameters.GetValueOrDefault(name);
+    public IParameterLink[] GetParents(string name) => _map?.GetParameterMap(name)?.Parents ?? Array.Empty<IParameterLink>();
+}
+```
+
+### Retrieving a model at runtime
+
+```csharp
+// New instance
+var stats = ParameterMaps.GetModel<CharacterStats>() as CharacterStats;
+
+// Initialize existing
+var stats = new CharacterStats();
+ParameterMaps.InitMap(stats);
+
+// Work with parameters
+var strength = stats.GetParameterAsContainer("Strength");
+strength.OnUpdate += () => Console.WriteLine($"Strength: {strength.Value}");
+strength.SetValue(10);
+```
+
+---
+
 ## Architecture
 
 ```
@@ -143,54 +191,6 @@ IDriverMappedParameters : ISystemDriver
 | `GetParameters()` creates a new array | Each call yields independent `GenericParameter` instances |
 | `GetModel<T>()` requires parameterless constructor | `Activator.CreateInstance(type)` |
 | `null` on errors | Type is not `IMappedModel`, map not found, `FullName == null` |
-
----
-
-## Usage
-
-### Implementing a data model
-
-```csharp
-public class CharacterStats : IMappedModel
-{
-    public event Action OnUpdate;
-
-    private Dictionary<string, GenericParameter> _parameters = new();
-    private ParametersMap _map;
-
-    public void Init(ParametersMap map)
-    {
-        _map = map;
-        _parameters.Clear();
-        foreach (var param in map.GetParameters())
-        {
-            param.OnUpdate += () => OnUpdate?.Invoke();
-            _parameters[param.Name] = param;
-        }
-    }
-
-    public string[] GetParameters() => _parameters.Keys.ToArray();
-    public int GetValue(string name) => _parameters.TryGetValue(name, out var p) ? p.Value : 0;
-    public GenericParameter GetParameterAsContainer(string name) => _parameters.GetValueOrDefault(name);
-    public IParameterLink[] GetParents(string name) => _map?.GetParameterMap(name)?.Parents ?? Array.Empty<IParameterLink>();
-}
-```
-
-### Retrieving a model at runtime
-
-```csharp
-// New instance
-var stats = ParameterMaps.GetModel<CharacterStats>() as CharacterStats;
-
-// Initialize existing
-var stats = new CharacterStats();
-ParameterMaps.InitMap(stats);
-
-// Work with parameters
-var strength = stats.GetParameterAsContainer("Strength");
-strength.OnUpdate += () => Console.WriteLine($"Strength: {strength.Value}");
-strength.SetValue(10);
-```
 
 ---
 

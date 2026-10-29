@@ -19,6 +19,26 @@ Out of scope: rendering, graphics quality, VSync, frame rate, camera settings.
 
 ---
 
+## Usage
+
+```csharp
+// Subscribe to readiness
+VideoController.OnInit += () =>
+{
+    var resolutions = VideoController.GetResolutionsList();
+    var modes = VideoController.GetScreenModes();
+    var current = VideoController.GetResolution();
+};
+
+// Set resolution
+VideoController.SetResolution("1920x1080");
+
+// Set screen mode
+VideoController.SetScreenMode("FullScreenWindow");
+```
+
+---
+
 ## VideoController
 
 Static controller. Inherits `SystemController<VideoController, IVideoDriver>`.
@@ -83,26 +103,6 @@ Screen mode enum. Mirrors `UnityEngine.FullScreenMode` without platform dependen
 | `FullScreenWindow` | Fullscreen window (all platforms) |
 | `Windowed` | Windowed mode (desktop) |
 | `MaximizedWindow` | Maximized window (Windows, macOS) |
-
----
-
-## Usage
-
-```csharp
-// Subscribe to readiness
-VideoController.OnInit += () =>
-{
-    var resolutions = VideoController.GetResolutionsList();
-    var modes = VideoController.GetScreenModes();
-    var current = VideoController.GetResolution();
-};
-
-// Set resolution
-VideoController.SetResolution("1920x1080");
-
-// Set screen mode
-VideoController.SetScreenMode("FullScreenWindow");
-```
 
 ---
 

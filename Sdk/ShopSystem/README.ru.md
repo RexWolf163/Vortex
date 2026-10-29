@@ -36,6 +36,81 @@ Sdk-пакет фреймворка Vortex: транзакционный дви�
 
 Assembly: `ru.vortex.sdk.shopsystem`. Весь код пакета закрыт `#if USING_VORTEX_SHOP`; символ включается тумблером `shopSdk` в ассете `SdkSettings`.
 
+## Использование
+
+### 1. Ассет настроек
+
+`ShopSettings` реализует `ICoreAsset` и создаётся автоматически в `Assets/Resources/Settings/`. Если автосоздание выключено — `Tools → Vortex → Debug → Check Core Assets`. В ассете выбирается `AfterpayMode`.
+
+### 2. Регистрация драйвера
+
+В ассете `DriverConfig`: **Reload** → для системы `ShopBus` выбрать драйвер `ShopController` → **Save Config**. Без записи в конфиге `SetDriver` отклонит регистрацию, и обращения к шине упадут с `NullReferenceException`.
+
+### 3. Логики и товары
+
+Реализовать наследников `PaymentLogic` и `DeliveryLogic` (см. API Reference), пометив классы `[Serializable]` — иначе они не появятся в `[SerializeReference]`-пикере.
+
+Товар: `Assets → Create → Database → ShopItem`. В пресете задать обе логики и при необходимости `hiddenInShowcase`. Пресет регистрируется в `Database` как обычная запись.
+
+### 4. Покупка
+
+```csharp
+public async void OnBuyClicked(string itemGuid)
+{
+    if (ShopBus.IsBusy)
+    {
+        ui.ShowBusyHint();
+        return;
+    }
+
+    var operation = await ShopBus.Buy(itemGuid, count: 1);
+    if (operation == null) return;                 // неизвестный товар
+
+    switch (operation.State.Value)
+    {
+        case PurchaseState.Delivered: ui.ShowSuccess();          break;
+        case PurchaseState.Ready:     ui.ShowClaimButton(operation); break;
+        case PurchaseState.Pending:   ui.ShowRetryButton(operation); break;
+        case PurchaseState.NotStarted:
+        case PurchaseState.Cancelled: ui.ShowRefusal();          break;
+    }
+}
+```
+
+### 5. Реакция UI на состояние
+
+`ShopOperation.State` реактивен — UI подписывается и не опрашивает:
+
+```csharp
+private void Bind(ShopOperation operation)
+{
+    operation.State.OnUpdate += OnStateChanged;
+}
+
+private void OnStateChanged(PurchaseState state) => view.Apply(state);
+```
+
+### 6. Незавершённые покупки
+
+Восстановление открытых покупок запускается автоматически при загрузке. UI показывает то, что осталось в равновесии:
+
+```csharp
+foreach (var operation in ShopOperationsBus.GetReady())
+    ui.AddClaimCard(operation);       // → ShopBus.ConfirmDelivery(operation)
+
+foreach (var operation in ShopOperationsBus.GetOpen())
+    if (operation.State.Value == PurchaseState.Pending)
+        ui.AddRetryCard(operation);   // → ShopBus.RetryDelivery(operation)
+```
+
+### 7. Отмена
+
+```csharp
+ShopBus.CancelWithRefund(operation);
+```
+
+Прерывает процесс, если он идёт по этой покупке, дожидается размотки и затем возвращает оплату (`Paid` / `Ready` / `Pending`) либо закрывает заказ как `Cancelled` (`Ordered`).
+
 ## Архитектура
 
 ### Конфигурация и каталог
@@ -244,81 +319,6 @@ public class ItemDelivery : DeliveryLogic
         => UniTask.FromResult(Inventory.Give(itemId, amount * operation.RequestedCount));
 }
 ```
-
-## Использование
-
-### 1. Ассет настроек
-
-`ShopSettings` реализует `ICoreAsset` и создаётся автоматически в `Assets/Resources/Settings/`. Если автосоздание выключено — `Tools → Vortex → Debug → Check Core Assets`. В ассете выбирается `AfterpayMode`.
-
-### 2. Регистрация драйвера
-
-В ассете `DriverConfig`: **Reload** → для системы `ShopBus` выбрать драйвер `ShopController` → **Save Config**. Без записи в конфиге `SetDriver` отклонит регистрацию, и обращения к шине упадут с `NullReferenceException`.
-
-### 3. Логики и товары
-
-Реализовать наследников `PaymentLogic` и `DeliveryLogic` (см. API Reference), пометив классы `[Serializable]` — иначе они не появятся в `[SerializeReference]`-пикере.
-
-Товар: `Assets → Create → Database → ShopItem`. В пресете задать обе логики и при необходимости `hiddenInShowcase`. Пресет регистрируется в `Database` как обычная запись.
-
-### 4. Покупка
-
-```csharp
-public async void OnBuyClicked(string itemGuid)
-{
-    if (ShopBus.IsBusy)
-    {
-        ui.ShowBusyHint();
-        return;
-    }
-
-    var operation = await ShopBus.Buy(itemGuid, count: 1);
-    if (operation == null) return;                 // неизвестный товар
-
-    switch (operation.State.Value)
-    {
-        case PurchaseState.Delivered: ui.ShowSuccess();          break;
-        case PurchaseState.Ready:     ui.ShowClaimButton(operation); break;
-        case PurchaseState.Pending:   ui.ShowRetryButton(operation); break;
-        case PurchaseState.NotStarted:
-        case PurchaseState.Cancelled: ui.ShowRefusal();          break;
-    }
-}
-```
-
-### 5. Реакция UI на состояние
-
-`ShopOperation.State` реактивен — UI подписывается и не опрашивает:
-
-```csharp
-private void Bind(ShopOperation operation)
-{
-    operation.State.OnUpdate += OnStateChanged;
-}
-
-private void OnStateChanged(PurchaseState state) => view.Apply(state);
-```
-
-### 6. Незавершённые покупки
-
-Восстановление открытых покупок запускается автоматически при загрузке. UI показывает то, что осталось в равновесии:
-
-```csharp
-foreach (var operation in ShopOperationsBus.GetReady())
-    ui.AddClaimCard(operation);       // → ShopBus.ConfirmDelivery(operation)
-
-foreach (var operation in ShopOperationsBus.GetOpen())
-    if (operation.State.Value == PurchaseState.Pending)
-        ui.AddRetryCard(operation);   // → ShopBus.RetryDelivery(operation)
-```
-
-### 7. Отмена
-
-```csharp
-ShopBus.CancelWithRefund(operation);
-```
-
-Прерывает процесс, если он идёт по этой покупке, дожидается размотки и затем возвращает оплату (`Paid` / `Ready` / `Pending`) либо закрывает заказ как `Cancelled` (`Ordered`).
 
 ## Граничные случаи
 

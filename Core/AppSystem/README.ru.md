@@ -20,6 +20,29 @@
 - `Vortex.Core.LoggerSystem` — логирование переходов
 - `Vortex.Core.System.Enums` — `AppStates`
 
+## Использование
+
+### Подписка на состояния
+
+```csharp
+App.OnStateChanged += (AppStates newState) => { };
+App.OnStarting += () => { };    // → Starting
+App.OnStart += () => { };       // Starting|Unfocused → Running
+App.OnExit += () => { };        // → Stopping
+```
+
+### Управление состоянием
+
+```csharp
+AppStates state = App.GetState();
+bool changed = App.SetState(AppStates.Running);
+App.Exit(); // → Stopping → OnExit
+```
+
+### Debug
+
+Переходы логируются автоматически при активном debug-режиме. Флаг `AppStateDebugMode` — partial-расширение `SettingsModel`. Настройка: в ассете `DebugSettings` включить `DebugMode` (глобальный) и `appStates` (локальный toggle).
+
 ## Архитектура
 
 ```
@@ -90,29 +113,6 @@ Getter `App.Data` создаёт `AppModel` при первом обращени
 ### Ограничения
 - `SetState` обращается к `_data` напрямую — вызов до первого обращения к `Data` приведёт к NRE
 - `AppModel` — `sealed`, `internal` конструктор — создание только внутри `App`
-
-## Использование
-
-### Подписка на состояния
-
-```csharp
-App.OnStateChanged += (AppStates newState) => { };
-App.OnStarting += () => { };    // → Starting
-App.OnStart += () => { };       // Starting|Unfocused → Running
-App.OnExit += () => { };        // → Stopping
-```
-
-### Управление состоянием
-
-```csharp
-AppStates state = App.GetState();
-bool changed = App.SetState(AppStates.Running);
-App.Exit(); // → Stopping → OnExit
-```
-
-### Debug
-
-Переходы логируются автоматически при активном debug-режиме. Флаг `AppStateDebugMode` — partial-расширение `SettingsModel`. Настройка: в ассете `DebugSettings` включить `DebugMode` (глобальный) и `appStates` (локальный toggle).
 
 ## Граничные случаи
 

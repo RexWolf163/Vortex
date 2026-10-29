@@ -40,6 +40,44 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Registration in a driver (Layer 2)
+
+```csharp
+[RuntimeInitializeOnLoadMethod]
+private static void Init()
+{
+    if (MyService.SetDriver(Instance))
+        Loader.Register(Instance);
+}
+```
+
+### IProcess implementation
+
+```csharp
+public class AudioDriver : IProcess
+{
+    public Type[] WaitingFor() => new[] { typeof(DatabaseDriver), typeof(SettingsDriver) };
+
+    public async UniTask RunAsync(CancellationToken token)
+    {
+        // Initialize after Database and Settings
+        await LoadAudioBank(token);
+    }
+
+    public ProcessData GetProcessInfo() => _processData;
+}
+```
+
+### Single module loading
+
+```csharp
+await Loader.RunAlone(hotReloadModule);
+```
+
+---
+
 ## Architecture
 
 Static class `Loader`. Single entry point for loading management.
@@ -142,44 +180,6 @@ Open fields without encapsulation (access optimization):
 | `_isRunning` is never reset | Repeated `Run()` impossible without restart |
 | `CancellationTokenSource` is a mutable static field | `_cts` is not `readonly`: `RunAlone()` cancels, disposes and recreates the token source before a single-module load |
 | `Queue` is `Dictionary<Type, IProcess>` | One instance per type |
-
----
-
-## Usage
-
-### Registration in a driver (Layer 2)
-
-```csharp
-[RuntimeInitializeOnLoadMethod]
-private static void Init()
-{
-    if (MyService.SetDriver(Instance))
-        Loader.Register(Instance);
-}
-```
-
-### IProcess implementation
-
-```csharp
-public class AudioDriver : IProcess
-{
-    public Type[] WaitingFor() => new[] { typeof(DatabaseDriver), typeof(SettingsDriver) };
-
-    public async UniTask RunAsync(CancellationToken token)
-    {
-        // Initialize after Database and Settings
-        await LoadAudioBank(token);
-    }
-
-    public ProcessData GetProcessInfo() => _processData;
-}
-```
-
-### Single module loading
-
-```csharp
-await Loader.RunAlone(hotReloadModule);
-```
 
 ---
 

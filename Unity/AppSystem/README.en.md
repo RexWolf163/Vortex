@@ -19,6 +19,18 @@ Out of scope: state transition logic, events, data model — these belong to Cor
 - `Vortex.Unity.EditorTools.Attributes` — `[ToggleButton]` (for `DebugSettings`)
 - `UnityEngine` — `MonoBehaviour`, `Application.Quit()`
 
+## Usage
+
+### Scene Setup
+
+Place `AppStateHandler` on a persistent GameObject (not destroyed on scene changes). The component automatically subscribes to `App.OnStateChanged` in `Awake`.
+
+### Debug
+
+In the `DebugSettings` asset, enable `DebugMode` (global) and `appStates` (local). All state transitions will then be logged in `App.SetState()`.
+
+---
+
 ## Architecture
 
 ```
@@ -76,18 +88,6 @@ Partial extension of `DebugSettings`. Adds an `appStates` toggle with the `[Togg
 The `AppStateDebugMode` property is `true` only when both global `DebugMode` and local `appStates` are enabled. Used in `App.SetState()` for conditional transition logging.
 
 It also adds an `ignorePauseInEditor` toggle (`IgnorePauseInEditor` property). When enabled, in the editor `AppStateHandler` ignores `OnApplicationFocus(false)` / `OnApplicationPause(true)` — no transition to `Unfocused` happens (convenient when debugging while the Unity window is out of focus).
-
----
-
-## Usage
-
-### Scene Setup
-
-Place `AppStateHandler` on a persistent GameObject (not destroyed on scene changes). The component automatically subscribes to `App.OnStateChanged` in `Awake`.
-
-### Debug
-
-In the `DebugSettings` asset, enable `DebugMode` (global) and `appStates` (local). All state transitions will then be logged in `App.SetState()`.
 
 ## Edge Cases
 

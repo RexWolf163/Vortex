@@ -48,6 +48,41 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Progress display
+
+1. Add `UISaveLoadComponent` to a UI element
+2. Assign `title` and `progress` (`UIComponent`)
+3. Set localization keys: `loadingText`, `savingText`, `progressTextPattern`
+4. `progressTextPattern` format: `"{0}/{1} — {2} ({3}%)"` — global progress, module name, module percent
+
+### Working with saves
+
+```csharp
+// All saves
+var saves = SaveController.GetIndex();
+
+// Save
+SaveController.Save("Slot 1");
+
+// Load
+SaveController.Load(selectedGuid);
+
+// Remove
+SaveController.Remove(selectedGuid);
+```
+
+### Switching drivers
+
+1. Open the `DriverConfig` asset in the Inspector (located in `Resources/`).
+2. Find the row for the `SaveController` system.
+3. Pick `DriverType` — `PlayerPrefsDriver/SaveSystemDriver` or `FileSystemDriver/FileSystemDriver`.
+4. Click "Save Config" — `DriversGenericList.cs` will be regenerated.
+5. Restart Play or reload the editor domain.
+
+---
+
 ## Active driver selection
 
 Both drivers register automatically via `[RuntimeInitializeOnLoadMethod]`, but `SystemController.SetDriver` validates the candidate against the codegen whitelist `DriversGenericList.WhiteList`, populated from the `DriverConfig` asset. Only the driver explicitly listed in the whitelist for the `SaveController` system is accepted; the others call `Dispose()`.
@@ -303,41 +338,6 @@ Load order: read → `Decompress(guid)` → `SaveReactors.Apply(raw, version, Sa
 | Increment file name — `.in` | Hidden on Unix/Mac, regular on Windows |
 | Only one active driver | Enforced by codegen whitelist `DriversGenericList` |
 | `UISaveLoadComponent` uses Coroutine | Per-frame update, not UniTask |
-
----
-
-## Usage
-
-### Progress display
-
-1. Add `UISaveLoadComponent` to a UI element
-2. Assign `title` and `progress` (`UIComponent`)
-3. Set localization keys: `loadingText`, `savingText`, `progressTextPattern`
-4. `progressTextPattern` format: `"{0}/{1} — {2} ({3}%)"` — global progress, module name, module percent
-
-### Working with saves
-
-```csharp
-// All saves
-var saves = SaveController.GetIndex();
-
-// Save
-SaveController.Save("Slot 1");
-
-// Load
-SaveController.Load(selectedGuid);
-
-// Remove
-SaveController.Remove(selectedGuid);
-```
-
-### Switching drivers
-
-1. Open the `DriverConfig` asset in the Inspector (located in `Resources/`).
-2. Find the row for the `SaveController` system.
-3. Pick `DriverType` — `PlayerPrefsDriver/SaveSystemDriver` or `FileSystemDriver/FileSystemDriver`.
-4. Click "Save Config" — `DriversGenericList.cs` will be regenerated.
-5. Restart Play or reload the editor domain.
 
 ---
 

@@ -45,6 +45,63 @@ Unity-адаптация шины `UIProvider`. Связывает Core-моде
 
 ---
 
+## Использование
+
+### Создание интерфейса
+
+1. Создайте `UserInterfacePreset`: `Create > Database > UserInterface Preset`
+2. Настройте `UIType` (`Common`, `Panel`, `Overlay`, `Popup`)
+3. Добавьте условия в массив `Conditions` (или оставьте пустым для ручного управления)
+4. На сцене создайте объект с компонентом `UserInterface`, укажите GUID пресета
+5. Добавьте `TweenerHub` для анимации (опционально)
+
+### Ручное управление через кнопку
+
+```csharp
+// Компонент CallUIHandler на кнопке:
+// uiId = "settings-menu-guid"
+// closeUI = false → открыть
+
+// Или программно:
+UIProvider.Open("settings-menu-guid");
+UIProvider.Close("settings-menu-guid");
+```
+
+### Интерфейс с перетаскиванием
+
+1. Добавьте `UIDragHandler` на зону заголовка окна
+2. В `UserInterface` укажите `dragZone` и `wndContainer`
+3. Убедитесь, что в иерархии есть `CanvasScaler`
+4. Позиция сохраняется автоматически через `SaveSystem`
+
+### Создание условия
+
+```csharp
+[Serializable]
+public sealed class MyCondition : UnityUserInterfaceCondition
+{
+    protected override void Run()
+    {
+        SomeSystem.OnEvent += RunCallback;
+        RunCallback(); // обязательно — немедленная проверка
+    }
+
+    public override void DeInit()
+    {
+        SomeSystem.OnEvent -= RunCallback;
+    }
+
+    public override ConditionAnswer Check()
+    {
+        return SomeSystem.IsActive
+            ? ConditionAnswer.Open
+            : ConditionAnswer.Close;
+    }
+}
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -179,63 +236,6 @@ UnityUserInterfaceCondition : UserInterfaceCondition
 | Drag-позиция — `(int, int)` | Целочисленные пиксели, сохраняется как `"x;y"` |
 | `UserInterface` не наследуется | Различия задаются через пресет и условия |
 | `OrCondition` не поддерживает вложенный `OrCondition` | Одноуровневая композиция |
-
----
-
-## Использование
-
-### Создание интерфейса
-
-1. Создайте `UserInterfacePreset`: `Create > Database > UserInterface Preset`
-2. Настройте `UIType` (`Common`, `Panel`, `Overlay`, `Popup`)
-3. Добавьте условия в массив `Conditions` (или оставьте пустым для ручного управления)
-4. На сцене создайте объект с компонентом `UserInterface`, укажите GUID пресета
-5. Добавьте `TweenerHub` для анимации (опционально)
-
-### Ручное управление через кнопку
-
-```csharp
-// Компонент CallUIHandler на кнопке:
-// uiId = "settings-menu-guid"
-// closeUI = false → открыть
-
-// Или программно:
-UIProvider.Open("settings-menu-guid");
-UIProvider.Close("settings-menu-guid");
-```
-
-### Интерфейс с перетаскиванием
-
-1. Добавьте `UIDragHandler` на зону заголовка окна
-2. В `UserInterface` укажите `dragZone` и `wndContainer`
-3. Убедитесь, что в иерархии есть `CanvasScaler`
-4. Позиция сохраняется автоматически через `SaveSystem`
-
-### Создание условия
-
-```csharp
-[Serializable]
-public sealed class MyCondition : UnityUserInterfaceCondition
-{
-    protected override void Run()
-    {
-        SomeSystem.OnEvent += RunCallback;
-        RunCallback(); // обязательно — немедленная проверка
-    }
-
-    public override void DeInit()
-    {
-        SomeSystem.OnEvent -= RunCallback;
-    }
-
-    public override ConditionAnswer Check()
-    {
-        return SomeSystem.IsActive
-            ? ConditionAnswer.Open
-            : ConditionAnswer.Close;
-    }
-}
-```
 
 ---
 

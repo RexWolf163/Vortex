@@ -54,6 +54,133 @@ Out of scope:
 
 Both assemblies compile only with the `USING_VORTEX_REBIND` symbol (`defineConstraints`); the symbol is enabled by the `rebindSdk` toggle in the `SdkSettings` asset.
 
+## Usage
+
+### 1. Enabling the package
+
+Turn on the `rebindSdk` toggle in the `SdkSettings` asset — this adds the `USING_VORTEX_REBIND` symbol.
+
+### 2. Settings asset
+
+`RebindSettings` implements `ICoreAsset` and is created automatically in `Assets/Resources/Settings/`. If auto-creation is off — `Tools → Vortex → Debug → Check Core Assets`. Quick access to the asset — `Tools → Vortex → Configs → Rebind Settings` (the item exists only while the package is enabled).
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `groups` | `Keyboard&Mouse` (Keyboard, Mouse; X = 2), `Gamepad` (Gamepad; X = 2) | Device groups |
+| `allowedPairs` | empty | Command pairs of one map allowed to share a key |
+| `protectedCommands` | empty | Commands whose last key an operation will not remove |
+| `skippedCommands` | empty | Commands entirely outside the system |
+| `commonCommands` | empty | Commands acting on top of any map: a key match with another map is `Common` |
+| `forbidden` | system keys and shortcuts | Forbidden keys: the key itself, with a specific modifier set, or with any |
+| `distinguishModifierSides` | off | Distinguish left and right modifiers |
+| `snapshotFolder` | `Controls` | Snapshot file folder relative to `FileBus.GetAppPath()` |
+
+Default forbidden keys: synthetic and OS-captured keys (`anyKey`, `IMESelected`, Win, `contextMenu`, `printScreen`), `numLock`, `scrollLock`, `pause`, `f12` (Steam screenshot), `OEM1`–`OEM5`; any modifier + F1–F12, Tab, Enter, NumpadEnter, Esc; Alt+Space.
+
+Protections, pairs, skips and common commands are set by the developer: lists are empty by default, there are no built-in safeguards.
+
+The `Gamepad` group covers all layout descendants: DualShock, DualSense, XInput (including Steam Deck and controllers under Steam Input), Switch Pro. Adding `Joystick` captures HID gamepads and joysticks not recognized as `Gamepad`; they have no factory bindings, and button paths are tied to the device model.
+
+### 3. Registering the driver
+
+In the `DriverConfig` asset: **Reload** → pick a driver for the `RebindBus` system → **Save Config**.
+
+| Driver | Storage | Backup of unreadable data |
+|--------|---------|---------------------------|
+| `RebindPlayerPrefsDriver` | key `VortexRebindSnapshot` | key `VortexRebindSnapshot_backup_<yyyyMMdd_HHmmss>` |
+| `RebindFileDriver` | `<FileBus.GetAppPath()>/<snapshotFolder>/bindings.json`, atomic write | `bindings_<yyyyMMdd_HHmmss>.json` next to it |
+
+Without a driver the system works in memory only, and an error is logged.
+
+### 4. Press capture
+
+```csharp
+private void OnEnable() => RebindBus.OnCaptureChanged += OnCaptureChanged;
+private void OnDisable() => RebindBus.OnCaptureChanged -= OnCaptureChanged;
+
+public void OnSlotClicked(string bindKey)
+{
+    var reason = RebindBus.Controller.SaveSignalForBind(bindKey);
+    if (reason != RejectReason.None)
+        view.ShowError(reason);
+}
+
+private void OnCaptureChanged(CaptureValve valve)
+{
+    var result = valve.LastResult;
+    if (valve.IsOpen)
+    {
+        view.ShowWaiting(valve.BindKey, valve.HeldModifiers);
+        if (result != null)
+            view.ShowHint(result.Reason);        // forbidden key — keep waiting
+        return;
+    }
+
+    switch (result.Status)
+    {
+        case RebindStatus.Applied:  view.Highlight(result.Conflicts); break;   // CrossMap and Common
+        case RebindStatus.Rejected: view.OfferTakeOrSwap(result.Conflicts); break;
+        case RebindStatus.Cancelled: view.Close(); break;
+        case RebindStatus.Unchanged: view.Close(); break;   // the requested state already holds
+    }
+}
+```
+
+Valve rules:
+
+- only devices of the slot's group are caught; presses of other devices work as usual;
+- presses held at the moment of opening are not caught until released;
+- buttons and synthetic directions are caught: mouse wheel, stick directions; pointer motion (`delta`) is not;
+- a held modifier waits for the main key; a single modifier released without it becomes the key itself; three modifiers, or two released without a key, are rejected;
+- **a forbidden key is not captured**: `ForbiddenKey` rejection, the press reaches the game, the valve stays open. This is how capture is cancelled with a forbidden key: a blacklisted Esc reaches `UICancel`;
+- an invalid trigger is rejected and the valve stays open; an intra-map conflict and success close the valve;
+- a repeated `SaveSignalForBind` retargets the valve; `CancelSaving` and window focus loss — `Cancelled`;
+- a candidate rejected by a filter (`AddCaptureFilter`) is ignored and reaches the game and UI;
+- the caught press does not reach game commands;
+- the path is generalized to the most generic layout still in the group: DualSense in the `Gamepad` group gives `<Gamepad>/buttonSouth`.
+
+Filters are persistent: a view registers and removes them, the valve applies all registered ones. A ready example is `CaptureMouseHandler` (see "Views").
+
+### 5. Conflict: take or swap
+
+```csharp
+private void OnTake(string bindKey, ConflictInfo conflict)
+{
+    var value = RebindBus.Data.GetSlot(conflict.OtherBindKey).Value;
+    RebindBus.Controller.Take(bindKey, value);
+}
+
+private void OnSwap(string bindKey, ConflictInfo conflict) =>
+    RebindBus.Controller.Swap(bindKey, conflict.OtherBindKey);
+```
+
+### 6. In-game key hints
+
+```csharp
+var slot = RebindBus.Controller.GetFirst("Player/Jump", "Keyboard&Mouse");
+hint.text = slot?.GetDisplayString() ?? string.Empty;
+```
+
+Subscribing to `OnSlotsChanged`, `OnRebuilt` and `OnGroupsChanged` keeps the hint up to date.
+
+A ready no-code solution — `InputActionView` with a `RebindGlyphTable` (see "Views"): next to an `InputActionHandler` it shows the glyph of the effective key of its action (sprite and text) and a string like "Jump (keys {1}{0})" in a `UIComponent`, prioritizing the keys of the last input device; refreshed on binding changes, layout switching and device change.
+
+### 7. Switchable layouts
+
+Groups with a shared `switchSet` are mutually exclusive: `SetGroupActive(key, true)` turns off the other groups of the set. Binds of an inactive group do not fire, but are editable, and conflicts in it are counted. By default the first group of each set and all standalone groups (no `switchSet`) are active; layout switching does not affect standalone groups.
+
+### 8. Common commands
+
+Maps usually do not overlap: a key shared by commands of different maps is `CrossMap` — allowed and highlighted, and the layout may show it the same as `None`. A common command acts on top of any map — for example, `UI/Click` imitates a mouse click in every mini-game. Listed in `commonCommands`, it gets a separate level: a key shared across maps where at least one side is a common command gives `SlotConflict.Common` on both slots.
+
+- Highlighting only: the operation is not rejected, just like `CrossMap`.
+- Within one map the usual rules apply: `IntraMap` and `IntraMapAllowed` are heavier.
+- `RebindResult.Conflicts` on `Applied` contains `CrossMap` and `Common`.
+- Result statuses: `Applied` — the map changed; `Rejected` — the operation was refused with a reason; `Cancelled` — the capture was interrupted (cancel, focus loss, import before loading); `Unchanged` — the requested state already holds, no snapshot write and no events.
+- Severity ascending: `None`, `CrossMap`, `Common`, `IntraMapAllowed`, `IntraMap`. Enum values are the switcher state numbers (`UIStateSwitcher.Set(Enum)`), so new members are appended only at the end — severity does not follow the member order.
+
+In the slot prefab, `conflictSwitcher` gets a separate `Common` state.
+
 ## Architecture
 
 ### Data
@@ -227,133 +354,6 @@ RebindBus.OnRebuilt        += () => { };     // everything rebuilt: loading, map
 RebindBus.OnGroupsChanged  += () => { };     // group activity
 RebindBus.OnCaptureChanged += valve => { };  // valve: open, modifiers, rejection, close
 ```
-
-## Usage
-
-### 1. Enabling the package
-
-Turn on the `rebindSdk` toggle in the `SdkSettings` asset — this adds the `USING_VORTEX_REBIND` symbol.
-
-### 2. Settings asset
-
-`RebindSettings` implements `ICoreAsset` and is created automatically in `Assets/Resources/Settings/`. If auto-creation is off — `Tools → Vortex → Debug → Check Core Assets`. Quick access to the asset — `Tools → Vortex → Configs → Rebind Settings` (the item exists only while the package is enabled).
-
-| Field | Default | Meaning |
-|-------|---------|---------|
-| `groups` | `Keyboard&Mouse` (Keyboard, Mouse; X = 2), `Gamepad` (Gamepad; X = 2) | Device groups |
-| `allowedPairs` | empty | Command pairs of one map allowed to share a key |
-| `protectedCommands` | empty | Commands whose last key an operation will not remove |
-| `skippedCommands` | empty | Commands entirely outside the system |
-| `commonCommands` | empty | Commands acting on top of any map: a key match with another map is `Common` |
-| `forbidden` | system keys and shortcuts | Forbidden keys: the key itself, with a specific modifier set, or with any |
-| `distinguishModifierSides` | off | Distinguish left and right modifiers |
-| `snapshotFolder` | `Controls` | Snapshot file folder relative to `FileBus.GetAppPath()` |
-
-Default forbidden keys: synthetic and OS-captured keys (`anyKey`, `IMESelected`, Win, `contextMenu`, `printScreen`), `numLock`, `scrollLock`, `pause`, `f12` (Steam screenshot), `OEM1`–`OEM5`; any modifier + F1–F12, Tab, Enter, NumpadEnter, Esc; Alt+Space.
-
-Protections, pairs, skips and common commands are set by the developer: lists are empty by default, there are no built-in safeguards.
-
-The `Gamepad` group covers all layout descendants: DualShock, DualSense, XInput (including Steam Deck and controllers under Steam Input), Switch Pro. Adding `Joystick` captures HID gamepads and joysticks not recognized as `Gamepad`; they have no factory bindings, and button paths are tied to the device model.
-
-### 3. Registering the driver
-
-In the `DriverConfig` asset: **Reload** → pick a driver for the `RebindBus` system → **Save Config**.
-
-| Driver | Storage | Backup of unreadable data |
-|--------|---------|---------------------------|
-| `RebindPlayerPrefsDriver` | key `VortexRebindSnapshot` | key `VortexRebindSnapshot_backup_<yyyyMMdd_HHmmss>` |
-| `RebindFileDriver` | `<FileBus.GetAppPath()>/<snapshotFolder>/bindings.json`, atomic write | `bindings_<yyyyMMdd_HHmmss>.json` next to it |
-
-Without a driver the system works in memory only, and an error is logged.
-
-### 4. Press capture
-
-```csharp
-private void OnEnable() => RebindBus.OnCaptureChanged += OnCaptureChanged;
-private void OnDisable() => RebindBus.OnCaptureChanged -= OnCaptureChanged;
-
-public void OnSlotClicked(string bindKey)
-{
-    var reason = RebindBus.Controller.SaveSignalForBind(bindKey);
-    if (reason != RejectReason.None)
-        view.ShowError(reason);
-}
-
-private void OnCaptureChanged(CaptureValve valve)
-{
-    var result = valve.LastResult;
-    if (valve.IsOpen)
-    {
-        view.ShowWaiting(valve.BindKey, valve.HeldModifiers);
-        if (result != null)
-            view.ShowHint(result.Reason);        // forbidden key — keep waiting
-        return;
-    }
-
-    switch (result.Status)
-    {
-        case RebindStatus.Applied:  view.Highlight(result.Conflicts); break;   // CrossMap and Common
-        case RebindStatus.Rejected: view.OfferTakeOrSwap(result.Conflicts); break;
-        case RebindStatus.Cancelled: view.Close(); break;
-        case RebindStatus.Unchanged: view.Close(); break;   // the requested state already holds
-    }
-}
-```
-
-Valve rules:
-
-- only devices of the slot's group are caught; presses of other devices work as usual;
-- presses held at the moment of opening are not caught until released;
-- buttons and synthetic directions are caught: mouse wheel, stick directions; pointer motion (`delta`) is not;
-- a held modifier waits for the main key; a single modifier released without it becomes the key itself; three modifiers, or two released without a key, are rejected;
-- **a forbidden key is not captured**: `ForbiddenKey` rejection, the press reaches the game, the valve stays open. This is how capture is cancelled with a forbidden key: a blacklisted Esc reaches `UICancel`;
-- an invalid trigger is rejected and the valve stays open; an intra-map conflict and success close the valve;
-- a repeated `SaveSignalForBind` retargets the valve; `CancelSaving` and window focus loss — `Cancelled`;
-- a candidate rejected by a filter (`AddCaptureFilter`) is ignored and reaches the game and UI;
-- the caught press does not reach game commands;
-- the path is generalized to the most generic layout still in the group: DualSense in the `Gamepad` group gives `<Gamepad>/buttonSouth`.
-
-Filters are persistent: a view registers and removes them, the valve applies all registered ones. A ready example is `CaptureMouseHandler` (see "Views").
-
-### 5. Conflict: take or swap
-
-```csharp
-private void OnTake(string bindKey, ConflictInfo conflict)
-{
-    var value = RebindBus.Data.GetSlot(conflict.OtherBindKey).Value;
-    RebindBus.Controller.Take(bindKey, value);
-}
-
-private void OnSwap(string bindKey, ConflictInfo conflict) =>
-    RebindBus.Controller.Swap(bindKey, conflict.OtherBindKey);
-```
-
-### 6. In-game key hints
-
-```csharp
-var slot = RebindBus.Controller.GetFirst("Player/Jump", "Keyboard&Mouse");
-hint.text = slot?.GetDisplayString() ?? string.Empty;
-```
-
-Subscribing to `OnSlotsChanged`, `OnRebuilt` and `OnGroupsChanged` keeps the hint up to date.
-
-A ready no-code solution — `InputActionView` with a `RebindGlyphTable` (see "Views"): next to an `InputActionHandler` it shows the glyph of the effective key of its action (sprite and text) and a string like "Jump (keys {1}{0})" in a `UIComponent`, prioritizing the keys of the last input device; refreshed on binding changes, layout switching and device change.
-
-### 7. Switchable layouts
-
-Groups with a shared `switchSet` are mutually exclusive: `SetGroupActive(key, true)` turns off the other groups of the set. Binds of an inactive group do not fire, but are editable, and conflicts in it are counted. By default the first group of each set and all standalone groups (no `switchSet`) are active; layout switching does not affect standalone groups.
-
-### 8. Common commands
-
-Maps usually do not overlap: a key shared by commands of different maps is `CrossMap` — allowed and highlighted, and the layout may show it the same as `None`. A common command acts on top of any map — for example, `UI/Click` imitates a mouse click in every mini-game. Listed in `commonCommands`, it gets a separate level: a key shared across maps where at least one side is a common command gives `SlotConflict.Common` on both slots.
-
-- Highlighting only: the operation is not rejected, just like `CrossMap`.
-- Within one map the usual rules apply: `IntraMap` and `IntraMapAllowed` are heavier.
-- `RebindResult.Conflicts` on `Applied` contains `CrossMap` and `Common`.
-- Result statuses: `Applied` — the map changed; `Rejected` — the operation was refused with a reason; `Cancelled` — the capture was interrupted (cancel, focus loss, import before loading); `Unchanged` — the requested state already holds, no snapshot write and no events.
-- Severity ascending: `None`, `CrossMap`, `Common`, `IntraMapAllowed`, `IntraMap`. Enum values are the switcher state numbers (`UIStateSwitcher.Set(Enum)`), so new members are appended only at the end — severity does not follow the member order.
-
-In the slot prefab, `conflictSwitcher` gets a separate `Common` state.
 
 ## Views
 

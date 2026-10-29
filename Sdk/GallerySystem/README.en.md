@@ -50,6 +50,46 @@ Out of scope:
 
 ---
 
+## Configuration
+
+### `GalleryView` inspector
+
+| Field | Description |
+|---|---|
+| `marks` | One or more mark names from `RecordMarksSettings`. A card enters the pool if at least one of these marks tags its guid. |
+| `allowedTypes` | Whitelist of FullNames of `IGalleryEntry` implementations. Empty — all allowed. |
+| `deniedTypes` | Blacklist of FullNames. |
+| `deniedGuids` | Explicit guid exclusions. |
+| `lockedMode` | `Hide` — locked cards absent from pool; `ShowAsLocked` — in pool with `isLocked=true`. |
+| `sorter` | FullName of an `IGalleryEntryComparer` implementation or `None` (`GalleryView.NoSorter`, the default) — no sorting (Database order, not guaranteed stable). Empty — not configured: `[NULL]` in the inspector, a warning on pool build, no sorting. |
+| `resetSelectionWhenLastViewedAbsent` | Reset the highlight to `null` when the last-viewed card is not in the current pool. On by default; off — the highlight keeps its previous value. |
+| `iconOverrides` | List of `(guid, Sprite)` — replace the model's icon for a specific scene. |
+| `pool` | `Pool` from `Vortex.Unity.UI.PoolSystem`. |
+| `stubTweener` | Optional `TweenerHub`. Forward on empty pool, Back on non-empty. |
+
+Before use — add the required mark names to `RecordMarksSettings` (`Tools → Vortex → Record Marks → Settings`) in `slotMarks[]` (per-slot) or `globalMarks[]` (per-account).
+
+### Consumer model (example)
+
+```csharp
+public class MyCardModel : Record, IGalleryEntry
+{
+    // GuidPreset / Name / Icon come from RecordPreset<MyCardModel>.CopyFrom.
+    public string GuidPreset => guid;
+    public Sprite Icon => icon;
+    public string Name => name;
+
+    public void Show() { /* your viewer */ }
+    public void Hide() { /* your closer */ }
+}
+
+public class MyCardPreset : RecordPreset<MyCardModel> { /* content fields */ }
+```
+
+`GalleryView` in the scene picks up the model through Database — no manual registration.
+
+---
+
 ## Architecture
 
 ```
@@ -156,46 +196,6 @@ Data array: `{ Sprite, BoolData, StringData, IGalleryEntry, GalleryPoolCallbacks
 - On hover (or Focus gesture) — calls `callbacks.OnFocus()`.
 - On the "Show" click — reads `entry`, calls `entry.Show()` and `callbacks.OnShow()`.
 - Visual treatment of `isLocked` — entirely on the prefab.
-
----
-
-## Configuration
-
-### `GalleryView` inspector
-
-| Field | Description |
-|---|---|
-| `marks` | One or more mark names from `RecordMarksSettings`. A card enters the pool if at least one of these marks tags its guid. |
-| `allowedTypes` | Whitelist of FullNames of `IGalleryEntry` implementations. Empty — all allowed. |
-| `deniedTypes` | Blacklist of FullNames. |
-| `deniedGuids` | Explicit guid exclusions. |
-| `lockedMode` | `Hide` — locked cards absent from pool; `ShowAsLocked` — in pool with `isLocked=true`. |
-| `sorter` | FullName of an `IGalleryEntryComparer` implementation or `None` (`GalleryView.NoSorter`, the default) — no sorting (Database order, not guaranteed stable). Empty — not configured: `[NULL]` in the inspector, a warning on pool build, no sorting. |
-| `resetSelectionWhenLastViewedAbsent` | Reset the highlight to `null` when the last-viewed card is not in the current pool. On by default; off — the highlight keeps its previous value. |
-| `iconOverrides` | List of `(guid, Sprite)` — replace the model's icon for a specific scene. |
-| `pool` | `Pool` from `Vortex.Unity.UI.PoolSystem`. |
-| `stubTweener` | Optional `TweenerHub`. Forward on empty pool, Back on non-empty. |
-
-Before use — add the required mark names to `RecordMarksSettings` (`Tools → Vortex → Record Marks → Settings`) in `slotMarks[]` (per-slot) or `globalMarks[]` (per-account).
-
-### Consumer model (example)
-
-```csharp
-public class MyCardModel : Record, IGalleryEntry
-{
-    // GuidPreset / Name / Icon come from RecordPreset<MyCardModel>.CopyFrom.
-    public string GuidPreset => guid;
-    public Sprite Icon => icon;
-    public string Name => name;
-
-    public void Show() { /* your viewer */ }
-    public void Hide() { /* your closer */ }
-}
-
-public class MyCardPreset : RecordPreset<MyCardModel> { /* content fields */ }
-```
-
-`GalleryView` in the scene picks up the model through Database — no manual registration.
 
 ---
 

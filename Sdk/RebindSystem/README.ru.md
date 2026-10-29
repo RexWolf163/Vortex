@@ -54,6 +54,133 @@ Sdk-пакет фреймворка Vortex: переназначение кла�
 
 Обе сборки собираются только при символе `USING_VORTEX_REBIND` (`defineConstraints`); символ включается тумблером `rebindSdk` в ассете `SdkSettings`.
 
+## Использование
+
+### 1. Включение пакета
+
+В ассете `SdkSettings` включить тумблер `rebindSdk` — добавляется символ `USING_VORTEX_REBIND`.
+
+### 2. Ассет настроек
+
+`RebindSettings` реализует `ICoreAsset` и создаётся автоматически в `Assets/Resources/Settings/`. Если автосоздание выключено — `Tools → Vortex → Debug → Check Core Assets`. Быстрый переход к ассету — `Tools → Vortex → Configs → Rebind Settings` (пункт есть только при включённом пакете).
+
+| Поле | По умолчанию | Смысл |
+|------|--------------|-------|
+| `groups` | `Keyboard&Mouse` (Keyboard, Mouse; X = 2), `Gamepad` (Gamepad; X = 2) | Группы устройств |
+| `allowedPairs` | пусто | Пары команд одной карты, которым можно делить клавишу |
+| `protectedCommands` | пусто | Команды, у которых операция не снимет последнюю клавишу |
+| `skippedCommands` | пусто | Команды вне системы целиком |
+| `commonCommands` | пусто | Команды, действующие поверх любой карты: совпадение клавиши с другой картой — `Common` |
+| `forbidden` | системные клавиши и сочетания | Запрещённые клавиши: сама клавиша, с конкретным набором модификаторов или с любым |
+| `distinguishModifierSides` | выключено | Различать левый и правый модификатор |
+| `snapshotFolder` | `Controls` | Папка файла снимка относительно `FileBus.GetAppPath()` |
+
+Дефолт запрещённых: синтетические и перехватываемые ОС клавиши (`anyKey`, `IMESelected`, Win, `contextMenu`, `printScreen`), `numLock`, `scrollLock`, `pause`, `f12` (скриншот Steam), `OEM1`–`OEM5`; любой модификатор + F1–F12, Tab, Enter, NumpadEnter, Esc; Alt+Space.
+
+Защиты, пары, пропуски и общие команды формирует разработчик: по умолчанию списки пусты, встроенных предохранителей нет.
+
+Группа `Gamepad` покрывает всех наследников layout'а: DualShock, DualSense, XInput (в том числе Steam Deck и контроллеры под Steam Input), Switch Pro. Добавление `Joystick` захватывает HID-геймпады и джойстики, не распознанные как `Gamepad`; заводских биндингов у них нет, а пути кнопок привязаны к модели устройства.
+
+### 3. Регистрация драйвера
+
+В ассете `DriverConfig`: **Reload** → для системы `RebindBus` выбрать драйвер → **Save Config**.
+
+| Драйвер | Хранилище | Копия нечитаемого |
+|---------|-----------|-------------------|
+| `RebindPlayerPrefsDriver` | ключ `VortexRebindSnapshot` | ключ `VortexRebindSnapshot_backup_<yyyyMMdd_HHmmss>` |
+| `RebindFileDriver` | `<FileBus.GetAppPath()>/<snapshotFolder>/bindings.json`, атомарная запись | `bindings_<yyyyMMdd_HHmmss>.json` рядом |
+
+Без драйвера система работает только в памяти, в лог пишется ошибка.
+
+### 4. Перехват нажатия
+
+```csharp
+private void OnEnable() => RebindBus.OnCaptureChanged += OnCaptureChanged;
+private void OnDisable() => RebindBus.OnCaptureChanged -= OnCaptureChanged;
+
+public void OnSlotClicked(string bindKey)
+{
+    var reason = RebindBus.Controller.SaveSignalForBind(bindKey);
+    if (reason != RejectReason.None)
+        view.ShowError(reason);
+}
+
+private void OnCaptureChanged(CaptureValve valve)
+{
+    var result = valve.LastResult;
+    if (valve.IsOpen)
+    {
+        view.ShowWaiting(valve.BindKey, valve.HeldModifiers);
+        if (result != null)
+            view.ShowHint(result.Reason);        // запрещённая клавиша — ждём дальше
+        return;
+    }
+
+    switch (result.Status)
+    {
+        case RebindStatus.Applied:  view.Highlight(result.Conflicts); break;   // CrossMap и Common
+        case RebindStatus.Rejected: view.OfferTakeOrSwap(result.Conflicts); break;
+        case RebindStatus.Cancelled: view.Close(); break;
+        case RebindStatus.Unchanged: view.Close(); break;   // запрошенное уже выполнено
+    }
+}
+```
+
+Правила клапана:
+
+- ловятся только устройства группы слота; нажатия других устройств работают как обычно;
+- нажатия, зажатые в момент открытия, не ловятся, пока не отпущены;
+- ловятся кнопки и синтетические направления: колесо мыши, направления стиков; движение указателя (`delta`) не ловится;
+- зажатый модификатор ждёт основную клавишу; одиночный модификатор, отпущенный без неё, сам становится клавишей; три модификатора или два, отпущенных без клавиши, — отказ;
+- **запрещённая клавиша не перехватывается**: отказ `ForbiddenKey`, нажатие уходит в игру, клапан остаётся открытым. Так работает отмена перехвата клавишей из запрещённых: Esc в чёрном списке доходит до `UICancel`;
+- недопустимый триггер — отказ, клапан остаётся открытым; внутрикартовый конфликт и успех закрывают клапан;
+- повторный `SaveSignalForBind` перенацеливает клапан; `CancelSaving` и потеря фокуса окна — `Cancelled`;
+- кандидат, отклонённый фильтром (`AddCaptureFilter`), игнорируется и уходит в игру и UI;
+- пойманное нажатие до игровых команд не доходит;
+- путь обобщается до самого общего layout'а, который ещё входит в группу: DualSense в группе `Gamepad` даёт `<Gamepad>/buttonSouth`.
+
+Фильтры постоянные: регистрирует и снимает их вьюшка, клапан применяет все зарегистрированные. Готовый пример — `CaptureMouseHandler` (см. «Вьюшки»).
+
+### 5. Конфликт: забрать или обменять
+
+```csharp
+private void OnTake(string bindKey, ConflictInfo conflict)
+{
+    var value = RebindBus.Data.GetSlot(conflict.OtherBindKey).Value;
+    RebindBus.Controller.Take(bindKey, value);
+}
+
+private void OnSwap(string bindKey, ConflictInfo conflict) =>
+    RebindBus.Controller.Swap(bindKey, conflict.OtherBindKey);
+```
+
+### 6. Подсказки клавиш в игре
+
+```csharp
+var slot = RebindBus.Controller.GetFirst("Player/Jump", "Keyboard&Mouse");
+hint.text = slot?.GetDisplayString() ?? string.Empty;
+```
+
+Подписка на `OnSlotsChanged`, `OnRebuilt` и `OnGroupsChanged` держит подсказку актуальной.
+
+Готовое решение без кода — `InputActionView` с таблицей `RebindGlyphTable` (см. «Вьюшки»): рядом с `InputActionHandler` выводит глиф действующей клавиши его экшена (спрайт и текст) и строку вида «Прыжок (клавиши {1}{0})» в `UIComponent`, с приоритетом клавиш последнего устройства ввода; обновление по изменению биндов, переключению раскладки и смене устройства.
+
+### 7. Сменные раскладки
+
+Группы с общим `switchSet` взаимоисключающие: `SetGroupActive(key, true)` выключает остальные группы набора. Бинды неактивной группы не срабатывают, но редактируются, и конфликты в ней считаются. По умолчанию активна первая группа каждого набора и все самостоятельные (без `switchSet`); самостоятельные переключение раскладок не затрагивает.
+
+### 8. Общие команды
+
+Карты обычно не пересекаются: клавиша, общая для команд разных карт, — `CrossMap`, допустимо и подсвечивается, а вёрстка вправе показывать его как `None`. Общая команда действует поверх любой карты — например, `UI/Click` имитирует клик мыши в каждой мини-игре. Внесённая в `commonCommands`, она получает отдельный уровень: совпадение клавиши между картами, где хотя бы одна сторона — общая команда, даёт `SlotConflict.Common` на обоих слотах.
+
+- Только подсветка: операция не отклоняется, как и при `CrossMap`.
+- Внутри одной карты действуют обычные правила: `IntraMap` и `IntraMapAllowed` тяжелее.
+- `RebindResult.Conflicts` при `Applied` содержит `CrossMap` и `Common`.
+- Статусы ответа: `Applied` — карта изменена; `Rejected` — операция отклонена с причиной; `Cancelled` — перехват прерван (отмена, потеря фокуса, импорт до загрузки); `Unchanged` — запрошенное состояние уже выполнено, снимок не пишется и события не поднимаются.
+- Тяжесть по возрастанию: `None`, `CrossMap`, `Common`, `IntraMapAllowed`, `IntraMap`. Значения enum — номера состояний свитчера (`UIStateSwitcher.Set(Enum)`), поэтому новые члены добавляются только в конец — тяжесть не следует из порядка членов.
+
+В префабе слота у `conflictSwitcher` появляется отдельное состояние `Common`.
+
 ## Архитектура
 
 ### Данные
@@ -227,133 +354,6 @@ RebindBus.OnRebuilt        += () => { };     // пересобрано всё: �
 RebindBus.OnGroupsChanged  += () => { };     // активность групп
 RebindBus.OnCaptureChanged += valve => { };  // клапан: открытие, модификаторы, отказ, закрытие
 ```
-
-## Использование
-
-### 1. Включение пакета
-
-В ассете `SdkSettings` включить тумблер `rebindSdk` — добавляется символ `USING_VORTEX_REBIND`.
-
-### 2. Ассет настроек
-
-`RebindSettings` реализует `ICoreAsset` и создаётся автоматически в `Assets/Resources/Settings/`. Если автосоздание выключено — `Tools → Vortex → Debug → Check Core Assets`. Быстрый переход к ассету — `Tools → Vortex → Configs → Rebind Settings` (пункт есть только при включённом пакете).
-
-| Поле | По умолчанию | Смысл |
-|------|--------------|-------|
-| `groups` | `Keyboard&Mouse` (Keyboard, Mouse; X = 2), `Gamepad` (Gamepad; X = 2) | Группы устройств |
-| `allowedPairs` | пусто | Пары команд одной карты, которым можно делить клавишу |
-| `protectedCommands` | пусто | Команды, у которых операция не снимет последнюю клавишу |
-| `skippedCommands` | пусто | Команды вне системы целиком |
-| `commonCommands` | пусто | Команды, действующие поверх любой карты: совпадение клавиши с другой картой — `Common` |
-| `forbidden` | системные клавиши и сочетания | Запрещённые клавиши: сама клавиша, с конкретным набором модификаторов или с любым |
-| `distinguishModifierSides` | выключено | Различать левый и правый модификатор |
-| `snapshotFolder` | `Controls` | Папка файла снимка относительно `FileBus.GetAppPath()` |
-
-Дефолт запрещённых: синтетические и перехватываемые ОС клавиши (`anyKey`, `IMESelected`, Win, `contextMenu`, `printScreen`), `numLock`, `scrollLock`, `pause`, `f12` (скриншот Steam), `OEM1`–`OEM5`; любой модификатор + F1–F12, Tab, Enter, NumpadEnter, Esc; Alt+Space.
-
-Защиты, пары, пропуски и общие команды формирует разработчик: по умолчанию списки пусты, встроенных предохранителей нет.
-
-Группа `Gamepad` покрывает всех наследников layout'а: DualShock, DualSense, XInput (в том числе Steam Deck и контроллеры под Steam Input), Switch Pro. Добавление `Joystick` захватывает HID-геймпады и джойстики, не распознанные как `Gamepad`; заводских биндингов у них нет, а пути кнопок привязаны к модели устройства.
-
-### 3. Регистрация драйвера
-
-В ассете `DriverConfig`: **Reload** → для системы `RebindBus` выбрать драйвер → **Save Config**.
-
-| Драйвер | Хранилище | Копия нечитаемого |
-|---------|-----------|-------------------|
-| `RebindPlayerPrefsDriver` | ключ `VortexRebindSnapshot` | ключ `VortexRebindSnapshot_backup_<yyyyMMdd_HHmmss>` |
-| `RebindFileDriver` | `<FileBus.GetAppPath()>/<snapshotFolder>/bindings.json`, атомарная запись | `bindings_<yyyyMMdd_HHmmss>.json` рядом |
-
-Без драйвера система работает только в памяти, в лог пишется ошибка.
-
-### 4. Перехват нажатия
-
-```csharp
-private void OnEnable() => RebindBus.OnCaptureChanged += OnCaptureChanged;
-private void OnDisable() => RebindBus.OnCaptureChanged -= OnCaptureChanged;
-
-public void OnSlotClicked(string bindKey)
-{
-    var reason = RebindBus.Controller.SaveSignalForBind(bindKey);
-    if (reason != RejectReason.None)
-        view.ShowError(reason);
-}
-
-private void OnCaptureChanged(CaptureValve valve)
-{
-    var result = valve.LastResult;
-    if (valve.IsOpen)
-    {
-        view.ShowWaiting(valve.BindKey, valve.HeldModifiers);
-        if (result != null)
-            view.ShowHint(result.Reason);        // запрещённая клавиша — ждём дальше
-        return;
-    }
-
-    switch (result.Status)
-    {
-        case RebindStatus.Applied:  view.Highlight(result.Conflicts); break;   // CrossMap и Common
-        case RebindStatus.Rejected: view.OfferTakeOrSwap(result.Conflicts); break;
-        case RebindStatus.Cancelled: view.Close(); break;
-        case RebindStatus.Unchanged: view.Close(); break;   // запрошенное уже выполнено
-    }
-}
-```
-
-Правила клапана:
-
-- ловятся только устройства группы слота; нажатия других устройств работают как обычно;
-- нажатия, зажатые в момент открытия, не ловятся, пока не отпущены;
-- ловятся кнопки и синтетические направления: колесо мыши, направления стиков; движение указателя (`delta`) не ловится;
-- зажатый модификатор ждёт основную клавишу; одиночный модификатор, отпущенный без неё, сам становится клавишей; три модификатора или два, отпущенных без клавиши, — отказ;
-- **запрещённая клавиша не перехватывается**: отказ `ForbiddenKey`, нажатие уходит в игру, клапан остаётся открытым. Так работает отмена перехвата клавишей из запрещённых: Esc в чёрном списке доходит до `UICancel`;
-- недопустимый триггер — отказ, клапан остаётся открытым; внутрикартовый конфликт и успех закрывают клапан;
-- повторный `SaveSignalForBind` перенацеливает клапан; `CancelSaving` и потеря фокуса окна — `Cancelled`;
-- кандидат, отклонённый фильтром (`AddCaptureFilter`), игнорируется и уходит в игру и UI;
-- пойманное нажатие до игровых команд не доходит;
-- путь обобщается до самого общего layout'а, который ещё входит в группу: DualSense в группе `Gamepad` даёт `<Gamepad>/buttonSouth`.
-
-Фильтры постоянные: регистрирует и снимает их вьюшка, клапан применяет все зарегистрированные. Готовый пример — `CaptureMouseHandler` (см. «Вьюшки»).
-
-### 5. Конфликт: забрать или обменять
-
-```csharp
-private void OnTake(string bindKey, ConflictInfo conflict)
-{
-    var value = RebindBus.Data.GetSlot(conflict.OtherBindKey).Value;
-    RebindBus.Controller.Take(bindKey, value);
-}
-
-private void OnSwap(string bindKey, ConflictInfo conflict) =>
-    RebindBus.Controller.Swap(bindKey, conflict.OtherBindKey);
-```
-
-### 6. Подсказки клавиш в игре
-
-```csharp
-var slot = RebindBus.Controller.GetFirst("Player/Jump", "Keyboard&Mouse");
-hint.text = slot?.GetDisplayString() ?? string.Empty;
-```
-
-Подписка на `OnSlotsChanged`, `OnRebuilt` и `OnGroupsChanged` держит подсказку актуальной.
-
-Готовое решение без кода — `InputActionView` с таблицей `RebindGlyphTable` (см. «Вьюшки»): рядом с `InputActionHandler` выводит глиф действующей клавиши его экшена (спрайт и текст) и строку вида «Прыжок (клавиши {1}{0})» в `UIComponent`, с приоритетом клавиш последнего устройства ввода; обновление по изменению биндов, переключению раскладки и смене устройства.
-
-### 7. Сменные раскладки
-
-Группы с общим `switchSet` взаимоисключающие: `SetGroupActive(key, true)` выключает остальные группы набора. Бинды неактивной группы не срабатывают, но редактируются, и конфликты в ней считаются. По умолчанию активна первая группа каждого набора и все самостоятельные (без `switchSet`); самостоятельные переключение раскладок не затрагивает.
-
-### 8. Общие команды
-
-Карты обычно не пересекаются: клавиша, общая для команд разных карт, — `CrossMap`, допустимо и подсвечивается, а вёрстка вправе показывать его как `None`. Общая команда действует поверх любой карты — например, `UI/Click` имитирует клик мыши в каждой мини-игре. Внесённая в `commonCommands`, она получает отдельный уровень: совпадение клавиши между картами, где хотя бы одна сторона — общая команда, даёт `SlotConflict.Common` на обоих слотах.
-
-- Только подсветка: операция не отклоняется, как и при `CrossMap`.
-- Внутри одной карты действуют обычные правила: `IntraMap` и `IntraMapAllowed` тяжелее.
-- `RebindResult.Conflicts` при `Applied` содержит `CrossMap` и `Common`.
-- Статусы ответа: `Applied` — карта изменена; `Rejected` — операция отклонена с причиной; `Cancelled` — перехват прерван (отмена, потеря фокуса, импорт до загрузки); `Unchanged` — запрошенное состояние уже выполнено, снимок не пишется и события не поднимаются.
-- Тяжесть по возрастанию: `None`, `CrossMap`, `Common`, `IntraMapAllowed`, `IntraMap`. Значения enum — номера состояний свитчера (`UIStateSwitcher.Set(Enum)`), поэтому новые члены добавляются только в конец — тяжесть не следует из порядка членов.
-
-В префабе слота у `conflictSwitcher` появляется отдельное состояние `Common`.
 
 ## Вьюшки
 

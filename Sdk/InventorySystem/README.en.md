@@ -17,6 +17,59 @@ Out of scope: slots and positioning, drag-and-drop UI, trade, crafting, equipmen
 
 Compiles when the `itemsSdk` toggle is enabled in `SdkSettings` — under the same define key `USING_VORTEX_ITEMS` as the items package; there is no separate toggle. Assembly: `ru.vortex.sdk.inventorysystem`, references `ru.vortex.sdk.itemssystem`. There is no reverse dependency — the items package knows nothing of inventories. Odin Inspector required.
 
+## Usage
+
+### 1. Declare the inventory in the host preset
+
+```csharp
+public class ChestPreset : RecordPreset<ChestModel>
+{
+    [SerializeField] private Inventory inventory;
+    public Inventory Inventory => inventory;
+}
+
+public class ChestModel : Record
+{
+    public Inventory Inventory { get; private set; }
+    // ...
+}
+```
+
+The inventory moves into the model via `CopyFrom` on record construction — like an ordinary property. Verifiers, policy, and startup fill arrive from authoring.
+
+### 2. Author in the inspector
+
+The verifier set (polymorphic class selection), stack policy, startup fill (pairs of "item preset + count").
+
+### 3. Operations
+
+```csharp
+if (chest.Inventory.Add(item)) { /* placed */ }
+
+var taken = chest.Inventory.Take(item);          // take the whole item
+var part  = chest.Inventory.TakeAmount(item, 5); // split 5 off a stack
+chest.Inventory.Drop(item);                      // take out and destroy
+
+item.Move(from: chest.Inventory, to: bag.Inventory);
+```
+
+### 4. Read composition and occupancy
+
+```csharp
+foreach (var it in chest.Inventory.Items) { /* ... */ }
+
+foreach (var v in chest.Inventory.Verifiers)
+    ShowBar(v.GetCurrent(chest.Inventory), v.GetMax(chest.Inventory)); // filters return 0/0
+```
+
+### 5. Destruction
+
+```csharp
+chest.Inventory.Dispose(); // contents removed recursively, then the OnInventoryDestroyed event
+```
+
+The event fires after the contents are removed — it is for cleanup, not for salvage. Whoever needs the contents (to spill them on the ground) takes them before `Dispose`.
+
 ## Architecture
 
 | Unit | Role |
@@ -103,59 +156,6 @@ Three events on the inventory give reactivity without polling: `OnItemAdded`/`On
 - Item homogeneity on merge is decided by matching type and the presence of a stack property; the composition and state of other properties are not compared — the correct set of stackable types is the designer's responsibility.
 - Verifiers gate placement only. There are no take-out restrictions in this version.
 - Property class identity in a save is the assembly-qualified name; renaming the assembly breaks item saves.
-
-## Usage
-
-### 1. Declare the inventory in the host preset
-
-```csharp
-public class ChestPreset : RecordPreset<ChestModel>
-{
-    [SerializeField] private Inventory inventory;
-    public Inventory Inventory => inventory;
-}
-
-public class ChestModel : Record
-{
-    public Inventory Inventory { get; private set; }
-    // ...
-}
-```
-
-The inventory moves into the model via `CopyFrom` on record construction — like an ordinary property. Verifiers, policy, and startup fill arrive from authoring.
-
-### 2. Author in the inspector
-
-The verifier set (polymorphic class selection), stack policy, startup fill (pairs of "item preset + count").
-
-### 3. Operations
-
-```csharp
-if (chest.Inventory.Add(item)) { /* placed */ }
-
-var taken = chest.Inventory.Take(item);          // take the whole item
-var part  = chest.Inventory.TakeAmount(item, 5); // split 5 off a stack
-chest.Inventory.Drop(item);                      // take out and destroy
-
-item.Move(from: chest.Inventory, to: bag.Inventory);
-```
-
-### 4. Read composition and occupancy
-
-```csharp
-foreach (var it in chest.Inventory.Items) { /* ... */ }
-
-foreach (var v in chest.Inventory.Verifiers)
-    ShowBar(v.GetCurrent(chest.Inventory), v.GetMax(chest.Inventory)); // filters return 0/0
-```
-
-### 5. Destruction
-
-```csharp
-chest.Inventory.Dispose(); // contents removed recursively, then the OnInventoryDestroyed event
-```
-
-The event fires after the contents are removed — it is for cleanup, not for salvage. Whoever needs the contents (to spill them on the ground) takes them before `Dispose`.
 
 ## API
 

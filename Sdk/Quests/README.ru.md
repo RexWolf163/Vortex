@@ -46,6 +46,130 @@
 - **UniTask** — асинхронное выполнение логик
 - **Odin Inspector** — атрибуты инспектора
 
+## Использование
+
+### Создание квеста
+
+1. Создать наследника `QuestLogic`:
+```csharp
+[Serializable]
+public class CollectItemsLogic : QuestLogic
+{
+    [SerializeField] private int targetCount;
+
+    public override async UniTask<bool> Run(CancellationToken token)
+    {
+        while (Inventory.Count < targetCount)
+        {
+            if (token.IsCancellationRequested) return false;
+            await UniTask.Yield(token);
+        }
+        return true;
+    }
+}
+```
+
+2. Создать наследника `QuestConditionLogic` (опционально):
+```csharp
+[Serializable]
+public class LevelReached : QuestConditionLogic
+{
+    [SerializeField] private int level;
+    public override bool Check() => PlayerData.Level >= level;
+}
+```
+
+3. Создать `QuestPreset` через **Assets → Create → Database → Quest Preset**
+4. В инспекторе настроить: условия старта, логики, autorun, unFailable
+
+### Зацикленный квест (`AlwaysFail`)
+
+`AlwaysFail` — логика с жёстким `false`. У квеста с **`unFailable = true`** она превращает завершение в перезапуск: `false` → квест уходит в `Locked` (а не `Failed`), не попадает в `CompletedQuests`, и перепроверка условий старта запускает его заново.
+
+Собрать циклический квест:
+1. Включить у квеста **`unFailable`**.
+2. Добавить **`AlwaysFail`** **последней** логикой (после полезной работы и наград).
+3. Частоту цикла задают условия старта: пока они истинны — квест крутится (один прогон за кадр, `AlwaysFail` уступает кадр через `UniTask.Yield`, поэтому кадр не виснет); транзиентное условие (событие) — квест ждёт следующего срабатывания.
+
+Форма списка логик: `[…полезные логики…] → [награда] → AlwaysFail`. Без `unFailable` `AlwaysFail` просто завершит квест как `Failed`.
+
+### Условия прерывания и `Blocked`
+
+`InterruptConditions` настраиваются в пресете рядом со стартовыми, но свёртка между группами — **OR** (сработала любая → блок). Тип условия тот же, что у старта (`QuestConditionLogic`).
+
+```csharp
+// Квест доступен, ПОКА не пройден ни один из боссов.
+// interruptConditions: [ группа{ BossDefeated("boss_1") },
+//                        группа{ BossDefeated("boss_2") } ]   // OR: любой босс блокирует
+// blockRemovable = false                                       // блок навсегда
+```
+
+- Пустой `interruptConditions` ⇒ квест непрерываем (как раньше).
+- Прерывание срабатывает и на уже идущем квесте: логика отменяется, прогресс сбрасывается.
+- `blockRemovable = true` — при снятии условий квест вернётся в `Locked` и стартует заново с нуля.
+
+### Реактивная перепроверка условий
+
+Каждый `QuestConditionLogic` управляет своими подписками через `InitListeners()`/`DisposeListeners()`:
+
+```csharp
+[Serializable]
+public class ExampleStarted : QuestConditionLogic
+{
+    public override bool Check() => ExampleEngine.IsPlaying;
+
+    public override void InitListeners()
+    {
+        ExampleEngine.OnStart += QuestController.CheckQuestStartConditions;
+    }
+
+    public override void DisposeListeners()
+    {
+        ExampleEngine.OnStart -= QuestController.CheckQuestStartConditions;
+    }
+}
+```
+
+`QuestConditions.Check()` автоматически вызывает `DisposeListeners` перед проверкой и `InitListeners` только для условий, вернувших `false` — подписки живут только пока условие не выполнено.
+
+#### Почему оба уровня — AND (атомарное детерминированное отслеживание)
+
+И условия внутри группы (`QuestConditions.Check` → все по AND), и группы между собой (`CheckQuestStart` → `StartConditions.All`) объединяются по **AND с ленивым short-circuit**. Это осознанный design, а не избыточность: в каждый момент квест подписан ровно на **одно** невыполненное условие — «блокер» (первое `false` в первой невыполненной группе), а остальные проверяются только когда оно откроется (перепроверка каскадом продвигает подписку к следующему блокеру). Отсюда:
+
+- **атомарность** — одна активная подписка за раз;
+- **детерминированность** — блокер всегда однозначен (слева направо).
+
+> ⚠️ **Не менять внутренний уровень на OR.** OR-группа истинна при выполнении *любого* из условий, значит становится истинной при открытии *любого* из них — пришлось бы подписываться на **все** условия невыполненной группы (однозначного блокера нет). Это ломает атомарное отслеживание. Организационная группировка (имя группы) — **не** логический OR: дерево условий вычисляется как **плоское AND**.
+
+Чтобы выразить OR / NOR / XOR / вложенный AND **внутри** группы, не ломая эту атомарность, оберните условия в **`LogicGateCondition`** — одно `QuestConditionLogic`, сворачивающее свои вложенные по выбранному режиму (`OR` = любое, `NOT` = ни одного/NOR, `XOR` = ровно одно, `AND` = все). Оно осознанно подписывается на **все** вложенные (альтернативность — результат может измениться от любого), поэтому атомарная AND-модель самой группы не страдает: комбинатор живёт *внутри одного* условия, «плоский AND» группы сохраняется. Вложения произвольны (`LogicGateCondition` может содержать другой) — так собираются сложные деревья, например `OR` над двумя наборами, каждый свёрнут по `AND`: `LogicGateCondition{ Or, [ LogicGateCondition{ And, [...] }, LogicGateCondition{ And, [...] } ] }`. Режим `NOT` над одним вложенным — замена убранного флага `inverted` (например, «квест **не** завершён» = `LogicGateCondition{ Not, [ QuestCompleted(id) ] }`). *(Класс переименован из `OrNotCondition`; существующие `[SerializeReference]`-ссылки сохраняются через `[MovedFrom]`.)*
+
+Альтернативный путь — `SetListener`/`RemoveListener` для `IReactiveData`:
+
+```csharp
+[Serializable]
+public class ExampleVariableCondition : QuestConditionLogic
+{
+    public override bool Check() => /* ... */;
+
+    public override void InitListeners()
+    {
+        QuestController.SetListener(GameController.Instance, this);
+        QuestController.SetListener(ExampleVariableListener.Instance, this);
+    }
+
+    public override void DisposeListeners()
+    {
+        QuestController.RemoveListener(this);
+    }
+}
+```
+
+`SetListener` подписывается на `IReactiveData.OnUpdateData` с подсчётом ссылок — одна подписка на `IReactiveData` независимо от количества условий. `RemoveListener` снимает подписку когда источников не осталось.
+
+### Привязка UI
+
+Разместить `QuestDataStorage` на сцене, указать GUID квеста. View-компоненты получают `QuestModel` через `IDataStorage.GetData<QuestModel>()`.
+
 ## Архитектура
 
 ```
@@ -173,130 +297,6 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 - Квесты — строго MultiInstance записи (каждая игра получает свежие копии)
 - Пер-квестовые linked-CTS: отмена одного квеста (при блокировке) не трогает остальные; глобальный `CancellationTokenSource` — для группового teardown (новая игра/загрузка)
 - `QuestConditionLogic.Check()` — синхронный, не поддерживает async-условия
-
-## Использование
-
-### Создание квеста
-
-1. Создать наследника `QuestLogic`:
-```csharp
-[Serializable]
-public class CollectItemsLogic : QuestLogic
-{
-    [SerializeField] private int targetCount;
-
-    public override async UniTask<bool> Run(CancellationToken token)
-    {
-        while (Inventory.Count < targetCount)
-        {
-            if (token.IsCancellationRequested) return false;
-            await UniTask.Yield(token);
-        }
-        return true;
-    }
-}
-```
-
-2. Создать наследника `QuestConditionLogic` (опционально):
-```csharp
-[Serializable]
-public class LevelReached : QuestConditionLogic
-{
-    [SerializeField] private int level;
-    public override bool Check() => PlayerData.Level >= level;
-}
-```
-
-3. Создать `QuestPreset` через **Assets → Create → Database → Quest Preset**
-4. В инспекторе настроить: условия старта, логики, autorun, unFailable
-
-### Зацикленный квест (`AlwaysFail`)
-
-`AlwaysFail` — логика с жёстким `false`. У квеста с **`unFailable = true`** она превращает завершение в перезапуск: `false` → квест уходит в `Locked` (а не `Failed`), не попадает в `CompletedQuests`, и перепроверка условий старта запускает его заново.
-
-Собрать циклический квест:
-1. Включить у квеста **`unFailable`**.
-2. Добавить **`AlwaysFail`** **последней** логикой (после полезной работы и наград).
-3. Частоту цикла задают условия старта: пока они истинны — квест крутится (один прогон за кадр, `AlwaysFail` уступает кадр через `UniTask.Yield`, поэтому кадр не виснет); транзиентное условие (событие) — квест ждёт следующего срабатывания.
-
-Форма списка логик: `[…полезные логики…] → [награда] → AlwaysFail`. Без `unFailable` `AlwaysFail` просто завершит квест как `Failed`.
-
-### Условия прерывания и `Blocked`
-
-`InterruptConditions` настраиваются в пресете рядом со стартовыми, но свёртка между группами — **OR** (сработала любая → блок). Тип условия тот же, что у старта (`QuestConditionLogic`).
-
-```csharp
-// Квест доступен, ПОКА не пройден ни один из боссов.
-// interruptConditions: [ группа{ BossDefeated("boss_1") },
-//                        группа{ BossDefeated("boss_2") } ]   // OR: любой босс блокирует
-// blockRemovable = false                                       // блок навсегда
-```
-
-- Пустой `interruptConditions` ⇒ квест непрерываем (как раньше).
-- Прерывание срабатывает и на уже идущем квесте: логика отменяется, прогресс сбрасывается.
-- `blockRemovable = true` — при снятии условий квест вернётся в `Locked` и стартует заново с нуля.
-
-### Реактивная перепроверка условий
-
-Каждый `QuestConditionLogic` управляет своими подписками через `InitListeners()`/`DisposeListeners()`:
-
-```csharp
-[Serializable]
-public class ExampleStarted : QuestConditionLogic
-{
-    public override bool Check() => ExampleEngine.IsPlaying;
-
-    public override void InitListeners()
-    {
-        ExampleEngine.OnStart += QuestController.CheckQuestStartConditions;
-    }
-
-    public override void DisposeListeners()
-    {
-        ExampleEngine.OnStart -= QuestController.CheckQuestStartConditions;
-    }
-}
-```
-
-`QuestConditions.Check()` автоматически вызывает `DisposeListeners` перед проверкой и `InitListeners` только для условий, вернувших `false` — подписки живут только пока условие не выполнено.
-
-#### Почему оба уровня — AND (атомарное детерминированное отслеживание)
-
-И условия внутри группы (`QuestConditions.Check` → все по AND), и группы между собой (`CheckQuestStart` → `StartConditions.All`) объединяются по **AND с ленивым short-circuit**. Это осознанный design, а не избыточность: в каждый момент квест подписан ровно на **одно** невыполненное условие — «блокер» (первое `false` в первой невыполненной группе), а остальные проверяются только когда оно откроется (перепроверка каскадом продвигает подписку к следующему блокеру). Отсюда:
-
-- **атомарность** — одна активная подписка за раз;
-- **детерминированность** — блокер всегда однозначен (слева направо).
-
-> ⚠️ **Не менять внутренний уровень на OR.** OR-группа истинна при выполнении *любого* из условий, значит становится истинной при открытии *любого* из них — пришлось бы подписываться на **все** условия невыполненной группы (однозначного блокера нет). Это ломает атомарное отслеживание. Организационная группировка (имя группы) — **не** логический OR: дерево условий вычисляется как **плоское AND**.
-
-Чтобы выразить OR / NOR / XOR / вложенный AND **внутри** группы, не ломая эту атомарность, оберните условия в **`LogicGateCondition`** — одно `QuestConditionLogic`, сворачивающее свои вложенные по выбранному режиму (`OR` = любое, `NOT` = ни одного/NOR, `XOR` = ровно одно, `AND` = все). Оно осознанно подписывается на **все** вложенные (альтернативность — результат может измениться от любого), поэтому атомарная AND-модель самой группы не страдает: комбинатор живёт *внутри одного* условия, «плоский AND» группы сохраняется. Вложения произвольны (`LogicGateCondition` может содержать другой) — так собираются сложные деревья, например `OR` над двумя наборами, каждый свёрнут по `AND`: `LogicGateCondition{ Or, [ LogicGateCondition{ And, [...] }, LogicGateCondition{ And, [...] } ] }`. Режим `NOT` над одним вложенным — замена убранного флага `inverted` (например, «квест **не** завершён» = `LogicGateCondition{ Not, [ QuestCompleted(id) ] }`). *(Класс переименован из `OrNotCondition`; существующие `[SerializeReference]`-ссылки сохраняются через `[MovedFrom]`.)*
-
-Альтернативный путь — `SetListener`/`RemoveListener` для `IReactiveData`:
-
-```csharp
-[Serializable]
-public class ExampleVariableCondition : QuestConditionLogic
-{
-    public override bool Check() => /* ... */;
-
-    public override void InitListeners()
-    {
-        QuestController.SetListener(GameController.Instance, this);
-        QuestController.SetListener(ExampleVariableListener.Instance, this);
-    }
-
-    public override void DisposeListeners()
-    {
-        QuestController.RemoveListener(this);
-    }
-}
-```
-
-`SetListener` подписывается на `IReactiveData.OnUpdateData` с подсчётом ссылок — одна подписка на `IReactiveData` независимо от количества условий. `RemoveListener` снимает подписку когда источников не осталось.
-
-### Привязка UI
-
-Разместить `QuestDataStorage` на сцене, указать GUID квеста. View-компоненты получают `QuestModel` через `IDataStorage.GetData<QuestModel>()`.
 
 ## Граничные случаи
 

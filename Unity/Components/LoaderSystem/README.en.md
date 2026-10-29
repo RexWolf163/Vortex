@@ -33,6 +33,15 @@ Out of scope:
 
 ---
 
+## Usage
+
+1. Create a loading scene
+2. Add `LoaderStarter` to any GameObject
+3. (Optional) Add `LoaderView` with configured `UIStateSwitcher` and `UIComponent`
+4. Modules register via `Loader.Register()` in drivers before `AppStates.Starting`
+
+---
+
 ## Components
 
 ### LoaderStarter
@@ -73,15 +82,6 @@ Module name is passed through `TryTranslate()` for localization.
 | `switcher` | `UIStateSwitcher` | Visual state switcher |
 | `uiComponent` | `UIComponent` | Text component for progress display |
 | `loadingTextPattern` | `string` | Format pattern (default `{0} ({1}) → {2}: {3}%`) |
-
----
-
-## Usage
-
-1. Create a loading scene
-2. Add `LoaderStarter` to any GameObject
-3. (Optional) Add `LoaderView` with configured `UIStateSwitcher` and `UIComponent`
-4. Modules register via `Loader.Register()` in drivers before `AppStates.Starting`
 
 ---
 

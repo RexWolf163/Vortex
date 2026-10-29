@@ -33,6 +33,15 @@ Unity-компоненты для запуска и визуализации п�
 
 ---
 
+## Использование
+
+1. Создать сцену загрузки
+2. Добавить `LoaderStarter` на любой GameObject
+3. (Опционально) Добавить `LoaderView` с настроенным `UIStateSwitcher` и `UIComponent`
+4. Модули регистрируются через `Loader.Register()` в драйверах до наступления `AppStates.Starting`
+
+---
+
 ## Компоненты
 
 ### LoaderStarter
@@ -73,15 +82,6 @@ MonoBehaviour — визуализация прогресса загрузки.
 | `switcher` | `UIStateSwitcher` | Переключатель визуальных состояний |
 | `uiComponent` | `UIComponent` | Текстовый компонент для отображения прогресса |
 | `loadingTextPattern` | `string` | Паттерн форматирования (по умолчанию `{0} ({1}) → {2}: {3}%`) |
-
----
-
-## Использование
-
-1. Создать сцену загрузки
-2. Добавить `LoaderStarter` на любой GameObject
-3. (Опционально) Добавить `LoaderView` с настроенным `UIStateSwitcher` и `UIComponent`
-4. Модули регистрируются через `Loader.Register()` в драйверах до наступления `AppStates.Starting`
 
 ---
 

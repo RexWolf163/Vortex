@@ -20,6 +20,29 @@ Out of scope: focus/background handling, process termination, scene loading, res
 - `Vortex.Core.LoggerSystem` — transition logging
 - `Vortex.Core.System.Enums` — `AppStates`
 
+## Usage
+
+### State subscription
+
+```csharp
+App.OnStateChanged += (AppStates newState) => { };
+App.OnStarting += () => { };    // → Starting
+App.OnStart += () => { };       // Starting|Unfocused → Running
+App.OnExit += () => { };        // → Stopping
+```
+
+### State management
+
+```csharp
+AppStates state = App.GetState();
+bool changed = App.SetState(AppStates.Running);
+App.Exit(); // → Stopping → OnExit
+```
+
+### Debug
+
+Transitions are logged automatically when debug mode is active. The `AppStateDebugMode` flag is a partial extension of `SettingsModel`. Configuration: enable `DebugMode` (global) and `appStates` (local toggle) in the `DebugSettings` asset.
+
 ## Architecture
 
 ```
@@ -90,29 +113,6 @@ The `App.Data` getter creates `AppModel` on first access and calls `SetState(Sta
 ### Limitations
 - `SetState` accesses `_data` directly — calling before first `Data` access causes NRE
 - `AppModel` is `sealed` with `internal` constructor — creation only within `App`
-
-## Usage
-
-### State subscription
-
-```csharp
-App.OnStateChanged += (AppStates newState) => { };
-App.OnStarting += () => { };    // → Starting
-App.OnStart += () => { };       // Starting|Unfocused → Running
-App.OnExit += () => { };        // → Stopping
-```
-
-### State management
-
-```csharp
-AppStates state = App.GetState();
-bool changed = App.SetState(AppStates.Running);
-App.Exit(); // → Stopping → OnExit
-```
-
-### Debug
-
-Transitions are logged automatically when debug mode is active. The `AppStateDebugMode` flag is a partial extension of `SettingsModel`. Configuration: enable `DebugMode` (global) and `appStates` (local toggle) in the `DebugSettings` asset.
 
 ## Edge Cases
 

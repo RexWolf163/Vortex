@@ -54,6 +54,134 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Register settings
+
+The `AssetCacheSettings` asset in `Resources/Settings/` is created by the settings system in the editor when missing (`Assets/Resources/Settings/AssetCacheSettings.asset`); `Tools/Vortex/AssetsCache/Config` pings it in the Project window.
+- Fill in the default group's `SurvivorCapacity` (default 32).
+- If needed, add named groups to `groups`: key + the group's `SurvivorCapacity`.
+- `SettingsDriver` picks it up automatically.
+
+### Basic pattern in a MonoBehaviour
+
+```csharp
+public class WeaponView : MonoBehaviour
+{
+    [SerializeField] private AssetReference muzzleFlashRef;
+    private GameObject _muzzleFlashPrefab;
+
+    private async void OnEnable()
+    {
+        // owner = this (Unity object — sweep will pick it up on destroy)
+        _muzzleFlashPrefab = await AssetCache.Load<GameObject>(this, muzzleFlashRef, destroyCancellationToken);
+    }
+
+    private void OnDestroy()
+    {
+        // Explicit Release is not strictly required (sweep handles destruction),
+        // but it's useful for immediate release / moving the asset into survivors.
+        AssetCache.Release(this);
+    }
+}
+```
+
+### Loading into a group
+
+```csharp
+public class VoiceLine : MonoBehaviour
+{
+    [SerializeField] private AssetReference clipRef;
+
+    // Dropdown with the groups from AssetCacheSettings. Empty — default group.
+    [SerializeField, AssetCacheGroup] private string cacheGroup;
+
+    private async UniTask PlayAsync(CancellationToken ct)
+    {
+        // Release(this) during the load ends it with OperationCanceledException.
+        var clip = await AssetCache.Load<AudioClip>(this, clipRef, ct, cacheGroup);
+        // ...
+    }
+
+    private void OnDisable()
+    {
+        // The loader releases — in the same group it loaded into.
+        AssetCache.Release(this, cacheGroup);
+    }
+}
+```
+
+`DataStorageTransport` (`cacheGroup`) and `AddressableAssetHandle<T>` (`group`) already have a group field.
+
+### POCO owner
+
+```csharp
+public class AudioCue
+{
+    private readonly object _ownerKey = new();   // owner = indestructible key
+    private AudioClip _clip;
+
+    public async UniTask PreloadAsync(AssetReference clipRef, CancellationToken ct)
+    {
+        _clip = await AssetCache.Load<AudioClip>(_ownerKey, clipRef, ct);
+    }
+
+    public void Dispose()
+    {
+        // Required — sweep doesn't kick in for POCO owners.
+        AssetCache.Release(_ownerKey);
+    }
+}
+```
+
+### `AddressableAssetHandle<T>`
+
+The `AssetHandle<T>` implementation on top of the cache: fields `reference` (`AssetReference`) and `group` (`[AssetCacheGroup]`). The owner in the cache is the handle itself (`owner = this`), so a handle always has exactly one key in `Locks`; overlapping loads of one handle are counted as holds of that key. `LoadAsync` → `AssetCache.Load<T>(this, reference, ct, group)`; a repeated `LoadAsync` without `Release` returns the same instance with a warning; `Release` → `AssetCache.Release(this, group)` (no-op while nothing is loaded). The full contract is in the `AssetHandleSystem` README.
+
+### `DataStorageTransport`
+
+A `DataStorage` descendant for swapping a heavy prefab in and out with the GameObject:
+- `OnEnable` → `AssetCache.Load<GameObject>(this, prefabReference, token, cacheGroup)` → `Instantiate` under `targetForInstance` (empty — its own `Transform`) → if `Data` isn't empty, `SetData` into the instance's `DataStorage` (if it has one).
+- `OnDisable` → cancel the token, `Destroy` the instance, `AssetCache.Release(this, cacheGroup)`. `OperationCanceledException` of an interrupted load is swallowed.
+- In the editor: `Connect` / `Disconnect` buttons — instantiate the prefab via `editorAsset` / remove the target's children for layout work. An error InfoBox is shown while the target has children.
+
+### Subscribing to bus readiness
+
+```csharp
+AssetCache.OnReady.Subscribe(() =>
+{
+    // Runs immediately if bootstrap is already complete.
+    Debug.Log($"AssetCache ready. Survivor capacity = {AssetCache.Config.SurvivorCapacity}");
+});
+```
+
+### Parallel requests for one ref
+
+```csharp
+// All 100 simultaneous requests resolve through ONE Addressables call.
+var tasks = Enumerable.Range(0, 100).Select(i =>
+    AssetCache.Load<Sprite>(owners[i], iconRef, ct));
+
+var sprites = await UniTask.WhenAll(tasks);
+```
+
+### Cancelling a waiter
+
+```csharp
+var cts = new CancellationTokenSource();
+
+var task = AssetCache.Load<GameObject>(owner, heavyRef, cts.Token);
+cts.CancelAfter(100);   // give 100ms
+
+try { var go = await task; }
+catch (OperationCanceledException) { /* waiter cancelled */ }
+
+// The actual load CONTINUES — once it completes, the asset goes into survivors
+// (if no other active owners) or becomes an instant HIT for another requester.
+```
+
+---
+
 ## Architecture
 
 ```
@@ -266,134 +394,6 @@ PushSurvivor (into the group's survivors):
 - `IsHeldByAnyOwner` lookup is O(L) by number of owners. Fine for typical projects with tens to hundreds of owners. For thousands you'd want a reverse index (not implemented in v1 — memory priority).
 - `ReviveFromSurvivor` is O(n) via `LinkedList.Remove(value)`. For capacities of 32-128 it's negligible.
 - Not thread-safe — all operations are Unity main-thread.
-
----
-
-## Usage
-
-### Register settings
-
-The `AssetCacheSettings` asset in `Resources/Settings/` is created by the settings system in the editor when missing (`Assets/Resources/Settings/AssetCacheSettings.asset`); `Tools/Vortex/AssetsCache/Config` pings it in the Project window.
-- Fill in the default group's `SurvivorCapacity` (default 32).
-- If needed, add named groups to `groups`: key + the group's `SurvivorCapacity`.
-- `SettingsDriver` picks it up automatically.
-
-### Basic pattern in a MonoBehaviour
-
-```csharp
-public class WeaponView : MonoBehaviour
-{
-    [SerializeField] private AssetReference muzzleFlashRef;
-    private GameObject _muzzleFlashPrefab;
-
-    private async void OnEnable()
-    {
-        // owner = this (Unity object — sweep will pick it up on destroy)
-        _muzzleFlashPrefab = await AssetCache.Load<GameObject>(this, muzzleFlashRef, destroyCancellationToken);
-    }
-
-    private void OnDestroy()
-    {
-        // Explicit Release is not strictly required (sweep handles destruction),
-        // but it's useful for immediate release / moving the asset into survivors.
-        AssetCache.Release(this);
-    }
-}
-```
-
-### Loading into a group
-
-```csharp
-public class VoiceLine : MonoBehaviour
-{
-    [SerializeField] private AssetReference clipRef;
-
-    // Dropdown with the groups from AssetCacheSettings. Empty — default group.
-    [SerializeField, AssetCacheGroup] private string cacheGroup;
-
-    private async UniTask PlayAsync(CancellationToken ct)
-    {
-        // Release(this) during the load ends it with OperationCanceledException.
-        var clip = await AssetCache.Load<AudioClip>(this, clipRef, ct, cacheGroup);
-        // ...
-    }
-
-    private void OnDisable()
-    {
-        // The loader releases — in the same group it loaded into.
-        AssetCache.Release(this, cacheGroup);
-    }
-}
-```
-
-`DataStorageTransport` (`cacheGroup`) and `AddressableAssetHandle<T>` (`group`) already have a group field.
-
-### POCO owner
-
-```csharp
-public class AudioCue
-{
-    private readonly object _ownerKey = new();   // owner = indestructible key
-    private AudioClip _clip;
-
-    public async UniTask PreloadAsync(AssetReference clipRef, CancellationToken ct)
-    {
-        _clip = await AssetCache.Load<AudioClip>(_ownerKey, clipRef, ct);
-    }
-
-    public void Dispose()
-    {
-        // Required — sweep doesn't kick in for POCO owners.
-        AssetCache.Release(_ownerKey);
-    }
-}
-```
-
-### `AddressableAssetHandle<T>`
-
-The `AssetHandle<T>` implementation on top of the cache: fields `reference` (`AssetReference`) and `group` (`[AssetCacheGroup]`). The owner in the cache is the handle itself (`owner = this`), so a handle always has exactly one key in `Locks`; overlapping loads of one handle are counted as holds of that key. `LoadAsync` → `AssetCache.Load<T>(this, reference, ct, group)`; a repeated `LoadAsync` without `Release` returns the same instance with a warning; `Release` → `AssetCache.Release(this, group)` (no-op while nothing is loaded). The full contract is in the `AssetHandleSystem` README.
-
-### `DataStorageTransport`
-
-A `DataStorage` descendant for swapping a heavy prefab in and out with the GameObject:
-- `OnEnable` → `AssetCache.Load<GameObject>(this, prefabReference, token, cacheGroup)` → `Instantiate` under `targetForInstance` (empty — its own `Transform`) → if `Data` isn't empty, `SetData` into the instance's `DataStorage` (if it has one).
-- `OnDisable` → cancel the token, `Destroy` the instance, `AssetCache.Release(this, cacheGroup)`. `OperationCanceledException` of an interrupted load is swallowed.
-- In the editor: `Connect` / `Disconnect` buttons — instantiate the prefab via `editorAsset` / remove the target's children for layout work. An error InfoBox is shown while the target has children.
-
-### Subscribing to bus readiness
-
-```csharp
-AssetCache.OnReady.Subscribe(() =>
-{
-    // Runs immediately if bootstrap is already complete.
-    Debug.Log($"AssetCache ready. Survivor capacity = {AssetCache.Config.SurvivorCapacity}");
-});
-```
-
-### Parallel requests for one ref
-
-```csharp
-// All 100 simultaneous requests resolve through ONE Addressables call.
-var tasks = Enumerable.Range(0, 100).Select(i =>
-    AssetCache.Load<Sprite>(owners[i], iconRef, ct));
-
-var sprites = await UniTask.WhenAll(tasks);
-```
-
-### Cancelling a waiter
-
-```csharp
-var cts = new CancellationTokenSource();
-
-var task = AssetCache.Load<GameObject>(owner, heavyRef, cts.Token);
-cts.CancelAfter(100);   // give 100ms
-
-try { var go = await task; }
-catch (OperationCanceledException) { /* waiter cancelled */ }
-
-// The actual load CONTINUES — once it completes, the asset goes into survivors
-// (if no other active owners) or becomes an instant HIT for another requester.
-```
 
 ---
 

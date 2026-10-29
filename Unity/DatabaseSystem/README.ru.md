@@ -27,6 +27,53 @@ Unity-реализация драйверов базы данных, пресе�
 
 ---
 
+## Использование
+
+### 1. Создание пресета
+
+```csharp
+[CreateAssetMenu(menuName = "Database/Product")]
+public class ProductPreset : RecordPreset<ProductRecord>
+{
+    [SerializeField] private float price;
+    [SerializeField] private int quantity;
+
+    public float Price => price;
+    public int Quantity => quantity;
+}
+```
+
+Для корректной работы `CopyFrom()` данные должны быть доступны через публичные свойства-геттеры с именами, совпадающими со свойствами `Record`.
+
+### 2. Настройка ResourcesDriver
+
+Пресеты размещаются в `Assets/Resources/Database/`. Драйвер назначается в `DriverConfig`.
+
+### 3. Настройка AddressablesDriver
+
+1. В ассете `DatabaseSettings` указать метки в `databaseLabels`
+2. Назначить драйвер в `DriverConfig`
+3. Пометить пресеты: пункт **Mark as DatabasePreset** (см. «Редакторские инструменты») или вручную в окне Addressables
+
+### 4. Атрибут DbRecord
+
+```csharp
+[SerializeField, DbRecord(typeof(Sound))]
+private string audioSample;
+```
+
+### 5. Editor API
+
+```csharp
+#if UNITY_EDITOR
+var driver = Database.GetDriver() as IDriverEditor;
+driver?.ReloadDatabase();
+var preset = driver?.GetPresetForRecord(guid);
+#endif
+```
+
+---
+
 ## Драйверы
 
 ### DatabaseDriverBase
@@ -150,53 +197,6 @@ public Sprite Icon { get; protected set; }
 - `databaseLabels` — `string[]`, метки Addressable-ассетов
 - В Editor: `[ValueDropdown("GetLabels")]` — dropdown из всех меток, назначенных ассетам в Addressable Asset Settings
 - `SettingsModelExtDatabase` (partial `SettingsModel`) — `DatabaseLabels` property
-
----
-
-## Использование
-
-### 1. Создание пресета
-
-```csharp
-[CreateAssetMenu(menuName = "Database/Product")]
-public class ProductPreset : RecordPreset<ProductRecord>
-{
-    [SerializeField] private float price;
-    [SerializeField] private int quantity;
-
-    public float Price => price;
-    public int Quantity => quantity;
-}
-```
-
-Для корректной работы `CopyFrom()` данные должны быть доступны через публичные свойства-геттеры с именами, совпадающими со свойствами `Record`.
-
-### 2. Настройка ResourcesDriver
-
-Пресеты размещаются в `Assets/Resources/Database/`. Драйвер назначается в `DriverConfig`.
-
-### 3. Настройка AddressablesDriver
-
-1. В ассете `DatabaseSettings` указать метки в `databaseLabels`
-2. Назначить драйвер в `DriverConfig`
-3. Пометить пресеты: пункт **Mark as DatabasePreset** (см. «Редакторские инструменты») или вручную в окне Addressables
-
-### 4. Атрибут DbRecord
-
-```csharp
-[SerializeField, DbRecord(typeof(Sound))]
-private string audioSample;
-```
-
-### 5. Editor API
-
-```csharp
-#if UNITY_EDITOR
-var driver = Database.GetDriver() as IDriverEditor;
-driver?.ReloadDatabase();
-var preset = driver?.GetPresetForRecord(guid);
-#endif
-```
 
 ## Редакторские инструменты
 

@@ -16,6 +16,17 @@ Partial-расширение `SettingsModel`, добавляющее свойс�
 
 - `Vortex.Core.SettingsSystem` — `SettingsModel` (расширяемый класс)
 
+## Использование
+
+```csharp
+if (Settings.Data().DebugMode)
+    Log.Print(LogLevel.Common, "debug info", this);
+
+// Или через локальный флаг системы:
+if (Settings.Data().AppStateDebugMode)
+    Log.Print(new LogData(LogLevel.Common, $"AppState: {state}", "App"));
+```
+
 ## Архитектура
 
 ```
@@ -62,17 +73,6 @@ public partial class DebugSettings
 
 ### Ограничения
 - `Settings.Data()` может быть `null` до инициализации — проверка на вызывающей стороне
-
-## Использование
-
-```csharp
-if (Settings.Data().DebugMode)
-    Log.Print(LogLevel.Common, "debug info", this);
-
-// Или через локальный флаг системы:
-if (Settings.Data().AppStateDebugMode)
-    Log.Print(new LogData(LogLevel.Common, $"AppState: {state}", "App"));
-```
 
 ## Известные расширения (Core)
 

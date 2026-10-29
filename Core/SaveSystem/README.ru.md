@@ -47,6 +47,64 @@
 
 ---
 
+## Использование
+
+### Реализация ISaveable
+
+```csharp
+public class InventoryController : ISaveable
+{
+    private ProcessData _processData = new("Inventory");
+
+    public string GetSaveId() => "Inventory";
+
+    public async UniTask<Dictionary<string, string>> GetSaveData(CancellationToken ct)
+    {
+        var data = new Dictionary<string, string>();
+        data["items"] = JsonUtility.ToJson(items);
+        data["gold"] = gold.ToString();
+        return data;
+    }
+
+    public ProcessData GetProcessInfo() => _processData;
+
+    public async UniTask OnLoad(CancellationToken ct)
+    {
+        var data = SaveController.GetData("Inventory");
+        if (data.TryGetValue("items", out var json))
+            items = JsonUtility.FromJson<ItemList>(json);
+        if (data.TryGetValue("gold", out var g))
+            gold = int.Parse(g);
+    }
+}
+```
+
+### Сохранение / загрузка
+
+```csharp
+// Регистрация
+SaveController.Register(inventoryController);
+
+// Сохранение (новый GUID)
+SaveController.Save("Quick Save");
+
+// Сохранение (перезапись)
+SaveController.Save("Quick Save", existingGuid);
+
+// Загрузка
+SaveController.Load(guid);
+
+// Список сохранений
+var saves = SaveController.GetIndex();
+foreach (var (guid, summary) in saves)
+    Debug.Log($"{summary.Name} — {summary.Date}");
+
+// Удаление
+SaveController.Remove(guid);
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -173,64 +231,6 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 | Данные — только строки | `Dictionary<string, string>`, JSON-сериализация на стороне модуля |
 | `Save`/`Load` возвращают `UniTask` | Можно ждать через `await` либо запускать fire-and-forget через `.Forget()`. Исключения логируются внутри |
 | `CancellationToken` объявлен, но не используется | Зарезервирован на будущее |
-
----
-
-## Использование
-
-### Реализация ISaveable
-
-```csharp
-public class InventoryController : ISaveable
-{
-    private ProcessData _processData = new("Inventory");
-
-    public string GetSaveId() => "Inventory";
-
-    public async UniTask<Dictionary<string, string>> GetSaveData(CancellationToken ct)
-    {
-        var data = new Dictionary<string, string>();
-        data["items"] = JsonUtility.ToJson(items);
-        data["gold"] = gold.ToString();
-        return data;
-    }
-
-    public ProcessData GetProcessInfo() => _processData;
-
-    public async UniTask OnLoad(CancellationToken ct)
-    {
-        var data = SaveController.GetData("Inventory");
-        if (data.TryGetValue("items", out var json))
-            items = JsonUtility.FromJson<ItemList>(json);
-        if (data.TryGetValue("gold", out var g))
-            gold = int.Parse(g);
-    }
-}
-```
-
-### Сохранение / загрузка
-
-```csharp
-// Регистрация
-SaveController.Register(inventoryController);
-
-// Сохранение (новый GUID)
-SaveController.Save("Quick Save");
-
-// Сохранение (перезапись)
-SaveController.Save("Quick Save", existingGuid);
-
-// Загрузка
-SaveController.Load(guid);
-
-// Список сохранений
-var saves = SaveController.GetIndex();
-foreach (var (guid, summary) in saves)
-    Debug.Log($"{summary.Name} — {summary.Date}");
-
-// Удаление
-SaveController.Remove(guid);
-```
 
 ---
 

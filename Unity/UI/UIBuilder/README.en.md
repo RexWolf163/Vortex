@@ -31,6 +31,14 @@ Out of scope:
 
 ---
 
+## Usage
+
+1. `Project Settings → Vortex/UIBuilder` — set the primitive folder for each module, optionally the default prefab, name and size.
+2. Right-click an object in the Hierarchy → `Vortex Primitives/Create Text` or `Create Button`.
+3. In the window pick a primitive, the layer name, fill in the sections → «Создать» (Create).
+
+---
+
 ## Architecture
 
 ```
@@ -112,14 +120,6 @@ A shared piece of creation parameters bound to a `UIComponent` part type (`PartT
 4. Parts are collected by the private editor method `UIComponent.Init` via reflection (the `UIComponents` package is not modified).
 5. `module.Apply`: sections that have parts of their type after collection.
 6. The layer is activated, the Undo group collapsed, the created layer selected.
-
----
-
-## Usage
-
-1. `Project Settings → Vortex/UIBuilder` — set the primitive folder for each module, optionally the default prefab, name and size.
-2. Right-click an object in the Hierarchy → `Vortex Primitives/Create Text` or `Create Button`.
-3. In the window pick a primitive, the layer name, fill in the sections → «Создать» (Create).
 
 ## Add BackgroundLayer hotkey
 

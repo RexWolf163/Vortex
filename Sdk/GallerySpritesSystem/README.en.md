@@ -40,6 +40,20 @@ Out of scope:
 
 ---
 
+## Creating a card (for the designer)
+
+1. **Create a preset:** Project → Create → Vortex → Presets → Gallery → Sprite. You get a `GallerySpritePreset`.
+2. **Fill the base fields:** Name, Description, Icon (preview for the gallery tile).
+3. **Pick an `AssetHandle<Sprite>` implementation:** click the `fullscreen` field in the inspector; the Odin picker offers:
+   - **`DirectAssetHandle<Sprite>`** — direct reference. Fullscreen always in memory. Good for light / always-needed sprites.
+   - **`AddressableAssetHandle<Sprite>`** — Addressables lazy-load. Loads on demand, unloads on `Release`.
+4. **Assign the asset** to the chosen implementation.
+5. **Unlock mark:** `RecordMarksSettings` must contain a mark that story mechanics will apply to the card's `GuidPreset` for "unlocked". The gallery scene designer specifies that mark in `GalleryView.marks`.
+
+The card enters `GalleryView` automatically when its type is allowed (`allowedTypes` empty or contains it, `deniedTypes` doesn't) and its `GuidPreset` is tagged with a listed mark.
+
+---
+
 ## Architecture
 
 ```
@@ -135,20 +149,6 @@ public static class GallerySpriteController
 - **I2.** The model's handle is an independent deep-clone of the preset's handle: the load state (`_cached`) is not shared.
 - **I3.** Only one viewer is active at a time (registry).
 - **I4.** `Show`/`Hide` are synchronous (as `IGalleryEntry` requires); inside — only a bus call.
-
----
-
-## Creating a card (for the designer)
-
-1. **Create a preset:** Project → Create → Vortex → Presets → Gallery → Sprite. You get a `GallerySpritePreset`.
-2. **Fill the base fields:** Name, Description, Icon (preview for the gallery tile).
-3. **Pick an `AssetHandle<Sprite>` implementation:** click the `fullscreen` field in the inspector; the Odin picker offers:
-   - **`DirectAssetHandle<Sprite>`** — direct reference. Fullscreen always in memory. Good for light / always-needed sprites.
-   - **`AddressableAssetHandle<Sprite>`** — Addressables lazy-load. Loads on demand, unloads on `Release`.
-4. **Assign the asset** to the chosen implementation.
-5. **Unlock mark:** `RecordMarksSettings` must contain a mark that story mechanics will apply to the card's `GuidPreset` for "unlocked". The gallery scene designer specifies that mark in `GalleryView.marks`.
-
-The card enters `GalleryView` automatically when its type is allowed (`allowedTypes` empty or contains it, `deniedTypes` doesn't) and its `GuidPreset` is tagged with a listed mark.
 
 ---
 

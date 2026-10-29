@@ -37,6 +37,17 @@ Out of scope:
 
 ---
 
+## Usage
+
+```
+; in a nani script
+@UnlockSteamAchievement ACH_WIN_FIRST_BATTLE
+```
+
+`ACH_WIN_FIRST_BATTLE` is a Steam achievement **ID** from Steamworks (App Admin → Achievements).
+
+---
+
 ## Architecture
 
 ```
@@ -79,17 +90,6 @@ A Naninovel command must **always exist** (otherwise Naninovel fails when parsin
 | `defineConstraints: ["USING_NANINOVELL"]` | No `Command` without Naninovel |
 | No-op without `USING_STEAM` (warning) | Steam assemblies not built; call hidden by `#if` |
 | Does not validate `key` against the index | Guards (`IsLoaded`, `not found`) live inside `UnlockAchievement` |
-
----
-
-## Usage
-
-```
-; in a nani script
-@UnlockSteamAchievement ACH_WIN_FIRST_BATTLE
-```
-
-`ACH_WIN_FIRST_BATTLE` is a Steam achievement **ID** from Steamworks (App Admin → Achievements).
 
 ---
 

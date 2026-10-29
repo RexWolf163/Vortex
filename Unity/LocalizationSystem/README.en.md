@@ -38,6 +38,31 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Setup
+
+1. Create Google Sheets with translations (format: KEY | English | Russian | ...)
+2. Enter document ID and sheet GIDs into `LocalizationPreset`
+3. Click `Load Data` in Inspector
+4. Ensure `LocalizationPreset` is in `Resources/Localization/`
+
+### Bind text to UI
+
+1. Add `UIComponent` to a GameObject
+2. Add `SetTextComponent` to the same GameObject
+3. Select key via `[LocalizationKey]` dropdown
+4. Enable `useLocalization` for translation
+
+### Language switch button
+
+1. Add `UIComponent` (with button and text)
+2. Add `SetLocaleHandler`
+3. Select language via `[Language]` selector
+4. Enable `useSwitch` for visual highlight of current language
+
+---
+
 ## Architecture
 
 ### Driver
@@ -208,31 +233,6 @@ Language switch button.
 ### Asset auto-creation
 
 `EditorRegister` (InitializeOnLoadMethod) automatically creates `Resources/Localization/LocalizationData.asset` if missing.
-
----
-
-## Usage
-
-### Setup
-
-1. Create Google Sheets with translations (format: KEY | English | Russian | ...)
-2. Enter document ID and sheet GIDs into `LocalizationPreset`
-3. Click `Load Data` in Inspector
-4. Ensure `LocalizationPreset` is in `Resources/Localization/`
-
-### Bind text to UI
-
-1. Add `UIComponent` to a GameObject
-2. Add `SetTextComponent` to the same GameObject
-3. Select key via `[LocalizationKey]` dropdown
-4. Enable `useLocalization` for translation
-
-### Language switch button
-
-1. Add `UIComponent` (with button and text)
-2. Add `SetLocaleHandler`
-3. Select language via `[Language]` selector
-4. Enable `useSwitch` for visual highlight of current language
 
 ---
 

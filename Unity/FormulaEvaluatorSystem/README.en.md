@@ -18,34 +18,6 @@ Runtime evaluation is supported: `FormulaEvaluator.Calc(...)` / `TryCalc(...)` r
 | `ru.vortex.unity.editortools` | DrawingUtility, SearchablePopup, `Elements` |
 | Odin Inspector | `FormulaDrawer` — `OdinAttributeDrawer<FormulaAttribute, string>` (`#if UNITY_EDITOR && ODIN_INSPECTOR`), `SirenixEditorGUI` |
 
-## Formula Format
-
-```
-"sqrt(3 + {0}^2) * ({1} / {2})"
-```
-
-- `{N}` — parameter slot, N is the index (from 0)
-- Operators: `+`, `-`, `*`, `/`, `^` (exponentiation, right-associative)
-- Parentheses: `(`, `)`
-- Constants: `pi`, `e`
-- Functions (1 arg): `sqrt`, `abs`, `sin`, `cos`, `tan`, `log`, `floor`, `ceil`, `round`
-- Functions (2 args): `min`, `max`, `pow`
-- Functions (3 args): `clamp(value, min, max)`
-
-## Components
-
-```
-FormulaEvaluatorSystem/
-├── Attributes/
-│   └── FormulaAttribute.cs          → [Formula("slotsFieldName")] attribute
-├── Model/
-│   └── FormulaSlot.cs               → serializable binding: memberName + testValue
-├── FormulaEvaluator.cs                 → runtime: Calc / TryCalc (slot resolution + evaluation)
-├── FormulaParser.cs                    → recursive descent expression parser
-├── FormulaReflectionResolver.cs        → #if UNITY_EDITOR: numeric member discovery
-└── FormulaDrawer.cs                    → OdinAttributeDrawer<FormulaAttribute, string> (#if UNITY_EDITOR && ODIN_INSPECTOR)
-```
-
 ## Usage
 
 ```csharp
@@ -99,6 +71,34 @@ Constants/
 - **Constants**: `const` and `static readonly` of numeric types
 - Numeric types: `int`, `float`, `double`, `long`, `decimal`, `byte`, `short`, `uint`, `ulong`, `ushort`, `sbyte`
 - Inherited `private` members are excluded (inaccessible)
+
+## Formula Format
+
+```
+"sqrt(3 + {0}^2) * ({1} / {2})"
+```
+
+- `{N}` — parameter slot, N is the index (from 0)
+- Operators: `+`, `-`, `*`, `/`, `^` (exponentiation, right-associative)
+- Parentheses: `(`, `)`
+- Constants: `pi`, `e`
+- Functions (1 arg): `sqrt`, `abs`, `sin`, `cos`, `tan`, `log`, `floor`, `ceil`, `round`
+- Functions (2 args): `min`, `max`, `pow`
+- Functions (3 args): `clamp(value, min, max)`
+
+## Components
+
+```
+FormulaEvaluatorSystem/
+├── Attributes/
+│   └── FormulaAttribute.cs          → [Formula("slotsFieldName")] attribute
+├── Model/
+│   └── FormulaSlot.cs               → serializable binding: memberName + testValue
+├── FormulaEvaluator.cs                 → runtime: Calc / TryCalc (slot resolution + evaluation)
+├── FormulaParser.cs                    → recursive descent expression parser
+├── FormulaReflectionResolver.cs        → #if UNITY_EDITOR: numeric member discovery
+└── FormulaDrawer.cs                    → OdinAttributeDrawer<FormulaAttribute, string> (#if UNITY_EDITOR && ODIN_INSPECTOR)
+```
 
 ## API
 

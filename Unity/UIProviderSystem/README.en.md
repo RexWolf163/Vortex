@@ -45,6 +45,63 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Creating an Interface
+
+1. Create `UserInterfacePreset`: `Create > Database > UserInterface Preset`
+2. Set `UIType` (`Common`, `Panel`, `Overlay`, `Popup`)
+3. Add conditions to the `Conditions` array (or leave empty for manual control)
+4. On the scene, create an object with `UserInterface` component, set the preset GUID
+5. Add `TweenerHub` for animation (optional)
+
+### Manual Control via Button
+
+```csharp
+// CallUIHandler component on a button:
+// uiId = "settings-menu-guid"
+// closeUI = false → open
+
+// Or programmatically:
+UIProvider.Open("settings-menu-guid");
+UIProvider.Close("settings-menu-guid");
+```
+
+### Interface with Dragging
+
+1. Add `UIDragHandler` to the window title bar zone
+2. In `UserInterface`, set `dragZone` and `wndContainer`
+3. Ensure `CanvasScaler` exists in the hierarchy
+4. Position is saved automatically via `SaveSystem`
+
+### Creating a Condition
+
+```csharp
+[Serializable]
+public sealed class MyCondition : UnityUserInterfaceCondition
+{
+    protected override void Run()
+    {
+        SomeSystem.OnEvent += RunCallback;
+        RunCallback(); // required — immediate check
+    }
+
+    public override void DeInit()
+    {
+        SomeSystem.OnEvent -= RunCallback;
+    }
+
+    public override ConditionAnswer Check()
+    {
+        return SomeSystem.IsActive
+            ? ConditionAnswer.Open
+            : ConditionAnswer.Close;
+    }
+}
+```
+
+---
+
 ## Architecture
 
 ```
@@ -179,63 +236,6 @@ All three defer the call to the end of the frame via `TimeController.Accumulate`
 | Drag position is `(int, int)` | Integer pixels, saved as `"x;y"` |
 | `UserInterface` is not subclassed | Differences are set via preset and conditions |
 | `OrCondition` does not support nested `OrCondition` | Single-level composition |
-
----
-
-## Usage
-
-### Creating an Interface
-
-1. Create `UserInterfacePreset`: `Create > Database > UserInterface Preset`
-2. Set `UIType` (`Common`, `Panel`, `Overlay`, `Popup`)
-3. Add conditions to the `Conditions` array (or leave empty for manual control)
-4. On the scene, create an object with `UserInterface` component, set the preset GUID
-5. Add `TweenerHub` for animation (optional)
-
-### Manual Control via Button
-
-```csharp
-// CallUIHandler component on a button:
-// uiId = "settings-menu-guid"
-// closeUI = false → open
-
-// Or programmatically:
-UIProvider.Open("settings-menu-guid");
-UIProvider.Close("settings-menu-guid");
-```
-
-### Interface with Dragging
-
-1. Add `UIDragHandler` to the window title bar zone
-2. In `UserInterface`, set `dragZone` and `wndContainer`
-3. Ensure `CanvasScaler` exists in the hierarchy
-4. Position is saved automatically via `SaveSystem`
-
-### Creating a Condition
-
-```csharp
-[Serializable]
-public sealed class MyCondition : UnityUserInterfaceCondition
-{
-    protected override void Run()
-    {
-        SomeSystem.OnEvent += RunCallback;
-        RunCallback(); // required — immediate check
-    }
-
-    public override void DeInit()
-    {
-        SomeSystem.OnEvent -= RunCallback;
-    }
-
-    public override ConditionAnswer Check()
-    {
-        return SomeSystem.IsActive
-            ? ConditionAnswer.Open
-            : ConditionAnswer.Close;
-    }
-}
-```
 
 ---
 

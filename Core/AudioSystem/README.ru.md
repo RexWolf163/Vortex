@@ -21,6 +21,71 @@
 - `Vortex.Core.DatabaseSystem` — `Record` (базовый класс сэмплов)
 - `Vortex.Core.LoggerSystem` — логирование ошибок
 
+## Использование
+
+### Настройки
+
+```csharp
+// Чтение
+bool soundOn = AudioController.Settings.SoundOn;
+float musicVol = AudioController.Settings.MusicVolume;
+bool masterOn = AudioController.Settings.MasterOn;
+
+// Изменение
+AudioController.SetMasterState(false);     // выключить всё
+AudioController.SetSoundState(false);      // выключить звуки
+AudioController.SetMusicVolume(0.5f);      // громкость музыки 50%
+AudioController.SetMasterVolume(0.8f);     // общая громкость 80%
+
+// Подписка
+AudioController.OnSettingsChanged += () => UpdateUI();
+```
+
+### Каналы
+
+```csharp
+// Список каналов
+var channels = AudioController.GetChannelsList();
+
+// Громкость канала
+float vol = AudioController.GetChVolume("dialog");
+AudioController.SetChVolume("dialog", 0.7f);
+
+// Расчётная громкость с учётом Master и типа
+float finalVol = AudioController.GetSoundVolume("ui");  // Master × Sound × Channel
+
+// Extension на AudioChannel
+var channel = AudioController.GetChannel("ambient");
+channel.SetVolume(0.5f);
+```
+
+### Воспроизведение
+
+```csharp
+// Звук (fire-and-forget)
+AudioController.PlaySound(sample);
+AudioController.PlaySound(sample, loop: true);
+AudioController.StopAllSounds();
+
+// Звук с хэндлом управления (см. раздел про обёртки)
+var voice = AudioController.PlaySoundWithControl(sample);
+voice.OnFinished += OnDone;
+
+// Основная музыка
+AudioController.PlayMusic(music, fadingStart: true, fadingEnd: true);
+AudioController.StopMusic();
+
+// Ситуативная музыка
+AudioController.PlayCoverMusic(battleTheme);
+AudioController.StopCoverMusic(); // основная тема восстановится (драйвер)
+```
+
+### Получение сэмпла
+
+```csharp
+IAudioSample sample = AudioController.GetSample("explosion_01");
+```
+
 ## Архитектура
 
 ```
@@ -121,71 +186,6 @@ enum SoundType { Master, Sound, Music }
 - `AudioChannel.Volume` / `Mute` имеют `internal set` — модификация через `SetChVolume` или `FromSave`
 - `AudioSample<T>.GetDataForSave()` возвращает `null` — сэмплы не участвуют в системе сохранений
 - `MusicSample<T>` — abstract, прямое создание экземпляров невозможно
-
-## Использование
-
-### Настройки
-
-```csharp
-// Чтение
-bool soundOn = AudioController.Settings.SoundOn;
-float musicVol = AudioController.Settings.MusicVolume;
-bool masterOn = AudioController.Settings.MasterOn;
-
-// Изменение
-AudioController.SetMasterState(false);     // выключить всё
-AudioController.SetSoundState(false);      // выключить звуки
-AudioController.SetMusicVolume(0.5f);      // громкость музыки 50%
-AudioController.SetMasterVolume(0.8f);     // общая громкость 80%
-
-// Подписка
-AudioController.OnSettingsChanged += () => UpdateUI();
-```
-
-### Каналы
-
-```csharp
-// Список каналов
-var channels = AudioController.GetChannelsList();
-
-// Громкость канала
-float vol = AudioController.GetChVolume("dialog");
-AudioController.SetChVolume("dialog", 0.7f);
-
-// Расчётная громкость с учётом Master и типа
-float finalVol = AudioController.GetSoundVolume("ui");  // Master × Sound × Channel
-
-// Extension на AudioChannel
-var channel = AudioController.GetChannel("ambient");
-channel.SetVolume(0.5f);
-```
-
-### Воспроизведение
-
-```csharp
-// Звук (fire-and-forget)
-AudioController.PlaySound(sample);
-AudioController.PlaySound(sample, loop: true);
-AudioController.StopAllSounds();
-
-// Звук с хэндлом управления (см. раздел про обёртки)
-var voice = AudioController.PlaySoundWithControl(sample);
-voice.OnFinished += OnDone;
-
-// Основная музыка
-AudioController.PlayMusic(music, fadingStart: true, fadingEnd: true);
-AudioController.StopMusic();
-
-// Ситуативная музыка
-AudioController.PlayCoverMusic(battleTheme);
-AudioController.StopCoverMusic(); // основная тема восстановится (драйвер)
-```
-
-### Получение сэмпла
-
-```csharp
-IAudioSample sample = AudioController.GetSample("explosion_01");
-```
 
 ## Управление воспроизведением через обёртки (`AudioSampleWrapper`)
 

@@ -22,6 +22,69 @@ The visual side is driven by `TweenerHub` on the prefab (it triggers Animator/Sp
 
 ---
 
+## Usage
+
+### Simplest — bullet explodes
+
+```csharp
+public class Bullet : MonoBehaviour
+{
+    [SerializeField] private GameObject explosionPrefab;
+
+    private void OnCollisionEnter(Collision c)
+    {
+        // position = bullet.position (default), rotation = identity (default)
+        EffectSpawn.Spawn(transform, explosionPrefab);
+        Destroy(gameObject);
+    }
+}
+```
+
+### By key from the catalog with custom rotation
+
+```csharp
+public class Weapon : MonoBehaviour
+{
+    [EffectKey] [SerializeField] private string muzzleFlash;
+    [EffectKey] [SerializeField] private string impactSparks;
+
+    // Default position (muzzle.position), default rotation (identity)
+    private void Fire(Transform muzzle) => EffectSpawn.Spawn(muzzle, muzzleFlash);
+
+    // Custom position (hit point) and rotation (aligned to surface normal)
+    private void OnImpact(Transform owner, Vector3 hitPoint, Vector3 normal)
+        => EffectSpawn.Spawn(owner, impactSparks, hitPoint, Quaternion.LookRotation(normal));
+}
+```
+
+### Catalog registration
+
+Registration is **automatic** — no bootstrap code required. `EffectSpawn.RegisterCatalog()` is marked `[RuntimeInitializeOnLoadMethod]` and loads the singleton catalog at startup via `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. It is enough to have a single `EffectsCatalog` asset in the project. There is no parameterized overload and no `UnregisterCatalog`.
+
+### EffectsLayer in the scene
+
+```
+Scene Root
+├── World
+│   ├── Player
+│   ├── Enemy
+│   └── ...
+└── Visuals
+    └── EffectsLayer  (EffectsLayer component, Target = self)
+        └── (all scene effects park here)
+```
+
+If a particular enemy needs effects to stay local (move with it):
+```
+Enemy
+├── EffectsLayer  (Target = LocalEffects)
+│   └── LocalEffects
+│       └── (effects spawned on this enemy park here)
+└── Mesh
+```
+
+---
+
 ## Architecture
 
 ### Two-layer storage (lazy auto-create)
@@ -212,69 +275,6 @@ On `GameController.OnGameStateChanged` → `Paused`:
 ```
 
 On unpause — `Pool.ResumeAll`, `_paused = false`, the duration counter resumes.
-
----
-
-## Usage
-
-### Simplest — bullet explodes
-
-```csharp
-public class Bullet : MonoBehaviour
-{
-    [SerializeField] private GameObject explosionPrefab;
-
-    private void OnCollisionEnter(Collision c)
-    {
-        // position = bullet.position (default), rotation = identity (default)
-        EffectSpawn.Spawn(transform, explosionPrefab);
-        Destroy(gameObject);
-    }
-}
-```
-
-### By key from the catalog with custom rotation
-
-```csharp
-public class Weapon : MonoBehaviour
-{
-    [EffectKey] [SerializeField] private string muzzleFlash;
-    [EffectKey] [SerializeField] private string impactSparks;
-
-    // Default position (muzzle.position), default rotation (identity)
-    private void Fire(Transform muzzle) => EffectSpawn.Spawn(muzzle, muzzleFlash);
-
-    // Custom position (hit point) and rotation (aligned to surface normal)
-    private void OnImpact(Transform owner, Vector3 hitPoint, Vector3 normal)
-        => EffectSpawn.Spawn(owner, impactSparks, hitPoint, Quaternion.LookRotation(normal));
-}
-```
-
-### Catalog registration
-
-Registration is **automatic** — no bootstrap code required. `EffectSpawn.RegisterCatalog()` is marked `[RuntimeInitializeOnLoadMethod]` and loads the singleton catalog at startup via `AssetDatabaseExt.GetSingletonAsset<EffectsCatalog>()`. It is enough to have a single `EffectsCatalog` asset in the project. There is no parameterized overload and no `UnregisterCatalog`.
-
-### EffectsLayer in the scene
-
-```
-Scene Root
-├── World
-│   ├── Player
-│   ├── Enemy
-│   └── ...
-└── Visuals
-    └── EffectsLayer  (EffectsLayer component, Target = self)
-        └── (all scene effects park here)
-```
-
-If a particular enemy needs effects to stay local (move with it):
-```
-Enemy
-├── EffectsLayer  (Target = LocalEffects)
-│   └── LocalEffects
-│       └── (effects spawned on this enemy park here)
-└── Mesh
-```
 
 ---
 

@@ -16,6 +16,17 @@ Out of scope: flag value storage and loading (handled by `SettingsSystem`), sett
 
 - `Vortex.Core.SettingsSystem` — `SettingsModel` (extended class)
 
+## Usage
+
+```csharp
+if (Settings.Data().DebugMode)
+    Log.Print(LogLevel.Common, "debug info", this);
+
+// Or via a system's local flag:
+if (Settings.Data().AppStateDebugMode)
+    Log.Print(new LogData(LogLevel.Common, $"AppState: {state}", "App"));
+```
+
 ## Architecture
 
 ```
@@ -62,17 +73,6 @@ public partial class DebugSettings
 
 ### Limitations
 - `Settings.Data()` may be `null` before initialization — caller must check
-
-## Usage
-
-```csharp
-if (Settings.Data().DebugMode)
-    Log.Print(LogLevel.Common, "debug info", this);
-
-// Or via a system's local flag:
-if (Settings.Data().AppStateDebugMode)
-    Log.Print(new LogData(LogLevel.Common, $"AppState: {state}", "App"));
-```
 
 ## Known Extensions (Core)
 

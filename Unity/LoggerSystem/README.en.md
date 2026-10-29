@@ -33,6 +33,25 @@ Out of scope:
 
 ---
 
+## Usage
+
+The driver registers automatically. No additional setup required.
+
+```csharp
+// Call from anywhere in the project
+Log.Print(LogLevel.Common, "Player spawned", this);
+Log.Print(LogLevel.Error, "Save file corrupted", "SaveSystem");
+```
+
+Result in Unity Console:
+
+```
+[PlayerController] Player spawned
+[SaveSystem] Save file corrupted    (red)
+```
+
+---
+
 ## Architecture
 
 ```
@@ -88,25 +107,6 @@ The editor extension prints a `Warning`-level confirmation message upon connecti
 | No level filtering | All messages output; filtering via Unity Console |
 | `Source = null` | Falls back to `"Unknown"` — code is null-safe, no exception thrown |
 | No file logging | `Debug.Log*` only; file logging requires a separate driver |
-
----
-
-## Usage
-
-The driver registers automatically. No additional setup required.
-
-```csharp
-// Call from anywhere in the project
-Log.Print(LogLevel.Common, "Player spawned", this);
-Log.Print(LogLevel.Error, "Save file corrupted", "SaveSystem");
-```
-
-Result in Unity Console:
-
-```
-[PlayerController] Player spawned
-[SaveSystem] Save file corrupted    (red)
-```
 
 ---
 

@@ -20,6 +20,32 @@ ScriptableObject-ассет настроек отладки с toggle-кнопк
 - `Vortex.Unity.EditorTools.Attributes` — `[ToggleButton]`, `[Position]`
 - `Sirenix.OdinInspector` — `[PropertyOrder]`
 
+## Использование
+
+### Настройка
+
+1. Создать ассет `DebugSettings` (или использовать существующий в `StartSettings`)
+2. Включить `DebugMode` (глобальный gate)
+3. Включить нужные локальные toggle
+
+### Доступ к ассету
+
+Меню: `Tools/Vortex/Configs/Debug Settings` (пингует ассет `StartSettings`)
+
+### Проверка в коде
+
+```csharp
+// Через SettingsModel (заполняется из DebugSettings)
+if (Settings.Data().AppStateDebugMode)
+    Log.Print(LogLevel.Common, "state changed", "App");
+```
+
+### Добавление toggle для новой системы
+
+1. В папке системы создать `Debug/Presets/DebugSettingsExtMySystem.cs`
+2. Добавить partial `DebugSettings` с toggle и свойством
+3. В Core системы — partial `SettingsModel` с соответствующим свойством
+
 ## Архитектура
 
 ```
@@ -68,32 +94,6 @@ public partial class DebugSettings
 ### Ограничения
 - Partial-расширения разбросаны по разным пакетам — полный список toggle виден только в Inspector ассета
 - Добавление нового toggle требует assembly reference на `ru.vortex.unity.debug`
-
-## Использование
-
-### Настройка
-
-1. Создать ассет `DebugSettings` (или использовать существующий в `StartSettings`)
-2. Включить `DebugMode` (глобальный gate)
-3. Включить нужные локальные toggle
-
-### Доступ к ассету
-
-Меню: `Tools/Vortex/Configs/Debug Settings` (пингует ассет `StartSettings`)
-
-### Проверка в коде
-
-```csharp
-// Через SettingsModel (заполняется из DebugSettings)
-if (Settings.Data().AppStateDebugMode)
-    Log.Print(LogLevel.Common, "state changed", "App");
-```
-
-### Добавление toggle для новой системы
-
-1. В папке системы создать `Debug/Presets/DebugSettingsExtMySystem.cs`
-2. Добавить partial `DebugSettings` с toggle и свойством
-3. В Core системы — partial `SettingsModel` с соответствующим свойством
 
 ## Известные расширения
 

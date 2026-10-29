@@ -24,6 +24,33 @@ Unity-реализация драйвера видеосистемы.
 
 ---
 
+## Использование
+
+### Минимальная настройка
+
+Драйвер регистрируется автоматически через `[RuntimeInitializeOnLoadMethod]`. Дополнительных действий не требуется.
+
+### UI настроек видео
+
+1. Создать `DropDownComponent` на сцене
+2. Добавить `ScreenResolutionHandler`, указать ссылку на `DropDownComponent`
+3. Для режимов — добавить `ScreenModeHandler`, указать `DropDownComponent`, заполнить `whiteList` нужными режимами
+4. При необходимости — задать `localeTagPrefix` для локализации названий режимов
+
+### Локализация режимов
+
+Ключи локализации формируются как `{localeTagPrefix}{ScreenMode}`:
+
+```
+# Пример при localeTagPrefix = "settings.video."
+settings.video.FullScreenWindow    → Полноэкранное окно
+settings.video.Windowed            → Оконный
+settings.video.ExclusiveFullScreen → Полный экран
+settings.video.MaximizedWindow     → Развёрнутое окно
+```
+
+---
+
 ## VideoDriver
 
 Реализация `IVideoDriver`. Partial-класс из двух файлов.
@@ -112,33 +139,6 @@ ScreenResolutionHandler (MonoBehaviour)
 **Поведение:**
 - `OnEnable` — копирует список разрешений из `VideoController`, передаёт в `DropDownComponent` с текущим индексом
 - При выборе — вызывает `VideoController.SetResolution()`
-
----
-
-## Использование
-
-### Минимальная настройка
-
-Драйвер регистрируется автоматически через `[RuntimeInitializeOnLoadMethod]`. Дополнительных действий не требуется.
-
-### UI настроек видео
-
-1. Создать `DropDownComponent` на сцене
-2. Добавить `ScreenResolutionHandler`, указать ссылку на `DropDownComponent`
-3. Для режимов — добавить `ScreenModeHandler`, указать `DropDownComponent`, заполнить `whiteList` нужными режимами
-4. При необходимости — задать `localeTagPrefix` для локализации названий режимов
-
-### Локализация режимов
-
-Ключи локализации формируются как `{localeTagPrefix}{ScreenMode}`:
-
-```
-# Пример при localeTagPrefix = "settings.video."
-settings.video.FullScreenWindow    → Полноэкранное окно
-settings.video.Windowed            → Оконный
-settings.video.ExclusiveFullScreen → Полный экран
-settings.video.MaximizedWindow     → Развёрнутое окно
-```
 
 ---
 

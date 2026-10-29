@@ -50,6 +50,46 @@
 
 ---
 
+## Настройка
+
+### `GalleryView` в инспекторе
+
+| Поле | Описание |
+|---|---|
+| `marks` | Один или несколько mark-имён из `RecordMarksSettings`. Карточка попадает в пул, если хотя бы одной из этих меток помечен её guid. |
+| `allowedTypes` | Белый список FullName реализаций `IGalleryEntry`. Пустой — все допустимы. |
+| `deniedTypes` | Чёрный список FullName. |
+| `deniedGuids` | Точечные исключения guid'ов. |
+| `lockedMode` | `Hide` — закрытые не в пуле; `ShowAsLocked` — в пуле, `isLocked=true`. |
+| `sorter` | FullName реализации `IGalleryEntryComparer` или `None` (`GalleryView.NoSorter`, по умолчанию) — без сортировки (порядок как из Database — не гарантирован). Пусто — не настроено: в инспекторе `[NULL]`, при сборке пула warning, без сортировки. |
+| `resetSelectionWhenLastViewedAbsent` | Сбрасывать highlight в `null`, если последняя просмотренная карточка не в текущем пуле. По умолчанию вкл; выкл — highlight сохраняет прежнее значение. |
+| `iconOverrides` | Список `(guid, Sprite)` — заменить иконку модели на «эту» для конкретной сцены. |
+| `pool` | `Pool` из `Vortex.Unity.UI.PoolSystem`. |
+| `stubTweener` | Опциональный `TweenerHub`. Forward при пустом пуле, Back — при непустом. |
+
+Перед использованием — добавить нужные mark-имена в `RecordMarksSettings` (`Tools → Vortex → Record Marks → Settings`) в `slotMarks[]` (per-slot) или `globalMarks[]` (per-account).
+
+### Consumer-модель (пример)
+
+```csharp
+public class MyCardModel : Record, IGalleryEntry
+{
+    // GuidPreset / Name / Icon — уже приходят из RecordPreset<MyCardModel>.CopyFrom.
+    public string GuidPreset => guid;
+    public Sprite Icon => icon;
+    public string Name => name;
+
+    public void Show() { /* ваш viewer */ }
+    public void Hide() { /* ваш closer */ }
+}
+
+public class MyCardPreset : RecordPreset<MyCardModel> { /* поля контента */ }
+```
+
+Дальше `GalleryView` в сцене подхватит модель через Database — регистрировать пакет вручную не нужно.
+
+---
+
 ## Архитектура
 
 ```
@@ -156,46 +196,6 @@ Data-массив: `{ Sprite, BoolData, StringData, IGalleryEntry, GalleryPoolCa
 - На ховер (или Focus-жест) — вызывает `callbacks.OnFocus()`.
 - На клик «Смотреть» — достаёт `entry`, вызывает `entry.Show()` и `callbacks.OnShow()`.
 - Визуальная трактовка `isLocked` — целиком на дизайне.
-
----
-
-## Настройка
-
-### `GalleryView` в инспекторе
-
-| Поле | Описание |
-|---|---|
-| `marks` | Один или несколько mark-имён из `RecordMarksSettings`. Карточка попадает в пул, если хотя бы одной из этих меток помечен её guid. |
-| `allowedTypes` | Белый список FullName реализаций `IGalleryEntry`. Пустой — все допустимы. |
-| `deniedTypes` | Чёрный список FullName. |
-| `deniedGuids` | Точечные исключения guid'ов. |
-| `lockedMode` | `Hide` — закрытые не в пуле; `ShowAsLocked` — в пуле, `isLocked=true`. |
-| `sorter` | FullName реализации `IGalleryEntryComparer` или `None` (`GalleryView.NoSorter`, по умолчанию) — без сортировки (порядок как из Database — не гарантирован). Пусто — не настроено: в инспекторе `[NULL]`, при сборке пула warning, без сортировки. |
-| `resetSelectionWhenLastViewedAbsent` | Сбрасывать highlight в `null`, если последняя просмотренная карточка не в текущем пуле. По умолчанию вкл; выкл — highlight сохраняет прежнее значение. |
-| `iconOverrides` | Список `(guid, Sprite)` — заменить иконку модели на «эту» для конкретной сцены. |
-| `pool` | `Pool` из `Vortex.Unity.UI.PoolSystem`. |
-| `stubTweener` | Опциональный `TweenerHub`. Forward при пустом пуле, Back — при непустом. |
-
-Перед использованием — добавить нужные mark-имена в `RecordMarksSettings` (`Tools → Vortex → Record Marks → Settings`) в `slotMarks[]` (per-slot) или `globalMarks[]` (per-account).
-
-### Consumer-модель (пример)
-
-```csharp
-public class MyCardModel : Record, IGalleryEntry
-{
-    // GuidPreset / Name / Icon — уже приходят из RecordPreset<MyCardModel>.CopyFrom.
-    public string GuidPreset => guid;
-    public Sprite Icon => icon;
-    public string Name => name;
-
-    public void Show() { /* ваш viewer */ }
-    public void Hide() { /* ваш closer */ }
-}
-
-public class MyCardPreset : RecordPreset<MyCardModel> { /* поля контента */ }
-```
-
-Дальше `GalleryView` в сцене подхватит модель через Database — регистрировать пакет вручную не нужно.
 
 ---
 

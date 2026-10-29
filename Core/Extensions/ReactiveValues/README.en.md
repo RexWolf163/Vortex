@@ -33,69 +33,6 @@ Out of scope:
 
 ---
 
-## Architecture
-
-```
-IReactiveData [POCO]                     ← interface: event OnUpdateData
-├── ReactiveValue<T> (abstract)          ← single value
-│   ├── IntData                          ← ReactiveValue<int>
-│   ├── FloatData                        ← ReactiveValue<float>
-│   ├── BoolData                         ← ReactiveValue<bool>
-│   ├── StringData                       ← ReactiveValue<string>, ToString()
-│   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
-│
-└── ReactiveCollection<T> (abstract)     ← reactive List<T>: Add/Remove/Insert/Sort/...
-    └── ListData<T>                      ← constructors (empty / from List<T>)
-```
-
-### Components
-
-| Class | Purpose |
-|-------|---------|
-| `IReactiveData` | Interface with `event Action OnUpdateData`. Marked `[POCO]` |
-| `ReactiveValue<T>` | Single-value wrapper: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
-| `IntData` | `ReactiveValue<int>`. Constructors: `(int)`, `(int, object owner)` |
-| `FloatData` | `ReactiveValue<float>`. Constructors: `(float)`, `(float, object owner)` |
-| `BoolData` | `ReactiveValue<bool>`. Constructors: `(bool)`, `(bool, object owner)` |
-| `StringData` | `ReactiveValue<string>`, `ToString()`. Constructors: `(string)`, `(string, object owner)` |
-| `EnumData<TEnum>` | `ReactiveValue<TEnum>` for any `Enum`. Constructors: `(TEnum)`, `(TEnum, object owner)` |
-| `ReactiveCollection<T>` | Abstract reactive `List<T>`: `OnUpdate(IReadOnlyList<T>)`, mutators Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, read-only indexer, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Internal list identity is preserved for the lifetime of the container. No constructors — use `ListData<T>` |
-| `ListData<T>` | Canonical `ReactiveCollection<T>` subclass with initializing constructors: `()` empty, `(List<T>)` copy of supplied |
-
----
-
-## Contract
-
-### API
-
-| Method / Property | Description |
-|-------------------|-------------|
-| `Value` | Current value (public get, protected set) |
-| `Set(T value, object owner = null)` | Sets the value. Ignored if the value hasn't changed. If an owner is assigned, only the owner can modify the value |
-| `SetOwner(object owner)` | Assign container owner. Reassignment is not allowed |
-| `ForceUpdate()` | Force-fires `OnUpdate` and `OnUpdateData` without changing the value |
-| `OnUpdate` | `event Action<T>` — typed notification |
-| `OnUpdateData` | `event Action` — untyped notification (from `IReactiveData`) |
-| `implicit operator T` | Read value without `.Value` |
-
-### Guarantees
-- `Set()` fires events only when the value actually changes (deduplication via `EqualityComparer<T>.Default`)
-- `Set()` with a wrong owner logs an error and does not change the value
-- `SetOwner()` prevents reassignment — logs an error on repeated calls
-- Without an owner (`_owner == null`), `Set()` works without restrictions
-- `ForceUpdate()` fires events without checking for value change
-- `implicit operator` allows using `ReactiveValue<T>` wherever `T` is expected
-- All subclasses can be constructed with an initial value: `new IntData(0)` or with an owner: `new IntData(0, owner)`
-- `[POCO]` on `IReactiveData` makes all implementations serializable via `SerializeController`
-
-### Constraints
-- No parameterless constructor — deserialization via `FormatterServices.GetUninitializedObject()`
-- Owner is assigned once and cannot be released
-- Not thread-safe
-- **`ReactiveCollection<T>` does not deduplicate mutations.** Every `Add`/`Remove`/`Insert`/`Sort`/`Reverse`/`Clear`/`Set(index)` raises `OnUpdate`/`OnUpdateData` **unconditionally** (unlike scalar `ReactiveValue<T>.Set`, which dedups via `EqualityComparer<T>`). There is no cheap correct dedup for a collection (it would require an O(n) compare on every mutation), and it is deliberately omitted — the primitive does exactly what it is told. **Resulting rule:** do not mutate the collection from within its own `OnUpdate`/`OnUpdateData` handler (e.g. auto-sort/normalize on change) — that is unbounded recursion with no stop (`StackOverflowException`). Perform normalization in the controller before writing, or as a separate external step. Scalar `ReactiveValue<T>` has no such loop — dedup absorbs re-writing the same value.
-
----
-
 ## Usage
 
 ### Declaration
@@ -250,6 +187,69 @@ var snapshot = inventory.Items.GetList();    // IReadOnlyList<ItemId>, read-only
 // IReactiveData allows subscribing to changes for quest condition re-checks
 QuestController.SetListener(model.Level, this);
 ```
+
+---
+
+## Architecture
+
+```
+IReactiveData [POCO]                     ← interface: event OnUpdateData
+├── ReactiveValue<T> (abstract)          ← single value
+│   ├── IntData                          ← ReactiveValue<int>
+│   ├── FloatData                        ← ReactiveValue<float>
+│   ├── BoolData                         ← ReactiveValue<bool>
+│   ├── StringData                       ← ReactiveValue<string>, ToString()
+│   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
+│
+└── ReactiveCollection<T> (abstract)     ← reactive List<T>: Add/Remove/Insert/Sort/...
+    └── ListData<T>                      ← constructors (empty / from List<T>)
+```
+
+### Components
+
+| Class | Purpose |
+|-------|---------|
+| `IReactiveData` | Interface with `event Action OnUpdateData`. Marked `[POCO]` |
+| `ReactiveValue<T>` | Single-value wrapper: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
+| `IntData` | `ReactiveValue<int>`. Constructors: `(int)`, `(int, object owner)` |
+| `FloatData` | `ReactiveValue<float>`. Constructors: `(float)`, `(float, object owner)` |
+| `BoolData` | `ReactiveValue<bool>`. Constructors: `(bool)`, `(bool, object owner)` |
+| `StringData` | `ReactiveValue<string>`, `ToString()`. Constructors: `(string)`, `(string, object owner)` |
+| `EnumData<TEnum>` | `ReactiveValue<TEnum>` for any `Enum`. Constructors: `(TEnum)`, `(TEnum, object owner)` |
+| `ReactiveCollection<T>` | Abstract reactive `List<T>`: `OnUpdate(IReadOnlyList<T>)`, mutators Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, read-only indexer, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Internal list identity is preserved for the lifetime of the container. No constructors — use `ListData<T>` |
+| `ListData<T>` | Canonical `ReactiveCollection<T>` subclass with initializing constructors: `()` empty, `(List<T>)` copy of supplied |
+
+---
+
+## Contract
+
+### API
+
+| Method / Property | Description |
+|-------------------|-------------|
+| `Value` | Current value (public get, protected set) |
+| `Set(T value, object owner = null)` | Sets the value. Ignored if the value hasn't changed. If an owner is assigned, only the owner can modify the value |
+| `SetOwner(object owner)` | Assign container owner. Reassignment is not allowed |
+| `ForceUpdate()` | Force-fires `OnUpdate` and `OnUpdateData` without changing the value |
+| `OnUpdate` | `event Action<T>` — typed notification |
+| `OnUpdateData` | `event Action` — untyped notification (from `IReactiveData`) |
+| `implicit operator T` | Read value without `.Value` |
+
+### Guarantees
+- `Set()` fires events only when the value actually changes (deduplication via `EqualityComparer<T>.Default`)
+- `Set()` with a wrong owner logs an error and does not change the value
+- `SetOwner()` prevents reassignment — logs an error on repeated calls
+- Without an owner (`_owner == null`), `Set()` works without restrictions
+- `ForceUpdate()` fires events without checking for value change
+- `implicit operator` allows using `ReactiveValue<T>` wherever `T` is expected
+- All subclasses can be constructed with an initial value: `new IntData(0)` or with an owner: `new IntData(0, owner)`
+- `[POCO]` on `IReactiveData` makes all implementations serializable via `SerializeController`
+
+### Constraints
+- No parameterless constructor — deserialization via `FormatterServices.GetUninitializedObject()`
+- Owner is assigned once and cannot be released
+- Not thread-safe
+- **`ReactiveCollection<T>` does not deduplicate mutations.** Every `Add`/`Remove`/`Insert`/`Sort`/`Reverse`/`Clear`/`Set(index)` raises `OnUpdate`/`OnUpdateData` **unconditionally** (unlike scalar `ReactiveValue<T>.Set`, which dedups via `EqualityComparer<T>`). There is no cheap correct dedup for a collection (it would require an O(n) compare on every mutation), and it is deliberately omitted — the primitive does exactly what it is told. **Resulting rule:** do not mutate the collection from within its own `OnUpdate`/`OnUpdateData` handler (e.g. auto-sort/normalize on change) — that is unbounded recursion with no stop (`StackOverflowException`). Perform normalization in the controller before writing, or as a separate external step. Scalar `ReactiveValue<T>` has no such loop — dedup absorbs re-writing the same value.
 
 ---
 

@@ -33,6 +33,25 @@ Unity-драйвер для `Log`. Маршрутизирует `LogData` в `De
 
 ---
 
+## Использование
+
+Драйвер регистрируется автоматически. Дополнительная настройка не требуется.
+
+```csharp
+// Вызов из любого места проекта
+Log.Print(LogLevel.Common, "Player spawned", this);
+Log.Print(LogLevel.Error, "Save file corrupted", "SaveSystem");
+```
+
+Результат в Unity Console:
+
+```
+[PlayerController] Player spawned
+[SaveSystem] Save file corrupted    (красный)
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -88,25 +107,6 @@ Editor-расширение выводит подтверждающее сооб
 | Нет фильтрации по уровню | Все сообщения выводятся; фильтрация средствами Unity Console |
 | `Source = null` | Подставляется `"Unknown"` — код null-безопасен, исключение не бросается |
 | Нет записи в файл | Только `Debug.Log*`; файловое логирование требует отдельного драйвера |
-
----
-
-## Использование
-
-Драйвер регистрируется автоматически. Дополнительная настройка не требуется.
-
-```csharp
-// Вызов из любого места проекта
-Log.Print(LogLevel.Common, "Player spawned", this);
-Log.Print(LogLevel.Error, "Save file corrupted", "SaveSystem");
-```
-
-Результат в Unity Console:
-
-```
-[PlayerController] Player spawned
-[SaveSystem] Save file corrupted    (красный)
-```
 
 ---
 

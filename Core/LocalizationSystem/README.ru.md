@@ -36,6 +36,32 @@
 
 ---
 
+## Использование
+
+### Перевод строки
+
+```csharp
+// Строгий перевод — "##!key!##" если ключа нет
+string text = "MENU_START".Translate();
+
+// Мягкий перевод — оригинальная строка если ключа нет
+string label = "Settings".TryTranslate();
+```
+
+### Смена языка
+
+```csharp
+Localization.SetCurrentLanguage("Russian");
+```
+
+### Подписка на смену языка
+
+```csharp
+Localization.OnLocalizationChanged += RefreshUI;
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -128,32 +154,6 @@ StringExt (extension-методы)
 | Ключи регистронезависимы | Индекс создан с `StringComparer.OrdinalIgnoreCase` — `Translate` и `TryTranslate` ищут без учёта регистра |
 | `"##!key!##"` при отсутствии ключа | Визуальный маркер для отладки |
 | Индекс перестраивается полностью при смене языка | Драйвер очищает и заполняет заново |
-
----
-
-## Использование
-
-### Перевод строки
-
-```csharp
-// Строгий перевод — "##!key!##" если ключа нет
-string text = "MENU_START".Translate();
-
-// Мягкий перевод — оригинальная строка если ключа нет
-string label = "Settings".TryTranslate();
-```
-
-### Смена языка
-
-```csharp
-Localization.SetCurrentLanguage("Russian");
-```
-
-### Подписка на смену языка
-
-```csharp
-Localization.OnLocalizationChanged += RefreshUI;
-```
 
 ---
 

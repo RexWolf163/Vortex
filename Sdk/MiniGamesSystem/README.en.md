@@ -41,6 +41,105 @@ Out of scope:
 ### External
 - **Odin Inspector** — inspector attributes (`InfoBox`, `ValueDropdown`, `GUIColor`)
 
+## Usage
+
+### Creating a New Mini-Game from Template
+
+1. Select target folder in the Project window
+2. **Assets → Create → Vortex Templates → MiniGame**
+3. Enter the mini-game name
+4. The scaffolder creates the file structure
+
+### Implementation Structure
+
+Each mini-game follows the pattern:
+
+```
+MyGame/
+├── Abstractions/
+│   └── IMyGameController.cs       ← controller interface
+├── Config/
+│   └── MyGameGeneralConfig.cs     ← ScriptableObject configuration
+├── Controllers/
+│   ├── MyGameController.cs        ← game logic
+│   └── MyGameDataExtLogic.cs      ← extension methods View → Controller
+├── Models/
+│   ├── MyGameData.cs              ← data model
+│   └── MyGamePlayConfig.cs        ← launch parameters
+├── View/
+│   └── MyGameFieldView.cs         ← visual representation
+├── Editor/
+│   └── MyGameMenuController.cs    ← editor utilities
+└── Prefabs/
+```
+
+### Controller Implementation
+
+```csharp
+public class MyGameController : MiniGameController<MyGameController, MyGameData>, IMyGameController
+{
+    public override void Play()
+    {
+        Data.StartTimer(OnTimerRunOut);
+        Data.OnGameStateChanged -= OnStateLogic;
+        Data.OnGameStateChanged += OnStateLogic;
+        SetState(MiniGameStates.Play);
+    }
+
+    public void PlayerAction(MyPieceData piece)
+    {
+        // game logic
+        if (CheckWinCondition())
+            SetState(MiniGameStates.Win);
+    }
+
+    private void OnTimerRunOut()
+    {
+        SetState(CheckWinCondition() ? MiniGameStates.Win : MiniGameStates.Fail);
+    }
+
+    private void OnStateLogic(MiniGameStates state)
+    {
+        switch (state)
+        {
+            case MiniGameStates.Play:
+                Data.Timer.Resume();
+                break;
+            case MiniGameStates.Off:
+                Data.OnGameStateChanged -= OnStateLogic;
+                break;
+            default:
+                if (!Data.Timer.IsComplete)
+                    Data.Timer.SetPause();
+                break;
+        }
+    }
+}
+```
+
+### View → Controller via ExtLogic
+
+```csharp
+// ExtLogic
+public static class MyGameDataExtLogic
+{
+    public static void PlayerAction(this MyPieceData piece) =>
+        MiniGamesController.GetController<IMyGameController>().PlayerAction(piece);
+}
+
+// View calls extension method on data — knows nothing about the controller
+private void OnClick() => _data.PlayerAction();
+```
+
+### Launching from External Code
+
+```csharp
+await MyGameHub.Play(new MyGamePlayConfig { Difficulty = 1 });
+
+MyGameHub.Instance.OnWin += HandleWin;
+MyGameHub.Instance.OnFail += HandleFail;
+```
+
 ## Architecture
 
 ```
@@ -168,105 +267,6 @@ Feedback: View → ExtLogic (extension method) → Controller.
 - Controller type is specified as string — renaming / assembly change causes `NullReferenceException`
 - View prefab must have `DataStorage` on root GameObject
 - `Data.State` is modified only via `Controller.SetState()` (except debug tools)
-
-## Usage
-
-### Creating a New Mini-Game from Template
-
-1. Select target folder in the Project window
-2. **Assets → Create → Vortex Templates → MiniGame**
-3. Enter the mini-game name
-4. The scaffolder creates the file structure
-
-### Implementation Structure
-
-Each mini-game follows the pattern:
-
-```
-MyGame/
-├── Abstractions/
-│   └── IMyGameController.cs       ← controller interface
-├── Config/
-│   └── MyGameGeneralConfig.cs     ← ScriptableObject configuration
-├── Controllers/
-│   ├── MyGameController.cs        ← game logic
-│   └── MyGameDataExtLogic.cs      ← extension methods View → Controller
-├── Models/
-│   ├── MyGameData.cs              ← data model
-│   └── MyGamePlayConfig.cs        ← launch parameters
-├── View/
-│   └── MyGameFieldView.cs         ← visual representation
-├── Editor/
-│   └── MyGameMenuController.cs    ← editor utilities
-└── Prefabs/
-```
-
-### Controller Implementation
-
-```csharp
-public class MyGameController : MiniGameController<MyGameController, MyGameData>, IMyGameController
-{
-    public override void Play()
-    {
-        Data.StartTimer(OnTimerRunOut);
-        Data.OnGameStateChanged -= OnStateLogic;
-        Data.OnGameStateChanged += OnStateLogic;
-        SetState(MiniGameStates.Play);
-    }
-
-    public void PlayerAction(MyPieceData piece)
-    {
-        // game logic
-        if (CheckWinCondition())
-            SetState(MiniGameStates.Win);
-    }
-
-    private void OnTimerRunOut()
-    {
-        SetState(CheckWinCondition() ? MiniGameStates.Win : MiniGameStates.Fail);
-    }
-
-    private void OnStateLogic(MiniGameStates state)
-    {
-        switch (state)
-        {
-            case MiniGameStates.Play:
-                Data.Timer.Resume();
-                break;
-            case MiniGameStates.Off:
-                Data.OnGameStateChanged -= OnStateLogic;
-                break;
-            default:
-                if (!Data.Timer.IsComplete)
-                    Data.Timer.SetPause();
-                break;
-        }
-    }
-}
-```
-
-### View → Controller via ExtLogic
-
-```csharp
-// ExtLogic
-public static class MyGameDataExtLogic
-{
-    public static void PlayerAction(this MyPieceData piece) =>
-        MiniGamesController.GetController<IMyGameController>().PlayerAction(piece);
-}
-
-// View calls extension method on data — knows nothing about the controller
-private void OnClick() => _data.PlayerAction();
-```
-
-### Launching from External Code
-
-```csharp
-await MyGameHub.Play(new MyGamePlayConfig { Difficulty = 1 });
-
-MyGameHub.Instance.OnWin += HandleWin;
-MyGameHub.Instance.OnFail += HandleFail;
-```
 
 ## Editor Tools
 

@@ -39,6 +39,20 @@
 
 ---
 
+## Использование
+
+1. В квест-ассете добавьте шаг `Activate Achievements Logic` в массив логики.
+2. Заполните `name` (метка) и `achievementId` (ID достижения из Steamworks).
+
+```
+QuestLogic[]:
+  - RunNaniScript ...
+  - ActivateAchievementsLogic { name: "First Win", achievementId: "ACH_WIN_FIRST" }
+  - ...
+```
+
+---
+
 ## Архитектура
 
 ```
@@ -87,20 +101,6 @@ IncrementAchievementsLogic — закомментирован (черновик,
 | `defineConstraints: ["USING_VORTEX_QUESTS"]` | Без системы квестов `QuestLogic` недоступен |
 | Без `USING_STEAM` — no-op (`return false`) | Steam-сборки не собраны; вызов скрыт `#if` |
 | Не проверяет наличие `achievementId` | Гард (`GetAchievement != null`) — внутри `UnlockAchievement`, шаг всегда `true` |
-
----
-
-## Использование
-
-1. В квест-ассете добавьте шаг `Activate Achievements Logic` в массив логики.
-2. Заполните `name` (метка) и `achievementId` (ID достижения из Steamworks).
-
-```
-QuestLogic[]:
-  - RunNaniScript ...
-  - ActivateAchievementsLogic { name: "First Win", achievementId: "ACH_WIN_FIRST" }
-  - ...
-```
 
 ---
 

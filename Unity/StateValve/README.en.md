@@ -13,6 +13,15 @@ A Unity wrapper over the Core `StateValve`: a `MonoBehaviour` handler with inspe
 - `ru.vortex.extensions` — `BoolData`
 - `ru.vortex.system` — `IDataStorage` / `IDataSource`
 
+## Application: a pause valve (example, outside the package)
+
+The package is neutral; pause integration lives at the project level.
+
+- One `StateValveHandler` per system, `And` mode: "running" = all keys open; `State == closed` → paused.
+- **Holder producers** (tutorial, countdown component) call `Close(key)` on entry and `Open(key)` on exit.
+- **The consumer** subscribes to `State` → stays paused while any key is closed.
+- **A gapless "tutorial → countdown" handoff:** call order does not matter — while any key is closed, the result is closed.
+
 ## `StateValveHandler : MonoBehaviour, IStateValve, IDataStorage`
 
 **Inspector fields:** `mode : ValveMode`, `invert : bool`, `whiteList : string[]`.
@@ -23,12 +32,3 @@ A Unity wrapper over the Core `StateValve`: a `MonoBehaviour` handler with inspe
 - **`IStateValve`** — `Open` / `Close` / `State` / `GetWhiteList`, the reference point for producers and consumers.
 - **`IDataStorage`** — loose binding: `GetData<IStateValve>()` → the handler itself (for producers), `GetData<BoolData>()` → `State` (for consumers). `OnUpdateLink` — once in `Awake` (link-level: references ready; the `State` value is observed via its own `OnUpdate`).
 - **Inspector debug** — the runtime `Keys` list (`[ShowInInspector, ReadOnly]`, Play Mode only).
-
-## Application: a pause valve (example, outside the package)
-
-The package is neutral; pause integration lives at the project level.
-
-- One `StateValveHandler` per system, `And` mode: "running" = all keys open; `State == closed` → paused.
-- **Holder producers** (tutorial, countdown component) call `Close(key)` on entry and `Open(key)` on exit.
-- **The consumer** subscribes to `State` → stays paused while any key is closed.
-- **A gapless "tutorial → countdown" handoff:** call order does not matter — while any key is closed, the result is closed.

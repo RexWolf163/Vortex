@@ -28,6 +28,25 @@ Out of scope: Naninovel localization file format (see Naninovel documentation), 
 
 ---
 
+## Usage
+
+### Setup
+
+1. Ensure Naninovel localization folder structure is configured
+2. Open `LocalizationPreset` in `Resources/Localization/`
+3. Set `path` (or drag folder), assign `files` and `languages`
+4. Select `defaultLanguage`
+5. `Vortex/Localization/(Nani) Load data`
+
+### Language Settings UI
+
+1. Add `NaniLocaleHandler` to a GameObject
+2. Assign `DropDownComponent`
+3. Select `mode` (Default / Dialogue / Voice)
+4. Configure `whiteList` — available languages for this channel
+
+---
+
 ## Architecture
 
 ### Driver
@@ -175,25 +194,6 @@ Inspector `LocalizationPreset`:
 Menu item is only available after successful driver initialization (`_isSet` validation).
 
 Auto-creates asset on `InitializeOnLoadMethod` if `LocalizationPreset` is missing from Resources.
-
----
-
-## Usage
-
-### Setup
-
-1. Ensure Naninovel localization folder structure is configured
-2. Open `LocalizationPreset` in `Resources/Localization/`
-3. Set `path` (or drag folder), assign `files` and `languages`
-4. Select `defaultLanguage`
-5. `Vortex/Localization/(Nani) Load data`
-
-### Language Settings UI
-
-1. Add `NaniLocaleHandler` to a GameObject
-2. Assign `DropDownComponent`
-3. Select `mode` (Default / Dialogue / Voice)
-4. Configure `whiteList` — available languages for this channel
 
 ---
 

@@ -32,6 +32,40 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Printing messages
+
+```csharp
+// Via parameters
+Log.Print(LogLevel.Common, "Initialized", this);
+Log.Print(LogLevel.Warning, "Config not found, using defaults", this);
+Log.Print(LogLevel.Error, "Connection failed", "NetworkManager");
+
+// Via struct
+var data = new LogData(LogLevel.Error, "Critical failure", this);
+Log.Print(data);
+```
+
+### Driver implementation
+
+```csharp
+public class MyDriver : IDriver
+{
+    public event Action OnInit;
+
+    public void Print(LogData log)
+    {
+        Console.WriteLine($"[{log.Level}] [{log.Source}] {log.Message}");
+    }
+
+    public void Init() => OnInit?.Invoke();
+    public void Destroy() { }
+}
+```
+
+---
+
 ## Architecture
 
 ```
@@ -98,40 +132,6 @@ Three severity levels. The driver determines how to render each level.
 | Single driver at a time | `SystemController` allows one `IDriver` |
 | No level filtering in core | Driver responsibility |
 | `Source` is `System.Object` | Flexibility: string or typed object |
-
----
-
-## Usage
-
-### Printing messages
-
-```csharp
-// Via parameters
-Log.Print(LogLevel.Common, "Initialized", this);
-Log.Print(LogLevel.Warning, "Config not found, using defaults", this);
-Log.Print(LogLevel.Error, "Connection failed", "NetworkManager");
-
-// Via struct
-var data = new LogData(LogLevel.Error, "Critical failure", this);
-Log.Print(data);
-```
-
-### Driver implementation
-
-```csharp
-public class MyDriver : IDriver
-{
-    public event Action OnInit;
-
-    public void Print(LogData log)
-    {
-        Console.WriteLine($"[{log.Level}] [{log.Source}] {log.Message}");
-    }
-
-    public void Init() => OnInit?.Invoke();
-    public void Destroy() { }
-}
-```
 
 ---
 

@@ -33,69 +33,6 @@
 
 ---
 
-## Архитектура
-
-```
-IReactiveData [POCO]                     ← интерфейс: event OnUpdateData
-├── ReactiveValue<T> (abstract)          ← одиночное значение
-│   ├── IntData                          ← ReactiveValue<int>
-│   ├── FloatData                        ← ReactiveValue<float>
-│   ├── BoolData                         ← ReactiveValue<bool>
-│   ├── StringData                       ← ReactiveValue<string>, ToString()
-│   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
-│
-└── ReactiveCollection<T> (abstract)     ← реактивный List<T>: Add/Remove/Insert/Sort/...
-    └── ListData<T>                      ← конструкторы (пустой / из List<T>)
-```
-
-### Компоненты
-
-| Класс | Назначение |
-|-------|-----------|
-| `IReactiveData` | Интерфейс с `event Action OnUpdateData`. Помечен `[POCO]` |
-| `ReactiveValue<T>` | Обёртка одиночного значения: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
-| `IntData` | `ReactiveValue<int>`. Конструкторы: `(int)`, `(int, object owner)` |
-| `FloatData` | `ReactiveValue<float>`. Конструкторы: `(float)`, `(float, object owner)` |
-| `BoolData` | `ReactiveValue<bool>`. Конструкторы: `(bool)`, `(bool, object owner)` |
-| `StringData` | `ReactiveValue<string>`, `ToString()`. Конструкторы: `(string)`, `(string, object owner)` |
-| `EnumData<TEnum>` | `ReactiveValue<TEnum>` для любого `Enum`. Конструкторы: `(TEnum)`, `(TEnum, object owner)` |
-| `ReactiveCollection<T>` | Абстрактный реактивный `List<T>`: `OnUpdate(IReadOnlyList<T>)`, мутаторы Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, индексатор по чтению, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Identity внутреннего списка сохраняется навсегда. Конструкторов нет — использовать `ListData<T>` |
-| `ListData<T>` | Канонический наследник `ReactiveCollection<T>` с инициализирующими конструкторами: `()` — пустой, `(List<T>)` — копия переданного |
-
----
-
-## Контракт
-
-### API
-
-| Метод / Свойство | Описание |
-|------------------|----------|
-| `Value` | Текущее значение (public get, protected set) |
-| `Set(T value, object owner = null)` | Устанавливает значение. Если значение не изменилось — игнорируется. Если назначен владелец — только он может менять значение |
-| `SetOwner(object owner)` | Назначить владельца контейнера. Повторное назначение запрещено |
-| `ForceUpdate()` | Принудительный вызов `OnUpdate` и `OnUpdateData` без изменения значения |
-| `OnUpdate` | `event Action<T>` — типизированное уведомление |
-| `OnUpdateData` | `event Action` — нетипизированное уведомление (из `IReactiveData`) |
-| `implicit operator T` | Чтение значения без `.Value` |
-
-### Гарантии
-- `Set()` вызывает события только при изменении значения (дедупликация через `EqualityComparer<T>.Default`)
-- `Set()` с неверным владельцем логирует ошибку и не меняет значение
-- `SetOwner()` запрещает повторное назначение — логирует ошибку
-- Без владельца (`_owner == null`) `Set()` работает без ограничений
-- `ForceUpdate()` вызывает события без проверки на изменение значения
-- `implicit operator` позволяет использовать `ReactiveValue<T>` везде где ожидается `T`
-- Все наследники конструируются с начальным значением: `new IntData(0)` или с владельцем: `new IntData(0, owner)`
-- `[POCO]` на `IReactiveData` делает все реализации сериализуемыми через `SerializeController`
-
-### Ограничения
-- Нет конструктора без параметров — десериализация через `FormatterServices.GetUninitializedObject()`
-- Владелец назначается однократно и не может быть снят
-- Не потокобезопасен
-- **`ReactiveCollection<T>` не дедуплицирует мутации.** Каждый `Add`/`Remove`/`Insert`/`Sort`/`Reverse`/`Clear`/`Set(index)` поднимает `OnUpdate`/`OnUpdateData` **безусловно** (в отличие от скалярного `ReactiveValue<T>.Set`, где есть дедуп через `EqualityComparer<T>`). Дешёвого корректного дедупа для коллекции нет (потребовал бы O(n)-сравнения на каждую мутацию), и он намеренно не добавлен — примитив делает ровно то, что сказали. **Следствие-запрет:** нельзя мутировать коллекцию из её же обработчика `OnUpdate`/`OnUpdateData` (напр. авто-сортировка/нормализация при изменении) — это неограниченная рекурсия без стопа (`StackOverflowException`). Нормализацию выполнять в контроллере до записи либо отдельным внешним шагом. У скалярного `ReactiveValue<T>` такой петли нет — дедуп гасит повторную запись того же значения.
-
----
-
 ## Использование
 
 ### Объявление
@@ -250,6 +187,69 @@ var snapshot = inventory.Items.GetList();    // IReadOnlyList<ItemId>, дост�
 // IReactiveData позволяет подписаться на изменения для перепроверки условий квестов
 QuestController.SetListener(model.Level, this);
 ```
+
+---
+
+## Архитектура
+
+```
+IReactiveData [POCO]                     ← интерфейс: event OnUpdateData
+├── ReactiveValue<T> (abstract)          ← одиночное значение
+│   ├── IntData                          ← ReactiveValue<int>
+│   ├── FloatData                        ← ReactiveValue<float>
+│   ├── BoolData                         ← ReactiveValue<bool>
+│   ├── StringData                       ← ReactiveValue<string>, ToString()
+│   └── EnumData<TEnum>                  ← ReactiveValue<TEnum> where TEnum : Enum
+│
+└── ReactiveCollection<T> (abstract)     ← реактивный List<T>: Add/Remove/Insert/Sort/...
+    └── ListData<T>                      ← конструкторы (пустой / из List<T>)
+```
+
+### Компоненты
+
+| Класс | Назначение |
+|-------|-----------|
+| `IReactiveData` | Интерфейс с `event Action OnUpdateData`. Помечен `[POCO]` |
+| `ReactiveValue<T>` | Обёртка одиночного значения: `Value`, `Set(T, owner)`, `SetOwner()`, `ForceUpdate()`, `OnUpdate`, implicit operator |
+| `IntData` | `ReactiveValue<int>`. Конструкторы: `(int)`, `(int, object owner)` |
+| `FloatData` | `ReactiveValue<float>`. Конструкторы: `(float)`, `(float, object owner)` |
+| `BoolData` | `ReactiveValue<bool>`. Конструкторы: `(bool)`, `(bool, object owner)` |
+| `StringData` | `ReactiveValue<string>`, `ToString()`. Конструкторы: `(string)`, `(string, object owner)` |
+| `EnumData<TEnum>` | `ReactiveValue<TEnum>` для любого `Enum`. Конструкторы: `(TEnum)`, `(TEnum, object owner)` |
+| `ReactiveCollection<T>` | Абстрактный реактивный `List<T>`: `OnUpdate(IReadOnlyList<T>)`, мутаторы Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, индексатор по чтению, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Identity внутреннего списка сохраняется навсегда. Конструкторов нет — использовать `ListData<T>` |
+| `ListData<T>` | Канонический наследник `ReactiveCollection<T>` с инициализирующими конструкторами: `()` — пустой, `(List<T>)` — копия переданного |
+
+---
+
+## Контракт
+
+### API
+
+| Метод / Свойство | Описание |
+|------------------|----------|
+| `Value` | Текущее значение (public get, protected set) |
+| `Set(T value, object owner = null)` | Устанавливает значение. Если значение не изменилось — игнорируется. Если назначен владелец — только он может менять значение |
+| `SetOwner(object owner)` | Назначить владельца контейнера. Повторное назначение запрещено |
+| `ForceUpdate()` | Принудительный вызов `OnUpdate` и `OnUpdateData` без изменения значения |
+| `OnUpdate` | `event Action<T>` — типизированное уведомление |
+| `OnUpdateData` | `event Action` — нетипизированное уведомление (из `IReactiveData`) |
+| `implicit operator T` | Чтение значения без `.Value` |
+
+### Гарантии
+- `Set()` вызывает события только при изменении значения (дедупликация через `EqualityComparer<T>.Default`)
+- `Set()` с неверным владельцем логирует ошибку и не меняет значение
+- `SetOwner()` запрещает повторное назначение — логирует ошибку
+- Без владельца (`_owner == null`) `Set()` работает без ограничений
+- `ForceUpdate()` вызывает события без проверки на изменение значения
+- `implicit operator` позволяет использовать `ReactiveValue<T>` везде где ожидается `T`
+- Все наследники конструируются с начальным значением: `new IntData(0)` или с владельцем: `new IntData(0, owner)`
+- `[POCO]` на `IReactiveData` делает все реализации сериализуемыми через `SerializeController`
+
+### Ограничения
+- Нет конструктора без параметров — десериализация через `FormatterServices.GetUninitializedObject()`
+- Владелец назначается однократно и не может быть снят
+- Не потокобезопасен
+- **`ReactiveCollection<T>` не дедуплицирует мутации.** Каждый `Add`/`Remove`/`Insert`/`Sort`/`Reverse`/`Clear`/`Set(index)` поднимает `OnUpdate`/`OnUpdateData` **безусловно** (в отличие от скалярного `ReactiveValue<T>.Set`, где есть дедуп через `EqualityComparer<T>`). Дешёвого корректного дедупа для коллекции нет (потребовал бы O(n)-сравнения на каждую мутацию), и он намеренно не добавлен — примитив делает ровно то, что сказали. **Следствие-запрет:** нельзя мутировать коллекцию из её же обработчика `OnUpdate`/`OnUpdateData` (напр. авто-сортировка/нормализация при изменении) — это неограниченная рекурсия без стопа (`StackOverflowException`). Нормализацию выполнять в контроллере до записи либо отдельным внешним шагом. У скалярного `ReactiveValue<T>` такой петли нет — дедуп гасит повторную запись того же значения.
 
 ---
 

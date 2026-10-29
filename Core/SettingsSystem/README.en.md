@@ -32,6 +32,47 @@ Out of scope:
 
 ---
 
+## Usage
+
+### Adding settings for a new system
+
+1. Create a partial extension of `SettingsModel`:
+
+```csharp
+namespace Vortex.Core.SettingsSystem.Model
+{
+    public partial class SettingsModel
+    {
+        public float MusicVolume { get; private set; }
+        public float SfxVolume { get; private set; }
+    }
+}
+```
+
+2. Create a `SettingsPreset` subclass (Unity layer):
+
+```csharp
+public class AudioSettings : SettingsPreset
+{
+    [SerializeField, Range(0f, 1f)] private float musicVolume = 0.8f;
+    [SerializeField, Range(0f, 1f)] private float sfxVolume = 1f;
+
+    public float MusicVolume => musicVolume;
+    public float SfxVolume => sfxVolume;
+}
+```
+
+3. The asset is auto-created in `Resources/Settings/` on Editor load.
+
+### Reading settings
+
+```csharp
+var startScene = Settings.Data().StartScene;
+var debugMode = Settings.Data().DebugMode;
+```
+
+---
+
 ## Architecture
 
 ```
@@ -95,47 +136,6 @@ Driver loads a set of `SettingsPreset` → calls `Model.CopyFrom(preset)` for ea
 | `SettingsModel` properties are `private set` | Populated only via `CopyFrom` (Reflection) |
 | Property name in model = property name in preset | `ObjectExtCopy` matches by name |
 | Preset loading order is not guaranteed | On conflict, last loaded wins |
-
----
-
-## Usage
-
-### Adding settings for a new system
-
-1. Create a partial extension of `SettingsModel`:
-
-```csharp
-namespace Vortex.Core.SettingsSystem.Model
-{
-    public partial class SettingsModel
-    {
-        public float MusicVolume { get; private set; }
-        public float SfxVolume { get; private set; }
-    }
-}
-```
-
-2. Create a `SettingsPreset` subclass (Unity layer):
-
-```csharp
-public class AudioSettings : SettingsPreset
-{
-    [SerializeField, Range(0f, 1f)] private float musicVolume = 0.8f;
-    [SerializeField, Range(0f, 1f)] private float sfxVolume = 1f;
-
-    public float MusicVolume => musicVolume;
-    public float SfxVolume => sfxVolume;
-}
-```
-
-3. The asset is auto-created in `Resources/Settings/` on Editor load.
-
-### Reading settings
-
-```csharp
-var startScene = Settings.Data().StartScene;
-var debugMode = Settings.Data().DebugMode;
-```
 
 ---
 
