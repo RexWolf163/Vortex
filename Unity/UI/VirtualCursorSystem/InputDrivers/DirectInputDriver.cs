@@ -129,10 +129,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
             var pos = VirtualCursorBus.Data.ScreenPosition.Value + direction * (appliedSpeed * unscaledDeltaTime);
             pos.x = Mathf.Clamp(pos.x, 0f, Screen.width - 1f);
             pos.y = Mathf.Clamp(pos.y, 0f, Screen.height - 1f);
-            Report(pos, DeviceOf(_action));
-            // Отклонение за мёртвой зоной — намеренный ввод: устройство репортится на каждом тике, мимо фильтра дрейфа
-            // (медленный стик набирает его порог десятки кадров, а эхо варпа ОС-мыши переякоривает фильтр).
-            ReportDevice(DeviceOf(_action));
+            // Отклонение за мёртвой зоной — намеренный ввод: сдвиг значим на каждом тике, мимо фильтра дрейфа (медленный
+            // стик набирает его порог десятки кадров, а эхо варпа ОС-мыши переякоривает фильтр). Значимый сдвиг уводит
+            // устройство в LastDevice, показывает курсор и выводит из режима навигации — мёртвая зона выхода = deadzone.
+            Report(pos, DeviceOf(_action), true);
 
             if (warpSystemMouse)
                 Mouse.current?.WarpCursorPosition(pos);

@@ -69,9 +69,11 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.InputDrivers
         /// <summary>
         /// Отрепортить позицию в контроллер (с флагом скрытия текущего источника и устройством ввода — оно уходит
         /// в <c>LastDevice</c>, если репорт значим: скрывающий источник или значимый сдвиг).
+        /// <paramref name="intentional"/> — намеренный ввод (например, стик за мёртвой зоной): сдвиг значим мимо
+        /// фильтра дрейфа.
         /// </summary>
-        protected void Report(Vector2 screen, InputDevice device)
-            => VirtualCursorController.ReportPointer(screen, HidesCursor, device);
+        protected void Report(Vector2 screen, InputDevice device, bool intentional = false)
+            => VirtualCursorController.ReportPointer(screen, HidesCursor, device, intentional);
 
         /// <summary>Отрепортить устройство пользовательского ввода (нажатие экшена) в <c>LastDevice</c>.</summary>
         protected static void ReportDevice(InputDevice device) => VirtualCursorController.ReportDevice(device);

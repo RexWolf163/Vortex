@@ -110,15 +110,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
         }
 
         /// <summary>
-        /// Радиус дрейфа, квадрат пикселей (5 px): накопленный от центра дрейфа сдвиг больше — значимый.
-        /// </summary>
-        private const float DriftRadiusSqr = 25f;
-
-        /// <summary>
-        /// Шаг, квадрат пикселей (3 px): сдвиг за один репорт больше — значимый. Выше ошибки эха варпа ОС-мыши
+        /// Шаг, квадрат пикселей: сдвиг за один репорт больше — значимый. Выше ошибки эха варпа ОС-мыши
         /// (округление до пикселя: ≈0.7 px, на HiDPI ≈1.4 px) — эхо значимым не бывает без фильтров в драйверах.
         /// </summary>
-        private const float DriftStepSqr = 9f;
+        private const float DriftStepSqr = 3f;
 
         /// <summary>Центр дрейфа: позиция на момент последнего значимого сдвига.</summary>
         private static Vector2 _driftCenter;
@@ -153,7 +148,13 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
         /// <param name="screen">Позиция в пикселях экрана.</param>
         /// <param name="hidesCursor">Скрывает ли курсор этот источник.</param>
         /// <param name="device">Устройство ввода источника; <c>null</c> — перенос не от пользователя (фокус).</param>
-        internal static void ReportPointer(Vector2 screen, bool hidesCursor = false, InputDevice device = null)
+        /// <param name="intentional">
+        /// Намеренный ввод (стик за мёртвой зоной): сдвиг значим мимо фильтра дрейфа и правила смены источника. Иначе в
+        /// режиме навигации стик не выводит из неё: сопровождение фокуса возвращает курсор, эхо варпа ОС-мыши каждый
+        /// кадр меняет источник, и репорт стика всегда незначим.
+        /// </param>
+        internal static void ReportPointer(Vector2 screen, bool hidesCursor = false, InputDevice device = null,
+            bool intentional = false)
         {
             if (_computeDriverReporting) return;
             _computeDriverReporting = true;
@@ -161,7 +162,7 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
             {
                 var sourceChanged = device != _driftSource;
                 _driftSource = device;
-                var moved = !sourceChanged && IsSignificantMove(screen);
+                var moved = intentional || (!sourceChanged && IsSignificantMove(screen));
                 _lastPoint = screen;
                 if (moved || sourceChanged) _driftCenter = screen;
 
@@ -196,13 +197,12 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
         }
 
         /// <summary>
-        /// Фильтр дрейфа: сдвиг значим, если за один репорт больше <see cref="DriftStepSqr"/> или от центра дрейфа
-        /// больше <see cref="DriftRadiusSqr"/>. Быстрое движение значимо на каждом шаге, медленное — по накоплении радиуса,
+        /// Фильтр дрейфа: сдвиг значим, если за один репорт больше <see cref="DriftStepSqr"/>
+        /// Быстрое движение значимо на каждом шаге, медленное — по накоплении радиуса,
         /// дрожание на месте — никогда. Зовётся только для репорта того же источника, что и прошлый.
         /// </summary>
         private static bool IsSignificantMove(Vector2 screen) =>
-            (screen - _lastPoint).sqrMagnitude > DriftStepSqr ||
-            (screen - _driftCenter).sqrMagnitude > DriftRadiusSqr;
+            (screen - _lastPoint).sqrMagnitude > DriftStepSqr;
 
         /// <summary>
         /// Держатели действий по индексу <see cref="PointerAction"/>: источники, удерживающие действие сейчас.
