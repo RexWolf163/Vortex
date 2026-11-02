@@ -98,10 +98,47 @@ namespace Vortex.Unity.DatabaseSystem.Presets
         [Button]
         public void ResetGuid() => guid = Crypto.GetNewGuid();
 
+        /// <summary>
+        /// Задержка переименования файла после последнего ввода имени, сек
+        /// </summary>
+        private const double RenameDelay = 1.0;
+
+        /// <summary>
+        /// Время редактора, когда файл будет переименован. Каждый ввод сдвигает его
+        /// </summary>
+        private double _renameAt;
+
+        /// <summary>
+        /// Ввод имени: поле чистится сразу, а файл переименовывается через <see cref="RenameDelay"/> после последнего
+        /// ввода — иначе ассет переименовывался бы на каждый символ
+        /// </summary>
         private void OnNameChanged()
         {
-            var number = 0;
             nameRecord = CleanFileName(nameRecord);
+            _renameAt = EditorApplication.timeSinceStartup + RenameDelay;
+            EditorApplication.update -= WaitRename;
+            EditorApplication.update += WaitRename;
+        }
+
+        private void WaitRename()
+        {
+            // Ассет могли удалить за время ожидания
+            if (this == null)
+            {
+                EditorApplication.update -= WaitRename;
+                return;
+            }
+
+            if (EditorApplication.timeSinceStartup < _renameAt)
+                return;
+
+            EditorApplication.update -= WaitRename;
+            RenameFile();
+        }
+
+        private void RenameFile()
+        {
+            var number = 0;
             var name = nameRecord;
             if (name == string.Empty || !char.IsLetter(name[0])) name = DefaultName;
 
