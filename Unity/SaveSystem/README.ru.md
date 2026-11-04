@@ -16,10 +16,10 @@ Unity-слой системы сохранений. Предоставляет �
 - `FileSystemDriver/FileSystemDriver` — драйвер слотов на файловую систему (`FileBus.GetAppPath()/{savesFolder}/`, по умолчанию `Saves`)
 - `GlobalPrefsDriver`, `GlobalFileDriver` — драйверы глобального хранилища (`GlobalSaveController`)
 - `SavePreset` — XML-сериализуемая обёртка для `SaveFolder[]` (общая для драйверов слотов)
-- `SaveSettings` — общий ассет настроек: папка сейвов, число копий, папка глобального хранилища и список блоков коррекции устаревших сейвов
+- `SaveSettings` — общий ассет настроек: папка сейвов, число копий, папка глобального хранилища, список блоков коррекции устаревших сейвов и переключатели метаблоков сводки
 - `UISaveLoadComponent` — MonoBehaviour для отображения прогресса save/load
 - Окно `Tools/Vortex/SaveData/Global Index` — индекс модулей глобального хранилища; в Play Mode — текущие значения с правкой на лету и сброс
-- Каждый драйвер слотов хранит индекс сохранений и метаданные (`SaveSummary`) в своём формате
+- Каждый драйвер слотов хранит индекс сохранений и сводки (`SaveSummary`) в своём формате; оба драйвера поддерживают метаблоки сводки (`BeginSummary`/`AddMeta`)
 
 Вне ответственности:
 
@@ -146,9 +146,12 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
   │    ├── PlayerPrefs.GetString("SavesData") → "guid1;guid2;..."
   │    └── Для каждого GUID → GetSaveSummary() → Saves
   │
+  ├── BeginSummary() → новая сводка цикла (_summary) с пустым Meta
+  ├── AddMeta(key, metadata) → _summary.Meta, если блок включён в SaveSettings
+  │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → PlayerPrefs "Save-{guid}"
-  │    ├── SaveSummary { Name, Version = Application.version } → XML → PlayerPrefs "SaveSummary-{guid}"
+  │    ├── _summary + { Name, дата, Version = Application.version } → XML → PlayerPrefs "SaveSummary-{guid}"
   │    └── Обновление "SavesData", инкремент "SavesCount"
   │
   ├── Load(guid)
@@ -171,7 +174,7 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
 | `SavesData` | `"guid1;guid2;guid3"` — список всех GUID через `;` |
 | `SavesCount` | `int` — инкремент-счётчик последнего сейва |
 | `Save-{guid}` | Сжатая XML-строка (`SavePreset`), ключ сжатия = GUID |
-| `SaveSummary-{guid}` | XML-строка (`SaveSummary`) — имя и дата |
+| `SaveSummary-{guid}` | XML-строка (`SaveSummary`) — имя, дата, `Application.version` и метаблоки (`<Meta>`) |
 
 ### Driver: FileSystem
 
@@ -185,9 +188,12 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
   ├── Init()
   │    └── ScanIndex() → читает все *.summary в Saves/
   │
+  ├── BeginSummary() → новая сводка цикла (_summary) с пустым Meta
+  ├── AddMeta(key, metadata) → _summary.Meta, если блок включён в SaveSettings
+  │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → {guid}.save
-  │    ├── SaveSummary { Name, Version = Application.version } → XML → {guid}.summary
+  │    ├── _summary + { Name, дата, Version = Application.version } → XML → {guid}.summary
   │    └── При новом GUID — _increment = GetNumberLastSave() + 1 → запись в файл .in
   │
   ├── Load(guid)
@@ -209,7 +215,7 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
 | Файл | Содержимое |
 |------|-----------|
 | `Saves/{guid}.save` | Сжатая XML-строка (`SavePreset`), ключ сжатия = GUID |
-| `Saves/{guid}.summary` | XML-строка (`SaveSummary`) — имя, дата и `Application.version` на момент сохранения |
+| `Saves/{guid}.summary` | XML-строка (`SaveSummary`) — имя, дата, `Application.version` на момент сохранения и метаблоки (`<Meta>`) |
 | `Saves/.in` | `int` — инкремент-счётчик последнего сейва |
 
 ### SavePreset (общий)
@@ -242,8 +248,11 @@ UISaveLoadComponent : MonoBehaviour
 | `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — копий нет |
 | `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
 | `reactors` | — (читается из пресета) | драйверы слотов | пусто |
+| `metaBlocks` | — (читается из пресета) | драйверы слотов (`AddMeta`) | пусто — пишутся все блоки |
 
 `reactors` — блоки коррекции устаревших сейвов (`SaveReactor`, `[SerializeReference]`). В `SettingsModel` список не переносится: расширение модели собирается в сборку настроек, а она о SaveSystem не знает — ссылка дала бы цикл сборок. Драйверы берут список из самого пресета через `SaveSettings.GetReactors()` (ленивая загрузка из `Resources/Settings`; ассета нет — пустой список). Механизм описан в README Core SaveSystem.
+
+`metaBlocks` — переключатели метаблоков сводки: таблица «ключ — включён». Драйвер в `AddMeta` спрашивает `SaveSettings.IsMetaEnabled(key)` и выключенный блок не пишет. Ключ вне таблицы или отсутствие ассета — блок включён, поэтому новый метаблок работает без настройки. Выключение действует на новые сейвы; уже записанные сводки не меняются. Как и `reactors`, список читается из пресета, а не из `SettingsModel`. Метаблоки описаны в README Core SaveSystem.
 
 Папки задаются относительно `FileBus.GetAppPath()`; пусто — корень. Путь склеивается `Path.Combine`: абсолютный путь в поле заменит корень. Файловые драйверы читают папку при подключении — смена во время игры применится со следующего запуска.
 
@@ -351,6 +360,8 @@ Bootstrap: `[RuntimeInitializeOnLoadMethod]` → `GlobalSaveController.SetDriver
 | Дубликат GUID при `Save` | PlayerPrefsDriver: `Saves.Add` обёрнут в try/catch — исключение логируется (`Debug.LogException`) и не пробрасывается; FileSystemDriver: `Saves[guid] = summary` перезапишет, файл будет перезаписан |
 | Повреждённый XML при десериализации | `SavePreset = null`, `LogError` |
 | `UISaveLoadComponent` выключен во время процесса | `OnDisable` → `StopAllCoroutines` |
+| Метаблок выключен в `SaveSettings` | `AddMeta` его отбрасывает, в сводке блока нет |
+| `Save` без предшествующего `BeginSummary` (вызов драйвера в обход `SaveController`) | Пишется сводка прошлого цикла с её метаблоками — драйвер вызывается только через `SaveController` |
 
 ### PlayerPrefsDriver
 

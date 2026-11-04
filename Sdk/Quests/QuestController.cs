@@ -6,6 +6,8 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Sdk.Core.GameCore;
+using Vortex.Sdk.Quests.Conditions;
+using Vortex.Sdk.Quests.Diagnostics;
 using Vortex.Sdk.Quests.QuestsLogics;
 using Vortex.Unity.AppSystem.System.TimeSystem;
 
@@ -30,11 +32,6 @@ namespace Vortex.Sdk.Quests
         public static event Action OnCheckConditions;
 
         /// <summary>
-        /// индекс квестов с запущенной логикой
-        /// </summary>
-        private static readonly Dictionary<QuestModel, UniTask> ActiveQuests = new();
-
-        /// <summary>
         /// Индекс выполненных квестов с любым результатом (Failed или иным)
         /// </summary>
         private static readonly Dictionary<string, QuestModel> CompletedQuests = new();
@@ -48,6 +45,9 @@ namespace Vortex.Sdk.Quests
         /// Пер-квестовые связанные CTS: отмена логики одного квеста (при блокировке) без остановки
         /// остальных. Каждый линкуется на глобальный <see cref="_cancelTokenSource"/>, поэтому массовый
         /// teardown (ResetController) гасит их каскадом.
+        /// Единственный реестр квестов с запущенной логикой: запись заводится ДО запуска прогона
+        /// (<see cref="CreateQuestToken"/>) и снимается на каждом выходе — <see cref="ReleaseQuest"/> (штатный терминал),
+        /// <see cref="CancelQuestLogic"/> (блокировка, дебаг), <see cref="ResetController"/> (новая игра/загрузка/Off/Loading).
         /// </summary>
         private static readonly Dictionary<QuestModel, CancellationTokenSource> ActiveCts = new();
 
@@ -72,6 +72,7 @@ namespace Vortex.Sdk.Quests
         private static void NewGameLogic()
         {
             ResetController();
+            QuestDiagnostics.RecordSeparator("NewGame");
             FillQuestNames();
 
             //Инициализация квестов
@@ -79,7 +80,7 @@ namespace Vortex.Sdk.Quests
             //безусловное переключение, но сам по себе этап может быть
             //полезен для отлова новых квестов на сейве, например
             foreach (var quest in list)
-                quest.State = QuestState.Locked;
+                quest.SetState(QuestState.Locked, TransitionReason.Init);
 
             CheckQuestStartConditions();
         }
@@ -87,6 +88,7 @@ namespace Vortex.Sdk.Quests
         private static void LoadGameLogic()
         {
             ResetController();
+            QuestDiagnostics.RecordSeparator("LoadGame");
 
             // Гард на осиротевшие записи. Квест, удалённый из Database, но оставшийся в сейве, при
             // десериализации словаря попадает в индекс битой записью: ключа нет в целевом наборе (собранном
@@ -109,7 +111,7 @@ namespace Vortex.Sdk.Quests
                     case QuestState.Unset:
                         //безусловное переключение, но сам по себе этап может быть
                         //полезен для отлова новых квестов на сейве, например
-                        quest.State = QuestState.Locked;
+                        quest.SetState(QuestState.Locked, TransitionReason.Init);
                         break;
                     case QuestState.Locked:
                         break;
@@ -117,12 +119,18 @@ namespace Vortex.Sdk.Quests
                         // Ready латчится (условия старта одноразовы, назад — только через Interrupt), поэтому
                         // условия НЕ перечитываем. Но autorun обязан стартовать на LoadGame (док-гарантия):
                         // Run() на Ready → RunQuest с нуля. Не-autorun остаётся Ready — армирован для ручного
-                        // запуска (RunQuestHandler). Interrupt-приоритет держит CheckQuestStartConditions ниже.
+                        // запуска (RunQuestHandler).
+                        // Приоритет прерывания здесь НЕ соблюдается: Run() стартует сразу, а interrupt-пасс
+                        // CheckQuestStartConditions ниже отложен на конец кадра (TimeController). Синхронная часть
+                        // логик (до первого незавершённого await) отработает до проверки прерывания; если оно
+                        // истинно — квест заблокируется в конце кадра с отменой логики, но побочные эффекты
+                        // уже выполненных логик не откатываются.
                         if (quest.Autorun)
                             Run(quest);
                         break;
                     case QuestState.InProgress:
-                        //порядок запуска не гарантирован
+                        // Порядок запуска между квестами не гарантирован. Приоритет прерывания не соблюдается —
+                        // как у Ready+autorun выше: восстановление стартует до отложенного interrupt-пасса.
                         Run(quest);
                         break;
                     case QuestState.Reward:
@@ -136,7 +144,7 @@ namespace Vortex.Sdk.Quests
                         // навесит interrupt-пасс того же вызова (проход B, ветка else). Липкий блок
                         // (BlockRemovable=false) держится как есть, условия не перечитываются.
                         if (quest.BlockRemovable && !quest.AnyInterruptGroupTrue())
-                            quest.State = QuestState.Locked;
+                            quest.SetState(QuestState.Locked, TransitionReason.Unblocked, detail: "LoadGame");
 
                         break;
                     default:
@@ -187,18 +195,18 @@ namespace Vortex.Sdk.Quests
             TimeController.RemoveCall(_owner);
 
             CompletedQuests.Clear();
-            if (ActiveQuests.Count > 0)
+            if (ActiveCts.Count > 0)
             {
                 _cancelTokenSource.Cancel();
                 _cancelTokenSource.Dispose();
                 _cancelTokenSource = new CancellationTokenSource();
-                ActiveQuests.Clear();
             }
 
             // Глобальный Cancel каскадом гасит связанные токены; сами объекты CTS диспоузим отдельно.
             foreach (var cts in ActiveCts.Values)
                 cts.Dispose();
             ActiveCts.Clear();
+            QuestDiagnostics.ClearTraces();
 
             _data = GameController.Get<QuestModels>();
         }
@@ -231,17 +239,25 @@ namespace Vortex.Sdk.Quests
                 if (CheckQuestStart(quest))
                 {
                     updated = true;
-                    quest.State = QuestState.Ready;
+                    // Перепроверка прерывания на момент перехода (INV-3): interrupt-пасс выше видел состояние на
+                    // начало прохода, а синхронные логики квестов, запущенных раньше в этом цикле, могли его изменить.
+                    if (quest.AnyInterruptGroupTrue())
+                    {
+                        quest.BlockQuest();
+                        continue;
+                    }
+
+                    quest.SetState(QuestState.Ready, TransitionReason.ConditionsMet);
                     quest.CallOnUpdated();
                     if (!quest.Autorun)
                         continue;
-                    if (ActiveQuests.ContainsKey(quest))
+                    if (ActiveCts.ContainsKey(quest))
                     {
                         Debug.LogError("[QuestController] Нарушение логики. Попытка перезапуска активного квеста!");
                         continue;
                     }
 
-                    ActiveQuests[quest] = RunQuest(quest, CreateQuestToken(quest));
+                    RunQuest(quest, CreateQuestToken(quest)).Forget();
                 }
 
             if (updated && ++counter < 10)
@@ -250,6 +266,8 @@ namespace Vortex.Sdk.Quests
                 //Рекурсивная проверка, на случай если что-то меняется
                 CheckQuestStartConditions(counter);
             }
+            else if (updated)
+                QuestDiagnostics.RecordSettleOverflow();
 
             OnUpdateData?.Invoke();
             OnCheckConditions?.Invoke();
@@ -257,16 +275,20 @@ namespace Vortex.Sdk.Quests
 
         private static async UniTask RunQuest(QuestModel quest, CancellationToken token)
         {
+            var logicIndex = -1;
+            Exception exception = null;
             try
             {
                 foreach (var condition in quest.StartConditions)
                     condition.DisposeListeners();
 
-                quest.State = QuestState.InProgress;
+                quest.SetState(QuestState.InProgress, TransitionReason.Started);
+                QuestDiagnostics.SetRestoreStart(quest, -1);
                 quest.CallOnUpdated();
 
-                foreach (var logic in quest.Logics)
+                for (logicIndex = 0; logicIndex < quest.Logics.Length; logicIndex++)
                 {
+                    var logic = quest.Logics[logicIndex];
                     if (token.IsCancellationRequested)
                         return;
 
@@ -279,74 +301,59 @@ namespace Vortex.Sdk.Quests
                             break;
                     }
 
+                    QuestDiagnostics.SetCurrentLogic(quest, logicIndex);
                     var b = await logic.Run(token);
+                    // Отменённый прогон состояние не пишет: им уже распорядился отменивший (блокировка, сброс,
+                    // дебаг-действие). Логика не обязана бросать при отмене — может вернуть true/false.
+                    if (token.IsCancellationRequested)
+                        return;
                     if (b) continue;
-                    quest.State = !quest.UnFailable
+                    quest.SetState(!quest.UnFailable
                         ? QuestState.Failed
-                        : QuestState.Locked;
+                        : QuestState.Locked, TransitionReason.LogicFailed, logicIndex);
                     return;
                 }
 
-                quest.State = QuestState.Reward;
+                QuestDiagnostics.SetCurrentLogic(quest, -1);
+                quest.SetState(QuestState.Reward, TransitionReason.LogicsDone);
                 //Если пустая награда, то сразу завершаем
                 if (quest.Rewards.Length == 0)
                 {
                     await UniTask.Yield();
-                    quest.State = QuestState.Completed;
+                    if (token.IsCancellationRequested)
+                        return;
+                    quest.SetState(QuestState.Completed, TransitionReason.AutoCompleteNoRewards);
                 }
             }
             catch (Exception ex)
             {
+                exception = ex;
                 Debug.LogException(ex);
             }
             finally
             {
                 if (!token.IsCancellationRequested)
-                {
-                    switch (quest.State)
-                    {
-                        case QuestState.Unset:
-                        case QuestState.Locked:
-                            break;
-                        case QuestState.Ready:
-                        case QuestState.InProgress:
-                            Debug.LogError(
-                                $"[Quest Controller] Ошибка в логике. Квест завершен в состоянии «{quest.State}». Принудительно переведен в «Completed»");
-                            quest.State = QuestState.Completed;
-                            CompletedQuests.Add(quest.GuidPreset, quest);
-                            break;
-                        case QuestState.Reward:
-                        case QuestState.Completed:
-                        case QuestState.Failed:
-                            CompletedQuests.Add(quest.GuidPreset, quest);
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-
-                    ReleaseQuest(quest);
-                    quest.CallOnUpdated();
-                    OnUpdateData?.Invoke();
-                    CheckQuestStartConditions();
-                }
+                    FinishRun(quest, logicIndex, exception);
             }
         }
 
+        /// <summary>
+        /// Продолжение InProgress-квеста с точки сохранения. Состояние проверяет <see cref="Run"/>: ранний выход
+        /// здесь миновал бы <see cref="FinishRun"/> и оставил квест в реестре активных навсегда.
+        /// </summary>
         private static async UniTask RestoreQuest(QuestModel quest, CancellationToken token)
         {
-            if (quest.State != QuestState.InProgress)
-            {
-                Debug.LogError(
-                    $"[QuestController] Некорректная попытка восстановления квеста «{quest.Name}» is «{quest.State}»");
-                return;
-            }
-
+            var logicIndex = -1;
+            Exception exception = null;
             try
             {
                 var search = quest.Step != 0;
+                QuestDiagnostics.SetRestoreStart(quest, search ? FindRestoreStart(quest) : 0);
+                QuestDiagnostics.RecordNote(quest, TransitionReason.Restored, $"Step {quest.Step}");
                 quest.CallOnUpdated();
-                foreach (var logic in quest.Logics)
+                for (logicIndex = 0; logicIndex < quest.Logics.Length; logicIndex++)
                 {
+                    var logic = quest.Logics[logicIndex];
                     if (search)
                     {
                         if (logic is SavePoint s && quest.Step == s.Key)
@@ -365,57 +372,91 @@ namespace Vortex.Sdk.Quests
                             break;
                     }
 
+                    QuestDiagnostics.SetCurrentLogic(quest, logicIndex);
                     var b = await logic.Run(token);
+                    // Отменённый прогон состояние не пишет — см. RunQuest
+                    if (token.IsCancellationRequested)
+                        return;
                     if (b) continue;
-                    quest.State = !quest.UnFailable
+                    quest.SetState(!quest.UnFailable
                         ? QuestState.Failed
-                        : QuestState.Locked;
+                        : QuestState.Locked, TransitionReason.LogicFailed, logicIndex);
                     return;
                 }
 
-                quest.State = QuestState.Reward;
+                QuestDiagnostics.SetCurrentLogic(quest, -1);
+                quest.SetState(QuestState.Reward, TransitionReason.LogicsDone);
                 //Если пустая награда, то сразу завершаем
                 if (quest.Rewards.Length == 0)
                 {
                     await UniTask.Yield();
-                    quest.State = QuestState.Completed;
+                    if (token.IsCancellationRequested)
+                        return;
+                    quest.SetState(QuestState.Completed, TransitionReason.AutoCompleteNoRewards);
                 }
             }
             catch (Exception ex)
             {
+                exception = ex;
                 Debug.LogException(ex);
             }
             finally
             {
                 if (!token.IsCancellationRequested)
-                {
-                    switch (quest.State)
-                    {
-                        case QuestState.Unset:
-                        case QuestState.Locked:
-                            break;
-                        case QuestState.Ready:
-                        case QuestState.InProgress:
-                            Debug.LogError(
-                                $"[Quest Controller] Ошибка в логике. Квест завершен в состоянии «{quest.State}». Принудительно переведен в «Completed»");
-                            quest.State = QuestState.Completed;
-                            CompletedQuests.Add(quest.GuidPreset, quest);
-                            break;
-                        case QuestState.Reward:
-                        case QuestState.Completed:
-                        case QuestState.Failed:
-                            CompletedQuests.Add(quest.GuidPreset, quest);
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-
-                    ReleaseQuest(quest);
-                    quest.CallOnUpdated();
-                    OnUpdateData?.Invoke();
-                    CheckQuestStartConditions();
-                }
+                    FinishRun(quest, logicIndex, exception);
             }
+        }
+
+        /// <summary>
+        /// Штатный терминал прогона логик (не при отмене): фиксация результата, освобождение квеста,
+        /// перепроверка условий. Общий для <see cref="RunQuest"/> и <see cref="RestoreQuest"/>.
+        /// </summary>
+        /// <param name="logicIndex">Номер логики, на которой остановился прогон (для журнала)</param>
+        /// <param name="exception">Исключение прогона, если было</param>
+        private static void FinishRun(QuestModel quest, int logicIndex, Exception exception)
+        {
+            // Освобождение первым: исключение ниже (напр. дубль в CompletedQuests) не должно оставить квест
+            // в реестре активных — иначе он навсегда считается «бегущим» и не перезапускается.
+            ReleaseQuest(quest);
+            QuestDiagnostics.SetCurrentLogic(quest, -1);
+            switch (quest.State)
+            {
+                case QuestState.Unset:
+                case QuestState.Locked:
+                    break;
+                case QuestState.Ready:
+                case QuestState.InProgress:
+                    Debug.LogError(
+                        $"[Quest Controller] Ошибка в логике. Квест завершен в состоянии «{quest.State}». Принудительно переведен в «Completed»");
+                    quest.SetState(QuestState.Completed, TransitionReason.LogicException,
+                        logicIndex < quest.Logics.Length ? logicIndex : -1,
+                        exception?.Message ?? $"Завершён в состоянии «{quest.State}»");
+                    CompletedQuests.Add(quest.GuidPreset, quest);
+                    break;
+                case QuestState.Reward:
+                case QuestState.Completed:
+                case QuestState.Failed:
+                    CompletedQuests.Add(quest.GuidPreset, quest);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            quest.CallOnUpdated();
+            OnUpdateData?.Invoke();
+            CheckQuestStartConditions();
+        }
+
+        /// <summary>
+        /// Номер логики, с которой продолжится восстановление: следующая за SavePoint с Key == Step.
+        /// SavePoint не найден — пропускаются все логики.
+        /// </summary>
+        private static int FindRestoreStart(QuestModel quest)
+        {
+            for (var i = 0; i < quest.Logics.Length; i++)
+                if (quest.Logics[i] is SavePoint s && quest.Step == s.Key)
+                    return i + 1;
+            return quest.Logics.Length;
         }
 
         /// <summary>
@@ -423,18 +464,46 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         /// <param name="quest"></param>
         /// <returns></returns>
-        // AND между группами (All) с ленивым short-circuit: активна одна группа-блокер за раз — тот же
+        // AND между группами с ленивым short-circuit: активна одна группа-блокер за раз — тот же
         // принцип атомарного детерминированного отслеживания, что и внутри группы (см. QuestConditions.Check).
-        private static bool CheckQuestStart(this QuestModel quest) =>
-            quest.StartConditions.Length == 0 || quest.StartConditions.All(c => c.Check());
+        private static bool CheckQuestStart(this QuestModel quest)
+        {
+            if (quest.StartConditions.Length == 0)
+                return true;
+
+            QuestDiagnostics.BeginCheck(quest, ConditionSetKind.Start);
+            try
+            {
+                for (var i = 0; i < quest.StartConditions.Length; i++)
+                    if (!CheckGroup(quest.StartConditions[i], i))
+                        return false;
+                return true;
+            }
+            finally
+            {
+                QuestDiagnostics.EndCheck();
+            }
+        }
+
+        /// <summary>
+        /// Проверка группы условий с фиксацией результата в открытом контексте монитора.
+        /// </summary>
+        private static bool CheckGroup(QuestConditions group, int index)
+        {
+            QuestDiagnostics.EnterNode(index);
+            var result = group.Check();
+            QuestDiagnostics.ExitNode(result);
+            return result;
+        }
 
         #region Прерывание
 
         /// <summary>
         /// Interrupt-пасс: блокировка живых квестов, у которых сработало прерывание, и разблокировка
         /// обратимо-заблокированных, у которых оно снялось. Вызывается первой строкой
-        /// <see cref="CheckQuestStartConditions(int)"/>, поэтому запрет всегда приоритетнее старта
-        /// (INV-3), в том числе на каждой итерации settle-рекурсии.
+        /// <see cref="CheckQuestStartConditions(int)"/>, поэтому запрет приоритетнее старта (INV-3), в том числе на
+        /// каждой итерации settle-рекурсии. Внутри одного прохода квест, прошедший старт, перед переходом в Ready
+        /// перепроверяется отдельно — состояние могли изменить синхронные логики квестов, запущенных раньше.
         /// </summary>
         private static void CheckQuestInterruptConditions()
         {
@@ -472,10 +541,19 @@ namespace Vortex.Sdk.Quests
         {
             if (quest.InterruptConditions.Length == 0)
                 return false;
-            foreach (var group in quest.InterruptConditions)
-                if (group.Check())
-                    return true;
-            return false;
+
+            QuestDiagnostics.BeginCheck(quest, ConditionSetKind.Interrupt);
+            try
+            {
+                for (var i = 0; i < quest.InterruptConditions.Length; i++)
+                    if (CheckGroup(quest.InterruptConditions[i], i))
+                        return true;
+                return false;
+            }
+            finally
+            {
+                QuestDiagnostics.EndCheck();
+            }
         }
 
         /// <summary>
@@ -487,23 +565,14 @@ namespace Vortex.Sdk.Quests
         private static void BlockQuest(this QuestModel quest)
         {
             if (quest.State == QuestState.InProgress)
-            {
-                if (ActiveCts.TryGetValue(quest, out var cts))
-                {
-                    cts.Cancel();
-                    cts.Dispose();
-                    ActiveCts.Remove(quest);
-                }
-
-                ActiveQuests.Remove(quest);
-            }
+                CancelQuestLogic(quest);
 
             quest.Step = 0;
 
             foreach (var condition in quest.StartConditions)
                 condition.DisposeListeners();
 
-            quest.State = QuestState.Blocked;
+            quest.SetState(QuestState.Blocked, TransitionReason.Interrupted);
 
             if (quest.BlockRemovable)
                 quest.InitAllInterruptListeners();
@@ -519,11 +588,12 @@ namespace Vortex.Sdk.Quests
         /// снимается, а перегейтит квест старт-пасс того же цикла (interrupt раньше, старт — следом по
         /// ленивому Where над актуальным состоянием).
         /// </summary>
-        private static void UnblockQuest(this QuestModel quest)
+        private static void UnblockQuest(this QuestModel quest,
+            TransitionReason reason = TransitionReason.Unblocked, string detail = null)
         {
             foreach (var group in quest.InterruptConditions)
                 group.DisposeListeners();
-            quest.State = QuestState.Locked;
+            quest.SetState(QuestState.Locked, reason, detail: detail);
             quest.CallOnUpdated();
         }
 
@@ -539,14 +609,11 @@ namespace Vortex.Sdk.Quests
         #region Пер-квестовый CTS
 
         /// <summary>
-        /// Заводит пер-квестовый CTS, связанный с глобальным, и возвращает его токен. Существующий (при
-        /// нештатном перезапуске) диспоузится, чтобы не утёк.
+        /// Заводит пер-квестовый CTS, связанный с глобальным, и возвращает его токен. Вызывающий обязан
+        /// убедиться, что квест не в реестре активных (<see cref="ActiveCts"/>).
         /// </summary>
         private static CancellationToken CreateQuestToken(QuestModel quest)
         {
-            if (ActiveCts.TryGetValue(quest, out var existing))
-                existing.Dispose();
-
             var cts = CancellationTokenSource.CreateLinkedTokenSource(_cancelTokenSource.Token);
             ActiveCts[quest] = cts;
             return cts.Token;
@@ -567,8 +634,22 @@ namespace Vortex.Sdk.Quests
                 cts.Dispose();
                 ActiveCts.Remove(quest);
             }
+        }
 
-            ActiveQuests.Remove(quest);
+        /// <summary>
+        /// Отмена выполняющейся логики квеста: Cancel пер-квестового CTS (прогон выйдет без штатного терминала —
+        /// guard <c>!token.IsCancellationRequested</c>), снятие из активных.
+        /// </summary>
+        private static void CancelQuestLogic(QuestModel quest)
+        {
+            if (ActiveCts.TryGetValue(quest, out var cts))
+            {
+                cts.Cancel();
+                cts.Dispose();
+                ActiveCts.Remove(quest);
+            }
+
+            QuestDiagnostics.SetCurrentLogic(quest, -1);
         }
 
         #endregion
@@ -586,10 +667,16 @@ namespace Vortex.Sdk.Quests
                 return;
             }
 
+            if (ActiveCts.ContainsKey(quest))
+            {
+                Debug.LogError($"[QuestController] Квест «{quest.Name}» уже выполняется — повторный запуск отклонён");
+                return;
+            }
+
             if (quest.State == QuestState.InProgress)
-                ActiveQuests[quest] = RestoreQuest(quest, CreateQuestToken(quest));
+                RestoreQuest(quest, CreateQuestToken(quest)).Forget();
             else
-                ActiveQuests[quest] = RunQuest(quest, CreateQuestToken(quest));
+                RunQuest(quest, CreateQuestToken(quest)).Forget();
         }
 
         /// <summary>
@@ -651,6 +738,7 @@ namespace Vortex.Sdk.Quests
                 return;
             }
 
+            Exception exception = null;
             try
             {
                 foreach (var reward in quest.Rewards)
@@ -658,11 +746,14 @@ namespace Vortex.Sdk.Quests
             }
             catch (Exception ex)
             {
+                exception = ex;
                 Debug.LogException(ex);
             }
             finally
             {
-                quest.State = QuestState.Completed;
+                quest.SetState(QuestState.Completed,
+                    exception == null ? TransitionReason.RewardsGiven : TransitionReason.RewardException,
+                    detail: exception?.Message);
                 quest.CallOnUpdated();
             }
         }

@@ -30,6 +30,20 @@ namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
         /// </summary>
         private int _increment = -1;
 
+        /// <summary>
+        /// Сводка текущего цикла сохранения: заводится в <see cref="BeginSummary"/>, копит метаблоки из
+        /// <see cref="AddMeta"/>, дописывается и записывается в <see cref="Save"/>.
+        /// </summary>
+        private SaveSummary _summary;
+
+        public void BeginSummary() => _summary = new SaveSummary { Meta = new List<SaveMeta>() };
+
+        public void AddMeta(string key, string metadata)
+        {
+            if (SaveSettings.IsMetaEnabled(key))
+                _summary.SetMeta(key, metadata);
+        }
+
         public void Init()
         {
             Saves.Clear();
@@ -93,10 +107,11 @@ namespace Vortex.Unity.SaveSystem.Drivers.PlayerPrefsDriver
                 var saveData = sw.ToString();
                 PlayerPrefs.SetString(GetSaveName(guid), saveData.Compress(guid));
 
-                var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc())
-                {
-                    Version = Application.version
-                };
+                // Сводка цикла уже несёт метаблоки (BeginSummary/AddMeta) — дописываем имя, время и версию
+                _summary.Name = name;
+                _summary.UnixTimestamp = DateTime.UtcNow.ToFileTimeUtc();
+                _summary.Version = Application.version;
+                var summary = _summary;
                 xmls = new XmlSerializer(typeof(SaveSummary));
                 sw = new StringWriter();
                 xmls.Serialize(sw, summary);

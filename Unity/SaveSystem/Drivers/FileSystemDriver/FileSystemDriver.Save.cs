@@ -27,10 +27,11 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
                 var savePath = GetSaveFilePath(guid);
                 File.WriteAllText(savePath, $"{dataXml}");
 
-                var summary = new SaveSummary(name, DateTime.UtcNow.ToFileTimeUtc())
-                {
-                    Version = Application.version
-                };
+                // Сводка цикла уже несёт метаблоки (BeginSummary/AddMeta) — дописываем имя, время и версию
+                _summary.Name = name;
+                _summary.UnixTimestamp = DateTime.UtcNow.ToFileTimeUtc();
+                _summary.Version = Application.version;
+                var summary = _summary;
                 var summaryXml = SerializeSummary(summary);
                 File.WriteAllText(GetSummaryFilePath(guid), summaryXml);
 

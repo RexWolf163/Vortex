@@ -31,22 +31,14 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
         [Button]
         private async UniTask SaveGame()
         {
+            // Конец кадра — для снимка превью: SavePreviewController снимает экран на начале сохранения
             await UniTask.WaitForEndOfFrame(this);
-            var texture = CameraCaptureHandler.Capture();
-            var guid = await SaveController.Save(GetSaveName(texture));
+            var guid = await SaveKindController.Save(SavingSystemConstants.ManualName, GetSaveName());
             if (guid == null)
-            {
                 Debug.LogError("[SaveGameHandler] Couldn't save game", this);
-                return;
-            }
-
-            Destroy(texture);
         }
 
-        private string GetSaveName(Texture2D texture)
-        {
-            return SavePreviewController.GetSaveNameWithPreview(texture,
-                $"{SavingSystemConstants.ManualName}_{SaveController.GetNumberLastSave() + 1}");
-        }
+        private static string GetSaveName() =>
+            $"{SavingSystemConstants.ManualName}_{SaveController.GetNumberLastSave() + 1}";
     }
 }

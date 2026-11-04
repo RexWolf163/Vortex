@@ -30,12 +30,13 @@ namespace Vortex.Core.SaveSystem.Bus
         private static CancellationToken Token => _cancelTokenSource.Token;
 
         /// <summary>
-        /// Событие начала сохранения
+        /// Событие начала загрузки
         /// </summary>
         public static event Action OnLoadStart;
 
         /// <summary>
-        /// Событие начала загрузки
+        /// Событие начала сохранения. Сводка нового цикла уже заведена (<see cref="IDriver.BeginSummary"/>) —
+        /// здесь независимые контроллеры записывают метаданные через <see cref="AddMeta"/>.
         /// </summary>
         public static event Action OnSaveStart;
 
@@ -86,6 +87,8 @@ namespace Vortex.Core.SaveSystem.Bus
             if (State == SaveControllerStates.Saving)
                 return null;
             State = SaveControllerStates.Saving;
+            // Новая сводка до события: метаданные собираются только в пределах этого цикла
+            Driver.BeginSummary();
             OnSaveStart?.Invoke();
             try
             {
@@ -185,6 +188,15 @@ namespace Vortex.Core.SaveSystem.Bus
         }
 
         public static Dictionary<string, SaveSummary> GetIndex() => Driver.GetIndex();
+
+        /// <summary>
+        /// Записать метаблок в сводку текущего сохранения. Действует от <see cref="OnSaveStart"/> до записи сейва
+        /// драйвером; вне этого окна запись сбросится следующим циклом. Выключенные в настройках блоки драйвер
+        /// отбрасывает, драйвер без поддержки метаданных вызов игнорирует.
+        /// </summary>
+        /// <param name="key">Ключ метаблока</param>
+        /// <param name="metadata">Значение</param>
+        public static void AddMeta(string key, string metadata) => Driver.AddMeta(key, metadata);
 
         public static void Register(ISaveable controller) => Saveables.Add(controller);
 

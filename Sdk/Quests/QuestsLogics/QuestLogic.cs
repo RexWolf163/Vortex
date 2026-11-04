@@ -18,6 +18,9 @@ namespace Vortex.Sdk.Quests.QuestsLogics
 
 #if UNITY_EDITOR
         protected abstract string GetEditorLabel();
+
+        /// <summary>Подпись для монитора квестов</summary>
+        internal string EditorLabel => GetEditorLabel();
 #endif
     }
 }

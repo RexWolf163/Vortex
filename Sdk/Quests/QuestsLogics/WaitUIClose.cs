@@ -26,7 +26,7 @@ namespace Vortex.Sdk.Quests.QuestsLogics
     {
         [InfoBox("blacklist: ждать закрытия ЭТИХ. whitelist: ждать закрытия всех Common, КРОМЕ этих.")]
         [SerializeField, DbRecord(typeof(UserInterfaceData))]
-        private string[] uis = Array.Empty<string>();
+        private string[] uis = new string[0];
 
         [SerializeField, Tooltip("Вкл — whitelist (ждать закрытия всех Common, кроме списка). " +
                                  "Выкл — blacklist (ждать закрытия перечисленных).")]

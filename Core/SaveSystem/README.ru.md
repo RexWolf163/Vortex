@@ -20,7 +20,8 @@
 - Асинхронный сбор данных при `Save`, асинхронная раздача при `Load` (UniTask)
 - `SaveProcessData` — двухуровневый прогресс (глобальный + модульный)
 - События: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
-- `SaveSummary` — метаданные сохранения (имя, дата, версия приложения, XML-сериализуемый)
+- `SaveSummary` — сводка сохранения (имя, дата, версия приложения, необязательные метаблоки, XML-сериализуемая)
+- Метаблоки сводки (`SaveController.AddMeta`) — превью, маркеры и прочие данные от независимых контроллеров, без правки имени сейва
 - `SaveReactor` — блок коррекции устаревшего сейва: правка сырой строки до разбора в окне версий
 - Автогенерация GUID для новых сохранений
 
@@ -103,6 +104,31 @@ foreach (var (guid, summary) in saves)
 SaveController.Remove(guid);
 ```
 
+### Метаданные сводки
+
+Независимый контроллер подписывается на `OnSaveStart` и пишет свой метаблок — точке сохранения о нём знать не нужно:
+
+```csharp
+public static class DifficultySaveMeta
+{
+    public const string MetaKey = "difficulty";
+
+    [RuntimeInitializeOnLoadMethod]
+    private static void Init()
+    {
+        SaveController.OnSaveStart -= AddMeta;
+        SaveController.OnSaveStart += AddMeta;
+    }
+
+    private static void AddMeta() => SaveController.AddMeta(MetaKey, Difficulty.Current.ToString());
+}
+
+// Чтение — из сводки, без загрузки сейва
+var difficulty = summary.GetMeta(DifficultySaveMeta.MetaKey);   // null — блока нет
+```
+
+Метаблок действует только в своём цикле: сводка заводится заново перед `OnSaveStart`, поэтому `AddMeta` вне окна «`OnSaveStart` → запись драйвером» бесполезен — запись сбросится следующим циклом. Выключенные в настройках блоки драйвер отбрасывает (Unity-слой, `SaveSettings`).
+
 ---
 
 ## Архитектура
@@ -116,7 +142,9 @@ SaveController : SystemController<SaveController, IDriver>
   ├── ProcessData: SaveProcessData
   │
   ├── Save(name, guid?) → UniTask<string>
-  │    ├── State = Saving, OnSaveStart
+  │    ├── State = Saving
+  │    ├── Driver.BeginSummary()          ← новая сводка цикла
+  │    ├── OnSaveStart                    ← контроллеры пишут метаблоки (AddMeta)
   │    ├── foreach ISaveable → GetSaveData() → SaveDataIndex
   │    ├── guid ??= Crypto.GetNewGuid()
   │    ├── Driver.Save(name, guid)
@@ -131,6 +159,7 @@ SaveController : SystemController<SaveController, IDriver>
   ├── Remove(guid) → Driver.Remove(guid), OnRemove
   ├── GetData(id) → Dictionary<string, string>
   ├── GetIndex() → Driver.GetIndex()
+  ├── AddMeta(key, metadata) → Driver.AddMeta
   ├── Register(ISaveable) / UnRegister(ISaveable)
   └── GetProcessData() → SaveProcessData
 
@@ -146,8 +175,12 @@ IDriver : ISystemDriver
   ├── Remove(guid)
   ├── SetIndexLink(Dictionary<string, Dictionary<string, string>>)
   ├── GetIndex() → Dictionary<string, SaveSummary>
-  └── GetNumberLastSave() → int
+  ├── GetNumberLastSave() → int
+  ├── BeginSummary()                      ← необязательный (пустая реализация по умолчанию)
+  └── AddMeta(key, metadata)              ← необязательный (пустая реализация по умолчанию)
 ```
+
+`BeginSummary` и `AddMeta` — расширение контракта с реализацией по умолчанию: драйвер без поддержки метаданных компилируется без правок и пишет сейвы без метаблоков. Драйвер с поддержкой держит сводку текущего цикла: `BeginSummary` заводит **новую** сводку с новым списком (копия прошлой в индексе сейвов ссылается на прежний список — очистка стёрла бы его), `AddMeta` пишет прямо в неё, `Save` дописывает имя, дату и версию и записывает.
 
 ### Формат данных
 
@@ -162,12 +195,14 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 ### Жизненный цикл Save
 
 1. Проверка замка (`State == Saving` → возврат `null`)
-2. `State = Saving`, `OnSaveStart`
-3. `SaveDataIndex.Clear()`
-4. Для каждого `ISaveable` — `await GetSaveData(token)` → добавление в `SaveDataIndex`
-5. Генерация GUID если не передан
-6. `Driver.Save(name, guid)` — физическое сохранение
-7. `State = Idle`, `OnSaveComplete`
+2. `State = Saving`
+3. `Driver.BeginSummary()` — новая сводка: метаблоки прошлого цикла, в т.ч. неудачного, не переносятся
+4. `OnSaveStart` — независимые контроллеры пишут метаблоки через `AddMeta`
+5. `SaveDataIndex.Clear()`
+6. Для каждого `ISaveable` — `await GetSaveData(token)` → добавление в `SaveDataIndex`
+7. Генерация GUID если не передан
+8. `Driver.Save(name, guid)` — физическое сохранение вместе со сводкой цикла
+9. `State = Idle`, `OnSaveComplete`
 
 ### Жизненный цикл Load
 
@@ -190,7 +225,8 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 |-----|-----------|
 | `SaveData` | struct: `Id`, `Data` — единица данных |
 | `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — папка модуля |
-| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version` — метаданные сохранения (XML-сериализуемый). `Version` — строковая версия приложения (`Application.version`), которая была активна на момент создания записи. Полезна для миграций и фильтрации старых сейвов в UI. |
+| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version`, `Meta` — сводка сохранения (XML-сериализуемая). `Version` — строковая версия приложения (`Application.version`), которая была активна на момент создания записи. Полезна для миграций и фильтрации старых сейвов в UI. `Meta` — необязательный список метаблоков (`null` у старых сейвов); чтение — `GetMeta(key)`, запись — `SetMeta(key, value)` (повторный ключ перезаписывает) |
+| `SaveMeta` | struct: `Key`, `Value` — метаблок сводки; в XML — `<Meta><Entry Key="…">значение</Entry></Meta>` |
 | `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
 
 ---
@@ -217,6 +253,7 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 | `SaveController.Remove(guid)` | Удаление сохранения |
 | `SaveController.GetData(id)` | Данные модуля по `SaveId` |
 | `SaveController.GetIndex()` | Все сохранения |
+| `SaveController.AddMeta(key, metadata)` | Метаблок в сводку текущего сохранения; действует от `OnSaveStart` до записи драйвером |
 | `SaveController.Register(ISaveable)` | Регистрация модуля |
 | `SaveController.UnRegister(ISaveable)` | Отмена регистрации |
 | `SaveController.GetNumberLastSave()` | Номер-инкремент последнего сохранения |
@@ -245,6 +282,11 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 | Исключение в `GetSaveData` / `OnLoad` | `Log.Print(Error)`, `State = Idle`, событие Complete вызывается |
 | `ISaveable` не зарегистрирован | Данные не собираются/не раздаются |
 | `SaveSummary` — XML-сериализация | `Date` как `UnixTimestamp` (long), `DateTime.FromFileTimeUtc` |
+| Сводка без `<Meta>` (старый сейв, драйвер без метаданных) | `Meta == null`, `GetMeta` возвращает `null` |
+| Новая сводка в старой сборке | Неизвестный элемент `<Meta>` пропускается XML-сериализатором |
+| `AddMeta` вне окна сохранения | Пишет в черновик сводки, который заменится следующим `BeginSummary` — в сейв не попадёт |
+| `AddMeta` с повторным ключом | Значение перезаписывается |
+| Сбой сохранения до `Driver.Save` | Сводка цикла не пишется; следующий цикл начинает с новой |
 
 ---
 

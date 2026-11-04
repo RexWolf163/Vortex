@@ -2,6 +2,10 @@ using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
+using Vortex.Sdk.Quests.Diagnostics;
+#if UNITY_EDITOR
+using System.Collections.Generic;
+#endif
 
 namespace Vortex.Sdk.Quests.Conditions.Logics
 {
@@ -57,27 +61,27 @@ namespace Vortex.Sdk.Quests.Conditions.Logics
             switch (mode)
             {
                 case ConditionMode.Or:
-                    foreach (var condition in conditions)
-                        if (condition.Check())
+                    for (var i = 0; i < conditions.Length; i++)
+                        if (CheckAt(i))
                             return true;
                     return false;
 
                 case ConditionMode.Not: // NOR — ни одно не истинно
-                    foreach (var condition in conditions)
-                        if (condition.Check())
+                    for (var i = 0; i < conditions.Length; i++)
+                        if (CheckAt(i))
                             return false;
                     return true;
 
                 case ConditionMode.Xor: // ровно одно истинно (short-circuit при втором true)
                     var trueCount = 0;
-                    foreach (var condition in conditions)
-                        if (condition.Check() && ++trueCount > 1)
+                    for (var i = 0; i < conditions.Length; i++)
+                        if (CheckAt(i) && ++trueCount > 1)
                             return false;
                     return trueCount == 1;
 
                 case ConditionMode.And: // все истинны (short-circuit на первом false); пустой ⇒ true
-                    foreach (var condition in conditions)
-                        if (!condition.Check())
+                    for (var i = 0; i < conditions.Length; i++)
+                        if (!CheckAt(i))
                             return false;
                     return true;
 
@@ -85,6 +89,25 @@ namespace Vortex.Sdk.Quests.Conditions.Logics
                     return false;
             }
         }
+
+        /// <summary>
+        /// Проверка вложенного условия с фиксацией результата в открытом контексте монитора квестов.
+        /// </summary>
+        private bool CheckAt(int index)
+        {
+            QuestDiagnostics.EnterNode(index);
+            var result = conditions[index].Check();
+            QuestDiagnostics.ExitNode(result);
+            return result;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>Режим свёртки — для монитора квестов</summary>
+        internal ConditionMode Mode => mode;
+
+        /// <summary>Вложенные условия — для монитора квестов</summary>
+        internal IReadOnlyList<QuestConditionLogic> Conditions => conditions;
+#endif
 
         public override void InitListeners()
         {

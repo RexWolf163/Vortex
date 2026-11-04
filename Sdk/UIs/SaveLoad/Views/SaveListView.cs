@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Core.SaveSystem.Bus;
@@ -21,7 +23,78 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
     /// </summary>
     public class SaveListView : MonoBehaviour
     {
+        /// <summary>
+        /// Фильтр списка по метаблоку сводки: значение блока <see cref="key"/> сверяется с регулярным выражением
+        /// <see cref="pattern"/> целиком (якоря <c>^…$</c> добавляются сами, регистр учитывается).
+        ///
+        /// Отсутствующий блок считается пустой строкой — так выражение покрывает и сейвы, записанные до появления
+        /// метаданных: <c>Main|</c> — режим Main или блока нет (старый сейв), <c>.*</c> — что угодно, в т.ч. без блока,
+        /// <c>.+</c> — только сейвы с блоком. Невалидное выражение — ошибка в лог, фильтр не пропускает ничего.
+        /// </summary>
+        [Serializable]
+        private class MetaFilter
+        {
+            [SerializeField, Tooltip("Ключ метаблока сводки (preview, kind, gameMode…)")]
+            private string key;
+
+            [SerializeField, FormerlySerializedAs("mask")]
+            [Tooltip("Регулярное выражение для значения, совпадение всей строки. " +
+                                     "Нет блока — пустая строка: «Main|» пропустит и старые сейвы без маркера.")]
+            private string pattern;
+
+            /// <summary>Скомпилированное выражение и выражение-источник: пересборка при смене поля в инспекторе</summary>
+            private Regex _regex;
+
+            private string _compiledPattern;
+
+            private bool _invalid;
+
+            public MetaFilter()
+            {
+            }
+
+            public MetaFilter(string key, string pattern)
+            {
+                this.key = key;
+                this.pattern = pattern;
+            }
+
+            public string Key => key;
+
+            public bool Match(SaveSummary summary)
+            {
+                var regex = GetRegex();
+                return regex != null && regex.IsMatch(summary.GetMeta(key) ?? string.Empty);
+            }
+
+            private Regex GetRegex()
+            {
+                var source = pattern ?? string.Empty;
+                if (source == _compiledPattern)
+                    return _invalid ? null : _regex;
+
+                _compiledPattern = source;
+                try
+                {
+                    _regex = new Regex($"^(?:{source})$", RegexOptions.CultureInvariant);
+                    _invalid = false;
+                }
+                catch (ArgumentException e)
+                {
+                    _regex = null;
+                    _invalid = true;
+                    Debug.LogError($"[SaveListView] Невалидный фильтр метаданных «{key}»: «{source}» — {e.Message}");
+                }
+
+                return _regex;
+            }
+        }
+
         [SerializeField] private Pool pool;
+
+        [SerializeField]
+        [Tooltip("Фильтры по метаданным сводки: в списке только сейвы, прошедшие ВСЕ фильтры. Пусто — все сейвы.")]
+        private MetaFilter[] filters = new MetaFilter[0];
 
         /// <summary>
         /// Хранилище данных слота в фокусе
@@ -83,7 +156,10 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
                 _isInit = true;
                 _saveSlots.Clear();
                 _index = SaveController.GetIndex();
-                _index = _index.OrderByDescending(s => s.Value.UnixTimestamp).ToDictionary(s => s.Key, s => s.Value);
+                _index = _index
+                    .Where(s => PassFilters(s.Value))
+                    .OrderByDescending(s => s.Value.UnixTimestamp)
+                    .ToDictionary(s => s.Key, s => s.Value);
 
                 pool.Clear();
 
@@ -119,8 +195,35 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             }
         }
 
-        private void Refresh()
+        /// <summary>
+        /// Задать фильтр по ключу метаблока: прежние фильтры с этим ключом заменяются одним новым. Список не
+        /// перестраивается — после изменения фильтров вызвать <see cref="Refresh"/>.
+        /// </summary>
+        /// <param name="key">Ключ метаблока сводки</param>
+        /// <param name="pattern">Регулярное выражение для значения (совпадение всей строки; нет блока — пустая строка)</param>
+        public void SetFilter(string key, string pattern)
         {
+            var list = new List<MetaFilter>(filters.Length + 1);
+            foreach (var filter in filters)
+                if (filter.Key != key)
+                    list.Add(filter);
+            list.Add(new MetaFilter(key, pattern));
+            filters = list.ToArray();
+        }
+
+        /// <summary>
+        /// Снять все фильтры. Список не перестраивается — вызвать <see cref="Refresh"/>.
+        /// </summary>
+        public void ClearFilters() => filters = new MetaFilter[0];
+
+        /// <summary>
+        /// Перестроить список сейвов по текущему индексу и фильтрам. Выключенное представление не трогается —
+        /// список соберётся при включении.
+        /// </summary>
+        public void Refresh()
+        {
+            if (!isActiveAndEnabled)
+                return;
             Dispose();
             Init(Token).Forget(Debug.LogException);
         }
@@ -140,6 +243,17 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             foreach (var slot in _saveSlots.Values)
                 slot.Dispose();
             pool.Clear();
+        }
+
+        /// <summary>
+        /// Сейв прошёл все фильтры (AND); без фильтров — проходит любой
+        /// </summary>
+        private bool PassFilters(SaveSummary summary)
+        {
+            foreach (var filter in filters)
+                if (!filter.Match(summary))
+                    return false;
+            return true;
         }
 
         private void SetFocus(string guid)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Vortex.Core.SaveSystem;
 using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Core.System.Abstractions;
+using Vortex.Unity.SaveSystem.Presets;
 
 namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
 {
@@ -36,9 +37,23 @@ namespace Vortex.Unity.SaveSystem.Drivers.FileSystemDriver
         /// </summary>
         private int _increment = -1;
 
+        /// <summary>
+        /// Сводка текущего цикла сохранения: заводится в <see cref="BeginSummary"/>, копит метаблоки из
+        /// <see cref="AddMeta"/>, дописывается и записывается в <see cref="Save"/>.
+        /// </summary>
+        private SaveSummary _summary;
+
         public event Action OnInit;
 
         public void SetIndexLink(Dictionary<string, Dictionary<string, string>> index) => _saveDataIndex = index;
+
+        public void BeginSummary() => _summary = new SaveSummary { Meta = new List<SaveMeta>() };
+
+        public void AddMeta(string key, string metadata)
+        {
+            if (SaveSettings.IsMetaEnabled(key))
+                _summary.SetMeta(key, metadata);
+        }
 
         public void Destroy()
         {

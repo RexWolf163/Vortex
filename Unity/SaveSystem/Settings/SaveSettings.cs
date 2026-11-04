@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Sirenix.OdinInspector;
 using UnityEngine;
@@ -14,6 +15,17 @@ namespace Vortex.Unity.SaveSystem.Presets
     /// </summary>
     public class SaveSettings : SettingsPreset
     {
+        /// <summary>
+        /// Переключатель метаблока сводки сейва.
+        /// </summary>
+        [Serializable]
+        private class MetaToggle
+        {
+            [SerializeField, HorizontalGroup, HideLabel] public string key;
+
+            [SerializeField, HorizontalGroup(60), HideLabel, ToggleLeft] public bool enabled = true;
+        }
+
         private const string SettingsPath = "Settings";
 
         private static readonly SaveReactor[] Empty = new SaveReactor[0];
@@ -43,6 +55,12 @@ namespace Vortex.Unity.SaveSystem.Presets
         [SerializeReference]
         private SaveReactor[] reactors = new SaveReactor[0];
 
+        [BoxGroup("Метаданные сейва")]
+        [InfoBox("Включение/выключение метаблоков сводки сейва по ключу (превью, маркеры). Выключенный блок " +
+                 "драйвер не записывает. Ключ вне списка — блок включён. Пусто — пишутся все блоки.")]
+        [SerializeField, TableList(AlwaysExpanded = true)]
+        private MetaToggle[] metaBlocks = new MetaToggle[0];
+
         public string SavesFolder => savesFolder;
 
         public int GlobalSaveBackups => globalSaveBackups;
@@ -62,15 +80,38 @@ namespace Vortex.Unity.SaveSystem.Presets
         /// </summary>
         public static IReadOnlyList<SaveReactor> GetReactors()
         {
+            var instance = GetInstance();
+            return instance != null ? instance.reactors : Empty;
+        }
+
+        /// <summary>
+        /// Включён ли метаблок с ключом <paramref name="key"/>. Ключа нет в списке или нет ассета настроек —
+        /// включён.
+        /// </summary>
+        public static bool IsMetaEnabled(string key)
+        {
+            var instance = GetInstance();
+            if (instance == null)
+                return true;
+
+            foreach (var toggle in instance.metaBlocks)
+                if (toggle.key == key)
+                    return toggle.enabled;
+            return true;
+        }
+
+        /// <summary>
+        /// Единственный ассет настроек из <c>Resources/Settings</c>; null — ассета нет.
+        /// </summary>
+        private static SaveSettings GetInstance()
+        {
             if (_instance != null)
-                return _instance.reactors;
+                return _instance;
 
             var assets = Resources.LoadAll<SaveSettings>(SettingsPath);
-            if (assets == null || assets.Length == 0)
-                return Empty;
-
-            _instance = assets[0];
-            return _instance.reactors;
+            if (assets != null && assets.Length > 0)
+                _instance = assets[0];
+            return _instance;
         }
     }
 }

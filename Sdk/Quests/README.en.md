@@ -34,13 +34,19 @@ Out of scope:
 ## Dependencies
 
 ### Core
-- `Vortex.Core.DatabaseSystem` — `Record`, `RecordPreset`
+- `Vortex.Core.DatabaseSystem` — `Record`, `Database`
 - `Vortex.Core.System.Abstractions` — `IDataStorage`
 - `Vortex.Core.Extensions.ReactiveValues` — `IReactiveData` (for `SetListener`)
 - `Vortex.Core.Extensions.LogicExtensions` — serialization
+- `Vortex.Core.UIProviderSystem` — `UIProvider`, `UserInterfaceData` (`CallUIOpen`, `WaitUIClose` logics)
+
+### Unity
+- `Vortex.Unity.DatabaseSystem` — `RecordPreset`, the `DbRecord` attribute
+- `Vortex.Unity.AppSystem` — `TimeController` (condition re-check is deferred to the end of the frame)
+- `Vortex.Unity.EditorTools` — inspector attributes (`ClassLabel`, `ClassFilter`, `DataModel`)
 
 ### SDK
-- `Vortex.Sdk.Core.GameCore` — `GameController`, `GameModel.IGameData`, `OnNewGame`
+- `Vortex.Sdk.Core.GameCore` — `GameController`, `GameModel.IGameData`, `OnNewGame`, `OnLoadGame`, `OnGameStateChanged`
 
 ### External
 - **UniTask** — async logic execution
@@ -130,7 +136,7 @@ public class ExampleStarted : QuestConditionLogic
 }
 ```
 
-`QuestConditions.Check()` automatically calls `DisposeListeners` before checking and `InitListeners` only for conditions that returned `false` — subscriptions only live while the condition is unmet.
+`QuestConditions.Check()` checks conditions left to right: before checking each one it removes its subscriptions (`DisposeListeners`); on the first `false` it subscribes only that one (`InitListeners`) and stops — subscriptions only live while the condition is unmet.
 
 #### Why both levels are AND (atomic deterministic tracking)
 
@@ -185,8 +191,7 @@ QuestController (static, partial)
 │       ├── Autorun                               ← auto-start when Ready
 │       ├── UnFailable                            ← return to Locked on failure
 │       └── BlockRemovable                        ← Blocked reversibility (else — permanent)
-├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
-├── ActiveCts                                     ← Dictionary<QuestModel, CTS> (per-quest cancellation)
+├── ActiveCts                                     ← Dictionary<QuestModel, CTS>: registry of quests with running logic + per-quest cancellation
 ├── CompletedQuests                               ← Dictionary<string, QuestModel>
 ├── Listeners                                     ← IReactiveData → auto re-check (alternative API)
 └── CheckState()                                  ← subscribes to OnGameStateChanged (Reset on Off/Loading)
@@ -206,6 +211,8 @@ Unset ──[NewGame/LoadGame]──→ Locked ──[conditions met]──→ R
 
 `Unset` — initial state after creation from preset. On `NewGame`/`LoadGame` unconditionally transitions to `Locked`. Useful for detecting new quests on existing saves.
 
+A quest without rewards also passes through `Reward`: after the last logic it spends one frame in `Reward`, then moves to `Completed` by itself. A quest with rewards stays in `Reward` until the game calls `GiveRewards()` (such quests are listed by `GetRewardsReady()`); `IsComplete` is already `true` for it.
+
 ### Restoration on Load
 
 On `LoadGame()`, quests in `InProgress` state are restored via `RestoreQuest`:
@@ -216,7 +223,7 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
                                         └── Step == 0 → execute from the beginning
 ```
 
-`SavePoint` is a marker logic that saves its `Key` to `QuestModel.Step` during execution. On restoration, all logics up to and including the matching `SavePoint` are skipped.
+`SavePoint` is a marker logic that saves its `Key` to `QuestModel.Step` during execution. On restoration, all logics up to and including the matching `SavePoint` are skipped. If the quest has no `SavePoint` with that key (the preset changed after the save), all logics are skipped and the quest completes at once.
 
 ### Readable name (`QuestName`)
 
@@ -233,7 +240,7 @@ Visible in the save and in the `Tools/Vortex/SaveData/Game Index` window: withou
 
 A second condition set — `InterruptConditions` — answers "when to forbid" (start conditions answer "when to open"). Its fold is **mirror-opposite of start**: **OR between groups** (any group firing blocks the quest), AND within a group. An empty set ⇒ the quest is non-interruptible (backward compatibility: existing quests keep their behavior).
 
-The interrupt check runs as the **first line** of `CheckQuestStartConditions`, before the start check — so a block always overrides an open. The quest moves to `Blocked` from any live state (`Locked`/`Ready`/`InProgress`). If it was `InProgress`, its logic is cancelled immediately (a per-quest `CancellationToken`) and progress is reset (`Step = 0`).
+The interrupt check runs as the **first line** of `CheckQuestStartConditions`, before the start check — so a block always overrides an open (exception — start on `LoadGame`, see Guarantees). The quest moves to `Blocked` from any live state (`Locked`/`Ready`/`InProgress`). If it was `InProgress`, its logic is cancelled immediately (a per-quest `CancellationToken`) and progress is reset (`Step = 0`).
 
 ```
 Locked / Ready / InProgress ──[any interrupt group = true]──→ Blocked
@@ -249,6 +256,27 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 
 > **Interrupt condition contract (INV-7).** Any re-check wakeup must go through `CheckQuestStartConditions` (direct `+=` or `SetListener`) — both start and interrupt are re-evaluated from this single point. A condition that wakes a different symbol drops out of the interrupt logic.
 
+### Quest Monitor (diagnostics)
+
+Window **Tools → Vortex → Debug → Quest Monitor**, Play Mode only. Shows the quest list, the current logic, results of the last start/interrupt condition check (with the blocker), and a transition journal with reasons; provides debug actions.
+
+Window layout:
+- **Toolbar** — name search, state filter, per-state counters, journal fill (red on eviction), journal export.
+- **Quest list** (left) — state, name, current logic N/M, flags `A`utorun/`U`nFailable/`B`lockRemovable, `Step`; quests with an exception in the journal are highlighted.
+- **"Quest" tab** — card of the selected quest: header (name, GUID, state, flags), logics with statuses, start and interrupt condition trees with results and the blocker, rewards, the quest's journal. On the right — a fixed column: debug actions (disabled when not allowed for the current state), below a separator — "Preset" (pings the preset asset in Project).
+- **"Journal" tab** — the whole journal with "selected quest only" / "errors only" filters; clicking an entry selects its quest.
+
+- **Editor only.** Recording points (`QuestDiagnostics`) are `[Conditional("UNITY_EDITOR")]`: in a build the calls are stripped together with their arguments. Only the `TransitionReason`/`ConditionSetKind` enums (`SetState` arguments) and the `QuestDebugSettings`/`ConditionLabel` settings classes (data, no logic) remain in a build.
+- **Observation without interference (INV-D1).** The monitor never calls `Check()`: condition results are recorded at the moment of the regular check, inside a context opened by the controller. Conditions not reached (short-circuit) are shown as "not evaluated". Checks outside the controller (UI switchers by conditions, etc.) do not get into the snapshots.
+- **Single state-change point (INV-D2).** `QuestModel.State` changes only via `SetState(state, reason)`; each actual change is one journal entry.
+- **Journal** — ring buffer (capacity in `QuestDebugSettings`, default 500), in memory only, text export by a button. There is intentionally no spam protection: a quest flooding the journal is a visible bug symptom; eviction shows in the counter and `seq` gaps.
+- **Debug actions** are executed by the controller (`QuestControllerExtDebug`) through regular transitions — the invariant `Reward`/`Completed`/`Failed` ⇔ quest in `CompletedQuests` holds. "Complete with success" — Reward if there are rewards, otherwise Completed; "Complete with failure" — as a logic failure (`UnFailable` → Locked); "Reset" — from any state to Locked with `Step = 0` (quests already unlocked by it are not rolled back).
+- **Condition labels** — `QuestDebugSettings.conditionLabels`: type → template, `{field}` is replaced with the serialized field value; unknown field — `{field?}`; no entry — class name.
+
+> **Composite condition contract.** A condition that calls `Check()` on nested conditions itself (like `LogicGateCondition`) must wrap each call in `QuestDiagnostics.EnterNode(i)` / `ExitNode(result)` — otherwise its nested conditions are always "not evaluated" in the monitor.
+
+> **Limitation.** A forced action on a quest whose logic waits for UI (`WaitUIClose`, `CallUIOpen`) cancels the logic but does not close an already opened game window.
+
 ### Components
 
 | Class | Type | Purpose |
@@ -256,6 +284,10 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 | `QuestController` | static, partial | Lifecycle controller |
 | `QuestControllerExtIndex` | partial | Queries: `IsComplete(id)` |
 | `QuestControllerExtEditor` | partial, `#if UNITY_EDITOR` | Editor integration |
+| `QuestControllerExtDebug` | partial, `#if UNITY_EDITOR` | Quest Monitor debug actions |
+| `QuestDiagnostics` | static, internal | Monitor recording points: journal, quest trace, condition check context |
+| `QuestMonitorWindow` | `EditorWindow`, `#if UNITY_EDITOR` | Quest Monitor window |
+| `QuestDebugSettings` | `ScriptableObject` | Monitor settings: journal capacity, condition labels |
 | `QuestModel` | `Record` | Quest model: state, conditions, logics, readable name (`QuestName`) |
 | `QuestModels` | `IGameData` | Quest index container |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject preset for Database |
@@ -263,10 +295,13 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 | `QuestLogic` | `abstract` | Atomic logic: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Save point marker: stores `Key` in `QuestModel.Step` |
 | `AlwaysFail` | `QuestLogic` | Hard `false`: loops an `UnFailable` quest (Locked → restart) |
+| `CallUIOpen` | `QuestLogic` | Opens a UI by ID and lets the quest proceed right away |
+| `WaitUIClose` | `QuestLogic` | Waits for UIs to close: the listed ones (blacklist) or all Common except the listed ones (whitelist) |
+| `QuestRewardLogic` | `abstract` | Reward: `RewardLogic()`, `GetRewardData()`; given by the controller in `GiveRewards()` |
 | `QuestConditionLogic` | `abstract` | Condition: `Check()`, `InitListeners()`, `DisposeListeners()` |
 | `QuestConditions` | `Serializable` | Condition group: `Check()` is AND. The fold between groups — AND (start) or OR (interrupt) — is at the controller level |
 | `LogicGateCondition` | `QuestConditionLogic` | Combinator over nested conditions with a mode (`OR` / `NOT`=NOR / `XOR`=exactly one / `AND`=all). Subscribes to **all** children (alternativeness). Expresses arbitrary logic inside an AND-group; trees nest freely (e.g. `OR` over two `AND`-sets); `NOT` over a single child replaces the removed per-condition `inverted` flag. *(formerly `OrNotCondition`; serialized `[SerializeReference]` references migrate via `[MovedFrom]`)* |
-| `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID is complete |
+| `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID has finished with any result (`Reward`/`Completed`/`Failed`) |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | UI binding to quest by GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Quest launch via `IDataStorage` |
 
@@ -276,21 +311,27 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 - `QuestPreset` — ScriptableObject registered in Database as MultiInstance
 - `GameController.OnNewGame` — new game trigger
 - `GameController.OnLoadGame` — save load trigger
+- `GameController.OnGameStateChanged` — quest reset on `Off`/`Loading`
+- `GameController.OnEditorGetData` (editor only) — quest initialization when data is collected outside Play Mode
 
 ### Output
 - `QuestController.OnUpdateData` — change event
-- `QuestController.IsComplete(id)` — completion check
+- `QuestController.OnCheckConditions` — a condition re-check has finished (for `QuestConditions` used outside quests)
+- `QuestController.IsComplete(id)` — completion check (any result)
+- `QuestController.CheckQuestStartConditions()` — request a condition re-check (runs at the end of the frame)
+- `QuestModel.Run()` — start a `Ready` quest / restore an `InProgress` one
+- `QuestController.GetRewardsReady()`, `QuestModel.GiveRewards()` — quests in `Reward` and giving their rewards
 - `QuestModel.OnStateUpdated` — state change event for a specific quest
 
 ### Guarantees
 - Logics execute strictly sequentially
 - On `NewGame()` and `LoadGame()`, all active quests are cancelled via `CancellationToken`
-- `CheckQuestStartConditions` is blocked during `GameStates.Off` (calls `Reset()` on all quests) and `Loading`
+- When the game enters `GameStates.Off` or `Loading`, the controller resets: active quests are cancelled, every quest gets `Reset()` (→ `Unset`, `Step = 0`, subscriptions removed). `CheckQuestStartConditions` does nothing in these states
 - Recursive condition re-check limited to depth 10
 - `UnFailable` quest on failure returns to `Locked` and does not enter `CompletedQuests` — can be restarted
-- `Run()` on a quest with state `Ready` — launches `RunQuest`; with state `InProgress` — launches `RestoreQuest`; other states — error logged, call ignored
+- `Run()` on a quest with state `Ready` — launches `RunQuest`; with state `InProgress` — launches `RestoreQuest`; other states, or if the quest's logic is already running — error logged, call ignored
 - On quest start, start-condition subscriptions are removed (`DisposeListeners`); interrupt subscriptions live through `Locked → Ready → InProgress`
-- Interrupt is prioritized over start: the interrupt pass is the first line of `CheckQuestStartConditions`, before the start pass and on every settle-recursion iteration
+- Interrupt is prioritized over start: the interrupt pass is the first line of `CheckQuestStartConditions`, before the start pass and on every settle-recursion iteration. **Exception — `LoadGame`:** `InProgress` and `Ready` + `Autorun` quests are started immediately (`Run()`), while `CheckQuestStartConditions` is deferred to the end of the frame — the synchronous part of their logics (up to the first incomplete `await`) runs before the interrupt check; if the interrupt holds, the quest is blocked at the end of the frame, side effects of already executed logics are not rolled back
 - An interrupted `InProgress` quest loses progress (`Step = 0`); on a reversible block, re-entry is strictly from scratch via `RunQuest`
 
 ### Constraints
@@ -308,14 +349,19 @@ Terminal states (`Reward`/`Completed`/`Failed`) are not interruptible — only l
 | Logic returns `false`, `UnFailable = true` | State → `Locked`, not added to `CompletedQuests` (restart possible) |
 | Logic returns `false`, `UnFailable = false` | State → `Failed`, quest in `CompletedQuests` |
 | `NewGame()` / `LoadGame()` with active quests | All cancelled via `CancellationToken`, subscriptions removed |
-| `GameStates.Off` | `CheckQuestStartConditions` calls `Reset()` on all quests, check skipped |
-| `GameStates.Loading` | `CheckQuestStartConditions` skipped |
+| Entering `GameStates.Off` / `Loading` | Active quests cancelled, `Reset()` on every quest → `Unset`; `CheckQuestStartConditions` is skipped in these states |
 | Condition recursion > 10 levels | Interrupted (guard) |
 | `Run()` on quest in `InProgress` | Restoration via `RestoreQuest` — skips logics up to `SavePoint` |
+| `Run()` on a quest whose logic is already running | Error logged, repeated launch rejected |
+| No `SavePoint` matches the saved `Step` | All logics skipped, the quest completes (`Reward`/`Completed`) |
+| A logic throws | The exception is logged, the quest is forced → `Completed` and added to `CompletedQuests` |
+| A reward throws | The exception is logged, the quest still → `Completed` |
+| Quest removed from Database but present in the save | The record is removed from the index on `LoadGame` |
 | Quest completes → another quest's conditions depend on it | Recursive re-check via `CheckQuestStartConditions` |
 | Empty `InterruptConditions` | Quest is non-interruptible — behaves as before the feature |
 | Interrupt condition fires on `InProgress` | Logic cancelled (per-quest CTS), `Step = 0`, state → `Blocked` |
 | Interrupt vs start when both true | Interrupt wins (interrupt pass runs before the start pass) |
+| `LoadGame`: `InProgress` or `Ready` + `Autorun` quest with interrupt holding | The quest is started first (the synchronous part of logics runs), blocked at the end of the frame with its logic cancelled; side effects are not rolled back |
 | `BlockRemovable = false`, condition cleared | Stays `Blocked` (until `Reset`/new game) |
 | `BlockRemovable = true`, condition cleared | → `Locked`; if start conditions hold — restart from scratch |
 | Save/load while `Blocked` | Conditions re-read: true → stays `Blocked`; cleared and `BlockRemovable` → `Locked` |

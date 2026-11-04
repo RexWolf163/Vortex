@@ -30,6 +30,9 @@ namespace Vortex.Sdk.Quests.QuestRewardLogics
         /// </summary>
         /// <returns></returns>
         protected abstract string GetEditorLabel();
+
+        /// <summary>Подпись для монитора квестов</summary>
+        internal string EditorLabel => GetEditorLabel();
 #endif
 
     }

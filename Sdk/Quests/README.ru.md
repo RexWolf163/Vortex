@@ -34,13 +34,19 @@
 ## Зависимости
 
 ### Core
-- `Vortex.Core.DatabaseSystem` — `Record`, `RecordPreset`
+- `Vortex.Core.DatabaseSystem` — `Record`, `Database`
 - `Vortex.Core.System.Abstractions` — `IDataStorage`
 - `Vortex.Core.Extensions.ReactiveValues` — `IReactiveData` (для `SetListener`)
 - `Vortex.Core.Extensions.LogicExtensions` — сериализация
+- `Vortex.Core.UIProviderSystem` — `UIProvider`, `UserInterfaceData` (логики `CallUIOpen`, `WaitUIClose`)
+
+### Unity
+- `Vortex.Unity.DatabaseSystem` — `RecordPreset`, атрибут `DbRecord`
+- `Vortex.Unity.AppSystem` — `TimeController` (перепроверка условий отложена на конец кадра)
+- `Vortex.Unity.EditorTools` — атрибуты инспектора (`ClassLabel`, `ClassFilter`, `DataModel`)
 
 ### SDK
-- `Vortex.Sdk.Core.GameCore` — `GameController`, `GameModel.IGameData`, `OnNewGame`
+- `Vortex.Sdk.Core.GameCore` — `GameController`, `GameModel.IGameData`, `OnNewGame`, `OnLoadGame`, `OnGameStateChanged`
 
 ### Внешние
 - **UniTask** — асинхронное выполнение логик
@@ -130,7 +136,7 @@ public class ExampleStarted : QuestConditionLogic
 }
 ```
 
-`QuestConditions.Check()` автоматически вызывает `DisposeListeners` перед проверкой и `InitListeners` только для условий, вернувших `false` — подписки живут только пока условие не выполнено.
+`QuestConditions.Check()` проверяет условия слева направо: перед проверкой каждого снимает его подписки (`DisposeListeners`), на первом `false` подписывает только его (`InitListeners`) и останавливается — подписки живут только пока условие не выполнено.
 
 #### Почему оба уровня — AND (атомарное детерминированное отслеживание)
 
@@ -185,8 +191,7 @@ QuestController (static, partial)
 │       ├── Autorun                               ← автозапуск при Ready
 │       ├── UnFailable                            ← возврат в Locked при провале
 │       └── BlockRemovable                        ← обратимость Blocked (иначе — навсегда)
-├── ActiveQuests                                  ← Dictionary<QuestModel, UniTask>
-├── ActiveCts                                     ← Dictionary<QuestModel, CTS> (пер-квестовая отмена)
+├── ActiveCts                                     ← Dictionary<QuestModel, CTS>: реестр квестов с запущенной логикой + пер-квестовая отмена
 ├── CompletedQuests                               ← Dictionary<string, QuestModel>
 ├── Listeners                                     ← IReactiveData → автоперепроверка (альтернативный API)
 └── CheckState()                                  ← подписка на OnGameStateChanged (Reset при Off/Loading)
@@ -206,6 +211,8 @@ Unset ──[NewGame/LoadGame]──→ Locked ──[условия выпол�
 
 `Unset` — начальное состояние после создания из пресета. При `NewGame`/`LoadGame` безусловно переводится в `Locked`. Полезен для отлова новых квестов на существующих сейвах.
 
+Квест без наград тоже проходит через `Reward`: после последней логики он на один кадр уходит в `Reward`, затем сам переходит в `Completed`. Квест с наградами стоит в `Reward`, пока игра не вызовет `GiveRewards()` (список таких квестов — `GetRewardsReady()`); `IsComplete` для него уже `true`.
+
 ### Восстановление при загрузке
 
 При `LoadGame()` квесты в состоянии `InProgress` восстанавливаются через `RestoreQuest`:
@@ -216,7 +223,7 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
                                         └── Step == 0 → выполнение с начала
 ```
 
-`SavePoint` — маркерная логика, которая при выполнении сохраняет свой `Key` в `QuestModel.Step`. При восстановлении все логики до соответствующего `SavePoint` (включительно) пропускаются.
+`SavePoint` — маркерная логика, которая при выполнении сохраняет свой `Key` в `QuestModel.Step`. При восстановлении все логики до соответствующего `SavePoint` (включительно) пропускаются. Если `SavePoint` с таким ключом в квесте нет (пресет изменили после сейва), пропускаются все логики и квест сразу завершается.
 
 ### Читаемое имя (`QuestName`)
 
@@ -233,7 +240,7 @@ Run(quest) ──[State == InProgress]──→ RestoreQuest()
 
 Второй набор условий — `InterruptConditions` — отвечает на вопрос «когда запретить» (условия старта — «когда открыть»). Свёртка **зеркальна старту**: **OR между группами** (сработала любая группа — квест блокируется), AND внутри группы. Пустой набор ⇒ квест непрерываем (обратная совместимость: существующие квесты не меняют поведение).
 
-Проверка прерывания идёт **первой строкой** `CheckQuestStartConditions`, до проверки старта, — поэтому запрет всегда перебивает открытие. Квест уходит в `Blocked` из любого «живого» состояния (`Locked`/`Ready`/`InProgress`). Если он был `InProgress` — его логика немедленно отменяется (пер-квестовый `CancellationToken`), прогресс сбрасывается (`Step = 0`).
+Проверка прерывания идёт **первой строкой** `CheckQuestStartConditions`, до проверки старта, — поэтому запрет всегда перебивает открытие (исключение — запуск при `LoadGame`, см. «Гарантии»). Квест уходит в `Blocked` из любого «живого» состояния (`Locked`/`Ready`/`InProgress`). Если он был `InProgress` — его логика немедленно отменяется (пер-квестовый `CancellationToken`), прогресс сбрасывается (`Step = 0`).
 
 ```
 Locked / Ready / InProgress ──[любая группа прерывания = true]──→ Blocked
@@ -249,6 +256,27 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 
 > **Контракт условий прерывания (INV-7).** Любое пробуждение перепроверки обязано проходить через `CheckQuestStartConditions` (прямой `+=` или `SetListener`) — из этой единой точки перечитываются и старт, и прерывание. Условие, будящее иной символ, выпадет из interrupt-логики.
 
+### Монитор квестов (диагностика)
+
+Окно **Tools → Vortex → Debug → Quest Monitor**, только Play Mode. Показывает список квестов, текущую логику, результаты последней проверки условий старта и прерывания (с блокером), журнал переходов с причиной; даёт дебаг-действия.
+
+Раскладка окна:
+- **Панель инструментов** — поиск по имени, фильтр по состояниям, счётчики состояний, заполненность журнала (красным при вытеснении), экспорт журнала.
+- **Список квестов** (слева) — состояние, имя, текущая логика N/M, флаги `A`utorun/`U`nFailable/`B`lockRemovable, `Step`; квесты с исключением в журнале подсвечены.
+- **Вкладка «Квест»** — карточка выбранного квеста: шапка (имя, GUID, состояние, флаги), логики со статусами, деревья условий старта и прерывания с результатами и блокером, награды, журнал квеста. Справа — фиксированная колонка: дебаг-действия (недоступные для текущего состояния неактивны), под разделителем — «Пресет» (подсветка ассета пресета в Project).
+- **Вкладка «Журнал»** — общий журнал с фильтрами «только выбранный квест» / «только ошибки»; клик по записи выбирает квест.
+
+- **Только редактор.** Точки записи (`QuestDiagnostics`) — `[Conditional("UNITY_EDITOR")]`: в билде вызовы вырезаются вместе с аргументами. В билде остаются только перечисления `TransitionReason`/`ConditionSetKind` (аргументы `SetState`) и классы настроек `QuestDebugSettings`/`ConditionLabel` (данные без логики).
+- **Наблюдение без вмешательства (INV-D1).** Монитор не вызывает `Check()`: результаты условий пишутся в момент штатной проверки внутри контекста, который открывает контроллер. Условия, до которых проверка не дошла (short-circuit), показываются «не проверялось». Проверки вне контроллера (UI-переключатели по условиям и т.п.) в снимки не попадают.
+- **Единая точка смены состояния (INV-D2).** `QuestModel.State` меняется только через `SetState(state, reason)`; каждая фактическая смена — одна запись журнала.
+- **Журнал** — кольцевой буфер (ёмкость в `QuestDebugSettings`, по умолчанию 500), только в памяти, экспорт в текст кнопкой. Защиты от спама нет намеренно: квест, забивающий журнал, — видимый симптом бага; вытеснение видно по счётчику и пропуску `seq`.
+- **Дебаг-действия** выполняет контроллер (`QuestControllerExtDebug`) по штатным переходам — инвариант `Reward`/`Completed`/`Failed` ⇔ квест в `CompletedQuests` сохраняется. «Завершить успехом» — Reward при наградах, иначе Completed; «Завершить провалом» — как провал логики (`UnFailable` → Locked); «Сбросить» — из любого состояния в Locked с `Step = 0` (уже открывшиеся от квеста квесты не откатываются).
+- **Подписи условий** — `QuestDebugSettings.conditionLabels`: тип → шаблон, `{поле}` заменяется значением сериализованного поля; неизвестное поле — `{поле?}`; нет записи — имя класса.
+
+> **Контракт составных условий.** Условие, которое само вызывает `Check()` вложенных (как `LogicGateCondition`), обязано оборачивать каждый вызов в `QuestDiagnostics.EnterNode(i)` / `ExitNode(result)` — иначе его вложенные в мониторе всегда «не проверялось».
+
+> **Ограничение.** Принудительное действие над квестом, логика которого ждёт UI (`WaitUIClose`, `CallUIOpen`), отменяет логику, но уже открытое окно игры не закрывает.
+
 ### Компоненты
 
 | Класс | Тип | Назначение |
@@ -256,6 +284,10 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 | `QuestController` | static, partial | Контроллер жизненного цикла |
 | `QuestControllerExtIndex` | partial | Запросы: `IsComplete(id)` |
 | `QuestControllerExtEditor` | partial, `#if UNITY_EDITOR` | Editor-интеграция |
+| `QuestControllerExtDebug` | partial, `#if UNITY_EDITOR` | Дебаг-действия монитора квестов |
+| `QuestDiagnostics` | static, internal | Точки записи монитора: журнал, след квеста, контекст проверки условий |
+| `QuestMonitorWindow` | `EditorWindow`, `#if UNITY_EDITOR` | Окно монитора квестов |
+| `QuestDebugSettings` | `ScriptableObject` | Настройки монитора: ёмкость журнала, подписи условий |
 | `QuestModel` | `Record` | Модель квеста: состояние, условия, логики, читаемое имя (`QuestName`) |
 | `QuestModels` | `IGameData` | Контейнер индекса квестов |
 | `QuestPreset` | `RecordPreset<QuestModel>` | ScriptableObject-пресет для Database |
@@ -263,10 +295,13 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 | `QuestLogic` | `abstract` | Атомарная логика: `UniTask<bool> Run(CancellationToken)` |
 | `SavePoint` | `QuestLogic` | Маркер точки сохранения: сохраняет `Key` в `QuestModel.Step` |
 | `AlwaysFail` | `QuestLogic` | Жёсткий `false`: у `UnFailable`-квеста зацикливает его (Locked → рестарт) |
+| `CallUIOpen` | `QuestLogic` | Открывает интерфейс по ID и сразу пропускает квест дальше |
+| `WaitUIClose` | `QuestLogic` | Ждёт закрытия интерфейсов: перечисленных (blacklist) или всех Common, кроме перечисленных (whitelist) |
+| `QuestRewardLogic` | `abstract` | Награда: `RewardLogic()`, `GetRewardData()`; выдаётся контроллером в `GiveRewards()` |
 | `QuestConditionLogic` | `abstract` | Условие: `Check()`, `InitListeners()`, `DisposeListeners()` |
 | `QuestConditions` | `Serializable` | Группа условий: `Check()` по AND. Свёртка между группами — AND (старт) или OR (прерывание) — на уровне контроллера |
 | `LogicGateCondition` | `QuestConditionLogic` | Комбинатор над вложенными условиями с режимом (`OR` / `NOT`=NOR / `XOR`=ровно одно / `AND`=все). Подписывается на **все** дочерние (альтернативность). Выражает произвольную логику внутри AND-группы; деревья вкладываются свободно (напр. `OR` над двумя `AND`-наборами); `NOT` над одним вложенным заменяет убранный флаг `inverted` у условий. *(бывш. `OrNotCondition`; сериализованные `[SerializeReference]`-ссылки мигрируют через `[MovedFrom]`)* |
-| `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён |
+| `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён с любым результатом (`Reward`/`Completed`/`Failed`) |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | Привязка UI к квесту по GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Запуск квеста через `IDataStorage` |
 
@@ -276,21 +311,27 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 - `QuestPreset` — ScriptableObject, зарегистрированный в Database как MultiInstance
 - `GameController.OnNewGame` — триггер новой игры
 - `GameController.OnLoadGame` — триггер загрузки сохранения
+- `GameController.OnGameStateChanged` — сброс квестов при `Off`/`Loading`
+- `GameController.OnEditorGetData` (только редактор) — инициализация квестов при сборе данных вне Play Mode
 
 ### Выход
 - `QuestController.OnUpdateData` — событие изменений
-- `QuestController.IsComplete(id)` — проверка завершения
+- `QuestController.OnCheckConditions` — завершилась перепроверка условий (для `QuestConditions`, используемых вне квестов)
+- `QuestController.IsComplete(id)` — проверка завершения (любой результат)
+- `QuestController.CheckQuestStartConditions()` — запрос перепроверки условий (выполняется в конце кадра)
+- `QuestModel.Run()` — запуск квеста в `Ready` / восстановление в `InProgress`
+- `QuestController.GetRewardsReady()`, `QuestModel.GiveRewards()` — квесты в `Reward` и выдача их наград
 - `QuestModel.OnStateUpdated` — событие смены состояния конкретного квеста
 
 ### Гарантии
 - Логики выполняются строго последовательно
 - При `NewGame()` и `LoadGame()` все активные квесты отменяются через `CancellationToken`
-- `CheckQuestStartConditions` блокируется при `GameStates.Off` (вызывает `Reset()` на всех квестах) и `Loading`
+- При переходе игры в `GameStates.Off` или `Loading` контроллер сбрасывается: активные квесты отменяются, все квесты получают `Reset()` (→ `Unset`, `Step = 0`, подписки сняты). `CheckQuestStartConditions` в этих состояниях ничего не делает
 - Рекурсивная перепроверка условий ограничена глубиной 10
 - `UnFailable`-квест при провале возвращается в `Locked` и не попадает в `CompletedQuests` — может быть перезапущен
-- `Run()` на квест в состоянии `Ready` — запускает `RunQuest`; в состоянии `InProgress` — запускает `RestoreQuest`; в ином состоянии — логируется ошибка, вызов игнорируется
+- `Run()` на квест в состоянии `Ready` — запускает `RunQuest`; в состоянии `InProgress` — запускает `RestoreQuest`; в ином состоянии или если логика квеста уже выполняется — логируется ошибка, вызов игнорируется
 - При запуске квеста подписки условий старта снимаются (`DisposeListeners`); подписки прерывания живут через `Locked → Ready → InProgress`
-- Прерывание приоритетнее старта: interrupt-пасс — первая строка `CheckQuestStartConditions`, до старт-пасса и на каждой итерации settle-рекурсии
+- Прерывание приоритетнее старта: interrupt-пасс — первая строка `CheckQuestStartConditions`, до старт-пасса и на каждой итерации settle-рекурсии. **Исключение — `LoadGame`:** квесты `InProgress` и `Ready` + `Autorun` запускаются сразу (`Run()`), а `CheckQuestStartConditions` отложен на конец кадра — синхронная часть их логик (до первого незавершённого `await`) отрабатывает до проверки прерывания; при истинном прерывании квест блокируется в конце кадра, побочные эффекты уже выполненных логик не откатываются
 - Прерванный `InProgress`-квест теряет прогресс (`Step = 0`); при обратимом блоке возврат — строго с нуля через `RunQuest`
 
 ### Ограничения
@@ -308,14 +349,19 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 | Логика возвращает `false`, `UnFailable = true` | Состояние → `Locked`, в `CompletedQuests` не добавляется (перезапуск возможен) |
 | Логика возвращает `false`, `UnFailable = false` | Состояние → `Failed`, квест в `CompletedQuests` |
 | `NewGame()` / `LoadGame()` при активных квестах | Все отменяются через `CancellationToken`, подписки снимаются |
-| `GameStates.Off` | `CheckQuestStartConditions` вызывает `Reset()` на всех квестах, проверка не выполняется |
-| `GameStates.Loading` | `CheckQuestStartConditions` пропускается |
+| Переход в `GameStates.Off` / `Loading` | Активные квесты отменяются, на всех квестах `Reset()` → `Unset`; `CheckQuestStartConditions` в этих состояниях пропускается |
 | Рекурсия условий > 10 уровней | Прерывается (предохранитель) |
 | `Run()` на квест в `InProgress` | Восстановление через `RestoreQuest` — пропуск логик до `SavePoint` |
+| `Run()` на квест, чья логика уже выполняется | Ошибка в лог, повторный запуск отклонён |
+| `SavePoint` с сохранённым `Step` не найден | Пропускаются все логики, квест завершается (`Reward`/`Completed`) |
+| Логика бросила исключение | Исключение логируется, квест принудительно → `Completed` и попадает в `CompletedQuests` |
+| Награда бросила исключение | Исключение логируется, квест всё равно → `Completed` |
+| Квест удалён из Database, но есть в сейве | При `LoadGame` запись убирается из индекса |
 | Квест завершён → условия другого квеста зависят от него | Рекурсивная перепроверка через `CheckQuestStartConditions` |
 | Пустой `InterruptConditions` | Квест непрерываем — поведение как до фичи |
 | Условие прерывания сработало на `InProgress` | Логика отменяется (пер-квестовый CTS), `Step = 0`, состояние → `Blocked` |
 | Прерывание vs старт при одновременной истинности | Побеждает прерывание (interrupt-пасс раньше старт-пасса) |
+| `LoadGame`: квест `InProgress` или `Ready` + `Autorun` при истинном прерывании | Квест сначала запускается (синхронная часть логик отрабатывает), в конце кадра блокируется с отменой логики; побочные эффекты не откатываются |
 | `BlockRemovable = false`, условие снялось | Остаётся `Blocked` (до `Reset`/новой игры) |
 | `BlockRemovable = true`, условие снялось | → `Locked`, при выполненных условиях старта — рестарт с нуля |
 | Сейв/лоад в `Blocked` | Условия перечитываются: истинны → остаётся `Blocked`; сняты и `BlockRemovable` → `Locked` |

@@ -1,5 +1,6 @@
 ﻿using System;
 using Vortex.Sdk.Quests.Conditions;
+using Vortex.Sdk.Quests.Diagnostics;
 using Vortex.Core.DatabaseSystem.Model;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.Extensions.LogicExtensions.SerializationSystem;
@@ -22,7 +23,10 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         public string QuestName { get; internal set; }
 
-        public QuestState State { get; internal set; }
+        /// <summary>
+        /// Состояние квеста. Меняется только через <see cref="SetState"/> — единую точку смены с причиной.
+        /// </summary>
+        public QuestState State { get; private set; }
 
         public QuestConditions[] StartConditions { get; private set; }
 
@@ -76,6 +80,16 @@ namespace Vortex.Sdk.Quests
 
         internal void CallOnUpdated() => OnStateUpdated?.Invoke();
 
+        /// <summary>
+        /// Единая точка смены состояния. Каждая фактическая смена пишется в журнал монитора квестов (только
+        /// редактор, INV-D2); причина, номер логики и детали в билде не используются.
+        /// </summary>
+        internal void SetState(QuestState state, TransitionReason reason, int logicIndex = -1, string detail = null)
+        {
+            if (State != state)
+                QuestDiagnostics.RecordTransition(this, State, state, reason, logicIndex, detail);
+            State = state;
+        }
 
         /// <summary>
         /// Очистка подписок квестов
@@ -83,7 +97,7 @@ namespace Vortex.Sdk.Quests
         /// </summary>
         public void Reset()
         {
-            State = QuestState.Unset;
+            SetState(QuestState.Unset, TransitionReason.GameStateReset);
             Step = 0;
             foreach (var condition in StartConditions)
                 condition.DisposeListeners();

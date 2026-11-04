@@ -16,10 +16,10 @@ Capabilities:
 - `FileSystemDriver/FileSystemDriver` — filesystem-backed slot driver (`FileBus.GetAppPath()/{savesFolder}/`, `Saves` by default)
 - `GlobalPrefsDriver`, `GlobalFileDriver` — global storage drivers (`GlobalSaveController`)
 - `SavePreset` — XML-serializable wrapper for `SaveFolder[]` (shared by the slot drivers)
-- `SaveSettings` — shared settings asset: saves folder, backup count, global storage folder and the list of outdated-save correction blocks
+- `SaveSettings` — shared settings asset: saves folder, backup count, global storage folder, the list of outdated-save correction blocks and the summary meta block toggles
 - `UISaveLoadComponent` — MonoBehaviour for save/load progress display
 - `Tools/Vortex/SaveData/Global Index` window — index of global storage modules; in Play Mode — current values with live editing and reset
-- Each slot driver maintains its own save index and metadata (`SaveSummary`) in its own format
+- Each slot driver maintains its own save index and summaries (`SaveSummary`) in its own format; both drivers support summary meta blocks (`BeginSummary`/`AddMeta`)
 
 Out of scope:
 
@@ -146,9 +146,12 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
   │    ├── PlayerPrefs.GetString("SavesData") → "guid1;guid2;..."
   │    └── For each GUID → GetSaveSummary() → Saves
   │
+  ├── BeginSummary() → new cycle summary (_summary) with empty Meta
+  ├── AddMeta(key, metadata) → _summary.Meta, if the block is enabled in SaveSettings
+  │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → PlayerPrefs "Save-{guid}"
-  │    ├── SaveSummary { Name, Version = Application.version } → XML → PlayerPrefs "SaveSummary-{guid}"
+  │    ├── _summary + { Name, date, Version = Application.version } → XML → PlayerPrefs "SaveSummary-{guid}"
   │    └── Update "SavesData", increment "SavesCount"
   │
   ├── Load(guid)
@@ -171,7 +174,7 @@ SaveSystemDriver : Singleton<SaveSystemDriver>, IDriver  (partial)
 | `SavesData` | `"guid1;guid2;guid3"` — all GUIDs joined by `;` |
 | `SavesCount` | `int` — increment counter of the last save |
 | `Save-{guid}` | Compressed XML string (`SavePreset`), compression key = GUID |
-| `SaveSummary-{guid}` | XML string (`SaveSummary`) — name, date and `Application.version` captured at save time |
+| `SaveSummary-{guid}` | XML string (`SaveSummary`) — name, date, `Application.version` captured at save time and meta blocks (`<Meta>`) |
 
 ### Driver: FileSystem
 
@@ -185,9 +188,12 @@ FileSystemDriver : Singleton<FileSystemDriver>, IDriver  (partial)
   ├── Init()
   │    └── ScanIndex() → reads all *.summary in Saves/
   │
+  ├── BeginSummary() → new cycle summary (_summary) with empty Meta
+  ├── AddMeta(key, metadata) → _summary.Meta, if the block is enabled in SaveSettings
+  │
   ├── Save(name, guid)
   │    ├── _saveDataIndex → SavePreset (XML) → Compress(guid) → {guid}.save
-  │    ├── SaveSummary { Name, Version = Application.version } → XML → {guid}.summary
+  │    ├── _summary + { Name, date, Version = Application.version } → XML → {guid}.summary
   │    └── On new GUID — _increment = GetNumberLastSave() + 1 → write to .in file
   │
   ├── Load(guid)
@@ -209,7 +215,7 @@ Paths are given for the default `Saves` folder.
 | File | Content |
 |------|---------|
 | `Saves/{guid}.save` | Compressed XML string (`SavePreset`), compression key = GUID |
-| `Saves/{guid}.summary` | XML string (`SaveSummary`) — name, date and `Application.version` captured at save time |
+| `Saves/{guid}.summary` | XML string (`SaveSummary`) — name, date, `Application.version` captured at save time and meta blocks (`<Meta>`) |
 | `Saves/.in` | `int` — increment counter of the last save |
 
 ### SavePreset (shared)
@@ -242,8 +248,11 @@ UISaveLoadComponent : MonoBehaviour
 | `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — no copies |
 | `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
 | `reactors` | — (read from the preset) | slot drivers | empty |
+| `metaBlocks` | — (read from the preset) | slot drivers (`AddMeta`) | empty — all blocks are written |
 
 `reactors` — outdated-save correction blocks (`SaveReactor`, `[SerializeReference]`). The list is not copied into `SettingsModel`: the model extension compiles into the settings assembly, which knows nothing about SaveSystem — a reference would create an assembly cycle. Drivers take the list from the preset itself via `SaveSettings.GetReactors()` (lazy load from `Resources/Settings`; no asset — an empty list). The mechanism is described in the Core SaveSystem README.
+
+`metaBlocks` — summary meta block toggles: a "key — enabled" table. In `AddMeta` the driver asks `SaveSettings.IsMetaEnabled(key)` and does not write a disabled block. A key outside the table, or no asset, means the block is enabled, so a new meta block works without configuration. Disabling affects new saves; already written summaries are not changed. Like `reactors`, the list is read from the preset, not from `SettingsModel`. Meta blocks are described in the Core SaveSystem README.
 
 Folders are relative to `FileBus.GetAppPath()`; empty — root. The path is joined with `Path.Combine`: an absolute path in the field replaces the root. File drivers read the folder when connected — a change during play applies from the next launch.
 
@@ -351,6 +360,8 @@ Load order: read → `Decompress(guid)` → `SaveReactors.Apply(raw, version, Sa
 | Duplicate GUID on `Save` | PlayerPrefsDriver: `Saves.Add` is wrapped in try/catch — the exception is logged (`Debug.LogException`) and not propagated; FileSystemDriver: `Saves[guid] = summary` overwrites, file is rewritten |
 | Corrupted XML on deserialization | `SavePreset = null`, `LogError` |
 | `UISaveLoadComponent` disabled during process | `OnDisable` → `StopAllCoroutines` |
+| Meta block disabled in `SaveSettings` | `AddMeta` discards it, the summary has no such block |
+| `Save` without a preceding `BeginSummary` (driver called bypassing `SaveController`) | The previous cycle's summary is written with its meta blocks — the driver is called only through `SaveController` |
 
 ### PlayerPrefsDriver
 

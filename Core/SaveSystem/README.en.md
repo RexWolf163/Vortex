@@ -20,7 +20,8 @@ Slot capabilities:
 - Async data collection on `Save`, async distribution on `Load` (UniTask)
 - `SaveProcessData` — two-level progress (global + module)
 - Events: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
-- `SaveSummary` — save metadata (name, date, app version, XML-serializable)
+- `SaveSummary` — save summary (name, date, app version, optional meta blocks, XML-serializable)
+- Summary meta blocks (`SaveController.AddMeta`) — preview, markers and other data from independent controllers, without editing the save name
 - `SaveReactor` — an outdated-save correction block: edits the raw string before parsing, within a version window
 - Auto-generation of GUID for new saves
 
@@ -103,6 +104,31 @@ foreach (var (guid, summary) in saves)
 SaveController.Remove(guid);
 ```
 
+### Summary Metadata
+
+An independent controller subscribes to `OnSaveStart` and writes its own meta block — the save point does not need to know about it:
+
+```csharp
+public static class DifficultySaveMeta
+{
+    public const string MetaKey = "difficulty";
+
+    [RuntimeInitializeOnLoadMethod]
+    private static void Init()
+    {
+        SaveController.OnSaveStart -= AddMeta;
+        SaveController.OnSaveStart += AddMeta;
+    }
+
+    private static void AddMeta() => SaveController.AddMeta(MetaKey, Difficulty.Current.ToString());
+}
+
+// Reading — from the summary, without loading the save
+var difficulty = summary.GetMeta(DifficultySaveMeta.MetaKey);   // null — no such block
+```
+
+A meta block lives only within its own cycle: the summary is created anew before `OnSaveStart`, so `AddMeta` outside the "`OnSaveStart` → driver write" window is useless — the entry is dropped by the next cycle. Blocks disabled in settings are discarded by the driver (Unity layer, `SaveSettings`).
+
 ---
 
 ## Architecture
@@ -116,7 +142,9 @@ SaveController : SystemController<SaveController, IDriver>
   ├── ProcessData: SaveProcessData
   │
   ├── Save(name, guid?) → UniTask<string>
-  │    ├── State = Saving, OnSaveStart
+  │    ├── State = Saving
+  │    ├── Driver.BeginSummary()          ← new summary for the cycle
+  │    ├── OnSaveStart                    ← controllers write meta blocks (AddMeta)
   │    ├── foreach ISaveable → GetSaveData() → SaveDataIndex
   │    ├── guid ??= Crypto.GetNewGuid()
   │    ├── Driver.Save(name, guid)
@@ -131,6 +159,7 @@ SaveController : SystemController<SaveController, IDriver>
   ├── Remove(guid) → Driver.Remove(guid), OnRemove
   ├── GetData(id) → Dictionary<string, string>
   ├── GetIndex() → Driver.GetIndex()
+  ├── AddMeta(key, metadata) → Driver.AddMeta
   ├── Register(ISaveable) / UnRegister(ISaveable)
   └── GetProcessData() → SaveProcessData
 
@@ -146,8 +175,12 @@ IDriver : ISystemDriver
   ├── Remove(guid)
   ├── SetIndexLink(Dictionary<string, Dictionary<string, string>>)
   ├── GetIndex() → Dictionary<string, SaveSummary>
-  └── GetNumberLastSave() → int
+  ├── GetNumberLastSave() → int
+  ├── BeginSummary()                      ← optional (empty default implementation)
+  └── AddMeta(key, metadata)              ← optional (empty default implementation)
 ```
+
+`BeginSummary` and `AddMeta` extend the contract with default implementations: a driver without metadata support compiles unchanged and writes saves without meta blocks. A supporting driver holds the summary of the current cycle: `BeginSummary` creates a **new** summary with a new list (the copy of the previous one in the save index references the old list — clearing it would wipe that copy), `AddMeta` writes straight into it, `Save` fills in name, date and version and writes it.
 
 ### Data Format
 
@@ -162,12 +195,14 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 ### Save Lifecycle
 
 1. Lock check (`State == Saving` → returns `null`)
-2. `State = Saving`, `OnSaveStart`
-3. `SaveDataIndex.Clear()`
-4. For each `ISaveable` — `await GetSaveData(token)` → add to `SaveDataIndex`
-5. Generate GUID if not provided
-6. `Driver.Save(name, guid)` — physical save
-7. `State = Idle`, `OnSaveComplete`
+2. `State = Saving`
+3. `Driver.BeginSummary()` — new summary: meta blocks of the previous cycle, failed ones included, are not carried over
+4. `OnSaveStart` — independent controllers write meta blocks via `AddMeta`
+5. `SaveDataIndex.Clear()`
+6. For each `ISaveable` — `await GetSaveData(token)` → add to `SaveDataIndex`
+7. Generate GUID if not provided
+8. `Driver.Save(name, guid)` — physical save together with the cycle's summary
+9. `State = Idle`, `OnSaveComplete`
 
 ### Load Lifecycle
 
@@ -190,7 +225,8 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 |------|---------|
 | `SaveData` | struct: `Id`, `Data` — data unit |
 | `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — module folder |
-| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version` — save metadata (XML-serializable). `Version` is the app's `Application.version` captured at save time — useful for migrations and for filtering old saves in UI. |
+| `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version`, `Meta` — save summary (XML-serializable). `Version` is the app's `Application.version` captured at save time — useful for migrations and for filtering old saves in UI. `Meta` is an optional list of meta blocks (`null` for old saves); read via `GetMeta(key)`, write via `SetMeta(key, value)` (a repeated key overwrites) |
+| `SaveMeta` | struct: `Key`, `Value` — a summary meta block; in XML — `<Meta><Entry Key="…">value</Entry></Meta>` |
 | `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
 
 ---
@@ -217,6 +253,7 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 | `SaveController.Remove(guid)` | Delete save |
 | `SaveController.GetData(id)` | Module data by `SaveId` |
 | `SaveController.GetIndex()` | All saves |
+| `SaveController.AddMeta(key, metadata)` | Meta block into the summary of the current save; valid from `OnSaveStart` until the driver write |
 | `SaveController.Register(ISaveable)` | Register module |
 | `SaveController.UnRegister(ISaveable)` | Unregister module |
 | `SaveController.GetNumberLastSave()` | Last save increment number |
@@ -245,6 +282,11 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 | Exception in `GetSaveData` / `OnLoad` | `Log.Print(Error)`, `State = Idle`, Complete event fires |
 | `ISaveable` not registered | Data not collected/distributed |
 | `SaveSummary` XML serialization | `Date` as `UnixTimestamp` (long), `DateTime.FromFileTimeUtc` |
+| Summary without `<Meta>` (old save, driver without metadata) | `Meta == null`, `GetMeta` returns `null` |
+| New summary in an old build | The unknown `<Meta>` element is skipped by the XML serializer |
+| `AddMeta` outside the save window | Writes into the summary draft, which the next `BeginSummary` replaces — never reaches a save |
+| `AddMeta` with a repeated key | The value is overwritten |
+| Save failure before `Driver.Save` | The cycle's summary is not written; the next cycle starts with a new one |
 
 ---
 

@@ -1,6 +1,10 @@
 ﻿using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using Vortex.Sdk.Quests.Diagnostics;
+#if UNITY_EDITOR
+using System.Collections.Generic;
+#endif
 
 namespace Vortex.Sdk.Quests.Conditions
 {
@@ -35,10 +39,14 @@ namespace Vortex.Sdk.Quests.Conditions
             if (conditions.Length == 0)
                 return true;
 
-            foreach (var condition in conditions)
+            for (var i = 0; i < conditions.Length; i++)
             {
+                var condition = conditions[i];
                 condition.DisposeListeners();
-                if (!condition.Check())
+                QuestDiagnostics.EnterNode(i);
+                var result = condition.Check();
+                QuestDiagnostics.ExitNode(result);
+                if (!result)
                 {
                     //Слушать надо только тех кто false. При переключении в true все равно будут запрошены все и если 
                     // они поменяли значения - это всплывет
@@ -50,6 +58,14 @@ namespace Vortex.Sdk.Quests.Conditions
 
             return true;
         }
+
+#if UNITY_EDITOR
+        /// <summary>Имя группы — для монитора квестов</summary>
+        internal string Name => name;
+
+        /// <summary>Условия группы — для монитора квестов</summary>
+        internal IReadOnlyList<QuestConditionLogic> Conditions => conditions;
+#endif
 
         /// <summary>
         /// Обнуление подписок всех Conditions для квеста
