@@ -141,7 +141,7 @@ string kind = SaveKindController.GetKind(summary);             // метабло
 string pureName = summary.GetSavePureName();                   // у старых сейвов отрезает превью
 ```
 
-Метаблоки `preview` и `kind` выключаются в `SaveSettings` (Unity SaveSystem, блок «Метаданные сейва»). Выключенное превью `SavePreviewController` всё равно снимает — сборка SDK не видит настроек, блок отбрасывает драйвер.
+Метаблоки `preview` и `kind` выключаются кнопками в `SaveSettings` (Unity SaveSystem, блок «Метаданные сейва»). Кнопки и ключи (`SaveSettings.PreviewMetaKey`, `SaveSettings.KindMetaKey`) объявляет partial `SaveSettingsExt/SaveSettings.SaveLoad.cs` (asmref в `ru.vortex.unity.settings`, под `#if USING_VORTEX_SAVE_LOAD_WRAPPER`). Выключенное превью `SavePreviewController` не снимает; выключенный тип отбрасывает драйвер.
 
 ## Архитектура
 

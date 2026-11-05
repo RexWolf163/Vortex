@@ -132,6 +132,11 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
         {
             TimeController.RemoveCall(this);
 
+            // Включение в том же кадре, что и выключение: отложенный Dispose снят, но элементы пула уже ушли сами
+            // (PoolItem.OnDisable) — прежнее состояние недействительно, собрать заново
+            if (_isInit)
+                Dispose();
+
             Init(Token).Forget(Debug.LogException);
         }
 
@@ -186,12 +191,14 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             }
             catch (OperationCanceledException)
             {
-                Dispose();
+                // Отменивший (Dispose) уже всё убрал; повторный Dispose снёс бы следующую сборку
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
-                Dispose();
+                // Только своя, ещё актуальная сборка: после отмены состоянием владеет уже следующая
+                if (!token.IsCancellationRequested)
+                    Dispose();
             }
         }
 

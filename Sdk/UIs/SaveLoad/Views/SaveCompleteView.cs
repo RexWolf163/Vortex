@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
-using Vortex.Core.LocalizationSystem;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Unity.LocalizationSystem;
 using Vortex.Unity.UI.TweenerSystem;
@@ -49,27 +48,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
                 return;
             var lastSave = dict.OrderByDescending(p => p.Value.UnixTimestamp).First().Value;
 
-            var saveName = lastSave.GetSavePureName();
-            var saveAr = saveName.Split('_');
-            if (saveAr.Length < 2
-                || !(saveAr[0].StartsWith(SavingSystemConstants.AutoName)
-                     || saveAr[0].StartsWith(SavingSystemConstants.ManualName)))
-            {
-                componentName?.SetText(saveName);
-                return;
-            }
-
-            var pattern = manualSavePattern;
-            var index = saveAr[1];
-            if (SavingSystemConstants.AutoName.Equals(saveAr[0]))
-                pattern = autoSavePattern;
-            var labelText = string.Format(pattern.Translate(), index);
-            if (saveAr.Length > 2)
-                labelText = $"{labelText}: {string.Join('_', saveAr[2..])}";
-            componentName?.SetText(labelText);
-
-
-            componentName?.SetText(saveName);
+            componentName?.SetText(lastSave.GetDisplayName(autoSavePattern, manualSavePattern));
             componentTimestamp?.SetText(lastSave.Date.ToString(timestampPattern, CultureInfo.InvariantCulture));
         }
     }

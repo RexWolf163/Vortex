@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using Vortex.Core.Extensions.DefaultEnums;
 using Vortex.Core.Extensions.ReactiveValues;
-using Vortex.Core.LocalizationSystem;
 using Vortex.Core.System.Abstractions;
 using Vortex.Sdk.UIs.SaveLoad.Models;
 using Vortex.Unity.EditorTools.Attributes;
@@ -95,26 +94,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             }
 
             timestamp?.SetText(_data.Summary.Date.ToString(timestampPattern, CultureInfo.InvariantCulture));
-
-
-            var saveName = _data.Summary.GetSavePureName();
-            var saveAr = saveName.Split('_');
-            if (saveAr.Length < 2
-                || !(saveAr[0].StartsWith(SavingSystemConstants.AutoName)
-                     || saveAr[0].StartsWith(SavingSystemConstants.ManualName)))
-            {
-                slotName?.SetText(saveName);
-                return;
-            }
-
-            var pattern = manualSavePattern;
-            var index = saveAr[1];
-            if (SavingSystemConstants.AutoName.Equals(saveAr[0]))
-                pattern = autoSavePattern;
-            var labelText = string.Format(pattern.Translate(), index);
-            if (saveAr.Length > 2)
-                labelText = $"{labelText}: {string.Join('_', saveAr[2..])}";
-            slotName?.SetText(labelText);
+            slotName?.SetText(_data.Summary.GetDisplayName(autoSavePattern, manualSavePattern));
         }
 
         private void RefreshFocus()

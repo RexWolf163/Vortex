@@ -124,11 +124,14 @@ Vortex/Unity/SaveSystem/
 │   ├── GlobalPrefsDriver/GlobalPrefsDriver.cs — глобальное хранилище в PlayerPrefs
 │   └── GlobalFileDriver/GlobalFileDriver.cs   — глобальное хранилище в файле
 ├── Settings/                                  — asmref → ru.vortex.unity.settings
-│   ├── SaveSettings.cs                        — общий ассет настроек
+│   ├── SaveSettings.cs                        — общий ассет настроек (partial)
+│   ├── SaveMetaBlockAttribute.cs              — маркер поля-переключателя метаблока
 │   └── SaveSettingsMenu.cs                    — Tools/Vortex/Configs/Save Settings
 ├── Debug/                                     — asmref → ru.vortex.unity.debug
 │   └── DebugSettingsExtGlobalSave.cs          — тумблер fail-fast глобального хранилища
-├── Editor/GlobalDataIndexWindow.cs            — Tools/Vortex/SaveData/Global Index
+├── Editor/
+│   ├── GlobalDataIndexWindow.cs               — Tools/Vortex/SaveData/Global Index
+│   └── SaveSettingsMetaBlockProcessor.cs      — кнопка On/Off на переключателях метаблоков
 ├── Presets/SavePreset.cs                      — общий XML-контейнер слотов
 └── View/UISaveLoadComponent.cs                — UI прогресса
 ```
@@ -248,11 +251,36 @@ UISaveLoadComponent : MonoBehaviour
 | `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — копий нет |
 | `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
 | `reactors` | — (читается из пресета) | драйверы слотов | пусто |
-| `metaBlocks` | — (читается из пресета) | драйверы слотов (`AddMeta`) | пусто — пишутся все блоки |
+| поля `[SaveMetaBlock]` | — (читаются из пресета) | драйверы слотов (`AddMeta`) | `On` |
 
 `reactors` — блоки коррекции устаревших сейвов (`SaveReactor`, `[SerializeReference]`). В `SettingsModel` список не переносится: расширение модели собирается в сборку настроек, а она о SaveSystem не знает — ссылка дала бы цикл сборок. Драйверы берут список из самого пресета через `SaveSettings.GetReactors()` (ленивая загрузка из `Resources/Settings`; ассета нет — пустой список). Механизм описан в README Core SaveSystem.
 
-`metaBlocks` — переключатели метаблоков сводки: таблица «ключ — включён». Драйвер в `AddMeta` спрашивает `SaveSettings.IsMetaEnabled(key)` и выключенный блок не пишет. Ключ вне таблицы или отсутствие ассета — блок включён, поэтому новый метаблок работает без настройки. Выключение действует на новые сейвы; уже записанные сводки не меняются. Как и `reactors`, список читается из пресета, а не из `SettingsModel`. Метаблоки описаны в README Core SaveSystem.
+Переключатели метаблоков сводки — блок «Метаданные сейва»: по кнопке On/Off на каждый известный метаблок. Кнопки объявляет не SaveSystem, а пакет-владелец метаблока — в своём partial `SaveSettings` (см. ниже). Драйвер в `AddMeta` спрашивает `SaveSettings.IsMetaEnabled(key)` и выключенный блок не пишет. Для ключа нет кнопки или нет ассета — блок включён, поэтому новый метаблок работает и без переключателя. Выключение действует на новые сейвы; уже записанные сводки не меняются. Как и `reactors`, значения читаются из пресета, а не из `SettingsModel`. Метаблоки описаны в README Core SaveSystem.
+
+#### Переключатель метаблока
+
+Пакет, который пишет метаблок, добавляет папку с asmref в `ru.vortex.unity.settings` и partial `SaveSettings` в ней. Ключ объявляется здесь же константой — код пакета ссылается на неё (сборке пакета нужна ссылка на `ru.vortex.unity.settings`), так ключ задан в одном месте.
+
+```csharp
+namespace Vortex.Unity.SaveSystem.Presets
+{
+    public partial class SaveSettings
+    {
+        public const string PreviewMetaKey = "preview";
+
+        [BoxGroup(MetaGroup, order: MetaGroupOrder)]
+        [SerializeField, SaveMetaBlock(PreviewMetaKey)]
+        [Tooltip("Превью — снимок экрана на начале сохранения.")]
+        private bool previewMeta = true;
+    }
+}
+```
+
+- Поле — `bool`, по умолчанию `true`; `MetaGroup` и `MetaGroupOrder` — константы основного файла, кладут кнопку в блок «Метаданные сейва».
+- `[ToggleButton]` на поле не ставится: сборка настроек не видит EditorTools (цикл через CoreAssetsSystem). Кнопку добавляет `SaveSettingsMetaBlockProcessor` (Odin-процессор в редакторной части `ru.vortex.unity.save`) ко всем полям с `[SaveMetaBlock]`.
+- Пакет с define-ограничением оборачивает файл в тот же `#if`: без пакета нет и кнопки.
+- Поля собираются рефлексией один раз, при первом `IsMetaEnabled`. Дубль ключа или `[SaveMetaBlock]` на не-bool поле — `LogError`, поле пропускается.
+- Если пишущей стороне метаблок дорого готовить (снимок экрана), она сама проверяет `IsMetaEnabled` и не готовит выключенный блок.
 
 Папки задаются относительно `FileBus.GetAppPath()`; пусто — корень. Путь склеивается `Path.Combine`: абсолютный путь в поле заменит корень. Файловые драйверы читают папку при подключении — смена во время игры применится со следующего запуска.
 

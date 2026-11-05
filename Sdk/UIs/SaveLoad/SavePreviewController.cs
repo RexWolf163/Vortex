@@ -4,16 +4,18 @@ using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Sdk.UIs.SaveLoad.Handlers;
+using Vortex.Unity.SaveSystem.Presets;
 using Object = UnityEngine.Object;
 
 namespace Vortex.Sdk.UIs.SaveLoad
 {
     /// <summary>
-    /// Превью сейва — метаблок <see cref="MetaKey"/> сводки. На начале каждого сохранения снимает экран
-    /// (<see cref="CameraCaptureHandler"/>) и записывает снимок в метаданные; места сохранения превью не снимают.
+    /// Превью сейва — метаблок <see cref="MetaKey"/> сводки. На каждом запросе сохранения снимает экран
+    /// (<see cref="CameraCaptureHandler"/>) и записывает снимок в метаданные запроса; места сохранения превью не
+    /// снимают. Снимок — кадр момента запроса, даже если сохранение исполнится позже из очереди.
     ///
     /// Снимок требует конца кадра: точка сохранения обязана дождаться его перед <c>SaveController.Save</c> —
-    /// событие начала сохранения вызывается синхронно в начале <c>Save</c>.
+    /// событие запроса (<c>OnSaveRequest</c>) вызывается синхронно внутри <c>Save</c>.
     ///
     /// Старая форма — превью в имени сейва через <see cref="Divider"/> — устарела, но читается для сейвов,
     /// записанных до перехода на метаданные.
@@ -23,22 +25,26 @@ namespace Vortex.Sdk.UIs.SaveLoad
         /// <summary>
         /// Ключ метаблока превью
         /// </summary>
-        public const string MetaKey = "preview";
+        public const string MetaKey = SaveSettings.PreviewMetaKey;
 
         private const string Divider = "||";
 
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
         {
-            SaveController.OnSaveStart -= AddPreview;
-            SaveController.OnSaveStart += AddPreview;
+            SaveController.OnSaveRequest -= AddPreview;
+            SaveController.OnSaveRequest += AddPreview;
         }
 
         /// <summary>
-        /// Снимок экрана в метаданные текущего сохранения. Нет активных слоёв захвата — сейв без превью.
+        /// Снимок экрана в метаданные запроса сохранения. Нет активных слоёв захвата — сейв без превью.
+        /// Метаблок выключен в <see cref="SaveSettings"/> — снимок не делается: драйвер всё равно его отбросит.
         /// </summary>
         private static void AddPreview()
         {
+            if (!SaveSettings.IsMetaEnabled(MetaKey))
+                return;
+
             var texture = CameraCaptureHandler.Capture();
             if (texture == null)
                 return;
@@ -72,7 +78,12 @@ namespace Vortex.Sdk.UIs.SaveLoad
             if (base64 == null)
                 return null;
             var texture = new Texture2D(1, 1);
-            return !texture.Base64ToTexture(base64) ? null : texture;
+            if (texture.Base64ToTexture(base64))
+                return texture;
+
+            // Битое превью: текстура никому не отдана — уничтожить здесь, иначе утечка на каждой перестройке списка
+            Object.Destroy(texture);
+            return null;
         }
 
         /// <summary>

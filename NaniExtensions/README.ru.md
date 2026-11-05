@@ -22,6 +22,7 @@
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — сохранение/восстановление Nani-переменных через `GameController` |
 | [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Точечные хэндлеры сцены (активный говорящий, баббл, эмоции, ZPosition, тестовые тулзы галереи) |
+| [CustomVariablesDashboard](CustomVariablesDashboard/) | `ru.vortex.nani.variables.dashboard` (+ `.editor`) | 3 | Панель переменных Naninovel: значения в Play Mode, карта связей со сценариями `.nani` и квестами Vortex, «потеряшки». Контракт `INaniVariableReference` для объектов квеста |
 
 Активация всего семейства Nani-пакетов — через символ `USING_NANINOVELL`, который выставляется тогглом `naninovellExt` (`SdkSettings`, атрибут `[DefineSymbol("USING_NANINOVELL")]`).
 

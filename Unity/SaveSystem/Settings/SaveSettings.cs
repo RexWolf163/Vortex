@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Reactors;
@@ -12,25 +12,34 @@ namespace Vortex.Unity.SaveSystem.Presets
     /// (<c>GlobalSaveController</c>). Пресет настроек: значения копируются в <c>SettingsModel</c>, откуда их
     /// читают Core-контроллеры и драйверы. Папки задаются относительно корня данных приложения
     /// (<c>FileBus.GetAppPath()</c>) и используются файловыми драйверами; пусто — корень.
+    ///
+    /// Partial: переключатели метаблоков сводки объявляют пакеты-владельцы метаблоков в своих файлах
+    /// (asmref в <c>ru.vortex.unity.settings</c>) — bool-поле с <see cref="SaveMetaBlockAttribute"/> в группе
+    /// <see cref="MetaGroup"/>, по умолчанию <c>true</c>. Кнопку On/Off добавляет
+    /// <c>SaveSettingsMetaBlockProcessor</c> (Editor).
     /// </summary>
-    public class SaveSettings : SettingsPreset
+    public partial class SaveSettings : SettingsPreset
     {
-        /// <summary>
-        /// Переключатель метаблока сводки сейва.
-        /// </summary>
-        [Serializable]
-        private class MetaToggle
-        {
-            [SerializeField, HorizontalGroup, HideLabel] public string key;
-
-            [SerializeField, HorizontalGroup(60), HideLabel, ToggleLeft] public bool enabled = true;
-        }
-
         private const string SettingsPath = "Settings";
+
+        /// <summary>
+        /// Группа инспектора переключателей метаблоков
+        /// </summary>
+        private const string MetaGroup = "Метаданные сейва";
+
+        /// <summary>
+        /// Порядок группы <see cref="MetaGroup"/> — после остальных групп
+        /// </summary>
+        private const float MetaGroupOrder = 100;
 
         private static readonly SaveReactor[] Empty = new SaveReactor[0];
 
         private static SaveSettings _instance;
+
+        /// <summary>
+        /// Переключатели метаблоков по ключу: собираются с полей <see cref="SaveMetaBlockAttribute"/> один раз.
+        /// </summary>
+        private static Dictionary<string, FieldInfo> _metaFields;
 
         [BoxGroup("Слоты сохранения")]
         [SerializeField, Tooltip("Папка сейвов относительно корня данных приложения (файловый драйвер). Пусто — корень.")]
@@ -55,11 +64,13 @@ namespace Vortex.Unity.SaveSystem.Presets
         [SerializeReference]
         private SaveReactor[] reactors = new SaveReactor[0];
 
-        [BoxGroup("Метаданные сейва")]
-        [InfoBox("Включение/выключение метаблоков сводки сейва по ключу (превью, маркеры). Выключенный блок " +
-                 "драйвер не записывает. Ключ вне списка — блок включён. Пусто — пишутся все блоки.")]
-        [SerializeField, TableList(AlwaysExpanded = true)]
-        private MetaToggle[] metaBlocks = new MetaToggle[0];
+        [BoxGroup(MetaGroup, order: MetaGroupOrder), PropertyOrder(-1)]
+        [InfoBox("Метаблоки сводки сейва (превью, маркеры). Выключенный блок драйвер не записывает. Кнопки " +
+                 "добавляют пакеты-владельцы метаблоков; блок без кнопки пишется всегда.")]
+        [OnInspectorGUI]
+        private void MetaBlocksInfo()
+        {
+        }
 
         public string SavesFolder => savesFolder;
 
@@ -85,8 +96,8 @@ namespace Vortex.Unity.SaveSystem.Presets
         }
 
         /// <summary>
-        /// Включён ли метаблок с ключом <paramref name="key"/>. Ключа нет в списке или нет ассета настроек —
-        /// включён.
+        /// Включён ли метаблок с ключом <paramref name="key"/>. Для ключа не объявлено переключателя или нет
+        /// ассета настроек — включён.
         /// </summary>
         public static bool IsMetaEnabled(string key)
         {
@@ -94,10 +105,34 @@ namespace Vortex.Unity.SaveSystem.Presets
             if (instance == null)
                 return true;
 
-            foreach (var toggle in instance.metaBlocks)
-                if (toggle.key == key)
-                    return toggle.enabled;
-            return true;
+            return !GetMetaFields().TryGetValue(key, out var field) || (bool)field.GetValue(instance);
+        }
+
+        private static Dictionary<string, FieldInfo> GetMetaFields()
+        {
+            if (_metaFields != null)
+                return _metaFields;
+
+            _metaFields = new Dictionary<string, FieldInfo>();
+            foreach (var field in typeof(SaveSettings).GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
+            {
+                var attr = field.GetCustomAttribute<SaveMetaBlockAttribute>();
+                if (attr == null)
+                    continue;
+
+                if (field.FieldType != typeof(bool))
+                {
+                    Debug.LogError(
+                        $"[SaveSettings] {nameof(SaveMetaBlockAttribute)} на не-bool поле \"{field.Name}\" — пропущено.");
+                    continue;
+                }
+
+                if (!_metaFields.TryAdd(attr.Key, field))
+                    Debug.LogError(
+                        $"[SaveSettings] Дубликат ключа метаблока \"{attr.Key}\" на поле \"{field.Name}\" — пропущено.");
+            }
+
+            return _metaFields;
         }
 
         /// <summary>

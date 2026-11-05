@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Bus;
 using Vortex.Core.System.Abstractions;
@@ -60,6 +61,6 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             Init();
         }
 
-        public void RemoveSave() => SaveController.Remove(_data.Guid);
+        public void RemoveSave() => SaveController.Remove(_data.Guid).Forget();
     }
 }

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
 using Vortex.Core.SaveSystem.Abstraction;
@@ -12,7 +11,11 @@ using Vortex.Core.System.ProcessInfo;
 
 namespace Vortex.Core.SaveSystem.Bus
 {
-    public class SaveController : SystemController<SaveController, IDriver>
+    /// <summary>
+    /// Шина слотов сохранения. Save/Load/Remove не выполняются сразу, а встают в очередь операций и исполняются
+    /// по одной, каждая — после завершения предыдущей (см. <c>SaveController.Queue.cs</c>).
+    /// </summary>
+    public partial class SaveController : SystemController<SaveController, IDriver>
     {
         private static readonly Dictionary<string, Dictionary<string, string>> SaveDataIndex = new();
 
@@ -35,8 +38,16 @@ namespace Vortex.Core.SaveSystem.Bus
         public static event Action OnLoadStart;
 
         /// <summary>
-        /// Событие начала сохранения. Сводка нового цикла уже заведена (<see cref="IDriver.BeginSummary"/>) —
-        /// здесь независимые контроллеры записывают метаданные через <see cref="AddMeta"/>.
+        /// Запрос сохранения принят. Вызывается синхронно внутри <see cref="Save"/>, до постановки в очередь, — здесь
+        /// независимые контроллеры записывают метаданные момента запроса (превью, режим, тип сейва) через
+        /// <see cref="AddMeta"/>: они едут вместе с запросом и попадут в сводку, даже если сохранение исполнится позже.
+        /// Отклонённый запрос события не поднимает. Вызывать <see cref="Save"/> из обработчика нельзя.
+        /// </summary>
+        public static event Action OnSaveRequest;
+
+        /// <summary>
+        /// Событие начала исполнения сохранения. Сводка цикла уже заведена (<see cref="IDriver.BeginSummary"/>) и
+        /// содержит метаданные запроса; <see cref="AddMeta"/> здесь пишет метаданные момента исполнения.
         /// </summary>
         public static event Action OnSaveStart;
 
@@ -61,7 +72,7 @@ namespace Vortex.Core.SaveSystem.Bus
         private static readonly SaveProcessData ProcessData = new(new ProcessData());
 
         /// <summary>
-        /// Текущее состояние контроллера, что загрузка идет
+        /// Состояние исполняемой операции; <see cref="SaveControllerStates.Idle"/> — очередь пуста
         /// </summary>
         public static SaveControllerStates State { get; private set; }
 
@@ -76,96 +87,27 @@ namespace Vortex.Core.SaveSystem.Bus
         }
 
         /// <summary>
-        /// Запуск процедуры сохранения данных
-        /// Если GUID не указан - сохранится под новым GUID
+        /// Сохранение в очередь. Если GUID не указан — сохранится под новым GUID.
+        /// Ожидающее сохранение того же GUID сливается с этим (имя и метаданные — от последнего запроса).
+        /// Возвращает GUID записанного сейва; null — отклонено (в очереди или исполняется загрузка), отменено
+        /// удалением этого сейва или не удалось.
         /// </summary>
         /// <param name="name">Название для сейва</param>
-        /// <param name="guid"></param>
-        public static async UniTask<string> Save(string name, string guid = null)
-        {
-            //Замок от перезапуска
-            if (State == SaveControllerStates.Saving)
-                return null;
-            State = SaveControllerStates.Saving;
-            // Новая сводка до события: метаданные собираются только в пределах этого цикла
-            Driver.BeginSummary();
-            OnSaveStart?.Invoke();
-            try
-            {
-                SaveDataIndex.Clear();
-                ProcessData.Global.Name = State.ToString();
-                ProcessData.Global.Progress = 0;
-                ProcessData.Global.Size = Saveables.Count;
-                foreach (var saveable in Saveables)
-                {
-                    ProcessData.Global.Progress++;
-                    ProcessData.Module = saveable.GetProcessInfo();
-                    var data = await saveable.GetSaveData(Token);
-                    SaveDataIndex.AddNew(saveable.GetSaveId(), data);
-                }
-
-                guid ??= Crypto.GetNewGuid();
-                Driver.Save(name, guid);
-            }
-            catch (Exception e)
-            {
-                Log.Print(new LogData(LogLevel.Error, $"Error while saving data\n{e.Message}", "SaveController"));
-            }
-
-            State = SaveControllerStates.Idle;
-            OnSaveComplete?.Invoke();
-            return guid;
-        }
+        /// <param name="guid">GUID перезаписываемого сейва; null — новый</param>
+        public static UniTask<string> Save(string name, string guid = null) => EnqueueSave(name, guid);
 
         /// <summary>
-        /// Загрузить сейв
+        /// Загрузка в очередь. Повтор для того же GUID, пока он ожидает или исполняется, сливается с ним.
+        /// Завершается после загрузки.
         /// </summary>
         /// <param name="guid">guid сейва</param>
-        public static async UniTask Load(string guid)
-        {
-            //Замок от перезапуска
-            if (State == SaveControllerStates.Loading)
-                return;
-            State = SaveControllerStates.Loading;
-            OnLoadStart?.Invoke();
-            try
-            {
-                Driver.Load(guid);
-                ProcessData.Global.Name = State.ToString();
-                ProcessData.Global.Progress = 0;
-                ProcessData.Global.Size = Saveables.Count;
-                foreach (var saveable in Saveables)
-                {
-                    ProcessData.Global.Progress++;
-                    ProcessData.Module = saveable.GetProcessInfo();
-                    await saveable.OnLoad(Token);
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Print(new LogData(LogLevel.Error, $"Error while loading data\n{e.Message}\n{e.StackTrace}",
-                    "SaveController"));
-            }
-
-            State = SaveControllerStates.Idle;
-            OnLoadComplete?.Invoke();
-        }
+        public static UniTask Load(string guid) => EnqueueLoad(guid);
 
         /// <summary>
-        /// Удалить сейв по ID
+        /// Удаление в очередь. Отменяет ожидающие сохранения этого GUID; повтор сливается. Завершается после
+        /// удаления.
         /// </summary>
-        public static void Remove(string guid)
-        {
-            try
-            {
-                Driver.Remove(guid);
-                OnRemove?.Invoke();
-            }
-            catch (Exception e)
-            {
-                Log.Print(new LogData(LogLevel.Error, $"Error while loading data\n{e.Message}", "SaveController"));
-            }
-        }
+        public static UniTask Remove(string guid) => EnqueueRemove(guid);
 
         /// <summary>
         /// Возвращает номер-инкремент последнего сейва
@@ -190,13 +132,23 @@ namespace Vortex.Core.SaveSystem.Bus
         public static Dictionary<string, SaveSummary> GetIndex() => Driver.GetIndex();
 
         /// <summary>
-        /// Записать метаблок в сводку текущего сохранения. Действует от <see cref="OnSaveStart"/> до записи сейва
-        /// драйвером; вне этого окна запись сбросится следующим циклом. Выключенные в настройках блоки драйвер
-        /// отбрасывает, драйвер без поддержки метаданных вызов игнорирует.
+        /// Записать метаблок. В обработчике <see cref="OnSaveRequest"/> — в метаданные запроса (попадут в сводку при
+        /// исполнении); в обработчике <see cref="OnSaveStart"/> — прямо в сводку исполняемого сохранения. Вне этих
+        /// окон запись сбросится следующим циклом. Выключенные в настройках блоки драйвер отбрасывает, драйвер без
+        /// поддержки метаданных вызов игнорирует.
         /// </summary>
         /// <param name="key">Ключ метаблока</param>
         /// <param name="metadata">Значение</param>
-        public static void AddMeta(string key, string metadata) => Driver.AddMeta(key, metadata);
+        public static void AddMeta(string key, string metadata)
+        {
+            if (_requestMeta != null)
+            {
+                _requestMeta[key] = metadata;
+                return;
+            }
+
+            Driver.AddMeta(key, metadata);
+        }
 
         public static void Register(ISaveable controller) => Saveables.Add(controller);
 

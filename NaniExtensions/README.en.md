@@ -22,6 +22,7 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | `NaniPlayerState` quest condition — reacts to Nani player start/stop (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — saves/restores Nani variables via `GameController` |
 | [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Scene-glue handlers (active speaker, dialog bubble, emotions, Z-position, gallery test tools) |
+| [CustomVariablesDashboard](CustomVariablesDashboard/) | `ru.vortex.nani.variables.dashboard` (+ `.editor`) | 3 | Naninovel variables panel: values in Play Mode, a link map to `.nani` scripts and Vortex quests, "lost" variables. The `INaniVariableReference` contract for quest objects |
 
 The whole Nani package family is activated via the `USING_NANINOVELL` symbol, set by the `naninovellExt` toggle (`SdkSettings`, `[DefineSymbol("USING_NANINOVELL")]` attribute).
 

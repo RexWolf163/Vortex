@@ -141,7 +141,7 @@ string kind = SaveKindController.GetKind(summary);             // the kind meta 
 string pureName = summary.GetSavePureName();                   // strips the preview from old saves
 ```
 
-The `preview` and `kind` meta blocks can be disabled in `SaveSettings` (Unity SaveSystem, "Save metadata" box). A disabled preview is still captured by `SavePreviewController` — the SDK assembly cannot see the settings, the driver discards the block.
+The `preview` and `kind` meta blocks are disabled by buttons in `SaveSettings` (Unity SaveSystem, "Save metadata" box). The buttons and keys (`SaveSettings.PreviewMetaKey`, `SaveSettings.KindMetaKey`) are declared by the `SaveSettingsExt/SaveSettings.SaveLoad.cs` partial (asmref into `ru.vortex.unity.settings`, under `#if USING_VORTEX_SAVE_LOAD_WRAPPER`). A disabled preview is not captured by `SavePreviewController`; a disabled kind is discarded by the driver.
 
 ## Architecture
 

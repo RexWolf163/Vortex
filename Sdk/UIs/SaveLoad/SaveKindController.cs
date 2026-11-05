@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.SaveSystem.Abstraction;
 using Vortex.Core.SaveSystem.Bus;
+using Vortex.Unity.SaveSystem.Presets;
 
 namespace Vortex.Sdk.UIs.SaveLoad
 {
@@ -10,8 +11,8 @@ namespace Vortex.Sdk.UIs.SaveLoad
     /// метаблок <see cref="MetaKey"/> сводки.
     ///
     /// Тип знает только точка сохранения, поэтому она сохраняет через <see cref="Save"/>: тип держится на время
-    /// цикла и пишется в метаданные на начале сохранения. Сейв в обход (<c>SaveController.Save</c>) пишется без
-    /// типа.
+    /// синхронной постановки запроса и пишется в метаданные запроса (<c>SaveController.OnSaveRequest</c>) — едет
+    /// вместе с ним через очередь. Сейв в обход (<c>SaveController.Save</c>) пишется без типа.
     ///
     /// Для сейвов, записанных до перехода на метаданные, тип читается из префикса имени (<c>{тип}_{индекс}</c>).
     /// </summary>
@@ -20,36 +21,36 @@ namespace Vortex.Sdk.UIs.SaveLoad
         /// <summary>
         /// Ключ метаблока типа сейва
         /// </summary>
-        public const string MetaKey = "kind";
+        public const string MetaKey = SaveSettings.KindMetaKey;
 
         /// <summary>
-        /// Тип сейва текущего цикла; null — сохранение идёт без типа
+        /// Тип ставящегося запроса; null — вне <see cref="Save"/>, запрос без типа
         /// </summary>
         private static string _kind;
 
         [RuntimeInitializeOnLoadMethod]
         private static void Init()
         {
-            SaveController.OnSaveStart -= AddKind;
-            SaveController.OnSaveStart += AddKind;
+            SaveController.OnSaveRequest -= AddKind;
+            SaveController.OnSaveRequest += AddKind;
         }
 
         /// <summary>
-        /// Сохранение с типом. Возвращает guid сейва; null — сохранение отклонено (идёт другое) или не удалось.
+        /// Сохранение с типом. Возвращает guid сейва; null — запрос отклонён, отменён удалением сейва или не удался.
         /// </summary>
         /// <param name="kind">Тип сейва</param>
         /// <param name="name">Название для сейва</param>
         /// <param name="guid">guid сейва; null — новый</param>
-        public static async UniTask<string> Save(string kind, string name, string guid = null)
+        public static UniTask<string> Save(string kind, string name, string guid = null)
         {
             _kind = kind;
             try
             {
-                return await SaveController.Save(name, guid);
+                // OnSaveRequest поднимается синхронно внутри Save — тип уходит в метаданные запроса до возврата
+                return SaveController.Save(name, guid);
             }
             finally
             {
-                // Тип живёт только в своём цикле: отклонённое замком сохранение не оставит его следующему
                 _kind = null;
             }
         }

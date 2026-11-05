@@ -1,0 +1,160 @@
+using System;
+using System.Linq;
+using Naninovel;
+using UnityEditor;
+using UnityEngine;
+using Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model;
+
+namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
+{
+    /// <summary>
+    /// Вкладка «Связи»: список переменных карты и карточка выбранной — объявление, область, текущее значение (Play Mode),
+    /// связи в сценариях <c>.nani</c> и в квестах Vortex отдельными секциями. Клик по месту — переход к нему.
+    /// </summary>
+    internal sealed partial class CustomVariablesDashboardWindow
+    {
+        private const float ListWidth = 320f;
+
+        private static readonly Color LossColor = new(0.9f, 0.45f, 0.2f, 0.18f);
+        private static readonly Color SelectionColor = new(0.24f, 0.48f, 0.9f, 0.35f);
+
+        private string _linksFilter = string.Empty;
+        private Vector2 _listScroll;
+        private Vector2 _cardScroll;
+
+        private void DrawLinks()
+        {
+            var index = DrawBuildBar();
+            if (index == null)
+                return;
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                DrawVariableList(index);
+                DrawCard(index);
+            }
+        }
+
+        private void DrawVariableList(VariableIndex index)
+        {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(ListWidth)))
+            {
+                _linksFilter = EditorGUILayout.TextField(_linksFilter, EditorStyles.toolbarSearchField);
+                _listScroll = EditorGUILayout.BeginScrollView(_listScroll);
+                var entries = index.Entries.Values
+                    .Where(e => _linksFilter.Length == 0 ||
+                                e.Name.IndexOf(_linksFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+                    .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(e => e.Name, StringComparer.Ordinal);
+                foreach (var entry in entries)
+                    DrawListRow(index, entry);
+                EditorGUILayout.EndScrollView();
+            }
+        }
+
+        private void DrawListRow(VariableIndex index, VariableEntry entry)
+        {
+            var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+            var losses = LossAnalysis.GetVisible(entry);
+            if (entry.Name == selected)
+                EditorGUI.DrawRect(rect, SelectionColor);
+            else if (losses != LossKinds.None)
+                EditorGUI.DrawRect(rect, LossColor);
+
+            var counts = index.QuestsEnabled
+                ? $"{entry.CountOf(LinkSource.Nani)} / {entry.CountOf(LinkSource.Quest)}"
+                : $"{entry.CountOf(LinkSource.Nani)}";
+            var name = entry.Declaration == null ? $"{entry.Name}  (не объявлена)" : entry.Name;
+            var tooltip = losses == LossKinds.None ? null : DescribeLosses(losses);
+            if (GUI.Button(new Rect(rect.x, rect.y, rect.width - 60f, rect.height), new GUIContent(name, tooltip),
+                    EditorStyles.label))
+                Select(entry.Name);
+            EditorGUI.LabelField(new Rect(rect.xMax - 58f, rect.y, 58f, rect.height), counts, EditorStyles.miniLabel);
+        }
+
+        private void DrawCard(VariableIndex index)
+        {
+            using var scroll = new EditorGUILayout.ScrollViewScope(_cardScroll);
+            _cardScroll = scroll.scrollPosition;
+
+            if (selected == null || !index.Entries.TryGetValue(selected, out var entry))
+            {
+                EditorGUILayout.HelpBox("Выберите переменную в списке.", MessageType.None);
+                return;
+            }
+
+            GUILayout.Label(entry.Name, EditorStyles.boldLabel);
+            var scope = CustomVariablesConfiguration.HasGlobalPrefix(entry.Name) ? "Global" : "Local";
+            GUILayout.Label(entry.Declaration == null
+                ? $"{scope} · не объявлена в конфиге"
+                : $"{scope} · объявлена, начальное значение: {entry.Declaration.InitialValue}", EditorStyles.miniLabel);
+
+            var manager = GetManager();
+            if (manager != null)
+                GUILayout.Label(manager.VariableExists(entry.Name)
+                    ? $"Текущее значение: {Format(manager.GetVariableValue(entry.Name))}"
+                    : "Текущее значение: переменной нет в рантайме", EditorStyles.miniLabel);
+
+            var losses = LossAnalysis.GetVisible(entry);
+            if (losses != LossKinds.None)
+                EditorGUILayout.HelpBox(DescribeLosses(losses), MessageType.Warning);
+
+            var twins = index.Entries.Keys
+                .Where(n => n != entry.Name && n.Equals(entry.Name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (twins.Count > 0)
+                EditorGUILayout.HelpBox($"Двойники по регистру: {string.Join(", ", twins)}", MessageType.Warning);
+
+            DrawLinkSection("Сценарии .nani", entry, LinkSource.Nani, null);
+            DrawLinkSection("Квесты Vortex", entry, LinkSource.Quest,
+                index.QuestsEnabled ? null : "Квесты Vortex отключены (USING_VORTEX_QUESTS).");
+        }
+
+        private static void DrawLinkSection(string title, VariableEntry entry, LinkSource source, string disabledText)
+        {
+            EditorGUILayout.Space(6f);
+            var links = entry.Links.Where(l => l.Source == source).ToList();
+            GUILayout.Label(disabledText == null ? $"{title} ({links.Count})" : title, EditorStyles.boldLabel);
+            if (disabledText != null)
+            {
+                GUILayout.Label(disabledText, EditorStyles.miniLabel);
+                return;
+            }
+
+            if (links.Count == 0)
+            {
+                GUILayout.Label("Связей нет", EditorStyles.miniLabel);
+                return;
+            }
+
+            foreach (var link in links)
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(OperationTitle(link.Operation), GUILayout.Width(80));
+                    GUILayout.Label(new GUIContent(DescribeValue(link), link.RawText), GUILayout.Width(160));
+                    if (GUILayout.Button(link.Location.Describe(), EditorStyles.linkLabel))
+                        link.Location.Open();
+                }
+        }
+
+        /// <summary>Оператор и операнд связи: «++», «&gt;= 3», «= Day+1»; у чтения и прочего — исходный текст</summary>
+        private static string DescribeValue(VariableLink link)
+        {
+            if (link.Operation is NaniVariableOperation.Read or NaniVariableOperation.Other)
+                return link.RawText;
+            return $"{link.OperatorText} {link.Operand}".Trim();
+        }
+
+        private static string OperationTitle(NaniVariableOperation operation) => operation switch
+        {
+            NaniVariableOperation.Write => "запись",
+            NaniVariableOperation.Compare => "сравнение",
+            NaniVariableOperation.Wait => "ожидание",
+            NaniVariableOperation.Read => "чтение",
+            _ => "прочее"
+        };
+
+        private static string DescribeLosses(LossKinds losses) =>
+            string.Join("; ", LossAnalysis.Kinds.Where(k => (losses & k) != 0).Select(LossAnalysis.Title));
+    }
+}

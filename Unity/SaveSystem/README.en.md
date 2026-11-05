@@ -124,11 +124,14 @@ Vortex/Unity/SaveSystem/
 │   ├── GlobalPrefsDriver/GlobalPrefsDriver.cs — global storage in PlayerPrefs
 │   └── GlobalFileDriver/GlobalFileDriver.cs   — global storage in a file
 ├── Settings/                                  — asmref → ru.vortex.unity.settings
-│   ├── SaveSettings.cs                        — shared settings asset
+│   ├── SaveSettings.cs                        — shared settings asset (partial)
+│   ├── SaveMetaBlockAttribute.cs              — meta block toggle field marker
 │   └── SaveSettingsMenu.cs                    — Tools/Vortex/Configs/Save Settings
 ├── Debug/                                     — asmref → ru.vortex.unity.debug
 │   └── DebugSettingsExtGlobalSave.cs          — global storage fail-fast toggle
-├── Editor/GlobalDataIndexWindow.cs            — Tools/Vortex/SaveData/Global Index
+├── Editor/
+│   ├── GlobalDataIndexWindow.cs               — Tools/Vortex/SaveData/Global Index
+│   └── SaveSettingsMetaBlockProcessor.cs      — On/Off button on meta block toggles
 ├── Presets/SavePreset.cs                      — shared slot XML container
 └── View/UISaveLoadComponent.cs                — progress UI
 ```
@@ -248,11 +251,36 @@ UISaveLoadComponent : MonoBehaviour
 | `globalSaveBackups` | `GlobalSaveBackups` | `GlobalSaveController` | `0` — no copies |
 | `globalSaveFolder` | `GlobalSaveFolder` | `GlobalFileDriver` | `Global` |
 | `reactors` | — (read from the preset) | slot drivers | empty |
-| `metaBlocks` | — (read from the preset) | slot drivers (`AddMeta`) | empty — all blocks are written |
+| `[SaveMetaBlock]` fields | — (read from the preset) | slot drivers (`AddMeta`) | `On` |
 
 `reactors` — outdated-save correction blocks (`SaveReactor`, `[SerializeReference]`). The list is not copied into `SettingsModel`: the model extension compiles into the settings assembly, which knows nothing about SaveSystem — a reference would create an assembly cycle. Drivers take the list from the preset itself via `SaveSettings.GetReactors()` (lazy load from `Resources/Settings`; no asset — an empty list). The mechanism is described in the Core SaveSystem README.
 
-`metaBlocks` — summary meta block toggles: a "key — enabled" table. In `AddMeta` the driver asks `SaveSettings.IsMetaEnabled(key)` and does not write a disabled block. A key outside the table, or no asset, means the block is enabled, so a new meta block works without configuration. Disabling affects new saves; already written summaries are not changed. Like `reactors`, the list is read from the preset, not from `SettingsModel`. Meta blocks are described in the Core SaveSystem README.
+Summary meta block toggles — the "Метаданные сейва" (save metadata) box: one On/Off button per known meta block. The buttons are declared not by SaveSystem but by the package that owns the meta block, in its own `SaveSettings` partial (see below). In `AddMeta` the driver asks `SaveSettings.IsMetaEnabled(key)` and does not write a disabled block. A key with no button, or no asset, means the block is enabled, so a new meta block works without a toggle. Disabling affects new saves; already written summaries are not changed. Like `reactors`, values are read from the preset, not from `SettingsModel`. Meta blocks are described in the Core SaveSystem README.
+
+#### Meta block toggle
+
+A package that writes a meta block adds a folder with an asmref into `ru.vortex.unity.settings` and a `SaveSettings` partial in it. The key is declared there as a constant — the package code refers to it (the package assembly needs a reference to `ru.vortex.unity.settings`), so the key is defined in one place.
+
+```csharp
+namespace Vortex.Unity.SaveSystem.Presets
+{
+    public partial class SaveSettings
+    {
+        public const string PreviewMetaKey = "preview";
+
+        [BoxGroup(MetaGroup, order: MetaGroupOrder)]
+        [SerializeField, SaveMetaBlock(PreviewMetaKey)]
+        [Tooltip("Preview — a screenshot taken at the start of the save.")]
+        private bool previewMeta = true;
+    }
+}
+```
+
+- The field is a `bool`, `true` by default; `MetaGroup` and `MetaGroupOrder` are constants of the main file that put the button into the save metadata box.
+- `[ToggleButton]` is not put on the field: the settings assembly cannot see EditorTools (a cycle via CoreAssetsSystem). The button is added by `SaveSettingsMetaBlockProcessor` (an Odin processor in the editor part of `ru.vortex.unity.save`) to every `[SaveMetaBlock]` field.
+- A package with a define constraint wraps the file in the same `#if`: no package — no button.
+- Fields are collected by reflection once, on the first `IsMetaEnabled`. A duplicate key or `[SaveMetaBlock]` on a non-bool field — `LogError`, the field is skipped.
+- If a meta block is expensive to prepare (a screenshot), the writing side checks `IsMetaEnabled` itself and does not prepare a disabled block.
 
 Folders are relative to `FileBus.GetAppPath()`; empty — root. The path is joined with `Path.Combine`: an absolute path in the field replaces the root. File drivers read the folder when connected — a change during play applies from the next launch.
 

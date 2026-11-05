@@ -1,0 +1,21 @@
+{
+    "name": "ru.vortex.nani.variables.dashboard.editor",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.nani.variables.dashboard",
+        "Elringus.Naninovel.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_NANINOVELL"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
