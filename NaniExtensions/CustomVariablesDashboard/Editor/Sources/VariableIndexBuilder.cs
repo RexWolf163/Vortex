@@ -4,18 +4,32 @@ using System.IO;
 using System.Linq;
 using Naninovel;
 using UnityEditor;
-using Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources;
+using Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model;
 
-namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
+namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
 {
     /// <summary>
     /// Сборка карты связей: конфиг → сценарии <c>.nani</c> → квесты Vortex → переменные индекса. Ошибка одного ассета
     /// не обрывает сборку — она уходит в проблемы. Карта собирается целиком в локальных коллекциях и отдаётся только
-    /// по окончании; отмена в индикаторе прогресса возвращает null.
+    /// по окончании; отмена в индикаторе прогресса возвращает null. Зависимость односторонняя: сборщик и источники
+    /// знают модель, модель о них не знает.
     /// </summary>
     internal static class VariableIndexBuilder
     {
         private const string ProgressTitle = "Custom Variables Dashboard";
+
+        /// <summary>
+        /// Собрать заново и сделать текущей картой. Отменённая сборка оставляет прежнюю карту. Возвращает true, если
+        /// карта заменена.
+        /// </summary>
+        public static bool Rebuild()
+        {
+            var index = Build();
+            if (index == null)
+                return false;
+            VariableIndex.Current = index;
+            return true;
+        }
 
         public static VariableIndex Build()
         {
@@ -96,7 +110,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
                 return;
             }
 
-            NaniScriptSource.Collect(path, text, links);
+            NaniScriptSource.Collect(path, text, links, problems);
         }
 
         /// <summary>

@@ -35,7 +35,7 @@ Out of scope:
 ## Dependencies
 
 ### Core
-- `Vortex.Core.SaveSystem.Bus` — `SaveController` (`Save`, `Load`, `Remove`, `GetIndex`, `AddMeta`, `OnSaveStart`, `OnSaveComplete`, `OnLoadComplete`, `OnRemove`, `GetNumberLastSave`)
+- `Vortex.Core.SaveSystem.Bus` — `SaveController` (`Save`, `Load`, `Remove`, `GetIndex`, `AddMeta`, `OnSaveRequest`, `OnSaveComplete`, `OnLoadComplete`, `OnRemove`, `GetNumberLastSave`). Operations go through the `SaveController` queue (see the Core SaveSystem README)
 - `Vortex.Core.SaveSystem.Abstraction` — `SaveSummary` (`GetMeta`, `SetMeta`)
 - `Vortex.Core.System.Abstractions` — `IDataStorage`
 - `Vortex.Core.Extensions.LogicExtensions` — `Base64ToTexture`, `TextureToBase64`, `TextureEncodingRules`
@@ -109,8 +109,9 @@ Filters set from code or by the handler change the instance at runtime and do no
 ### Custom save point
 
 ```csharp
-// End of frame is mandatory: the preview is captured at the start of the save (SaveController.OnSaveStart)
-await UniTask.WaitForEndOfFrame(this);
+// End of frame is mandatory: the preview is captured synchronously on the save request (SaveController.OnSaveRequest).
+// Wait without binding to an object: a coroutine on a disabled GO dies and the wait never completes
+await UniTask.WaitForEndOfFrame();
 
 // With a kind — the kind meta block is written
 var guid = await SaveKindController.Save(SavingSystemConstants.AutoName, $"{SavingSystemConstants.AutoName}_{day}");
@@ -119,6 +120,8 @@ var guid = await SaveKindController.Save(SavingSystemConstants.AutoName, $"{Savi
 var guid2 = await SaveController.Save("custom");
 ```
 
+The save is queued in `SaveController` and may run later, but the preview, kind and mode are a snapshot of the request moment: they are written on `OnSaveRequest` and travel with the operation. `null` — the request was rejected (a load is running or pending), cancelled by removal of this save, or failed. The queue does not deduplicate new saves: protection against repeated clicks is kept by the save point itself (like `SaveGameHandler`).
+
 ### Screen capture
 
 ```csharp
@@ -126,7 +129,7 @@ var guid2 = await SaveController.Save("custom");
 // set priority (lower = bottom).
 // Add Hidden/AlphaBlit to Always Included Shaders.
 
-await UniTask.WaitForEndOfFrame(this);
+await UniTask.WaitForEndOfFrame();
 var screenshot = CameraCaptureHandler.Capture();
 // ... use ...
 UnityEngine.Object.Destroy(screenshot);
@@ -147,13 +150,17 @@ The `preview` and `kind` meta blocks are disabled by buttons in `SaveSettings` (
 
 ```
 SaveLoad/
-├── SavePreviewController.cs        ← preview meta block: capture at save start, reading (with fallback from the name)
+├── SavePreviewController.cs        ← preview meta block: capture on the save request, reading (with fallback from the name)
 ├── SaveKindController.cs           ← kind meta block: Save(kind, name), GetKind (with fallback from the name)
+├── SaveNameFormatter.cs            ← display name: auto_N / manual_N template with localization
 ├── SavingSystemConstants.cs        ← AutoName/ManualName prefixes and kinds
 ├── AlphaBlit.shader                ← Hidden/AlphaBlit (src_over)
 ├── DefineSettings/
 │   ├── SdkSettings.SaveLoad.cs     ← partial chunk of SdkSettings (toggle)
 │   └── sdk.settings.system.ext.asmref
+├── SaveSettingsExt/
+│   ├── SaveSettings.SaveLoad.cs    ← partial SaveSettings: keys and buttons of the preview/kind meta blocks
+│   └── ru.vortex.unity.settings.asmref
 ├── Handlers/
 │   ├── CameraCaptureHandler.cs     ← multi-layer screen capture
 │   ├── LoadGameHandler.cs          ← load button
@@ -173,18 +180,19 @@ SaveLoad/
 
 | Class | Kind | Purpose |
 |-------|------|---------|
-| `SavePreviewController` | `static class` | Meta block `MetaKey = "preview"`. Subscribed to `SaveController.OnSaveStart`: `CameraCaptureHandler.Capture()` → `EncodePreview` (JPEG Medium, base64) → `SaveController.AddMeta`, the texture is destroyed. `GetPreview(SaveSummary)` — from metadata, otherwise from the name after `\|\|`; `GetSavePureName(this SaveSummary)`. `GetSaveNameWithPreview(Texture2D, string)` — `[Obsolete]`, the old form |
-| `SaveKindController` | `static class` | Meta block `MetaKey = "kind"`. `Save(kind, name, guid?)` holds the kind for the cycle and writes it on `OnSaveStart`; `GetKind(SaveSummary)` — from metadata, otherwise from the name prefix (`auto`/`manual`), otherwise `null` |
+| `SavePreviewController` | `static class` | Meta block `MetaKey = "preview"`. Subscribed to `SaveController.OnSaveRequest`: the meta block disabled — exit; otherwise `CameraCaptureHandler.Capture()` → `EncodePreview` (JPEG Medium, base64) → `SaveController.AddMeta`, the texture is destroyed. `GetPreview(SaveSummary)` — from metadata, otherwise from the name after `\|\|`; a broken preview — `null`, the temporary texture is destroyed. `GetSavePureName(this SaveSummary)`. `GetSaveNameWithPreview(Texture2D, string)` — `[Obsolete]`, the old form |
+| `SaveKindController` | `static class` | Meta block `MetaKey = "kind"`. `Save(kind, name, guid?)` holds the kind only during the synchronous request queuing and writes it on `OnSaveRequest` — the kind travels with the request through the queue; `GetKind(SaveSummary)` — from metadata, otherwise from the name prefix (`auto`/`manual`), otherwise `null` |
+| `SaveNameFormatter` | `static class` | `GetDisplayName(this SaveSummary, autoKey, manualKey)`: the kind in the name recognized as a whole (`auto`/`manual`) — a localized template with the index (and the tail after ": "), otherwise the pure name as-is |
 | `SavingSystemConstants` | `static class` | Name prefix and kind value constants: `AutoName = "auto"`, `ManualName = "manual"` |
 | `SaveSlotData` | `class : IDisposable` | `SaveSummary` wrapper for `IDataStorage`. `Guid`, `Summary`, lazy `Preview` (Texture2D); `Dispose` destroys the texture |
 | `CameraCaptureHandler` | `MonoBehaviour` | A single capture layer (Camera or Canvas). Self-registry `Handlers`, `priority` (0–10), `Render(RT)`, static `Capture()` |
-| `SaveGameHandler` | `MonoBehaviour` | Binds a `UIComponent` button to `Save()`. Awaits `WaitForEndOfFrame` (for the preview capture), calls `SaveKindController.Save(ManualName, "manual_N")` |
+| `SaveGameHandler` | `MonoBehaviour` | Binds a `UIComponent` button to `Save()`. A repeated click while its own save is not finished is ignored. Awaits the end of frame (`UniTask.WaitForEndOfFrame()`, not bound to an object — for the preview capture), calls `SaveKindController.Save(ManualName, "manual_N")` |
 | `LoadGameHandler` | `MonoBehaviour` | Reads `SaveSlotData` from `IDataStorage`, calls `SaveController.Load(guid)` |
-| `RemoveSaveGameHandler` | `MonoBehaviour` | Subscribes to `IDataStorage.OnUpdateLink`, calls `SaveController.Remove(guid)` |
-| `SaveListView` | `MonoBehaviour` | Fills `Pool` with slots ordered by descending `UnixTimestamp`, skipping saves that fail the `filters` (meta block + regular expression, AND). Holds `StringData _focused` and pushes the current `SaveSlotData` into a `DataStorage`. Re-fills on `OnSaveComplete`/`OnLoadComplete`/`OnRemove`. Public `SetFilter(key, pattern)`, `ClearFilters()`, `Refresh()`. Disposable via `TimeController.Call` |
+| `RemoveSaveGameHandler` | `MonoBehaviour` | Subscribes to `IDataStorage.OnUpdateLink`, calls `SaveController.Remove(guid)`. Public `RemoveSave()` (entry from a UnityEvent) without data — `LogError` and exit |
+| `SaveListView` | `MonoBehaviour` | Fills `Pool` with slots ordered by descending `UnixTimestamp`, skipping saves that fail the `filters` (meta block + regular expression, AND). Holds `StringData _focused` and pushes the current `SaveSlotData` into a `DataStorage`. Re-fills on `OnSaveComplete`/`OnLoadComplete`/`OnRemove`, keeping the focus. Public `SetFilter(key, pattern)`, `ClearFilters()`, `Refresh()`. Disposable via `TimeController.Call` |
 | `SaveListFilterHandler` | `MonoBehaviour` | On `OnEnable` sets the `{key, pattern}` filters on the linked `SaveListView` (after `ClearFilters` if `clearFilters` is checked) and calls `Refresh()` |
-| `SaveView` | `MonoBehaviour` | Slot card. Subscribes to `_focused.OnUpdateData`, toggles `SwitcherState.On/Off`. Parses `auto_N` / `manual_N` names and formats via `LocalizationKey` |
-| `SaveCompleteView` | `MonoBehaviour` | Popup driven by `SaveController.OnSaveComplete`. Plays a `TweenerHub` array (Back→Forward), shows the last save's name and `Date` |
+| `SaveView` | `MonoBehaviour` | Slot card. Subscribes to `_focused.OnUpdateData`, toggles `SwitcherState.On/Off` (there may be no focus). Name — `SaveNameFormatter.GetDisplayName` |
+| `SaveCompleteView` | `MonoBehaviour` | Popup driven by `SaveController.OnSaveComplete`. Plays a `TweenerHub` array (Back→Forward), shows the last save's name (`SaveNameFormatter.GetDisplayName`) and `Date` |
 | `SdkSettings` (partial) | — | Field `saveLoadWrapperSdk` with `[ToggleButton]` and `[DefineSymbol("USING_VORTEX_SAVE_LOAD_WRAPPER")]` |
 
 ## Contract
@@ -201,14 +209,23 @@ SaveLoad/
 - Slot preview: `RawImage.texture = SaveSlotData.Preview`
 
 ### Guarantees
-- `SaveListView` filters the index before sorting and orders it by descending `UnixTimestamp`; the freshest save that passed the filters becomes focused
+- `SaveListView` filters the index before sorting and orders it by descending `UnixTimestamp`
+- The `SaveListView` focus is the user's choice; load and removal rely on it:
+  - on enable — the freshest save that passed the filters;
+  - `Refresh()` (filters changed) — the previous one if it passed the filters, otherwise the freshest;
+  - save, load, removal (including background ones, e.g. an autosave) — the previous one; if it left the list — no focus rather than the freshest: an open confirmation will not remove another save
+- The focused slot is published to the `DataStorage` right at the build, before the items appear — no "no focus" window between builds
+- A rebuild that arrives while the list is being built cancels the previous build; the cancelled build does not touch the state
+- Disabling and enabling `SaveListView` in the same frame rebuilds the list
 - `SaveListView.Refresh()` does nothing on a disabled view — the list builds on enable
 - A filter expression is compiled once and rebuilt only when its text changes
 - `SaveSlotData.Preview` is created lazily, `Dispose` destroys the `Texture2D`
 - `SaveListView.Dispose` unsubscribes events, cancels the CTS, clears the pool and slots
 - `CameraCaptureHandler.Capture()` sorts active handlers by `priority` (lower = bottom), composites via src_over
-- `SaveGameHandler` awaits `WaitForEndOfFrame` before saving — the preview capture on `OnSaveStart` runs in a consistent render pipeline when called from EventSystem
-- The save kind lives only within its own cycle: `SaveKindController.Save` resets it on completion, including when the save is rejected by the lock
+- `CameraCaptureHandler` restores the Overlay canvas mode, camera `targetTexture` and `RenderTexture.active`, and releases temporary RTs and the camera even when rendering fails
+- `SaveGameHandler` awaits the end of frame before saving — the preview capture on `OnSaveRequest` runs in a consistent render pipeline when called from EventSystem
+- The save kind never leaks into another request: `SaveKindController.Save` holds it only during the synchronous queuing
+- The preview, kind and mode are a snapshot of the request moment, even if the save runs later from the queue
 - Old saves (preview and kind in the name) are read via the `GetPreview` / `GetKind` fallback
 - `RemoveSaveGameHandler` re-initializes on `IDataStorage.OnUpdateLink`
 
@@ -217,7 +234,7 @@ SaveLoad/
 - One `CameraCaptureHandler` carries exactly one entity: either `camera` or `canvas`. If both are null — `LogWarning`
 - A `Canvas.ScreenSpaceCamera` without a `worldCamera` — `LogWarning`, the layer is skipped
 - A save name must not contain the `||` substring: `GetSavePureName` and the `GetPreview` fallback split the name by it
-- A save point must wait for the end of the frame before `Save`: the preview is captured synchronously on `OnSaveStart`
+- A save point must wait for the end of the frame before `Save`: the preview is captured synchronously on `OnSaveRequest`
 - The texture returned by `Capture()` must be destroyed by the caller (`Destroy`)
 
 ## Edge cases
@@ -235,9 +252,15 @@ SaveLoad/
 | Saving with no active `CameraCaptureHandler` | The save is written without the `preview` meta block |
 | Saving bypassing `SaveKindController` | No `kind` meta block; `GetKind` tries the name prefix |
 | `GetKind` for a save with an arbitrary name and no meta block | `null` |
-| Slot name does not match `auto_N` / `manual_N` | The raw `saveName` is shown without localization |
-| `IDataStorage` without a `SaveSlotData` | `LoadGameHandler` writes `LogError` and exits; `RemoveSaveGameHandler` unbinds the button |
+| Slot name does not match `auto_N` / `manual_N` (the kind is compared as a whole: `autosave_3` is not an autosave) | The pure name is shown without localization |
+| `IDataStorage` without a `SaveSlotData` | `LoadGameHandler` and `RemoveSaveGameHandler.RemoveSave` write `LogError` and exit; the `RemoveSaveGameHandler` button is unbound |
+| The focused save is removed (including in the background) | After the rebuild there is no focus; Load/Remove without a selection — `LogError` |
+| Saving while a load is running or pending | `SaveController.Save` returns `null`; `SaveGameHandler` writes `LogError` |
+| Repeated "Save" click while its own save is queued | Ignored |
+| Preview disabled in `SaveSettings` | No capture, the save has no `preview` meta block |
+| Broken preview (base64 does not decode) | `GetPreview` returns `null`, the temporary texture is destroyed |
 | `Capture()` with no active handlers | `LogWarning`, returns `null` |
 | Screen size changes between frames | `CameraCaptureHandler.Render` recreates the `RenderTexture` |
 | `Canvas.ScreenSpaceOverlay` | Captured via a temporary orthographic camera with `cullingMask = 1 << layer`; mode/`worldCamera`/`planeDistance` are restored |
-| Disabling `SaveListView` | `Dispose` is scheduled via `TimeController.Call`, unsubscriptions run outside the `OnDisable` frame |
+| Disabling `SaveListView` | `Dispose` is scheduled via `TimeController.Call`, unsubscriptions run outside the `OnDisable` frame; enabling in the same frame drops the deferred `Dispose` and rebuilds the list |
+| Exception while rendering a capture layer | The canvas, cameras and `RenderTexture.active` are restored, temporary resources are released, the exception goes to the caller |

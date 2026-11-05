@@ -46,12 +46,25 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
         public static int Collect(List<VariableLink> links, List<BuildProblem> problems, Func<float, string, bool> progress)
         {
             var guids = AssetDatabase.FindAssets(PresetFilter);
+            // Квесты включены, а пресетов нет — почти наверняка переименован тип: молча отдать пустой источник нельзя,
+            // иначе все переменные квестов уедут в «потеряшки»
+            if (guids.Length == 0)
+                problems.Add(new BuildProblem(LinkSource.Quest, string.Empty, 0,
+                    $"Пресеты квестов не найдены ({PresetFilter}) — переименован тип пресета? Связи квестов не собраны"));
+
             for (var i = 0; i < guids.Length; i++)
             {
                 var path = AssetDatabase.GUIDToAssetPath(guids[i]);
                 if (progress(i / (float)guids.Length, path))
                     return -1;
-                CollectPreset(guids[i], path, links, problems);
+                try
+                {
+                    CollectPreset(guids[i], path, links, problems);
+                }
+                catch (Exception e)
+                {
+                    problems.Add(new BuildProblem(LinkSource.Quest, path, 0, $"Пресет не обойдён: {e.Message}"));
+                }
             }
 
             return guids.Length;
@@ -73,6 +86,14 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
 
             var questName = Path.GetFileNameWithoutExtension(path);
             using var serialized = new SerializedObject(preset);
+
+            // Шов с пакетом квестов: разделы ищутся по именам сериализованных полей пресета. Поле пропало —
+            // структура пресета изменилась, связи раздела не собраны; сообщаем, а не теряем их молча
+            foreach (var field in Sections.Keys)
+                if (serialized.FindProperty(field) == null)
+                    problems.Add(new BuildProblem(LinkSource.Quest, path, 0,
+                        $"В пресете нет поля «{field}» — структура QuestPreset изменилась, связи раздела не собраны"));
+
             var property = serialized.GetIterator();
             while (property.Next(true))
             {

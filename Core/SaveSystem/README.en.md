@@ -16,10 +16,11 @@ Save and load data system. Two independent buses:
 Slot capabilities:
 
 - `SaveController` — bus: `Save()`, `Load()`, `Remove()`, `GetIndex()`
+- Operation queue: `Save`/`Load`/`Remove` run strictly one at a time, with same-type operations on one GUID merged
 - `ISaveable` — interface for modules whose data needs saving
 - Async data collection on `Save`, async distribution on `Load` (UniTask)
 - `SaveProcessData` — two-level progress (global + module)
-- Events: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
+- Events: `OnSaveRequest`, `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
 - `SaveSummary` — save summary (name, date, app version, optional meta blocks, XML-serializable)
 - Summary meta blocks (`SaveController.AddMeta`) — preview, markers and other data from independent controllers, without editing the save name
 - `SaveReactor` — an outdated-save correction block: edits the raw string before parsing, within a version window
@@ -86,14 +87,14 @@ public class InventoryController : ISaveable
 // Register
 SaveController.Register(inventoryController);
 
-// Save (new GUID)
-SaveController.Save("Quick Save");
+// Save (new GUID). The operation is queued; await — until it completes
+var guid = await SaveController.Save("Quick Save");   // null — rejected, cancelled or failed
 
 // Save (overwrite)
-SaveController.Save("Quick Save", existingGuid);
+await SaveController.Save("Quick Save", existingGuid);
 
 // Load
-SaveController.Load(guid);
+await SaveController.Load(guid);
 
 // List saves
 var saves = SaveController.GetIndex();
@@ -101,12 +102,14 @@ foreach (var (guid, summary) in saves)
     Debug.Log($"{summary.Name} — {summary.Date}");
 
 // Remove
-SaveController.Remove(guid);
+SaveController.Remove(guid).Forget();
 ```
+
+Awaiting an operation is optional: `Forget()` leaves it in the queue, the execution order does not change.
 
 ### Summary Metadata
 
-An independent controller subscribes to `OnSaveStart` and writes its own meta block — the save point does not need to know about it:
+An independent controller subscribes to a save event and writes its own meta block — the save point does not need to know about it:
 
 ```csharp
 public static class DifficultySaveMeta
@@ -116,8 +119,8 @@ public static class DifficultySaveMeta
     [RuntimeInitializeOnLoadMethod]
     private static void Init()
     {
-        SaveController.OnSaveStart -= AddMeta;
-        SaveController.OnSaveStart += AddMeta;
+        SaveController.OnSaveRequest -= AddMeta;
+        SaveController.OnSaveRequest += AddMeta;
     }
 
     private static void AddMeta() => SaveController.AddMeta(MetaKey, Difficulty.Current.ToString());
@@ -127,7 +130,14 @@ public static class DifficultySaveMeta
 var difficulty = summary.GetMeta(DifficultySaveMeta.MetaKey);   // null — no such block
 ```
 
-A meta block lives only within its own cycle: the summary is created anew before `OnSaveStart`, so `AddMeta` outside the "`OnSaveStart` → driver write" window is useless — the entry is dropped by the next cycle. Blocks disabled in settings are discarded by the driver (Unity layer, `SaveSettings`).
+A save may run later, after the operations queued before it. Hence there are two windows for writing a meta block:
+
+| Event | When | `AddMeta` writes | For |
+|-------|------|------------------|-----|
+| `OnSaveRequest` | synchronously inside `Save`, before queuing | into the request metadata — it travels with the operation and reaches the summary at execution | state at request time: preview, mode, save kind |
+| `OnSaveStart` | at execution, after `BeginSummary` and the request metadata | straight into the summary of the running cycle | state at write time |
+
+Outside these windows `AddMeta` is useless — the entry is dropped by the next cycle. A repeated key in `OnSaveStart` overwrites the request value. A rejected request does not raise `OnSaveRequest`. Calling `Save` from an `OnSaveRequest` handler is not allowed — the request is rejected with an error in the log. Blocks disabled in settings are discarded by the driver (Unity layer, `SaveSettings`).
 
 ---
 
@@ -141,25 +151,23 @@ SaveController : SystemController<SaveController, IDriver>
   ├── State: SaveControllerStates
   ├── ProcessData: SaveProcessData
   │
-  ├── Save(name, guid?) → UniTask<string>
-  │    ├── State = Saving
-  │    ├── Driver.BeginSummary()          ← new summary for the cycle
-  │    ├── OnSaveStart                    ← controllers write meta blocks (AddMeta)
-  │    ├── foreach ISaveable → GetSaveData() → SaveDataIndex
-  │    ├── guid ??= Crypto.GetNewGuid()
-  │    ├── Driver.Save(name, guid)
-  │    └── State = Idle, OnSaveComplete
+  ├── Save(name, guid?) → UniTask<string>       ← enqueue
+  │    ├── load queued/running → null
+  │    ├── OnSaveRequest                  ← request metadata (AddMeta)
+  │    └── merge with a pending Save of the same GUID, or a new operation
+  ├── Load(guid) → UniTask                      ← enqueue
+  ├── Remove(guid) → UniTask                    ← enqueue; cancels pending Saves of the GUID
   │
-  ├── Load(guid) → UniTask
-  │    ├── State = Loading, OnLoadStart
-  │    ├── Driver.Load(guid) → populates SaveDataIndex
-  │    ├── foreach ISaveable → OnLoad()
-  │    └── State = Idle, OnLoadComplete
+  ├── Queue (SaveController.Queue.cs): one operation at a time, FIFO
+  │    ├── Save:   State = Saving, Driver.BeginSummary(), request metadata, OnSaveStart,
+  │    │           foreach ISaveable → GetSaveData() → SaveDataIndex, Driver.Save(name, guid)
+  │    ├── Load:   State = Loading, OnLoadStart, Driver.Load(guid), foreach ISaveable → OnLoad()
+  │    ├── Remove: Driver.Remove(guid)
+  │    └── queue empty → State = Idle; completion event; result to the awaiters
   │
-  ├── Remove(guid) → Driver.Remove(guid), OnRemove
   ├── GetData(id) → Dictionary<string, string>
   ├── GetIndex() → Driver.GetIndex()
-  ├── AddMeta(key, metadata) → Driver.AddMeta
+  ├── AddMeta(key, metadata) → request metadata (in OnSaveRequest) or Driver.AddMeta
   ├── Register(ISaveable) / UnRegister(ISaveable)
   └── GetProcessData() → SaveProcessData
 
@@ -192,25 +200,52 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<string, string>` (key → JSON string). `SaveController` aggregates all modules into `SaveDataIndex`.
 
+### Operation Queue
+
+`Save`, `Load` and `Remove` do not run immediately: they queue an operation and return a task that completes with it. Operations run strictly one at a time, in queuing order; the next one starts after the current one completes. So save and load never overlap, and data collection never runs on top of a load.
+
+Batching — by the last operation on the same GUID (the running operation is merged only where stated):
+
+| Request | What happens |
+|---------|--------------|
+| `Save(guid)`, the last operation on the GUID is a pending `Save` | Merge: name and metadata from the new request, one result shared by all awaiters |
+| `Save()` without a GUID | A new save, never merged |
+| `Save` while a load is running or pending | Rejected: `null` and a warning in the log. After the load the state is different — writing it under the requested name is pointless. Saves requested before the load run before it |
+| `Load(guid)`, the last operation of **the whole queue** (pending or running) is a `Load` of the same GUID | Merge. Not merged with an earlier load of the same GUID: a load changes the state of the whole game, reordering (A, B, A → B) is not allowed |
+| `Remove(guid)` | First, pending `Save`s of this GUID are cancelled from the end of the queue up to the first other operation on it (their result is `null`): writing before removal is pointless, and saves before a load determine what it loads. Then merge with a pending or running `Remove` of the same GUID |
+
+Operations queued from event handlers and from `await` continuations of completed operations are picked up by the same processing loop — the order stays FIFO. Awaiter continuations run synchronously, right after the completion event, before the next operation starts.
+
+An exception in any event handler is logged with the handler name and does not affect other subscribers or the queue.
+
 ### Save Lifecycle
 
-1. Lock check (`State == Saving` → returns `null`)
-2. `State = Saving`
+1. Request (synchronously inside `Save`): load queued or running → `null`; otherwise `OnSaveRequest` collects the request metadata; the operation is queued or merged
+2. Execution: `State = Saving`
 3. `Driver.BeginSummary()` — new summary: meta blocks of the previous cycle, failed ones included, are not carried over
-4. `OnSaveStart` — independent controllers write meta blocks via `AddMeta`
-5. `SaveDataIndex.Clear()`
-6. For each `ISaveable` — `await GetSaveData(token)` → add to `SaveDataIndex`
-7. Generate GUID if not provided
-8. `Driver.Save(name, guid)` — physical save together with the cycle's summary
-9. `State = Idle`, `OnSaveComplete`
+4. Request metadata → `Driver.AddMeta`
+5. `OnSaveStart` — write-time meta blocks via `AddMeta`
+6. `SaveDataIndex.Clear()`
+7. For each `ISaveable` — `await GetSaveData(token)` → add to `SaveDataIndex`
+8. Generate GUID if not provided
+9. `Driver.Save(name, guid)` — physical save together with the cycle's summary
+10. Queue empty → `State = Idle`; `OnSaveComplete`; result (GUID, `null` on failure) to the awaiters
 
 ### Load Lifecycle
 
-1. Lock check (`State == Loading` → return)
-2. `State = Loading`, `OnLoadStart`
+1. Request: merge with the queue tail or enqueue
+2. Execution: `State = Loading`, `OnLoadStart`
 3. `Driver.Load(guid)` — the driver reads the save body, runs the correction reactors (see below) and populates `SaveDataIndex`
 4. For each `ISaveable` — `await OnLoad(token)` (module reads from `SaveController.GetData()`)
-5. `State = Idle`, `OnLoadComplete`
+5. Queue empty → `State = Idle`; `OnLoadComplete`
+
+### Remove Lifecycle
+
+1. Request: cancel pending `Save`s of the GUID, merge or enqueue
+2. Execution: `Driver.Remove(guid)`; `State` does not change
+3. Queue empty → `State = Idle`; on success — `OnRemove`
+
+With an empty queue `Remove` runs synchronously on the caller's stack — as before the queue existed.
 
 ### SaveProcessData — Two-Level Progress
 
@@ -227,7 +262,7 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 | `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — module folder |
 | `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version`, `Meta` — save summary (XML-serializable). `Version` is the app's `Application.version` captured at save time — useful for migrations and for filtering old saves in UI. `Meta` is an optional list of meta blocks (`null` for old saves); read via `GetMeta(key)`, write via `SetMeta(key, value)` (a repeated key overwrites) |
 | `SaveMeta` | struct: `Key`, `Value` — a summary meta block; in XML — `<Meta><Entry Key="…">value</Entry></Meta>` |
-| `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
+| `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` — the kind of the running operation; `Idle` — the queue is empty. `Idle` is not set between queued operations |
 
 ---
 
@@ -236,24 +271,24 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 ### Input
 
 - `ISaveable` modules register via `Register()`
-- `Save(name, guid?)` / `Load(guid)` / `Remove(guid)` trigger processes
+- `Save(name, guid?)` / `Load(guid)` / `Remove(guid)` queue operations
 
 ### Output
 
 - `GetData(id)` — module data after load
 - `GetIndex()` — all existing saves (`Dictionary<string, SaveSummary>`)
-- Events: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
+- Events: `OnSaveRequest`, `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
 
 ### API
 
 | Method | Description |
 |--------|-------------|
-| `SaveController.Save(name, guid?)` | Save, `UniTask<string>` (returns GUID, or `null` if another Save is in progress) |
-| `SaveController.Load(guid)` | Load, `UniTask` |
-| `SaveController.Remove(guid)` | Delete save |
+| `SaveController.Save(name, guid?)` | Queued save, `UniTask<string>`: GUID of the written save; `null` — rejected (a load is queued or running), cancelled by removal of this save, or failed |
+| `SaveController.Load(guid)` | Queued load, `UniTask` — completes after the load |
+| `SaveController.Remove(guid)` | Queued removal, `UniTask` — completes after the removal |
 | `SaveController.GetData(id)` | Module data by `SaveId` |
 | `SaveController.GetIndex()` | All saves |
-| `SaveController.AddMeta(key, metadata)` | Meta block into the summary of the current save; valid from `OnSaveStart` until the driver write |
+| `SaveController.AddMeta(key, metadata)` | Meta block: in `OnSaveRequest` — into the request metadata, in `OnSaveStart` — into the summary of the running save |
 | `SaveController.Register(ISaveable)` | Register module |
 | `SaveController.UnRegister(ISaveable)` | Unregister module |
 | `SaveController.GetNumberLastSave()` | Last save increment number |
@@ -263,10 +298,12 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 
 | Constraint | Reason |
 |------------|--------|
-| `Save` locks against re-entry | `State == Saving` → returns `null` |
-| `Load` locks against re-entry | `State == Loading` → returns |
+| Operations run one at a time | FIFO queue; a repeat is not rejected but waits its turn or is merged |
+| `Save` during a load is rejected | The state after the load is different — see [Operation Queue](#operation-queue) |
 | Data is strings only | `Dictionary<string, string>`, JSON serialization is module's responsibility |
-| `Save`/`Load` return `UniTask` | Caller may `await` or fire-and-forget via `.Forget()`. Exceptions are logged internally |
+| `Save`/`Load`/`Remove` return `UniTask` | Caller may `await` or fire-and-forget via `.Forget()`. Exceptions are logged internally |
+| New saves (no GUID) are not deduplicated by the queue | Two requests — two saves. Protection against repeated clicks belongs to the save point |
+| No operation timeout | A hung `GetSaveData`/`OnLoad` stops the whole queue |
 | `CancellationToken` declared but unused | Reserved for future use |
 
 ---
@@ -275,16 +312,22 @@ Each `ISaveable` returns its `GetSaveId()` (module identifier) and `Dictionary<s
 
 | Scenario | Behavior |
 |----------|----------|
-| `Save` during saving | Blocked (`State == Saving` → returns `null`) |
-| `Load` during loading | Blocked (`State == Loading` → returns without action) |
+| `Save` during saving | Queued; a pending `Save` of the same GUID — merged |
+| `Save` during a load or with a pending load | Rejected: `null`, a warning in the log, `OnSaveRequest` is not raised |
+| `Load` during loading | Queued; the same GUID at the queue tail — merged |
+| `Load` after a pending `Remove` of the same GUID | Runs after the removal — the driver will not find the save (error in the log), `OnLoadComplete` fires |
+| `Remove` with a pending `Save` of the same GUID | The `Save` is cancelled (result `null`), then the removal |
+| `Save` from an `OnSaveRequest` handler | Rejected with an error in the log |
+| Exception in an event handler | Error in the log with the handler name; other subscribers and the queue continue |
 | `GetData` with non-existent `id` | `Log.Print(Error)`, returns empty `Dictionary` |
 | GUID not provided to `Save` | Generated via `Crypto.GetNewGuid()` |
-| Exception in `GetSaveData` / `OnLoad` | `Log.Print(Error)`, `State = Idle`, Complete event fires |
+| Exception in `GetSaveData` / `OnLoad` | `Log.Print(Error)`, Complete event fires; `Save` returns `null` |
+| Write failure swallowed by the driver | `Save` returns the GUID: Core does not learn about the failure — error handling is on the driver side |
 | `ISaveable` not registered | Data not collected/distributed |
 | `SaveSummary` XML serialization | `Date` as `UnixTimestamp` (long), `DateTime.FromFileTimeUtc` |
 | Summary without `<Meta>` (old save, driver without metadata) | `Meta == null`, `GetMeta` returns `null` |
 | New summary in an old build | The unknown `<Meta>` element is skipped by the XML serializer |
-| `AddMeta` outside the save window | Writes into the summary draft, which the next `BeginSummary` replaces — never reaches a save |
+| `AddMeta` outside the `OnSaveRequest` / `OnSaveStart` windows | Writes into the summary draft, which the next `BeginSummary` replaces — never reaches a save |
 | `AddMeta` with a repeated key | The value is overwritten |
 | Save failure before `Driver.Save` | The cycle's summary is not written; the next cycle starts with a new one |
 

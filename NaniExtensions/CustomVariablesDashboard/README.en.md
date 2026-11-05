@@ -12,7 +12,7 @@ Both assemblies — `defineConstraints: ["USING_NANINOVELL"]` (the `naninovellEx
 Naninovel variables panel: `Tools → Vortex → Debug → Custom Variables Dashboard`.
 
 - **Values** — engine variables in Play Mode with current values and editing.
-- **Links** — for each variable: where it is written, read, compared and awaited — in `.nani` scripts and in Vortex quests separately; a click opens the script at the line or selects the quest preset. Works without running the game.
+- **Links** — for each variable: where it is written, read, compared and awaited — in `.nani` scripts and in Vortex quests separately; a click on a location opens the script at the line in the external editor or selects the quest preset, the **Find** button on every row selects the script or preset and shows it in the Inspector. If the asset was moved or deleted after the build — a warning in the console. Works without running the game.
 - **Lost** — declared but unused; used but undeclared; never written; never read; case twins; exclusions without a variable.
 - **Problems** — what could not be read during the build.
 
@@ -66,13 +66,16 @@ CustomVariablesDashboard/
     ├── Model/
     │   ├── VariableModels.cs          ← declaration, link, locations (.nani / quest), problem, LossKinds
     │   ├── VariableIndex.cs           ← VariableEntry, VariableIndex (Current — static, memory)
-    │   ├── VariableIndexBuilder.cs    ← build: config → .nani → quests → variables
     │   ├── LossAnalysis.cs            ← loss kinds, twins, exclusions without a variable
     │   └── DashboardSettings.cs       ← exclusions (ScriptableSingleton in ProjectSettings)
-    └── Sources/
-        ├── NaniScriptSource.cs        ← .nani parsing
-        └── QuestSource.cs             ← quest preset traversal (USING_VORTEX_QUESTS)
+    ├── Sources/
+    │   ├── VariableIndexBuilder.cs    ← build and Rebuild: config → .nani → quests → variables
+    │   ├── NaniScriptSource.cs        ← .nani parsing
+    │   └── QuestSource.cs             ← quest preset traversal (USING_VORTEX_QUESTS)
+    └── Tests/                         ← EditMode tests: .nani parsing, index, loss kinds
 ```
+
+Dependencies are one-directional: window → builder and sources → model. The model knows neither the builder nor the sources. A link location (`LinkLocation`) is polymorphic: `Describe`, `Open` (navigate), `Find` (select the asset in the Inspector).
 
 ### Operation vocabulary
 
@@ -93,6 +96,7 @@ For the "never written" / "never read" losses: compare, wait and read count as r
 - The comparison `3 < Day` is shown as `Day > 3`. A single `=` in a condition is equality (`if:Day=1`).
 - An expression in curly braces (`if:{a=5 && b>=70}`) is one parameter; spaces inside do not split it.
 - An unquoted expression with spaces is parsed by its first word — the same way Naninovel sees it.
+- Text substitutions (`{Var}` in dialogue lines) are not parsed: a variable that is only substituted into text lands in "never read".
 
 ### Quest traversal
 
@@ -117,7 +121,9 @@ Every `QuestPreset` asset in the project, via `SerializedObject`: the `startCond
 ### Limitations
 - Expression parsing is heuristic: exotic expressions may land in "other"
 - The map does not track asset changes; rebuilding is manual
-- The quest preset field names (`startConditions`, `interruptConditions`, `logic`) are hard-coded in the quest source
+- The current value in the "Links" card updates live only while the window is subscribed to the variable manager — after the "Values" tab has been opened; otherwise on window repaint
+- `{Var}` substitutions in text lines are not parsed (see "`.nani` parsing")
+- The quest preset field names (`startConditions`, `interruptConditions`, `logic`) and the type name (`t:QuestPreset`) are hard-coded in the quest source. A broken seam is loud: a missing field in a preset or no presets found is a build problem, links are not lost silently
 
 ## Edge cases
 
@@ -127,6 +133,11 @@ Every `QuestPreset` asset in the project, via `SerializedObject`: the `startCond
 | Play Mode entry, recompilation | The map is reset, build again |
 | Empty / duplicate name in the config | Build problem; duplicate — the first one counts |
 | Empty element in a condition group or logics | Build problem |
+| Exception while traversing one preset | Build problem, other presets are traversed |
+| A preset lacks a section field (`startConditions` / `interruptConditions` / `logic`) | Build problem: the preset structure changed |
+| No quest presets found while quests are enabled | Build problem: the preset type was renamed |
+| Unclosed quote in a `.nani` command | Build problem with the line; the rest of the line is parsed as one parameter |
+| Click or Find on an asset moved after the build | Warning in the console |
 | Broken type reference in a preset | Build problem with the type name |
 | Variable reference with an empty name | A problem, not a link |
 | Several exclusions for one name | Kinds are merged |

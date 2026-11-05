@@ -61,6 +61,16 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             Init();
         }
 
-        public void RemoveSave() => SaveController.Remove(_data.Guid).Forget();
+        public void RemoveSave()
+        {
+            // Вход не только через button: в проекте RemoveSave зовёт UnityEvent подтверждения — гард здесь
+            if (_data == null)
+            {
+                Debug.LogError("[RemoveSaveGameHandler] No save slot found", this);
+                return;
+            }
+
+            SaveController.Remove(_data.Guid).Forget();
+        }
     }
 }

@@ -16,10 +16,11 @@
 Возможности слотов:
 
 - `SaveController` — шина: `Save()`, `Load()`, `Remove()`, `GetIndex()`
+- Очередь операций: `Save`/`Load`/`Remove` исполняются строго по одной, со слиянием однотипных операций одного GUID
 - `ISaveable` — интерфейс для модулей, данные которых подлежат сохранению
 - Асинхронный сбор данных при `Save`, асинхронная раздача при `Load` (UniTask)
 - `SaveProcessData` — двухуровневый прогресс (глобальный + модульный)
-- События: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
+- События: `OnSaveRequest`, `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
 - `SaveSummary` — сводка сохранения (имя, дата, версия приложения, необязательные метаблоки, XML-сериализуемая)
 - Метаблоки сводки (`SaveController.AddMeta`) — превью, маркеры и прочие данные от независимых контроллеров, без правки имени сейва
 - `SaveReactor` — блок коррекции устаревшего сейва: правка сырой строки до разбора в окне версий
@@ -86,14 +87,14 @@ public class InventoryController : ISaveable
 // Регистрация
 SaveController.Register(inventoryController);
 
-// Сохранение (новый GUID)
-SaveController.Save("Quick Save");
+// Сохранение (новый GUID). Операция встаёт в очередь; await — до её завершения
+var guid = await SaveController.Save("Quick Save");   // null — отклонено, отменено или не удалось
 
 // Сохранение (перезапись)
-SaveController.Save("Quick Save", existingGuid);
+await SaveController.Save("Quick Save", existingGuid);
 
 // Загрузка
-SaveController.Load(guid);
+await SaveController.Load(guid);
 
 // Список сохранений
 var saves = SaveController.GetIndex();
@@ -101,12 +102,14 @@ foreach (var (guid, summary) in saves)
     Debug.Log($"{summary.Name} — {summary.Date}");
 
 // Удаление
-SaveController.Remove(guid);
+SaveController.Remove(guid).Forget();
 ```
+
+Ждать операцию не обязательно: `Forget()` оставляет её в очереди, порядок исполнения от этого не меняется.
 
 ### Метаданные сводки
 
-Независимый контроллер подписывается на `OnSaveStart` и пишет свой метаблок — точке сохранения о нём знать не нужно:
+Независимый контроллер подписывается на событие сохранения и пишет свой метаблок — точке сохранения о нём знать не нужно:
 
 ```csharp
 public static class DifficultySaveMeta
@@ -116,8 +119,8 @@ public static class DifficultySaveMeta
     [RuntimeInitializeOnLoadMethod]
     private static void Init()
     {
-        SaveController.OnSaveStart -= AddMeta;
-        SaveController.OnSaveStart += AddMeta;
+        SaveController.OnSaveRequest -= AddMeta;
+        SaveController.OnSaveRequest += AddMeta;
     }
 
     private static void AddMeta() => SaveController.AddMeta(MetaKey, Difficulty.Current.ToString());
@@ -127,7 +130,14 @@ public static class DifficultySaveMeta
 var difficulty = summary.GetMeta(DifficultySaveMeta.MetaKey);   // null — блока нет
 ```
 
-Метаблок действует только в своём цикле: сводка заводится заново перед `OnSaveStart`, поэтому `AddMeta` вне окна «`OnSaveStart` → запись драйвером» бесполезен — запись сбросится следующим циклом. Выключенные в настройках блоки драйвер отбрасывает (Unity-слой, `SaveSettings`).
+Сохранение может исполниться не сразу, а после операций, стоящих в очереди раньше. Поэтому окон записи метаблока два:
+
+| Событие | Когда | `AddMeta` пишет | Для чего |
+|---------|-------|-----------------|----------|
+| `OnSaveRequest` | синхронно внутри `Save`, до постановки в очередь | в метаданные запроса — они едут с операцией и попадают в сводку при исполнении | состояние момента запроса: превью, режим, тип сейва |
+| `OnSaveStart` | на исполнении, после `BeginSummary` и метаданных запроса | прямо в сводку исполняемого цикла | состояние момента записи |
+
+Вне этих окон `AddMeta` бесполезен — запись сбросится следующим циклом. Повторный ключ в `OnSaveStart` перезаписывает значение из запроса. Отклонённый запрос `OnSaveRequest` не поднимает. Вызывать `Save` из обработчика `OnSaveRequest` нельзя — запрос отклоняется с ошибкой в лог. Выключенные в настройках блоки драйвер отбрасывает (Unity-слой, `SaveSettings`).
 
 ---
 
@@ -141,25 +151,23 @@ SaveController : SystemController<SaveController, IDriver>
   ├── State: SaveControllerStates
   ├── ProcessData: SaveProcessData
   │
-  ├── Save(name, guid?) → UniTask<string>
-  │    ├── State = Saving
-  │    ├── Driver.BeginSummary()          ← новая сводка цикла
-  │    ├── OnSaveStart                    ← контроллеры пишут метаблоки (AddMeta)
-  │    ├── foreach ISaveable → GetSaveData() → SaveDataIndex
-  │    ├── guid ??= Crypto.GetNewGuid()
-  │    ├── Driver.Save(name, guid)
-  │    └── State = Idle, OnSaveComplete
+  ├── Save(name, guid?) → UniTask<string>       ← постановка в очередь
+  │    ├── загрузка в очереди/исполняется → null
+  │    ├── OnSaveRequest                  ← метаданные запроса (AddMeta)
+  │    └── слияние с ожидающим Save того же GUID или новая операция
+  ├── Load(guid) → UniTask                      ← постановка в очередь
+  ├── Remove(guid) → UniTask                    ← постановка в очередь; отменяет ожидающие Save GUID
   │
-  ├── Load(guid) → UniTask
-  │    ├── State = Loading, OnLoadStart
-  │    ├── Driver.Load(guid) → заполняет SaveDataIndex
-  │    ├── foreach ISaveable → OnLoad()
-  │    └── State = Idle, OnLoadComplete
+  ├── Очередь (SaveController.Queue.cs): по одной операции, FIFO
+  │    ├── Save:   State = Saving, Driver.BeginSummary(), метаданные запроса, OnSaveStart,
+  │    │           foreach ISaveable → GetSaveData() → SaveDataIndex, Driver.Save(name, guid)
+  │    ├── Load:   State = Loading, OnLoadStart, Driver.Load(guid), foreach ISaveable → OnLoad()
+  │    ├── Remove: Driver.Remove(guid)
+  │    └── очередь пуста → State = Idle; событие завершения; результат ожидающим
   │
-  ├── Remove(guid) → Driver.Remove(guid), OnRemove
   ├── GetData(id) → Dictionary<string, string>
   ├── GetIndex() → Driver.GetIndex()
-  ├── AddMeta(key, metadata) → Driver.AddMeta
+  ├── AddMeta(key, metadata) → метаданные запроса (в OnSaveRequest) или Driver.AddMeta
   ├── Register(ISaveable) / UnRegister(ISaveable)
   └── GetProcessData() → SaveProcessData
 
@@ -192,25 +200,52 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 Каждый `ISaveable` возвращает свой `GetSaveId()` (идентификатор модуля) и `Dictionary<string, string>` (ключ → JSON-строка). `SaveController` агрегирует все модули в `SaveDataIndex`.
 
+### Очередь операций
+
+`Save`, `Load` и `Remove` не исполняются сразу: они ставят операцию в очередь и возвращают задачу, которая завершится вместе с ней. Операции исполняются строго по одной, в порядке постановки; следующая начинается после завершения текущей. Так save и load не пересекаются, а сбор данных не идёт поверх загрузки.
+
+Батчинг — по последней операции того же GUID (исполняемая операция сливается только там, где это сказано):
+
+| Запрос | Что происходит |
+|--------|----------------|
+| `Save(guid)`, последняя операция по GUID — ожидающий `Save` | Слияние: имя и метаданные — от нового запроса, результат общий для всех ожидающих |
+| `Save()` без GUID | Новый сейв, ни с чем не сливается |
+| `Save` при исполняемой или ожидающей загрузке | Отклоняется: `null` и предупреждение в лог. После загрузки состояние уже другое — записывать его под запрошенным именем бессмысленно. Сохранения, запрошенные до загрузки, исполняются до неё |
+| `Load(guid)`, последняя операция **всей очереди** (ожидающая или исполняемая) — `Load` того же GUID | Слияние. С более ранней загрузкой того же GUID не сливается: загрузка меняет состояние всей игры, перестановка (A, B, A → B) недопустима |
+| `Remove(guid)` | Сначала отменяются ожидающие `Save` этого GUID с конца очереди до первой иной операции по нему (их результат — `null`): запись перед удалением бессмысленна, а сохранения до загрузки определяют, что она загрузит. Затем слияние с ожидающим или исполняемым `Remove` того же GUID |
+
+Операции, поставленные из обработчиков событий и из продолжений `await` завершённых операций, подхватывает тот же цикл обработки — порядок остаётся FIFO. Продолжения ожидающих выполняются синхронно, сразу после события завершения, до старта следующей операции.
+
+Исключение в обработчике любого события логируется с именем обработчика и не мешает остальным подписчикам и очереди.
+
 ### Жизненный цикл Save
 
-1. Проверка замка (`State == Saving` → возврат `null`)
-2. `State = Saving`
+1. Запрос (синхронно внутри `Save`): загрузка в очереди или исполняется → `null`; иначе `OnSaveRequest` собирает метаданные запроса; операция ставится в очередь или сливается
+2. Исполнение: `State = Saving`
 3. `Driver.BeginSummary()` — новая сводка: метаблоки прошлого цикла, в т.ч. неудачного, не переносятся
-4. `OnSaveStart` — независимые контроллеры пишут метаблоки через `AddMeta`
-5. `SaveDataIndex.Clear()`
-6. Для каждого `ISaveable` — `await GetSaveData(token)` → добавление в `SaveDataIndex`
-7. Генерация GUID если не передан
-8. `Driver.Save(name, guid)` — физическое сохранение вместе со сводкой цикла
-9. `State = Idle`, `OnSaveComplete`
+4. Метаданные запроса → `Driver.AddMeta`
+5. `OnSaveStart` — метаблоки момента исполнения через `AddMeta`
+6. `SaveDataIndex.Clear()`
+7. Для каждого `ISaveable` — `await GetSaveData(token)` → добавление в `SaveDataIndex`
+8. Генерация GUID если не передан
+9. `Driver.Save(name, guid)` — физическое сохранение вместе со сводкой цикла
+10. Очередь пуста → `State = Idle`; `OnSaveComplete`; результат (GUID, при сбое — `null`) ожидающим
 
 ### Жизненный цикл Load
 
-1. Проверка замка (`State == Loading` → return)
-2. `State = Loading`, `OnLoadStart`
+1. Запрос: слияние с хвостом очереди или постановка
+2. Исполнение: `State = Loading`, `OnLoadStart`
 3. `Driver.Load(guid)` — драйвер читает тело сейва, прогоняет реакторы коррекции (см. ниже) и заполняет `SaveDataIndex`
 4. Для каждого `ISaveable` — `await OnLoad(token)` (модуль читает из `SaveController.GetData()`)
-5. `State = Idle`, `OnLoadComplete`
+5. Очередь пуста → `State = Idle`; `OnLoadComplete`
+
+### Жизненный цикл Remove
+
+1. Запрос: отмена ожидающих `Save` GUID, слияние или постановка
+2. Исполнение: `Driver.Remove(guid)`; `State` не меняется
+3. Очередь пуста → `State = Idle`; при успехе — `OnRemove`
+
+Если очередь пуста, `Remove` исполняется синхронно в стеке вызывающего — как до появления очереди.
 
 ### SaveProcessData — двухуровневый прогресс
 
@@ -227,7 +262,7 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 | `SaveFolder` | struct: `Id`, `SaveData[] DataSet` — папка модуля |
 | `SaveSummary` | struct: `Name`, `Date`, `UnixTimestamp`, `Version`, `Meta` — сводка сохранения (XML-сериализуемая). `Version` — строковая версия приложения (`Application.version`), которая была активна на момент создания записи. Полезна для миграций и фильтрации старых сейвов в UI. `Meta` — необязательный список метаблоков (`null` у старых сейвов); чтение — `GetMeta(key)`, запись — `SetMeta(key, value)` (повторный ключ перезаписывает) |
 | `SaveMeta` | struct: `Key`, `Value` — метаблок сводки; в XML — `<Meta><Entry Key="…">значение</Entry></Meta>` |
-| `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` |
+| `SaveControllerStates` | enum: `Idle`, `Saving`, `Loading` — тип исполняемой операции; `Idle` — очередь пуста. Между операциями очереди `Idle` не выставляется |
 
 ---
 
@@ -236,24 +271,24 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 ### Вход
 
 - `ISaveable`-модули регистрируются через `Register()`
-- `Save(name, guid?)` / `Load(guid)` / `Remove(guid)` запускают процессы
+- `Save(name, guid?)` / `Load(guid)` / `Remove(guid)` ставят операции в очередь
 
 ### Выход
 
 - `GetData(id)` — данные модуля после загрузки
 - `GetIndex()` — все существующие сохранения (`Dictionary<string, SaveSummary>`)
-- События: `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
+- События: `OnSaveRequest`, `OnSaveStart`, `OnSaveComplete`, `OnLoadStart`, `OnLoadComplete`, `OnRemove`
 
 ### API
 
 | Метод | Описание |
 |-------|----------|
-| `SaveController.Save(name, guid?)` | Сохранение, `UniTask<string>` (возвращает GUID или `null` если идёт другой Save) |
-| `SaveController.Load(guid)` | Загрузка, `UniTask` |
-| `SaveController.Remove(guid)` | Удаление сохранения |
+| `SaveController.Save(name, guid?)` | Сохранение в очередь, `UniTask<string>`: GUID записанного сейва; `null` — отклонено (загрузка в очереди или исполняется), отменено удалением этого сейва или не удалось |
+| `SaveController.Load(guid)` | Загрузка в очередь, `UniTask` — завершается после загрузки |
+| `SaveController.Remove(guid)` | Удаление в очередь, `UniTask` — завершается после удаления |
 | `SaveController.GetData(id)` | Данные модуля по `SaveId` |
 | `SaveController.GetIndex()` | Все сохранения |
-| `SaveController.AddMeta(key, metadata)` | Метаблок в сводку текущего сохранения; действует от `OnSaveStart` до записи драйвером |
+| `SaveController.AddMeta(key, metadata)` | Метаблок: в `OnSaveRequest` — в метаданные запроса, в `OnSaveStart` — в сводку исполняемого сохранения |
 | `SaveController.Register(ISaveable)` | Регистрация модуля |
 | `SaveController.UnRegister(ISaveable)` | Отмена регистрации |
 | `SaveController.GetNumberLastSave()` | Номер-инкремент последнего сохранения |
@@ -263,10 +298,12 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 | Ограничение | Причина |
 |-------------|---------|
-| `Save` — замок от повторного вызова | `State == Saving` → return `null` |
-| `Load` — замок от повторного вызова | `State == Loading` → return |
+| Операции исполняются по одной | Очередь FIFO; повтор не отклоняется, а ждёт своей очереди или сливается |
+| `Save` при загрузке отклоняется | Состояние после загрузки другое — см. [Очередь операций](#очередь-операций) |
 | Данные — только строки | `Dictionary<string, string>`, JSON-сериализация на стороне модуля |
-| `Save`/`Load` возвращают `UniTask` | Можно ждать через `await` либо запускать fire-and-forget через `.Forget()`. Исключения логируются внутри |
+| `Save`/`Load`/`Remove` возвращают `UniTask` | Можно ждать через `await` либо запускать fire-and-forget через `.Forget()`. Исключения логируются внутри |
+| Нового сейва (без GUID) очередь не дедуплицирует | Два запроса — два сейва. Защита от повторного клика — на точке сохранения |
+| Нет таймаута операции | Зависший `GetSaveData`/`OnLoad` останавливает всю очередь |
 | `CancellationToken` объявлен, но не используется | Зарезервирован на будущее |
 
 ---
@@ -275,16 +312,22 @@ SaveDataIndex: Dictionary<string, Dictionary<string, string>>
 
 | Ситуация | Поведение |
 |----------|-----------|
-| `Save` во время сохранения | Блокируется (`State == Saving` → возврат `null`) |
-| `Load` во время загрузки | Блокируется (`State == Loading` → выход без действий) |
+| `Save` во время сохранения | Встаёт в очередь; ожидающий `Save` того же GUID — слияние |
+| `Save` во время загрузки или при ожидающей загрузке | Отклоняется: `null`, предупреждение в лог, `OnSaveRequest` не поднимается |
+| `Load` во время загрузки | Встаёт в очередь; тот же GUID в хвосте очереди — слияние |
+| `Load` после ожидающего `Remove` того же GUID | Исполняется после удаления — драйвер не найдёт сейв (ошибка в лог), `OnLoadComplete` вызывается |
+| `Remove` при ожидающем `Save` того же GUID | `Save` отменяется (результат `null`), затем удаление |
+| `Save` из обработчика `OnSaveRequest` | Отклоняется с ошибкой в лог |
+| Исключение в обработчике события | Ошибка в лог с именем обработчика; остальные подписчики и очередь продолжают |
 | `GetData` с несуществующим `id` | `Log.Print(Error)`, возвращает пустой `Dictionary` |
 | GUID не передан в `Save` | Генерируется `Crypto.GetNewGuid()` |
-| Исключение в `GetSaveData` / `OnLoad` | `Log.Print(Error)`, `State = Idle`, событие Complete вызывается |
+| Исключение в `GetSaveData` / `OnLoad` | `Log.Print(Error)`, событие Complete вызывается; `Save` возвращает `null` |
+| Сбой записи, проглоченный драйвером | `Save` возвращает GUID: Core о сбое не узнаёт — обработка ошибок на стороне драйвера |
 | `ISaveable` не зарегистрирован | Данные не собираются/не раздаются |
 | `SaveSummary` — XML-сериализация | `Date` как `UnixTimestamp` (long), `DateTime.FromFileTimeUtc` |
 | Сводка без `<Meta>` (старый сейв, драйвер без метаданных) | `Meta == null`, `GetMeta` возвращает `null` |
 | Новая сводка в старой сборке | Неизвестный элемент `<Meta>` пропускается XML-сериализатором |
-| `AddMeta` вне окна сохранения | Пишет в черновик сводки, который заменится следующим `BeginSummary` — в сейв не попадёт |
+| `AddMeta` вне окон `OnSaveRequest` / `OnSaveStart` | Пишет в черновик сводки, который заменится следующим `BeginSummary` — в сейв не попадёт |
 | `AddMeta` с повторным ключом | Значение перезаписывается |
 | Сбой сохранения до `Driver.Save` | Сводка цикла не пишется; следующий цикл начинает с новой |
 

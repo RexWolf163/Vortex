@@ -9,11 +9,22 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Tests
     /// <summary>Разбор сценариев .nani: виды операций, операторы и операнды, что переменной не считается.</summary>
     internal sealed class NaniScriptSourceTests
     {
-        private static List<VariableLink> Parse(string text)
+        private static List<VariableLink> Parse(string text) => Parse(text, out _);
+
+        private static List<VariableLink> Parse(string text, out List<BuildProblem> problems)
         {
             var links = new List<VariableLink>();
-            NaniScriptSource.Collect("Assets/Test.nani", text, links);
+            problems = new List<BuildProblem>();
+            NaniScriptSource.Collect("Assets/Test.nani", text, links, problems);
             return links;
+        }
+
+        [Test]
+        public void UnclosedQuote_IsProblemWithLine()
+        {
+            Parse("\n@set Day=1 if:\"Flag", out var problems);
+            Assert.AreEqual(1, problems.Count);
+            Assert.AreEqual(2, problems[0].Line);
         }
 
         private static VariableLink Single(List<VariableLink> links, string name, NaniVariableOperation operation) =>

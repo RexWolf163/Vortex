@@ -100,7 +100,8 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
         private void RefreshFocus()
         {
             //Переключение состояния "в фокусе"
-            var b = _focused != null && _focused.Value.Equals(_data.Guid);
+            // Фокуса может не быть (Value == null): сейв в фокусе пропал при пересборке списка
+            var b = _focused != null && _data.Guid == _focused.Value;
             slotButton.SetSwitcher(b ? SwitcherState.On : SwitcherState.Off);
         }
 

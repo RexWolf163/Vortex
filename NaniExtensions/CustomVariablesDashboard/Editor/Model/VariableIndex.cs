@@ -28,13 +28,13 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
 
     /// <summary>
     /// Карта связей — результат одной сборки. Живёт только в памяти редактора: статическое поле сбрасывается при
-    /// перезагрузке домена (перекомпиляция, вход в Play Mode), на диск не пишется. Сборка заменяет карту целиком
-    /// или не меняет её (<see cref="VariableIndexBuilder"/>).
+    /// перезагрузке домена (перекомпиляция, вход в Play Mode), на диск не пишется. Сборка (<c>Sources.VariableIndexBuilder</c>)
+    /// заменяет карту целиком или не меняет её.
     /// </summary>
     internal sealed class VariableIndex
     {
-        /// <summary>Текущая карта; null — сборки ещё не было</summary>
-        public static VariableIndex Current { get; private set; }
+        /// <summary>Текущая карта; null — сборки ещё не было. Задаёт только сборщик по окончании сборки</summary>
+        public static VariableIndex Current { get; internal set; }
 
         public DateTime BuiltAt { get; }
 
@@ -59,18 +59,6 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
             ScannedScripts = scannedScripts;
             ScannedQuests = scannedQuests;
             QuestsEnabled = questsEnabled;
-        }
-
-        /// <summary>
-        /// Собрать заново. Отменённая сборка оставляет прежнюю карту. Возвращает true, если карта заменена.
-        /// </summary>
-        public static bool Rebuild()
-        {
-            var index = VariableIndexBuilder.Build();
-            if (index == null)
-                return false;
-            Current = index;
-            return true;
         }
     }
 }

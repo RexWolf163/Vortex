@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model;
+using Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources;
 
 namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Tests
 {

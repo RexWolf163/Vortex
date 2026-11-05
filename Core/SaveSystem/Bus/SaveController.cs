@@ -97,8 +97,8 @@ namespace Vortex.Core.SaveSystem.Bus
         public static UniTask<string> Save(string name, string guid = null) => EnqueueSave(name, guid);
 
         /// <summary>
-        /// Загрузка в очередь. Повтор для того же GUID, пока он ожидает или исполняется, сливается с ним.
-        /// Завершается после загрузки.
+        /// Загрузка в очередь. Повтор для того же GUID сливается с ним, только если он последний в очереди
+        /// (ожидающий или исполняемый). Завершается после загрузки.
         /// </summary>
         /// <param name="guid">guid сейва</param>
         public static UniTask Load(string guid) => EnqueueLoad(guid);

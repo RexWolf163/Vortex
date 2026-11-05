@@ -13,7 +13,9 @@ namespace Vortex.Core.SaveSystem.Bus
     /// начинается после завершения текущей. Батчинг — по последней операции того же GUID в очереди:
     /// <list type="bullet">
     /// <item>Save того же GUID, ещё не начатый, — слияние: имя и метаданные от нового запроса, результат общий;</item>
-    /// <item>Load/Remove того же GUID, ожидающий или исполняемый, — слияние;</item>
+    /// <item>Load того же GUID — слияние, только если он последний во всей очереди (ожидающий или исполняемый):
+    /// загрузка меняет состояние всей игры, перестановка относительно других загрузок недопустима;</item>
+    /// <item>Remove того же GUID, ожидающий или исполняемый, — слияние;</item>
     /// <item>Remove отменяет ожидающие Save этого GUID, стоящие после последней его загрузки (результат — null);</item>
     /// <item>Save при исполняемой или ожидающей загрузке отклоняется: после неё состояние уже другое.</item>
     /// </list>
@@ -106,9 +108,11 @@ namespace Vortex.Core.SaveSystem.Bus
 
         private static UniTask EnqueueLoad(string guid)
         {
-            var last = FindLast(guid);
-            if (last != null && last.Type == OperationType.Load)
-                return last.Completion.Task.AsUniTask();
+            // Загрузка меняет состояние всей игры, а не одного сейва: сливать только с хвостом всей очереди.
+            // Слияние с более ранней загрузкой того же GUID переставило бы порядок (A, B, A → итог B)
+            var tail = Pending.Last?.Value ?? _current;
+            if (tail != null && tail.Type == OperationType.Load && tail.Guid == guid)
+                return tail.Completion.Task.AsUniTask();
 
             return Enqueue(new Operation(OperationType.Load, guid)).AsUniTask();
         }

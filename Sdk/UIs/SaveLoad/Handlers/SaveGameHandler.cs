@@ -39,8 +39,10 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             _isSaving = true;
             try
             {
-                // Конец кадра — для снимка превью: SavePreviewController снимает экран на запросе сохранения
-                await UniTask.WaitForEndOfFrame(this);
+                // Конец кадра — для снимка превью: SavePreviewController снимает экран на запросе сохранения.
+                // Без привязки к объекту: корутина на хэндлере умерла бы с выключением GO, задача не завершилась бы
+                // и _isSaving залип навсегда
+                await UniTask.WaitForEndOfFrame();
                 var guid = await SaveKindController.Save(SavingSystemConstants.ManualName, GetSaveName());
                 if (guid == null)
                     Debug.LogError("[SaveGameHandler] Couldn't save game", this);

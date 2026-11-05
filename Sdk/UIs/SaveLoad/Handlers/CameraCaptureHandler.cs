@@ -177,8 +177,15 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
 
             var prevTarget = camera.targetTexture;
             camera.targetTexture = _renderTexture;
-            camera.Render();
-            camera.targetTexture = prevTarget;
+            try
+            {
+                camera.Render();
+            }
+            finally
+            {
+                // Иначе при сбое камера так и рисовала бы в RT, а не на экран
+                camera.targetTexture = prevTarget;
+            }
 
             BlitLayer(_renderTexture, result);
         }
@@ -202,28 +209,34 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             var prevDistance = canvas.planeDistance;
 
             var tempCam = CreateTempCanvasCamera();
+            try
+            {
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = tempCam;
 
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = tempCam;
+                Canvas.ForceUpdateCanvases();
 
-            Canvas.ForceUpdateCanvases();
+                var prevActive = RenderTexture.active;
+                RenderTexture.active = _renderTexture;
+                GL.Clear(true, true, Color.clear);
+                RenderTexture.active = prevActive;
 
-            var prevActive = RenderTexture.active;
-            RenderTexture.active = _renderTexture;
-            GL.Clear(true, true, Color.clear);
-            RenderTexture.active = prevActive;
+                tempCam.targetTexture = _renderTexture;
+                tempCam.Render();
+            }
+            finally
+            {
+                // Откат чужого канваса обязателен и при сбое: иначе он остался бы в ScreenSpaceCamera со скрытой
+                // временной камерой — UI пропал бы с экрана
+                tempCam.targetTexture = null;
+                canvas.renderMode = prevMode;
+                canvas.worldCamera = prevCamera;
+                canvas.planeDistance = prevDistance;
+                canvas.enabled = false;
+                canvas.enabled = true;
 
-            tempCam.targetTexture = _renderTexture;
-            tempCam.Render();
-            tempCam.targetTexture = null;
-
-            canvas.renderMode = prevMode;
-            canvas.worldCamera = prevCamera;
-            canvas.planeDistance = prevDistance;
-            canvas.enabled = false;
-            canvas.enabled = true;
-
-            Destroy(tempCam.gameObject);
+                Destroy(tempCam.gameObject);
+            }
 
             BlitLayer(_renderTexture, result);
         }
@@ -248,8 +261,14 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
 
             var prevTarget = canvasCamera.targetTexture;
             canvasCamera.targetTexture = _renderTexture;
-            canvasCamera.Render();
-            canvasCamera.targetTexture = prevTarget;
+            try
+            {
+                canvasCamera.Render();
+            }
+            finally
+            {
+                canvasCamera.targetTexture = prevTarget;
+            }
 
             BlitLayer(_renderTexture, result);
         }
@@ -303,20 +322,34 @@ namespace Vortex.Sdk.UIs.SaveLoad.Handlers
             var (width, height) = GetScreenSize();
 
             var resultRT = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32);
+            var prevActive = RenderTexture.active;
+            Texture2D tex = null;
+            try
+            {
+                RenderTexture.active = resultRT;
+                GL.Clear(true, true, Color.clear);
 
-            RenderTexture.active = resultRT;
-            GL.Clear(true, true, Color.clear);
+                foreach (var handler in list)
+                    handler.Render(resultRT);
 
-            foreach (var handler in list)
-                handler.Render(resultRT);
-
-            var tex = new Texture2D(width, height, TextureFormat.ARGB32, false);
-            tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-            tex.Apply();
-            RenderTexture.active = null;
-            RenderTexture.ReleaseTemporary(resultRT);
-
-            return tex;
+                // Blit слоёв переключает active на свою цель — читать из итогового RT явно
+                RenderTexture.active = resultRT;
+                tex = new Texture2D(width, height, TextureFormat.ARGB32, false);
+                tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                tex.Apply();
+                return tex;
+            }
+            catch
+            {
+                if (tex != null)
+                    Destroy(tex);
+                throw;
+            }
+            finally
+            {
+                RenderTexture.active = prevActive;
+                RenderTexture.ReleaseTemporary(resultRT);
+            }
         }
     }
 }

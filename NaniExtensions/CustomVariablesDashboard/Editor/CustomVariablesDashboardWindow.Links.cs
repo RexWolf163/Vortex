@@ -132,7 +132,12 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
                 {
                     GUILayout.Label(OperationTitle(link.Operation), GUILayout.Width(80));
                     GUILayout.Label(new GUIContent(DescribeValue(link), link.RawText), GUILayout.Width(160));
-                    if (GUILayout.Button(link.Location.Describe(), EditorStyles.linkLabel))
+                    // Find — ассет места в инспекторе; ссылка — переход к месту (сценарий — во внешнем редакторе на строке)
+                    if (GUILayout.Button(new GUIContent("Find", "Выделить ассет и показать в инспекторе"),
+                            EditorStyles.miniButton, GUILayout.Width(40)))
+                        link.Location.Find();
+                    var location = link.Location.Describe();
+                    if (GUILayout.Button(new GUIContent(location, location), EditorStyles.linkLabel))
                         link.Location.Open();
                 }
         }

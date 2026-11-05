@@ -35,7 +35,7 @@ UI-обёртка над `SaveController` (Core SaveSystem): представл�
 ## Зависимости
 
 ### Core
-- `Vortex.Core.SaveSystem.Bus` — `SaveController` (`Save`, `Load`, `Remove`, `GetIndex`, `AddMeta`, `OnSaveStart`, `OnSaveComplete`, `OnLoadComplete`, `OnRemove`, `GetNumberLastSave`)
+- `Vortex.Core.SaveSystem.Bus` — `SaveController` (`Save`, `Load`, `Remove`, `GetIndex`, `AddMeta`, `OnSaveRequest`, `OnSaveComplete`, `OnLoadComplete`, `OnRemove`, `GetNumberLastSave`). Операции идут через очередь `SaveController` (см. README Core SaveSystem)
 - `Vortex.Core.SaveSystem.Abstraction` — `SaveSummary` (`GetMeta`, `SetMeta`)
 - `Vortex.Core.System.Abstractions` — `IDataStorage`
 - `Vortex.Core.Extensions.LogicExtensions` — `Base64ToTexture`, `TextureToBase64`, `TextureEncodingRules`
@@ -109,8 +109,9 @@ saveList.Refresh();                                        // SetFilter/ClearFil
 ### Своя точка сохранения
 
 ```csharp
-// Конец кадра обязателен: превью снимается на начале сохранения (SaveController.OnSaveStart)
-await UniTask.WaitForEndOfFrame(this);
+// Конец кадра обязателен: превью снимается синхронно на запросе сохранения (SaveController.OnSaveRequest).
+// Ждать без привязки к объекту: корутина на выключенном GO умрёт, и ожидание не завершится
+await UniTask.WaitForEndOfFrame();
 
 // С типом — метаблок kind будет записан
 var guid = await SaveKindController.Save(SavingSystemConstants.AutoName, $"{SavingSystemConstants.AutoName}_{day}");
@@ -119,6 +120,8 @@ var guid = await SaveKindController.Save(SavingSystemConstants.AutoName, $"{Savi
 var guid2 = await SaveController.Save("custom");
 ```
 
+Сохранение встаёт в очередь `SaveController` и может исполниться позже, но превью, тип и режим — снимок момента запроса: они пишутся на `OnSaveRequest` и едут вместе с операцией. `null` — запрос отклонён (идёт или ждёт загрузка), отменён удалением этого сейва или не удался. Новый сейв очередь не дедуплицирует: защиту от повторного клика держит сама точка сохранения (как `SaveGameHandler`).
+
 ### Захват экрана
 
 ```csharp
@@ -126,7 +129,7 @@ var guid2 = await SaveController.Save("custom");
 // проставить priority (меньше — ниже).
 // В Always Included Shaders добавить Hidden/AlphaBlit.
 
-await UniTask.WaitForEndOfFrame(this);
+await UniTask.WaitForEndOfFrame();
 var screenshot = CameraCaptureHandler.Capture();
 // ... использовать ...
 UnityEngine.Object.Destroy(screenshot);
@@ -147,13 +150,17 @@ string pureName = summary.GetSavePureName();                   // у стары�
 
 ```
 SaveLoad/
-├── SavePreviewController.cs        ← метаблок preview: снимок на начале сохранения, чтение (с запасным путём из имени)
+├── SavePreviewController.cs        ← метаблок preview: снимок на запросе сохранения, чтение (с запасным путём из имени)
 ├── SaveKindController.cs           ← метаблок kind: Save(kind, name), GetKind (с запасным путём из имени)
+├── SaveNameFormatter.cs            ← отображаемое имя: шаблон auto_N / manual_N с локализацией
 ├── SavingSystemConstants.cs        ← префиксы и типы AutoName/ManualName
 ├── AlphaBlit.shader                ← Hidden/AlphaBlit (src_over)
 ├── DefineSettings/
 │   ├── SdkSettings.SaveLoad.cs     ← partial-кусок SdkSettings (тоггл)
 │   └── sdk.settings.system.ext.asmref
+├── SaveSettingsExt/
+│   ├── SaveSettings.SaveLoad.cs    ← partial SaveSettings: ключи и кнопки метаблоков preview/kind
+│   └── ru.vortex.unity.settings.asmref
 ├── Handlers/
 │   ├── CameraCaptureHandler.cs     ← многослойный захват экрана
 │   ├── LoadGameHandler.cs          ← кнопка загрузки
@@ -173,18 +180,19 @@ SaveLoad/
 
 | Класс | Тип | Назначение |
 |-------|-----|-----------|
-| `SavePreviewController` | `static class` | Метаблок `MetaKey = "preview"`. Подписан на `SaveController.OnSaveStart`: `CameraCaptureHandler.Capture()` → `EncodePreview` (JPEG Medium, base64) → `SaveController.AddMeta`, текстура уничтожается. `GetPreview(SaveSummary)` — из метаданных, иначе из имени по `\|\|`; `GetSavePureName(this SaveSummary)`. `GetSaveNameWithPreview(Texture2D, string)` — `[Obsolete]`, старая форма |
-| `SaveKindController` | `static class` | Метаблок `MetaKey = "kind"`. `Save(kind, name, guid?)` держит тип на время цикла и пишет его на `OnSaveStart`; `GetKind(SaveSummary)` — из метаданных, иначе из префикса имени (`auto`/`manual`), иначе `null` |
+| `SavePreviewController` | `static class` | Метаблок `MetaKey = "preview"`. Подписан на `SaveController.OnSaveRequest`: метаблок выключен — выход; иначе `CameraCaptureHandler.Capture()` → `EncodePreview` (JPEG Medium, base64) → `SaveController.AddMeta`, текстура уничтожается. `GetPreview(SaveSummary)` — из метаданных, иначе из имени по `\|\|`; битое превью — `null`, временная текстура уничтожается. `GetSavePureName(this SaveSummary)`. `GetSaveNameWithPreview(Texture2D, string)` — `[Obsolete]`, старая форма |
+| `SaveKindController` | `static class` | Метаблок `MetaKey = "kind"`. `Save(kind, name, guid?)` держит тип только на время синхронной постановки запроса и пишет его на `OnSaveRequest` — тип едет с запросом через очередь; `GetKind(SaveSummary)` — из метаданных, иначе из префикса имени (`auto`/`manual`), иначе `null` |
+| `SaveNameFormatter` | `static class` | `GetDisplayName(this SaveSummary, autoKey, manualKey)`: тип в имени распознан целиком (`auto`/`manual`) — локализованный шаблон с индексом (и хвост через «: »), иначе чистое имя как есть |
 | `SavingSystemConstants` | `static class` | Константы префиксов имени и значений типа: `AutoName = "auto"`, `ManualName = "manual"` |
 | `SaveSlotData` | `class : IDisposable` | Враппер `SaveSummary` для `IDataStorage`. `Guid`, `Summary`, lazy `Preview` (Texture2D); `Dispose` уничтожает текстуру |
 | `CameraCaptureHandler` | `MonoBehaviour` | Один слой захвата (Camera или Canvas). Самореестр `Handlers`, `priority` (0–10), `Render(RT)`, статический `Capture()` |
-| `SaveGameHandler` | `MonoBehaviour` | Привязка кнопки `UIComponent` к `Save()`. Ждёт `WaitForEndOfFrame` (для снимка превью), вызывает `SaveKindController.Save(ManualName, "manual_N")` |
+| `SaveGameHandler` | `MonoBehaviour` | Привязка кнопки `UIComponent` к `Save()`. Повторный клик, пока свой сейв не завершён, игнорируется. Ждёт конец кадра (`UniTask.WaitForEndOfFrame()`, без привязки к объекту — для снимка превью), вызывает `SaveKindController.Save(ManualName, "manual_N")` |
 | `LoadGameHandler` | `MonoBehaviour` | Берёт `SaveSlotData` из `IDataStorage`, вызывает `SaveController.Load(guid)` |
-| `RemoveSaveGameHandler` | `MonoBehaviour` | Подписан на `IDataStorage.OnUpdateLink`, вызывает `SaveController.Remove(guid)` |
-| `SaveListView` | `MonoBehaviour` | Заполняет `Pool` слотами в порядке убывания `UnixTimestamp`, пропуская сейвы, не прошедшие фильтры `filters` (метаблок + регулярное выражение, AND). Хранит `StringData _focused` и кладёт текущий `SaveSlotData` в `DataStorage`. Перезаполнение по `OnSaveComplete`/`OnLoadComplete`/`OnRemove`. Публичные `SetFilter(key, pattern)`, `ClearFilters()`, `Refresh()`. Disposable через `TimeController.Call` |
+| `RemoveSaveGameHandler` | `MonoBehaviour` | Подписан на `IDataStorage.OnUpdateLink`, вызывает `SaveController.Remove(guid)`. Публичный `RemoveSave()` (вход из UnityEvent) без данных — `LogError` и выход |
+| `SaveListView` | `MonoBehaviour` | Заполняет `Pool` слотами в порядке убывания `UnixTimestamp`, пропуская сейвы, не прошедшие фильтры `filters` (метаблок + регулярное выражение, AND). Хранит `StringData _focused` и кладёт текущий `SaveSlotData` в `DataStorage`. Перезаполнение по `OnSaveComplete`/`OnLoadComplete`/`OnRemove` с сохранением фокуса. Публичные `SetFilter(key, pattern)`, `ClearFilters()`, `Refresh()`. Disposable через `TimeController.Call` |
 | `SaveListFilterHandler` | `MonoBehaviour` | На `OnEnable` выставляет фильтры `{key, pattern}` на пролинкованный `SaveListView` (с предварительным `ClearFilters`, если отмечен `clearFilters`) и вызывает `Refresh()` |
-| `SaveView` | `MonoBehaviour` | Карточка слота. Подписан на `_focused.OnUpdateData`, переключает `SwitcherState.On/Off`. Парсит имя `auto_N` / `manual_N` и форматирует через `LocalizationKey` |
-| `SaveCompleteView` | `MonoBehaviour` | Всплывашка по `SaveController.OnSaveComplete`. Прогоняет массив `TweenerHub` (Back→Forward), выводит имя последнего сейва и `Date` |
+| `SaveView` | `MonoBehaviour` | Карточка слота. Подписан на `_focused.OnUpdateData`, переключает `SwitcherState.On/Off` (фокуса может не быть). Имя — `SaveNameFormatter.GetDisplayName` |
+| `SaveCompleteView` | `MonoBehaviour` | Всплывашка по `SaveController.OnSaveComplete`. Прогоняет массив `TweenerHub` (Back→Forward), выводит имя последнего сейва (`SaveNameFormatter.GetDisplayName`) и `Date` |
 | `SdkSettings` (partial) | — | Поле `saveLoadWrapperSdk` с `[ToggleButton]` и `[DefineSymbol("USING_VORTEX_SAVE_LOAD_WRAPPER")]` |
 
 ## Контракт
@@ -201,14 +209,23 @@ SaveLoad/
 - Превью слота: `RawImage.texture = SaveSlotData.Preview`
 
 ### Гарантии
-- `SaveListView` фильтрует индекс до сортировки и сортирует по убыванию `UnixTimestamp`; в фокус ставится самый свежий из прошедших фильтры
+- `SaveListView` фильтрует индекс до сортировки и сортирует по убыванию `UnixTimestamp`
+- Фокус `SaveListView` — выбор пользователя, на него опираются загрузка и удаление:
+  - при включении — самый свежий из прошедших фильтры;
+  - `Refresh()` (смена фильтров) — прежний, если прошёл фильтры, иначе самый свежий;
+  - сохранение, загрузка, удаление (в т.ч. фоновые, напр. автосейв) — прежний; пропал из списка — фокуса нет, а не самый свежий: открытое подтверждение не удалит другой сейв
+- Слот в фокусе публикуется в `DataStorage` сразу на сборке, до появления элементов — окна «фокуса нет» между сборками не остаётся
 - `SaveListView.Refresh()` на выключенном представлении ничего не делает — список соберётся при включении
+- Пересборка, пришедшая во время построения списка, отменяет прежнюю сборку; отменённая состояние не трогает
+- Выключение и включение `SaveListView` в одном кадре пересобирают список
 - Выражение фильтра компилируется один раз и пересобирается только при смене текста
 - `SaveSlotData.Preview` создаётся лениво, `Dispose` уничтожает `Texture2D`
 - `SaveListView.Dispose` отписывается от событий, отменяет CTS, чистит пул и слоты
 - `CameraCaptureHandler.Capture()` сортирует активные хэндлеры по `priority` (меньше — ниже), композитит через src_over
-- `SaveGameHandler` ждёт `WaitForEndOfFrame` перед сохранением — снимок превью на `OnSaveStart` идёт в консистентном пайплайне при вызове из EventSystem
-- Тип сейва живёт только в своём цикле: `SaveKindController.Save` сбрасывает его по завершении, в т.ч. когда сохранение отклонено замком
+- `CameraCaptureHandler` и при сбое рендера восстанавливает режим Overlay-канваса, `targetTexture` камер и `RenderTexture.active`, освобождает временные RT и камеру
+- `SaveGameHandler` ждёт конец кадра перед сохранением — снимок превью на `OnSaveRequest` идёт в консистентном пайплайне при вызове из EventSystem
+- Тип сейва не утекает в чужой запрос: `SaveKindController.Save` держит его только на время синхронной постановки
+- Превью, тип и режим — снимок момента запроса, даже если сохранение исполнится позже из очереди
 - Старые сейвы (превью и тип в имени) читаются через запасной путь `GetPreview` / `GetKind`
 - `RemoveSaveGameHandler` пере-инициализируется на `IDataStorage.OnUpdateLink`
 
@@ -217,7 +234,7 @@ SaveLoad/
 - Один `CameraCaptureHandler` несёт ровно одну сущность: `camera` или `canvas`. При обоих null — `LogWarning`
 - Для `Canvas.ScreenSpaceCamera` без `worldCamera` — `LogWarning`, слой пропускается
 - Имя сейва не должно содержать подстроки `||`: `GetSavePureName` и запасной путь `GetPreview` режут по ней имя
-- Точка сохранения обязана дождаться конца кадра перед `Save`: превью снимается синхронно на `OnSaveStart`
+- Точка сохранения обязана дождаться конца кадра перед `Save`: превью снимается синхронно на `OnSaveRequest`
 - Возвращённую `Capture()` текстуру обязан уничтожить вызывающий код (`Destroy`)
 
 ## Граничные случаи
@@ -235,9 +252,15 @@ SaveLoad/
 | Сохранение без активных `CameraCaptureHandler` | Сейв пишется без метаблока `preview` |
 | Сохранение в обход `SaveKindController` | Метаблока `kind` нет; `GetKind` пробует префикс имени |
 | `GetKind` у сейва с произвольным именем без метаблока | `null` |
-| Имя слота не подходит под шаблон `auto_N` / `manual_N` | Выводится сырое `saveName` без локализации |
-| `IDataStorage` без `SaveSlotData` | `LoadGameHandler` пишет `LogError` и выходит; `RemoveSaveGameHandler` отвязывает кнопку |
+| Имя слота не подходит под шаблон `auto_N` / `manual_N` (тип сравнивается целиком: `autosave_3` — не автосейв) | Выводится чистое имя без локализации |
+| `IDataStorage` без `SaveSlotData` | `LoadGameHandler` и `RemoveSaveGameHandler.RemoveSave` пишут `LogError` и выходят; кнопка `RemoveSaveGameHandler` отвязывается |
+| Сейв в фокусе удалён (в т.ч. фоново) | После пересборки фокуса нет; Load/Remove без выбора — `LogError` |
+| Сохранение при идущей или ожидающей загрузке | `SaveController.Save` возвращает `null`; `SaveGameHandler` пишет `LogError` |
+| Повторный клик «Сохранить», пока свой сейв в очереди | Игнорируется |
+| Превью выключено в `SaveSettings` | Снимок не делается, сейв без метаблока `preview` |
+| Битое превью (base64 не декодируется) | `GetPreview` возвращает `null`, временная текстура уничтожается |
 | `Capture()` без активных хэндлеров | `LogWarning`, возврат `null` |
 | Изменение размера экрана между кадрами | `CameraCaptureHandler.Render` пересоздаёт `RenderTexture` |
 | `Canvas.ScreenSpaceOverlay` | Захват через временную ортографическую камеру с `cullingMask = 1 << layer`, режим/`worldCamera`/`planeDistance` восстанавливаются |
-| Disable `SaveListView` | `Dispose` запланирован через `TimeController.Call`, отписки выполняются вне `OnDisable`-кадра |
+| Disable `SaveListView` | `Dispose` запланирован через `TimeController.Call`, отписки выполняются вне `OnDisable`-кадра; включение в том же кадре снимает отложенный `Dispose` и пересобирает список |
+| Исключение при рендере слоя захвата | Канвас, камеры и `RenderTexture.active` восстанавливаются, временные ресурсы освобождаются, исключение уходит вызывающему |

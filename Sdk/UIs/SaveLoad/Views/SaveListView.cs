@@ -137,7 +137,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             if (_isInit)
                 Dispose();
 
-            Init(Token).Forget(Debug.LogException);
+            Init(Token, null, false).Forget(Debug.LogException);
         }
 
         private void OnDisable()
@@ -146,47 +146,50 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
         }
 
         /// <summary>
-        /// Асинхронная инициализация, для того чтобы растянуть формирование превью из строки
+        /// Асинхронная инициализация, для того чтобы растянуть формирование превью из строки. Слот в фокусе
+        /// публикуется в хранилище сразу, до появления элементов: окна «фокуса нет» между сборками не остаётся.
         /// </summary>
-        private async UniTask Init(CancellationToken token)
+        /// <param name="token">Токен своей сборки</param>
+        /// <param name="previousFocus">GUID в фокусе до пересборки; null — фокуса не было</param>
+        /// <param name="dropVanishedFocus">
+        /// Сейв в фокусе пропал из списка — оставить без фокуса, а не переводить на самый свежий
+        /// </param>
+        private async UniTask Init(CancellationToken token, string previousFocus, bool dropVanishedFocus)
         {
             if (_isInit)
                 return;
             try
             {
-                SaveController.OnSaveComplete += Refresh;
-                SaveController.OnLoadComplete += Refresh;
-                SaveController.OnRemove += Refresh;
+                SaveController.OnSaveComplete += OnIndexChanged;
+                SaveController.OnLoadComplete += OnIndexChanged;
+                SaveController.OnRemove += OnIndexChanged;
 
                 _isInit = true;
                 _saveSlots.Clear();
-                _index = SaveController.GetIndex();
-                _index = _index
+                _index = SaveController.GetIndex()
                     .Where(s => PassFilters(s.Value))
                     .OrderByDescending(s => s.Value.UnixTimestamp)
                     .ToDictionary(s => s.Key, s => s.Value);
 
                 pool.Clear();
 
-                if (_index == null || _index.Count == 0)
+                if (_index.Count == 0)
                     return;
 
-                var first = _index.First();
-                _focused = new StringData(null);
-                _focused.Set(first.Key);
-                var f = true;
+                foreach (var pair in _index)
+                    _saveSlots[pair.Key] = new SaveSlotData(pair.Key, pair.Value);
+
+                var focus = SelectFocus(previousFocus, dropVanishedFocus);
+                _focused = new StringData(focus);
+                if (focus != null)
+                    storageFocusedSlot.SetData(_saveSlots[focus]);
+
                 foreach (var guid in _index.Keys)
                 {
                     await UniTask.Yield(token);
                     if (token.IsCancellationRequested)
                         return;
-                    var summary = _index[guid];
-                    var slotData = new SaveSlotData(guid, summary);
-                    _saveSlots[guid] = slotData;
-                    pool.AddItem(slotData, _focused, (Action<string>)SetFocus);
-                    if (!f) continue;
-                    f = false;
-                    storageFocusedSlot.SetData(_saveSlots[first.Key]);
+                    pool.AddItem(_saveSlots[guid], _focused, (Action<string>)SetFocus);
                 }
             }
             catch (OperationCanceledException)
@@ -224,22 +227,49 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
         public void ClearFilters() => filters = new MetaFilter[0];
 
         /// <summary>
-        /// Перестроить список сейвов по текущему индексу и фильтрам. Выключенное представление не трогается —
-        /// список соберётся при включении.
+        /// Перестроить список сейвов по текущему индексу и фильтрам. Фокус остаётся на прежнем сейве, если он прошёл
+        /// фильтры, иначе — самый свежий. Выключенное представление не трогается — список соберётся при включении.
         /// </summary>
-        public void Refresh()
+        public void Refresh() => Rebuild(false);
+
+        /// <summary>
+        /// Индекс сейвов изменился (сохранение, загрузка, удаление — в т.ч. фоновые, напр. автосейв). Фокус — выбор
+        /// пользователя, на него опираются загрузка и удаление: событие его не пересаживает. Пропал сейв в фокусе —
+        /// фокуса нет, а не самый свежий: иначе открытое подтверждение удалило бы другой сейв.
+        /// </summary>
+        private void OnIndexChanged() => Rebuild(true);
+
+        private void Rebuild(bool dropVanishedFocus)
         {
             if (!isActiveAndEnabled)
                 return;
+            var previousFocus = _focused?.Value;
             Dispose();
-            Init(Token).Forget(Debug.LogException);
+            Init(Token, previousFocus, dropVanishedFocus).Forget(Debug.LogException);
+        }
+
+        /// <summary>
+        /// Фокус сборки: прежний, если он в списке; прежний пропал — null при <paramref name="dropVanishedFocus"/>,
+        /// иначе самый свежий; фокуса не было — самый свежий.
+        /// </summary>
+        private string SelectFocus(string previousFocus, bool dropVanishedFocus)
+        {
+            if (previousFocus != null)
+            {
+                if (_saveSlots.ContainsKey(previousFocus))
+                    return previousFocus;
+                if (dropVanishedFocus)
+                    return null;
+            }
+
+            return _index.Keys.First();
         }
 
         private void Dispose()
         {
-            SaveController.OnSaveComplete -= Refresh;
-            SaveController.OnLoadComplete -= Refresh;
-            SaveController.OnRemove -= Refresh;
+            SaveController.OnSaveComplete -= OnIndexChanged;
+            SaveController.OnLoadComplete -= OnIndexChanged;
+            SaveController.OnRemove -= OnIndexChanged;
 
             _cts.Cancel();
             _cts.Dispose();

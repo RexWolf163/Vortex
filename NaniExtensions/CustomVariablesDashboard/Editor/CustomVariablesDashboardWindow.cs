@@ -3,6 +3,7 @@ using Naninovel;
 using UnityEditor;
 using UnityEngine;
 using Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model;
+using Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources;
 
 namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
 {
@@ -83,7 +84,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
             {
                 if (GUILayout.Button("Собрать", EditorStyles.toolbarButton, GUILayout.Width(70)))
                 {
-                    VariableIndex.Rebuild();
+                    VariableIndexBuilder.Rebuild();
                     index = VariableIndex.Current;
                     GUIUtility.ExitGUI();
                 }

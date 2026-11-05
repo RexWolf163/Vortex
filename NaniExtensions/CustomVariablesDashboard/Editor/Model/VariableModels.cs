@@ -1,5 +1,6 @@
 using System;
 using UnityEditor;
+using UnityEngine;
 
 namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
 {
@@ -66,6 +67,29 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
 
         /// <summary>Переход к месту</summary>
         public abstract void Open();
+
+        /// <summary>Выделить ассет места — он показывается в инспекторе</summary>
+        public abstract void Find();
+
+        /// <summary>
+        /// Ассет по пути. Нет ассета (перемещён или удалён после сборки) — предупреждение в консоль, null: клик не должен
+        /// молча ничего не делать.
+        /// </summary>
+        internal static UnityEngine.Object LoadAsset(string assetPath)
+        {
+            var asset = string.IsNullOrEmpty(assetPath) ? null : AssetDatabase.LoadMainAssetAtPath(assetPath);
+            if (asset == null)
+                Debug.LogWarning($"[Custom Variables Dashboard] Ассет «{assetPath}» не найден — перемещён или удалён после " +
+                                 "сборки. Пересоберите карту связей.");
+            return asset;
+        }
+
+        /// <summary>Выделить ассет — он показывается в инспекторе — и подсветить в окне проекта</summary>
+        internal static void Select(UnityEngine.Object asset)
+        {
+            Selection.activeObject = asset;
+            EditorGUIUtility.PingObject(asset);
+        }
     }
 
     /// <summary>
@@ -86,11 +110,20 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
 
         public override string Describe() => $"{ScriptPath}:{Line}";
 
+        /// <summary>Открыть сценарий на строке во внешнем редакторе</summary>
         public override void Open()
         {
-            var asset = AssetDatabase.LoadMainAssetAtPath(ScriptPath);
+            var asset = LoadAsset(ScriptPath);
             if (asset != null)
                 AssetDatabase.OpenAsset(asset, Line);
+        }
+
+        /// <summary>Выделить сценарий — он показывается в инспекторе</summary>
+        public override void Find()
+        {
+            var asset = LoadAsset(ScriptPath);
+            if (asset != null)
+                Select(asset);
         }
     }
 
@@ -146,13 +179,15 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
             return text;
         }
 
-        public override void Open()
+        /// <summary>Переход к квесту — выделить пресет: другого места у квеста нет</summary>
+        public override void Open() => Find();
+
+        /// <summary>Выделить пресет квеста — он показывается в инспекторе</summary>
+        public override void Find()
         {
-            var asset = AssetDatabase.LoadMainAssetAtPath(AssetDatabase.GUIDToAssetPath(PresetGuid));
-            if (asset == null)
-                return;
-            Selection.activeObject = asset;
-            EditorGUIUtility.PingObject(asset);
+            var asset = LoadAsset(AssetDatabase.GUIDToAssetPath(PresetGuid));
+            if (asset != null)
+                Select(asset);
         }
     }
 
@@ -222,16 +257,13 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Model
 
         public void Open()
         {
-            var asset = AssetDatabase.LoadMainAssetAtPath(AssetPath);
+            var asset = LinkLocation.LoadAsset(AssetPath);
             if (asset == null)
                 return;
             if (Line > 0)
                 AssetDatabase.OpenAsset(asset, Line);
             else
-            {
-                Selection.activeObject = asset;
-                EditorGUIUtility.PingObject(asset);
-            }
+                LinkLocation.Select(asset);
         }
     }
 }

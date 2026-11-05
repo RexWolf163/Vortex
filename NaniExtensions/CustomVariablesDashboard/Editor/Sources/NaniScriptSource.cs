@@ -53,7 +53,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
 
         private static readonly HashSet<string> Arithmetic = new(StringComparer.Ordinal) { "+", "-", "*", "/", "%" };
 
-        public static void Collect(string path, string text, List<VariableLink> links)
+        public static void Collect(string path, string text, List<VariableLink> links, List<BuildProblem> problems)
         {
             var lines = text.Split('\n');
             for (var i = 0; i < lines.Length; i++)
@@ -64,10 +64,10 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
 
                 var location = new NaniLocation(path, i + 1);
                 if (line[0] == '@')
-                    ProcessCommand(line.Substring(1), location, links);
+                    ProcessCommand(line.Substring(1), location, links, problems);
                 else
                     foreach (var inline in GetInlineCommands(line))
-                        ProcessCommand(inline, location, links);
+                        ProcessCommand(inline, location, links, problems);
             }
         }
 
@@ -86,9 +86,13 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
             }
         }
 
-        private static void ProcessCommand(string body, NaniLocation location, List<VariableLink> links)
+        private static void ProcessCommand(string body, NaniLocation location, List<VariableLink> links,
+            List<BuildProblem> problems)
         {
-            var parameters = SplitParameters(body);
+            var parameters = SplitParameters(body, out var unclosedQuote);
+            if (unclosedQuote)
+                problems.Add(new BuildProblem(LinkSource.Nani, location.ScriptPath, location.Line,
+                    "Незакрытая кавычка — остаток строки разобран как один параметр"));
             if (parameters.Count == 0)
                 return;
 
@@ -116,19 +120,28 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
 
         /// <summary>
         /// Разбиение команды по пробелам вне кавычек и вне фигурных скобок (<c>if:{a=5 &amp;&amp; b&gt;=70}</c> — один
-        /// параметр); первый элемент — имя команды
+        /// параметр); первый элемент — имя команды. Незакрытая кавычка — остаток строки уходит одним параметром,
+        /// <paramref name="unclosedQuote"/> = true.
         /// </summary>
-        private static List<string> SplitParameters(string body)
+        private static List<string> SplitParameters(string body, out bool unclosedQuote)
         {
             var result = new List<string>();
             var start = -1;
             var quote = '\0';
             var braces = 0;
+            unclosedQuote = false;
             for (var i = 0; i <= body.Length; i++)
             {
                 var c = i < body.Length ? body[i] : ' ';
                 if (quote != '\0')
                 {
+                    if (i == body.Length)
+                    {
+                        unclosedQuote = true;
+                        result.Add(body.Substring(start));
+                        break;
+                    }
+
                     if (c == quote && body[i - 1] != '\\')
                         quote = '\0';
                     continue;
