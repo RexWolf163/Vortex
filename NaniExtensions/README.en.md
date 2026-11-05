@@ -8,6 +8,7 @@ Bridge between the Vortex framework and the Naninovel visual novel engine. Conta
 - Nani scene management from Vortex (pause, stop, actor reset)
 - Multi-channel localization (default, dialogue, voice)
 - Spine-animated cutscene management via Nani backgrounds
+- Editor tools: Naninovel variables panel, script link validator
 
 Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 
@@ -19,10 +20,11 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 | [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Volume translation, Nani audio control, `NaniVoicePlayBus` |
 | [CutsceneSystem](CutsceneSystem/) | `ru.vortex.nani.cutscenes` | 3 | Spine cutscene controller |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Localization driver with channels |
-| [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | `NaniPlayerState` quest condition — reacts to Nani player start/stop; quest logics on Naninovel variables: `NaniVariableValueComparation` (compare), `NaniVariableValueWait` (wait for a comparison), `NaniExpressionComparation` (Naninovel expression with a formula check button) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
+| [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | `NaniPlayerState` quest condition — reacts to Nani player start/stop; quest logics on Naninovel variables: `NaniVariableValueComparation` (compare), `NaniVariableValueWait` (wait for a comparison), `NaniExpressionComparation` (Naninovel expression with a formula check button); quest logics on scripts: `RunNaniScript` (launches a script via `NaniWrapper.PlayScript`, implements `INaniScriptLaunch`), `WaitStopNaniScript` (waits for a script to stop) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — saves/restores Nani variables via `GameController` |
 | [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Scene-glue handlers (active speaker, dialog bubble, emotions, Z-position, gallery test tools) |
 | [CustomVariablesDashboard](CustomVariablesDashboard/) | `ru.vortex.nani.variables.dashboard` (+ `.editor`) | 3 | Naninovel variables panel: values in Play Mode, a link map to `.nani` scripts and Vortex quests, "lost" variables. The `INaniVariableReference` contract for quest objects |
+| [NaniScriptLinks](NaniScriptLinks/) | `ru.vortex.nani.script.links` (+ `.editor`) | 3 | `.nani` script link validator: orphans (nothing launches or jumps into them), unused labels, broken `@goto`/`@gosub`/`@choice` links, exclusions. The `INaniScriptLaunch` contract for quest logics that launch a script |
 
 The whole Nani package family is activated via the `USING_NANINOVELL` symbol, set by the `naninovellExt` toggle (`SdkSettings`, `[DefineSymbol("USING_NANINOVELL")]` attribute).
 

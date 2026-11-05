@@ -8,6 +8,7 @@
 - Управление Nani-сценами из Vortex (пауза, стоп, сброс акторов)
 - Многоканальная локализация (общий язык, диалоги, озвучка)
 - Управление катсценами на Spine-анимациях через Nani-бэкграунды
+- Инструменты редактора: панель переменных Naninovel, валидатор связей сценариев
 
 Вне ответственности: Naninovel-скрипты, контент сцен, настройка Spine-ассетов.
 
@@ -19,10 +20,11 @@
 | [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Трансляция громкости, управление Nani-аудио, `NaniVoicePlayBus` |
 | [CutsceneSystem](CutsceneSystem/) | `ru.vortex.nani.cutscenes` | 3 | Контроллер Spine-катсцен |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Драйвер локализации с каналами |
-| [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера; логики квеста по переменным Naninovel: `NaniVariableValueComparation` (сравнение), `NaniVariableValueWait` (ожидание сравнения), `NaniExpressionComparation` (выражение Naninovel с кнопкой проверки формулы) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
+| [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера; логики квеста по переменным Naninovel: `NaniVariableValueComparation` (сравнение), `NaniVariableValueWait` (ожидание сравнения), `NaniExpressionComparation` (выражение Naninovel с кнопкой проверки формулы); логики квеста по сценариям: `RunNaniScript` (запуск сценария через `NaniWrapper.PlayScript`, реализует `INaniScriptLaunch`), `WaitStopNaniScript` (ожидание остановки сценария) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — сохранение/восстановление Nani-переменных через `GameController` |
 | [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Точечные хэндлеры сцены (активный говорящий, баббл, эмоции, ZPosition, тестовые тулзы галереи) |
 | [CustomVariablesDashboard](CustomVariablesDashboard/) | `ru.vortex.nani.variables.dashboard` (+ `.editor`) | 3 | Панель переменных Naninovel: значения в Play Mode, карта связей со сценариями `.nani` и квестами Vortex, «потеряшки». Контракт `INaniVariableReference` для объектов квеста |
+| [NaniScriptLinks](NaniScriptLinks/) | `ru.vortex.nani.script.links` (+ `.editor`) | 3 | Валидатор связей сценариев `.nani`: сироты (никто не запускает и не переходит), неиспользуемые метки, битые ссылки `@goto`/`@gosub`/`@choice`, исключения. Контракт `INaniScriptLaunch` для логик квеста, запускающих сценарий |
 
 Активация всего семейства Nani-пакетов — через символ `USING_NANINOVELL`, который выставляется тогглом `naninovellExt` (`SdkSettings`, атрибут `[DefineSymbol("USING_NANINOVELL")]`).
 

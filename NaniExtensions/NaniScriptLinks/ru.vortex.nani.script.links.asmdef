@@ -1,0 +1,16 @@
+{
+    "name": "ru.vortex.nani.script.links",
+    "rootNamespace": "",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_NANINOVELL"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

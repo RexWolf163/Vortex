@@ -1,0 +1,22 @@
+{
+    "name": "ru.vortex.nani.script.links.editor",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.nani.script.links",
+        "Elringus.Naninovel.Runtime",
+        "Elringus.Naninovel.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_NANINOVELL"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
