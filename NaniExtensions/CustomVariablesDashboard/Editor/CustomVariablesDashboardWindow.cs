@@ -22,8 +22,6 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
             Problems
         }
 
-        private static readonly string[] TabNames = { "Значения", "Связи", "Потеряшки", "Проблемы" };
-
         [SerializeField] private Tab tab = Tab.Links;
 
         /// <summary>Выбранная переменная на вкладке «Связи»</summary>
@@ -50,7 +48,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
 
         private void OnGUI()
         {
-            tab = (Tab)GUILayout.Toolbar((int)tab, TabNames, EditorStyles.toolbarButton);
+            tab = (Tab)GUILayout.Toolbar((int)tab, GetTabNames(VariableIndex.Current), EditorStyles.toolbarButton);
             switch (tab)
             {
                 case Tab.Values:
@@ -66,6 +64,30 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
                     DrawProblems();
                     break;
             }
+        }
+
+        /// <summary>
+        /// Заголовки вкладок со счётчиками собранной карты: «Связи» — переменных, «Потеряшки» — сумма секций вкладки
+        /// (виды потерь с учётом исключений, двойники, исключения без переменной), «Проблемы» — проблем сборки.
+        /// Без карты и у «Значений» — без счётчика
+        /// </summary>
+        private static string[] GetTabNames(VariableIndex index) => index == null
+            ? new[] { "Значения", "Связи", "Потеряшки", "Проблемы" }
+            : new[]
+            {
+                "Значения",
+                $"Связи ({index.Entries.Count})",
+                $"Потеряшки ({CountLosses(index)})",
+                $"Проблемы ({index.Problems.Count})"
+            };
+
+        /// <summary>Сумма счётчиков секций вкладки «Потеряшки» — то же, что она показывает</summary>
+        private static int CountLosses(VariableIndex index)
+        {
+            var count = LossAnalysis.GetCaseTwins(index).Count + LossAnalysis.GetStaleExclusions(index).Count;
+            foreach (var kind in LossAnalysis.Kinds)
+                count += LossAnalysis.GetSection(index, kind).Count;
+            return count;
         }
 
         /// <summary>Перейти к карточке переменной на вкладке «Связи»</summary>
