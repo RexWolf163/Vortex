@@ -37,4 +37,16 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard
         /// <summary>Операнд как есть, например <c>&gt;=3</c> или <c>true</c>; может быть пустым</summary>
         string Operand { get; }
     }
+
+    /// <summary>
+    /// Контракт «условие-выражение Naninovel»: объект квеста работает с формулой из нескольких переменных
+    /// (<c>Day&gt;=3 || Flag</c>). Панель переменных разбирает формулу тем же разбором условий, что <c>if:</c> и
+    /// <c>@if</c> в сценариях: каждая переменная — своя связь со сравнением или чтением. Поведение объекта в игре
+    /// контракт не меняет.
+    /// </summary>
+    public interface INaniExpressionReference
+    {
+        /// <summary>Выражение Naninovel как есть</summary>
+        string Expression { get; }
+    }
 }

@@ -71,6 +71,14 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
             }
         }
 
+        /// <summary>
+        /// Разбор условия-выражения Naninovel вне сценария (например, формулы объекта квеста): тот же разбор, что у
+        /// <c>if:</c> и <c>@if</c>, связи получают указанные источник и место.
+        /// </summary>
+        public static void CollectExpression(string expression, LinkSource source, LinkLocation location,
+            List<VariableLink> links) =>
+            ProcessCondition(expression, source, location, links);
+
         /// <summary>Команды, встроенные в строку текста: содержимое неэкранированных <c>[…]</c></summary>
         private static IEnumerable<string> GetInlineCommands(string line)
         {
@@ -104,7 +112,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
                 if (name == null)
                     nameless ??= value;
                 else if (name.Equals("if", StringComparison.OrdinalIgnoreCase))
-                    ProcessCondition(value, location, links);
+                    ProcessCondition(value, LinkSource.Nani, location, links);
             }
 
             if (nameless == null)
@@ -115,7 +123,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
                     ProcessAssignment(assignment, location, links);
             else if (command.Equals("if", StringComparison.OrdinalIgnoreCase)
                      || command.Equals("elseif", StringComparison.OrdinalIgnoreCase))
-                ProcessCondition(nameless, location, links);
+                ProcessCondition(nameless, LinkSource.Nani, location, links);
         }
 
         /// <summary>
@@ -218,14 +226,15 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
             var tokens = Tokenize(right);
             for (var i = 0; i < tokens.Count; i++)
                 if (IsVariable(tokens[i], tokens, i))
-                    AddRead(tokens[i].Text, raw, location, links);
+                    AddRead(tokens[i].Text, raw, LinkSource.Nani, location, links);
         }
 
         /// <summary>
         /// Условие: для каждой переменной — сравнение (оператор и другая сторона), одиночный флаг — сравнение
         /// <c>== true</c> (<c>!флаг</c> — <c>== false</c>), участие в арифметике или аргумент функции — чтение.
         /// </summary>
-        private static void ProcessCondition(string expression, NaniLocation location, List<VariableLink> links)
+        private static void ProcessCondition(string expression, LinkSource source, LinkLocation location,
+            List<VariableLink> links)
         {
             if (string.IsNullOrWhiteSpace(expression))
                 return;
@@ -252,7 +261,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
 
                 if (frames.Contains(true))
                 {
-                    AddRead(token.Text, raw, location, links);
+                    AddRead(token.Text, raw, source, location, links);
                     continue;
                 }
 
@@ -260,16 +269,16 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
                 var prev = i > 0 ? tokens[i - 1] : default;
 
                 if (next.Kind == TokenKind.Operator && Comparisons.Contains(next.Text))
-                    links.Add(new VariableLink(token.Text, LinkSource.Nani, NaniVariableOperation.Compare, next.Text,
+                    links.Add(new VariableLink(token.Text, source, NaniVariableOperation.Compare, next.Text,
                         OperandAfter(expression, tokens, i + 2), raw, location));
                 else if (i > 0 && prev.Kind == TokenKind.Operator && Comparisons.Contains(prev.Text))
-                    links.Add(new VariableLink(token.Text, LinkSource.Nani, NaniVariableOperation.Compare,
+                    links.Add(new VariableLink(token.Text, source, NaniVariableOperation.Compare,
                         Flip(prev.Text), OperandBefore(expression, tokens, i - 2), raw, location));
                 else if ((next.Kind == TokenKind.Operator && Arithmetic.Contains(next.Text))
                          || (i > 0 && prev.Kind == TokenKind.Operator && Arithmetic.Contains(prev.Text)))
-                    AddRead(token.Text, raw, location, links);
+                    AddRead(token.Text, raw, source, location, links);
                 else
-                    links.Add(new VariableLink(token.Text, LinkSource.Nani, NaniVariableOperation.Compare, "==",
+                    links.Add(new VariableLink(token.Text, source, NaniVariableOperation.Compare, "==",
                         i > 0 && prev.Kind == TokenKind.Operator && prev.Text == "!" ? "false" : "true", raw, location));
             }
         }
@@ -330,8 +339,9 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
             _ => op
         };
 
-        private static void AddRead(string name, string raw, NaniLocation location, List<VariableLink> links) =>
-            links.Add(new VariableLink(name, LinkSource.Nani, NaniVariableOperation.Read, null, null, raw, location));
+        private static void AddRead(string name, string raw, LinkSource source, LinkLocation location,
+            List<VariableLink> links) =>
+            links.Add(new VariableLink(name, source, NaniVariableOperation.Read, null, null, raw, location));
 
         /// <summary>Нераспознанное выражение: каждый идентификатор-переменная — «прочее» с исходным текстом</summary>
         private static void AddOther(string raw, NaniLocation location, List<VariableLink> links)

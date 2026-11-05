@@ -19,7 +19,7 @@
 | [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Трансляция громкости, управление Nani-аудио, `NaniVoicePlayBus` |
 | [CutsceneSystem](CutsceneSystem/) | `ru.vortex.nani.cutscenes` | 3 | Контроллер Spine-катсцен |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Драйвер локализации с каналами |
-| [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
+| [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера; логики квеста по переменным Naninovel: `NaniVariableValueComparation` (сравнение), `NaniVariableValueWait` (ожидание сравнения), `NaniExpressionComparation` (выражение Naninovel с кнопкой проверки формулы) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — сохранение/восстановление Nani-переменных через `GameController` |
 | [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Точечные хэндлеры сцены (активный говорящий, баббл, эмоции, ZPosition, тестовые тулзы галереи) |
 | [CustomVariablesDashboard](CustomVariablesDashboard/) | `ru.vortex.nani.variables.dashboard` (+ `.editor`) | 3 | Панель переменных Naninovel: значения в Play Mode, карта связей со сценариями `.nani` и квестами Vortex, «потеряшки». Контракт `INaniVariableReference` для объектов квеста |

@@ -52,6 +52,14 @@ public class NaniVariableRangeCondition : QuestConditionLogic, INaniVariableRefe
 
 The contract does not change in-game behavior. It is currently implemented by `NaniVariableCondition` (compare), `NaniVariableValueComparation` (compare), `NaniVariableValueWait` (wait).
 
+An object that works with a formula of several variables implements `INaniExpressionReference` — a single `Expression` property. The panel parses the formula with the same condition parsing as `if:` and `@if` in scripts: every variable is its own link with a compare or read, all located at this quest object. `NaniExpressionComparation` is implemented this way.
+
+```csharp
+string INaniExpressionReference.Expression => expression;   // "Day>=3 || (Flag && Money>100)"
+```
+
+An object may implement both contracts — they are processed independently.
+
 ### Exclusions
 
 Project settings: `ProjectSettings/CustomVariablesDashboard.asset` (version-controlled, shared by the team). An entry is a variable name (case-sensitive), loss kinds and a reason. An exclusion hides the variable only from the sections of the listed kinds; in the "Links" list and the card it is always visible. Added with the "Exclude" button in a loss section (extends the kinds of an existing entry for that name) or in the "Exclusions" section. Case twins cannot be excluded.
@@ -68,11 +76,10 @@ CustomVariablesDashboard/
     │   ├── VariableIndex.cs           ← VariableEntry, VariableIndex (Current — static, memory)
     │   ├── LossAnalysis.cs            ← loss kinds, twins, exclusions without a variable
     │   └── DashboardSettings.cs       ← exclusions (ScriptableSingleton in ProjectSettings)
-    ├── Sources/
-    │   ├── VariableIndexBuilder.cs    ← build and Rebuild: config → .nani → quests → variables
-    │   ├── NaniScriptSource.cs        ← .nani parsing
-    │   └── QuestSource.cs             ← quest preset traversal (USING_VORTEX_QUESTS)
-    └── Tests/                         ← EditMode tests: .nani parsing, index, loss kinds
+    └── Sources/
+        ├── VariableIndexBuilder.cs    ← build and Rebuild: config → .nani → quests → variables
+        ├── NaniScriptSource.cs        ← .nani parsing
+        └── QuestSource.cs             ← quest preset traversal (USING_VORTEX_QUESTS)
 ```
 
 Dependencies are one-directional: window → builder and sources → model. The model knows neither the builder nor the sources. A link location (`LinkLocation`) is polymorphic: `Describe`, `Open` (navigate), `Find` (select the asset in the Inspector).
@@ -100,13 +107,13 @@ For the "never written" / "never read" losses: compare, wait and read count as r
 
 ### Quest traversal
 
-Every `QuestPreset` asset in the project, via `SerializedObject`: the `startConditions` (start), `interruptConditions` (interrupt) and `logic` (logics) fields with nested gates at any depth; rewards are not traversed. The location is the preset and a path: "Старт › группа 2 › условие 1 › вложенное 3", "Логики › 4". A broken type reference, an empty element, an empty variable name go to "Problems".
+Every `QuestPreset` asset in the project, via `SerializedObject`: the `startConditions` (start), `interruptConditions` (interrupt) and `logic` (logics) fields with nested gates at any depth; rewards are not traversed. The location is the preset and a path: "Старт › группа 2 › условие 1 › вложенное 3", "Логики › 4". Links come from objects implementing `INaniVariableReference` (one link) and `INaniExpressionReference` (a link per formula variable). A broken type reference, an empty element, an empty variable name, an empty formula go to "Problems".
 
 ## Contract
 
 ### Input
 - `CustomVariablesConfiguration.PredefinedVariables`, `.nani` assets in `Assets`, `QuestPreset` assets
-- Quest objects implementing `INaniVariableReference`
+- Quest objects implementing `INaniVariableReference` or `INaniExpressionReference`
 
 ### Output
 - The window; writes — only exclusions in `ProjectSettings` and a variable value edit in Play Mode

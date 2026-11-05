@@ -14,6 +14,17 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
     internal sealed partial class CustomVariablesDashboardWindow
     {
         private const float ListWidth = 320f;
+        private const float OperationWidth = 80f;
+        private const float ValueWidth = 160f;
+        private const float FindButtonWidth = 40f;
+
+        /// <summary>Отступы строки связи и полоса прокрутки карточки — то, что не занято колонками</summary>
+        private const float LinkRowChrome = 40f;
+
+        /// <summary>Минимум видимых символов пути места, даже если ширины окна не хватает</summary>
+        private const int MinLocationChars = 20;
+
+        private const string Ellipsis = "…";
 
         private static readonly Color LossColor = new(0.9f, 0.45f, 0.2f, 0.18f);
         private static readonly Color SelectionColor = new(0.24f, 0.48f, 0.9f, 0.35f);
@@ -105,12 +116,15 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
             if (twins.Count > 0)
                 EditorGUILayout.HelpBox($"Двойники по регистру: {string.Join(", ", twins)}", MessageType.Warning);
 
-            DrawLinkSection("Сценарии .nani", entry, LinkSource.Nani, null);
+            // Ширина под путь места: окно минус список, колонки строки и отступы
+            var locationWidth = position.width - ListWidth - OperationWidth - ValueWidth - FindButtonWidth - LinkRowChrome;
+            DrawLinkSection("Сценарии .nani", entry, LinkSource.Nani, null, locationWidth);
             DrawLinkSection("Квесты Vortex", entry, LinkSource.Quest,
-                index.QuestsEnabled ? null : "Квесты Vortex отключены (USING_VORTEX_QUESTS).");
+                index.QuestsEnabled ? null : "Квесты Vortex отключены (USING_VORTEX_QUESTS).", locationWidth);
         }
 
-        private static void DrawLinkSection(string title, VariableEntry entry, LinkSource source, string disabledText)
+        private static void DrawLinkSection(string title, VariableEntry entry, LinkSource source, string disabledText,
+            float locationWidth)
         {
             EditorGUILayout.Space(6f);
             var links = entry.Links.Where(l => l.Source == source).ToList();
@@ -130,16 +144,40 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor
             foreach (var link in links)
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    GUILayout.Label(OperationTitle(link.Operation), GUILayout.Width(80));
-                    GUILayout.Label(new GUIContent(DescribeValue(link), link.RawText), GUILayout.Width(160));
+                    GUILayout.Label(OperationTitle(link.Operation), GUILayout.Width(OperationWidth));
+                    GUILayout.Label(new GUIContent(DescribeValue(link), link.RawText), GUILayout.Width(ValueWidth));
                     // Find — ассет места в инспекторе; ссылка — переход к месту (сценарий — во внешнем редакторе на строке)
                     if (GUILayout.Button(new GUIContent("Find", "Выделить ассет и показать в инспекторе"),
-                            EditorStyles.miniButton, GUILayout.Width(40)))
+                            EditorStyles.miniButton, GUILayout.Width(FindButtonWidth)))
                         link.Location.Find();
                     var location = link.Location.Describe();
-                    if (GUILayout.Button(new GUIContent(location, location), EditorStyles.linkLabel))
+                    var shown = FitFromEnd(location, locationWidth, EditorStyles.linkLabel);
+                    if (GUILayout.Button(new GUIContent(shown, location), EditorStyles.linkLabel, GUILayout.ExpandWidth(false)))
                         link.Location.Open();
                 }
+        }
+
+        /// <summary>
+        /// Текст, укороченный с начала под ширину: «…/Act1/BlazeDate01.nani:3» — конец пути (файл и строка) важнее.
+        /// Видимых символов не меньше <see cref="MinLocationChars"/>, даже если ширины не хватает.
+        /// </summary>
+        private static string FitFromEnd(string text, float width, GUIStyle style)
+        {
+            if (text.Length <= MinLocationChars || style.CalcSize(new GUIContent(text)).x <= width)
+                return text;
+
+            // Наибольший хвост, который влезает вместе с многоточием; бинарный поиск по длине хвоста
+            int low = MinLocationChars, high = text.Length - 1;
+            while (low < high)
+            {
+                var mid = (low + high + 1) / 2;
+                if (style.CalcSize(new GUIContent(Ellipsis + text.Substring(text.Length - mid))).x <= width)
+                    low = mid;
+                else
+                    high = mid - 1;
+            }
+
+            return Ellipsis + text.Substring(text.Length - low);
         }
 
         /// <summary>Оператор и операнд связи: «++», «&gt;= 3», «= Day+1»; у чтения и прочего — исходный текст</summary>

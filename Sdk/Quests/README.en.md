@@ -282,7 +282,7 @@ Window layout:
 | Class | Type | Purpose |
 |-------|------|---------|
 | `QuestController` | static, partial | Lifecycle controller |
-| `QuestControllerExtIndex` | partial | Queries: `IsComplete(id)` |
+| `QuestControllerExtIndex` | partial | Queries: `IsComplete(id)`; inside the assembly — `TryGetQuest(id, out quest)` (the current game's quest by GUID; before a new game or load — `false`) |
 | `QuestControllerExtEditor` | partial, `#if UNITY_EDITOR` | Editor integration |
 | `QuestControllerExtDebug` | partial, `#if UNITY_EDITOR` | Quest Monitor debug actions |
 | `QuestDiagnostics` | static, internal | Monitor recording points: journal, quest trace, condition check context |
@@ -302,6 +302,7 @@ Window layout:
 | `QuestConditions` | `Serializable` | Condition group: `Check()` is AND. The fold between groups — AND (start) or OR (interrupt) — is at the controller level |
 | `LogicGateCondition` | `QuestConditionLogic` | Combinator over nested conditions with a mode (`OR` / `NOT`=NOR / `XOR`=exactly one / `AND`=all). Subscribes to **all** children (alternativeness). Expresses arbitrary logic inside an AND-group; trees nest freely (e.g. `OR` over two `AND`-sets); `NOT` over a single child replaces the removed per-condition `inverted` flag. *(formerly `OrNotCondition`; serialized `[SerializeReference]` references migrate via `[MovedFrom]`)* |
 | `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID has finished with any result (`Reward`/`Completed`/`Failed`) |
+| `QuestStateCondition` | `QuestConditionLogic` | Condition: the state of the quest with given ID is in the `states` whitelist (e.g. `InProgress`, or `Ready` + `InProgress`). Empty list or the quest is absent in the current game — not met. While not met, subscribes to the tracked quest's `OnStateUpdated`: starting a quest and giving rewards do not trigger a condition re-check on their own |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | UI binding to quest by GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Quest launch via `IDataStorage` |
 

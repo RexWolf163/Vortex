@@ -282,7 +282,7 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 | Класс | Тип | Назначение |
 |-------|-----|-----------|
 | `QuestController` | static, partial | Контроллер жизненного цикла |
-| `QuestControllerExtIndex` | partial | Запросы: `IsComplete(id)` |
+| `QuestControllerExtIndex` | partial | Запросы: `IsComplete(id)`; внутри сборки — `TryGetQuest(id, out quest)` (квест текущей игры по GUID; до новой игры или загрузки — `false`) |
 | `QuestControllerExtEditor` | partial, `#if UNITY_EDITOR` | Editor-интеграция |
 | `QuestControllerExtDebug` | partial, `#if UNITY_EDITOR` | Дебаг-действия монитора квестов |
 | `QuestDiagnostics` | static, internal | Точки записи монитора: журнал, след квеста, контекст проверки условий |
@@ -302,6 +302,7 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 | `QuestConditions` | `Serializable` | Группа условий: `Check()` по AND. Свёртка между группами — AND (старт) или OR (прерывание) — на уровне контроллера |
 | `LogicGateCondition` | `QuestConditionLogic` | Комбинатор над вложенными условиями с режимом (`OR` / `NOT`=NOR / `XOR`=ровно одно / `AND`=все). Подписывается на **все** дочерние (альтернативность). Выражает произвольную логику внутри AND-группы; деревья вкладываются свободно (напр. `OR` над двумя `AND`-наборами); `NOT` над одним вложенным заменяет убранный флаг `inverted` у условий. *(бывш. `OrNotCondition`; сериализованные `[SerializeReference]`-ссылки мигрируют через `[MovedFrom]`)* |
 | `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён с любым результатом (`Reward`/`Completed`/`Failed`) |
+| `QuestStateCondition` | `QuestConditionLogic` | Условие: состояние квеста с заданным ID входит в белый список `states` (например, `InProgress` или `Ready` + `InProgress`). Пустой список или квеста нет в текущей игре — не выполнено. Пока не выполнено, подписано на `OnStateUpdated` отслеживаемого квеста: запуск квеста и выдача награды сами перепроверку условий не запускают |
 | `QuestDataStorage` | `MonoBehaviour`, `IDataStorage` | Привязка UI к квесту по GUID |
 | `RunQuestHandler` | `MonoBehaviour` | Запуск квеста через `IDataStorage` |
 

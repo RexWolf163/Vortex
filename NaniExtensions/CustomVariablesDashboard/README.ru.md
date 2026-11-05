@@ -52,6 +52,14 @@ public class NaniVariableRangeCondition : QuestConditionLogic, INaniVariableRefe
 
 Контракт поведение в игре не меняет. Сейчас его реализуют `NaniVariableCondition` (сравнение), `NaniVariableValueComparation` (сравнение), `NaniVariableValueWait` (ожидание).
 
+Объект, работающий с формулой из нескольких переменных, реализует `INaniExpressionReference` — одно свойство `Expression`. Панель разбирает формулу тем же разбором условий, что `if:` и `@if` в сценариях: каждая переменная — своя связь со сравнением или чтением, место у всех — этот объект квеста. Так реализован `NaniExpressionComparation`.
+
+```csharp
+string INaniExpressionReference.Expression => expression;   // "Day>=3 || (Flag && Money>100)"
+```
+
+Объект может реализовать оба контракта — обрабатываются независимо.
+
 ### Исключения
 
 Настройки проекта: `ProjectSettings/CustomVariablesDashboard.asset` (в контроле версий, общий для команды). Запись — имя переменной (с учётом регистра), виды потерь, причина. Исключение убирает переменную только из секций указанных видов; в списке «Связи» и карточке она видна всегда. Добавляются кнопкой «Исключить» в секции потери (дополняет вид существующей записи на это имя) или в секции «Исключения». Двойники по регистру не исключаются.
@@ -68,11 +76,10 @@ CustomVariablesDashboard/
     │   ├── VariableIndex.cs           ← VariableEntry, VariableIndex (Current — static, память)
     │   ├── LossAnalysis.cs            ← виды потерь, двойники, исключения без переменной
     │   └── DashboardSettings.cs       ← исключения (ScriptableSingleton в ProjectSettings)
-    ├── Sources/
-    │   ├── VariableIndexBuilder.cs    ← сборка и Rebuild: конфиг → .nani → квесты → переменные
-    │   ├── NaniScriptSource.cs        ← разбор .nani
-    │   └── QuestSource.cs             ← обход пресетов квестов (USING_VORTEX_QUESTS)
-    └── Tests/                         ← EditMode-тесты: разбор .nani, индекс, виды потерь
+    └── Sources/
+        ├── VariableIndexBuilder.cs    ← сборка и Rebuild: конфиг → .nani → квесты → переменные
+        ├── NaniScriptSource.cs        ← разбор .nani
+        └── QuestSource.cs             ← обход пресетов квестов (USING_VORTEX_QUESTS)
 ```
 
 Зависимости однонаправленные: окно → сборщик и источники → модель. Модель не знает ни сборщика, ни источников. Место связи (`LinkLocation`) полиморфно: `Describe`, `Open` (переход), `Find` (выделить ассет в инспекторе).
@@ -100,13 +107,13 @@ CustomVariablesDashboard/
 
 ### Обход квестов
 
-Все ассеты `QuestPreset` проекта, через `SerializedObject`: поля `startConditions` (старт), `interruptConditions` (прерывание), `logic` (логики) с вложенными гейтами на любую глубину; награды не обходятся. Место — пресет и путь: «Старт › группа 2 › условие 1 › вложенное 3», «Логики › 4». Битая ссылка на тип, пустой элемент, пустое имя переменной — в «Проблемы».
+Все ассеты `QuestPreset` проекта, через `SerializedObject`: поля `startConditions` (старт), `interruptConditions` (прерывание), `logic` (логики) с вложенными гейтами на любую глубину; награды не обходятся. Место — пресет и путь: «Старт › группа 2 › условие 1 › вложенное 3», «Логики › 4». Связи дают объекты, реализующие `INaniVariableReference` (одна связь) и `INaniExpressionReference` (связь на каждую переменную формулы). Битая ссылка на тип, пустой элемент, пустое имя переменной, пустая формула — в «Проблемы».
 
 ## Контракт
 
 ### Вход
 - `CustomVariablesConfiguration.PredefinedVariables`, ассеты `.nani` в `Assets`, ассеты `QuestPreset`
-- Объекты квеста, реализующие `INaniVariableReference`
+- Объекты квеста, реализующие `INaniVariableReference` или `INaniExpressionReference`
 
 ### Выход
 - Окно; запись — только исключения в `ProjectSettings` и правка значения переменной в Play Mode

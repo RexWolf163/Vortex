@@ -114,20 +114,45 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
                     continue;
                 }
 
-                if (value is not INaniVariableReference reference)
-                    continue;
+                if (value is INaniVariableReference reference)
+                    CollectReference(reference, value, path, new QuestLocation(guid, questName, section,
+                        GetPath(property.propertyPath)), links, problems);
 
-                var location = new QuestLocation(guid, questName, section, GetPath(property.propertyPath));
-                if (string.IsNullOrWhiteSpace(reference.VariableName))
-                {
-                    problems.Add(new BuildProblem(LinkSource.Quest, path, 0,
-                        $"Ссылка на переменную с пустым именем: {location.Describe()}"));
-                    continue;
-                }
-
-                links.Add(new VariableLink(reference.VariableName, LinkSource.Quest, reference.Operation, null,
-                    reference.Operand, $"{value.GetType().Name} {reference.Operand}", location));
+                if (value is INaniExpressionReference expression)
+                    CollectExpression(expression, path, new QuestLocation(guid, questName, section,
+                        GetPath(property.propertyPath)), links, problems);
             }
+        }
+
+        /// <summary>Ссылка на одну переменную — одна связь с видом операции и операндом из контракта</summary>
+        private static void CollectReference(INaniVariableReference reference, object value, string path,
+            QuestLocation location, List<VariableLink> links, List<BuildProblem> problems)
+        {
+            if (string.IsNullOrWhiteSpace(reference.VariableName))
+            {
+                problems.Add(new BuildProblem(LinkSource.Quest, path, 0,
+                    $"Ссылка на переменную с пустым именем: {location.Describe()}"));
+                return;
+            }
+
+            links.Add(new VariableLink(reference.VariableName, LinkSource.Quest, reference.Operation, null,
+                reference.Operand, $"{value.GetType().Name} {reference.Operand}", location));
+        }
+
+        /// <summary>
+        /// Формула — разбор тем же разбором условий, что <c>if:</c> в сценариях: каждая переменная — своя связь со
+        /// сравнением или чтением, место у всех — этот объект квеста.
+        /// </summary>
+        private static void CollectExpression(INaniExpressionReference expression, string path, QuestLocation location,
+            List<VariableLink> links, List<BuildProblem> problems)
+        {
+            if (string.IsNullOrWhiteSpace(expression.Expression))
+            {
+                problems.Add(new BuildProblem(LinkSource.Quest, path, 0, $"Пустое выражение: {location.Describe()}"));
+                return;
+            }
+
+            NaniScriptSource.CollectExpression(expression.Expression, LinkSource.Quest, location, links);
         }
 
         /// <summary>Индексы элементов массивов в пути свойства: <c>[группа, условие, вложенное…]</c> или <c>[логика]</c></summary>

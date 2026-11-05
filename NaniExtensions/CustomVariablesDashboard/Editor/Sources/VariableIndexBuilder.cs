@@ -117,7 +117,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
         /// Переменные индекса: каждое объявление даёт переменную (даже без связей), каждая связь лежит ровно в одной
         /// переменной с посимвольно тем же именем.
         /// </summary>
-        internal static Dictionary<string, VariableEntry> BuildEntries(List<VariableDeclaration> declarations,
+        private static Dictionary<string, VariableEntry> BuildEntries(List<VariableDeclaration> declarations,
             List<VariableLink> links)
         {
             var entries = new Dictionary<string, VariableEntry>(StringComparer.Ordinal);
