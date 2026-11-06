@@ -55,11 +55,19 @@ namespace Vortex.Unity.AudioSystem.Model
         /// </summary>
         private void AutoComplete() => AudioSampleWrapperController.Stop(this);
 
+        /// <summary>
+        /// Снятие паузы. Pause снимает таймер естественного конца — для не-луп звука ставим его заново на остаток:
+        /// доля непроигранного клипа (позиция источника в секундах клипа) × <see cref="AudioSampleWrapper.Duration"/>
+        /// (длительность уже с учётом pitch). Без этого звук доигрывал, но хэндл не завершался и пул-элемент висел
+        /// </summary>
         protected override void Resume()
         {
             if (_source == null)
                 return;
             _source.UnPause();
+            if (IsLoop) return;
+            var remaining = Duration * (1f - _source.time / _clip.length);
+            TimeController.Call(AutoComplete, Mathf.Max(0f, remaining), this);
         }
 
         protected override void Stop()
