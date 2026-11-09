@@ -11,13 +11,14 @@ Vortex framework Sdk package: transactional purchase engine. Order → payment �
 - Cancelling an in-flight purchase: interrupting the process via token and refunding the payment
 - Runtime indexes for queries: open / ready-to-claim / stuck purchases, history per purchase and per item
 - Built-in payment logics: `FreeLogic` (zero price)
+- Built-in delivery logics: `BundleDelivery` (several goods per purchase)
 
 Out of scope:
 
 - Concrete charge and delivery rules (wallet, inventory, entitlements) — subclasses of `PaymentLogic` / `DeliveryLogic` in the project
 - Storefront and purchase UI — consumers subscribe to the reactive operation state
 - Server-side payment verification: the package knows nothing about protocols; network logic reconciles the charge by `PurchaseGuid` on its own
-- Composing several rules on one side of the deal — an item has a single payment logic and a single delivery logic; several rules on the same side are implemented as one combined logic. A quantity cap is not a logic but an item property (`LimitedProperty`), honored by inventory delivery via the `CanAdd` verifiers
+- Composing several payment rules — an item has a single payment logic and a single delivery logic; several payment rules are implemented as one combined logic. On the delivery side the composition is built in: `BundleDelivery` (see [Bundle](#bundle-bundledelivery)). A quantity cap is not a logic but an item property (`LimitedProperty`), honored by inventory delivery via the `CanAdd` verifiers
 
 ## Dependencies
 
@@ -175,7 +176,7 @@ Cancelled                      └─ delivery unavailable/failed:
 |---------|-------------|
 | Item (`ShopItemModel`) | Immutable catalog record with two logics. Built from `ShopItemPreset`, record type is `Singleton` |
 | Payment logic (`PaymentLogic`) | Charge and refund. Mandatory; a free item uses `FreeLogic`, not `null` |
-| Delivery logic (`DeliveryLogic`) | Handing the item to the player. Mandatory |
+| Delivery logic (`DeliveryLogic`) | Handing the item to the player. Mandatory; several goods per purchase — `BundleDelivery` |
 | Operation (`ShopOperation`) | Runtime purchase model with a reactive `State` (`EnumData<PurchaseState>`) |
 | Event (`ShopTransactionEvent`) | Immutable journal record: state, deal values, three time axes |
 | Journal (`Events`) | Append-only event list with a continuous `Sequence`. Source of truth, part of the save |
@@ -246,6 +247,7 @@ Applies only to automatic delivery from `Paid`. Explicit `ConfirmDelivery` and `
 - **`NotStarted` is not journaled.** A purchase rejected by pre-checks does not enter any index.
 - **The policy is not snapshotted.** An open purchase finishes under the current `AfterpayMode` value, not the one in effect when it was ordered.
 - **One payment logic per item.** Rule combinations are assembled inside a single logic.
+- **A bundle is not atomic.** Delivery logics have no rollback: if a `BundleDelivery` element refuses after payment, the elements already delivered stay with the player.
 - **`ShopBus` statics are not guarded against a missing driver** (except `IsBusy`): access before registration throws `NullReferenceException`.
 - **Restoration is not cancellable.** It runs on a local token and is not affected by `CancelWithRefund`.
 
@@ -338,7 +340,23 @@ public class ItemDelivery : DeliveryLogic
 | Journal numbering continuity broken | Error logged once, folding continues |
 | `ShopOperationsBus` queried before the session is loaded | `GetOpen` → `null`, other getters → `null` |
 | Huge price × pack count | Reference values and all bridge multiplications are computed in `long` (`PayValue`/`BuyValue`, inventory aggregate ops). `int` overflow into negative (and the free purchase it would cause) is ruled out |
+| `BundleDelivery` is empty or has an empty element (type lost) | Error logged, `CanDelivery` → `false`: the purchase does not start |
+| A `BundleDelivery` element refused after payment | Error with the element index; the elements already delivered stay; the purchase follows `AfterpayMode`. `RetryDelivery` in the same session delivers only the remaining elements; after a restart — all of them again |
 | Delivered goods do not fit the inventory | `CanDelivery` rejects the purchase **before payment** (`CanAdd` — a silent probe, no item creation, via the verifiers). Standard "no room". When paying from the same inventory, the unspent currency counts as occupying space at check time — free space first, then buy. `AddCount` is additionally atomic (rollback), so there is no duplication even on the rare post-payment rejection path |
+
+## Bundle (`BundleDelivery`)
+
+One purchase hands out several goods. The bundle is a delivery logic holding a list of other delivery logics (`[SerializeReference] DeliveryLogic[]`), each with its own settings: an inventory item, a hero parameter, a DLC — anything. Bundles nest.
+
+| Step | Behaviour |
+|------|-----------|
+| `CanDelivery` (before payment) | Every element is checked; one refusal — the purchase does not start |
+| `MakeDelivery` | Elements are delivered in list order; on the first refusal — Error with the index and `false` |
+| Repeated delivery (`RetryDelivery`) | Elements already delivered for this `PurchaseGuid` are skipped. The memory lives until the end of the session and is cleared on full delivery |
+| `GetCount()` | `1` — the bundle is one pack; each element's quantity is set by its own logic |
+| `GetItemGuid()` | `null` — the logic is not item-bound; the contents for UI are `Items` |
+
+Delivery logics have no rollback, so a refusal in the middle of a bundle leaves the elements already delivered with the player. The pre-check of all elements before payment makes this path rare; the delivered-element memory is therefore not saved, and after a restart `RetryDelivery` delivers the whole bundle again.
 
 ## Inventory bridge
 
@@ -375,6 +393,7 @@ ShopSystem/
 │   └── Logics/
 │       ├── PaymentLogic.cs               # abstract: charge / refund
 │       ├── DeliveryLogic.cs              # abstract: delivery
+│       ├── BundleDelivery.cs             # bundle: several goods per purchase
 │       └── Payments/
 │           └── FreeLogic.cs              # zero price
 ├── Presets/
