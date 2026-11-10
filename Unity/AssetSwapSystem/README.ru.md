@@ -7,6 +7,16 @@
 **Слой:** Unity (Editor-only утилита build-pipeline)
 **Конфиг:** `ProjectSettings/VortexAssetSwapSettings.asset` (`ScriptableSingleton`, вне `Assets`, в билд не попадает, в git — да)
 
+> 🚀 **Запуск из внешнего сборщика.** Подмену можно выполнить без открытия редактора — одной командной строкой из CI/скрипта сборки, с кодом завершения ≠ 0 при любой ошибке:
+>
+> ```
+> Unity.exe -batchmode -quit -projectPath <path> \
+>   -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ApplyFromCommandLine \
+>   -assetSwap publisher:nutaku
+> ```
+>
+> Подробности, сценарии и подводные камни — [Запуск из внешнего сборщика](#запуск-из-внешнего-сборщика).
+
 ---
 
 ## Назначение
@@ -19,7 +29,7 @@ Editor-only утилита для подмены ассетов на разны�
 - **Побитовая замена содержимого через `File.Copy`** — `.meta` target'а не трогается, GUID сохраняется, все существующие ссылки (`[SerializeField]`, `AssetReference`, Addressables, сцены, префабы) остаются валидными.
 - **Multi-file case (Spine, FBX-mesh + material)** — работает штатно: каждый файл мультифайловой структуры маркируется отдельно, идентификация пар по имени файла делает связки автоматически.
 - **Валидатор перед Apply** — проверяет полноту пар, обратку, совпадение типов импортёров, уникальность имён, отсутствие runtime-ссылок на variant-ассеты. При ошибках Apply блокируется.
-- **CI-hook API** — `AssetSwapController.Apply(int groupIndex, int variantIndex)` вызывается из внешних build-хэндлеров (`unity -executeMethod` и batch-скриптов).
+- **Запуск из внешнего сборщика (командная строка)** — `unity -batchmode -executeMethod …ApplyFromCommandLine -assetSwap группа:вариант` (по названиям — полям Comment — или номерам) подменяет варианты без редактора и проваливает процесс (код 1) при любой ошибке; `…ValidateAllFromCommandLine` — проверка без подмены. Для скриптов сборки внутри Unity — синхронные `Apply(int, int)` / `ApplyByComment(string)`. См. [Запуск из внешнего сборщика](#запуск-из-внешнего-сборщика).
 - **Отдельное окно битового соответствия** — диагностика «какому варианту сейчас соответствует содержимое target'ов».
 
 Вне ответственности:
@@ -33,7 +43,7 @@ Editor-only утилита для подмены ассетов на разны�
 
 ## Зависимости
 
-- **UniTask** (`Cysharp.Threading.Tasks`) — единственная внешняя зависимость (ссылка в asmdef). Все тяжёлые операции (`ValidateAsync` / `ValidateAllAsync` / `ApplyAsync`, холдер-сканер) асинхронны на UniTask с `await UniTask.Yield()` между шагами. Без UniTask пакет не компилируется.
+- **UniTask** (`Cysharp.Threading.Tasks`) — единственная внешняя зависимость (ссылка в asmdef). Все тяжёлые операции (`ValidateAsync` / `ValidateAllAsync` / `ApplyAsync`, холдер-сканер) асинхронны на UniTask с паузой между шагами (`AssetSwapPause.Next()` — `UniTask.Yield()`; внутри sync-обёрток — уже завершённая задача, см. [CI](#использование-в-ci-build-pipeline)). Без UniTask пакет не компилируется.
 - Штатный `UnityEditor` API — SettingsProvider, ScriptableSingleton, AssetDatabase, AssetImporter, EditorWindow.
 
 Никаких зависимостей от других пакетов Vortex.
@@ -78,20 +88,73 @@ Editor-only утилита для подмены ассетов на разны�
 
 ## Использование в CI (build-pipeline)
 
-Public API:
+### Запуск из внешнего сборщика
 
-```csharp
-Vortex.Unity.AssetSwapSystem.AssetSwapController.Apply(int groupIndex, int variantIndex);
-Vortex.Unity.AssetSwapSystem.AssetSwapController.Validate(int groupIndex);
-Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAll();
+Подмена вызывается из любого внешнего сборщика (Jenkins, TeamCity, GitHub Actions, bat/sh-скрипт) обычным запуском Unity в batchmode — редактор открывать не нужно. Результат читается по коду завершения процесса: `0` — все варианты применены, `1` — ошибка (неизвестная группа/вариант, проваленная валидация, сбой копирования, нет или неверен ключ `-assetSwap`); подробности — в логе Unity (`-logFile`).
+
+**Сценарий А — подмена отдельным шагом пайплайна, сборка следующим:**
+
+```
+# шаг 1: подменить варианты (группа:вариант по названиям, ключ повторяется, применяются по порядку)
+Unity.exe -batchmode -quit -projectPath <path> -logFile swap.log \
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ApplyFromCommandLine \
+  -assetSwap publisher:nutaku -assetSwap censorship:soft
+
+# шаг 2: собрать — отдельным запуском Unity с вашим методом сборки
+Unity.exe -batchmode -quit -projectPath <path> -logFile build.log \
+  -buildTarget Win64 -executeMethod MyBuilder.Build
 ```
 
-Пример вызова из command-line:
+Проверка без подмены (например, на pull request):
 
 ```
 Unity.exe -batchmode -quit -projectPath <path> \
-  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAll
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAllFromCommandLine
 ```
+
+**Сценарий Б — подмена внутри метода сборки** (один запуск Unity): вызвать `ApplyByComment` / `Apply` из своего `-executeMethod` перед `BuildPipeline.BuildPlayer` — см. обёртку ниже. Вариант удобнее выбирать по комментарию («steam», «nutaku»), а не по номерам: номера групп и вариантов зависят от порядка создания.
+
+**Подводные камни:**
+
+- **Пакеты, реагирующие на свой ассет отложенно.** Подмена синхронная, но пакет, который отвечает на смену своего ассета через `EditorApplication.delayCall` (напр. дефайны `SdkSettings`), до `-quit` или до `BuildPlayer` в том же вызове может не успеть. Такой пакет синхронизировать явно в методе сборки (для `SdkSettings` — `SdkSettings.SyncDefinesNow()`); в сценарии А — в начале шага 2.
+- **Git-состояние.** Подмена перезаписывает файлы в рабочей копии. В CI это рабочая копия агента; локально — держите чистый git, чтобы откатиться `git checkout`.
+- **Один вариант на группу за прогон.** Повторное `-assetSwap` для той же группы просто перезапишет target следующим вариантом.
+
+Public API (синхронный, для скриптов сборки):
+
+```csharp
+bool AssetSwapController.Apply(int groupIndex, int variantIndex); // true — вариант скопирован в каждый target
+bool AssetSwapController.ApplyByComment(string variantComment);  // во всех группах — вариант с этим комментарием
+int  AssetSwapController.FindVariantByComment(int groupIndex, string comment); // -1 — нет
+bool AssetSwapController.Validate(int groupIndex);
+bool AssetSwapController.ValidateAll();
+```
+
+`ApplyByComment` сопоставляет комментарий варианта без учёта регистра («steam», «nutaku»…); группы без такого варианта пропускаются с записью в лог. `false` — ни в одной группе нет такого варианта или хоть один вариант не применён. `Apply` возвращает `false` при неизвестной группе/варианте, проваленной валидации, отмене или сбое `File.Copy` (`ApplyAsync` возвращает тот же `bool`).
+
+**Как работают sync-обёртки.** Блокирующего ожидания у UniTask нет: `GetAwaiter().GetResult()` на незавершённой задаче бросает «Not yet completed». Поэтому обёртки на время вызова включают синхронный режим `AssetSwapPause.Synchronous`: пауза между шагами становится уже завершённой задачей, async-метод проходит до конца без возврата в цикл кадра, и результат забирается сразу. Если после этого что-то осталось незавершённым — `InvalidOperationException` вместо ненадёжного результата. Редактор на время вызова не отзывается — для CI и скриптов сборки это не важно.
+
+`-executeMethod` вызывает только статические методы без параметров, а код завершения процесса `bool`-результат не видит. Для командной строки — методы, бросающие исключение при провале: Unity в batchmode завершается с кодом 1:
+
+```
+Unity.exe -batchmode -quit -projectPath <path> \
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ApplyFromCommandLine \
+  -assetSwap publisher:nutaku -assetSwap censorship:soft
+
+Unity.exe -batchmode -quit -projectPath <path> \
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAllFromCommandLine
+```
+
+Значение `-assetSwap` (ключ можно повторять, применяются по порядку):
+
+| Форма | Пример | Что делает |
+|---|---|---|
+| `группа:вариант` по названиям | `publisher:nutaku` | Группа — по полю **Comment** группы, вариант — по полю Comment варианта в этой группе |
+| `группа:вариант` номерами | `1:2` | `AssetGroup1` → `Variant2` |
+| Смешанно | `1:nutaku`, `publisher:2` | Число — номер, иначе — название |
+| `вариант` без группы | `nutaku` | Вариант с таким названием во **всех** группах (`ApplyByComment`); группы без него пропускаются |
+
+Названия сравниваются без учёта регистра, по тексту без пробелов по краям. Число всегда трактуется как номер — не давайте группам и вариантам названия-числа. Названия групп должны быть уникальны: при совпадении группа не выбирается (ошибка). Группа/вариант не найдены, ключа нет или форма не разбирается — исключение (код 1).
 
 Для сложных хэндлеров — обёртка:
 
@@ -100,8 +163,10 @@ public static class MyPublishHooks
 {
     public static void BuildForGog()
     {
-        AssetSwapController.Apply(1, 2); // AssetGroup1 → Variant2
-        AssetSwapController.Apply(3, 1); // AssetGroup3 → Variant1
+        if (!AssetSwapController.ApplyByComment("gog"))
+            EditorApplication.Exit(1);
+        // Ассеты подменены синхронно; пакет, реагирующий на свой ассет через delayCall
+        // (напр. дефайны SdkSettings), перед сборкой синхронизировать явно.
         BuildPipeline.BuildPlayer(...);
     }
 }

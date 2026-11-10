@@ -7,6 +7,16 @@
 **Layer:** Unity (Editor-only build-pipeline utility)
 **Config:** `ProjectSettings/VortexAssetSwapSettings.asset` (`ScriptableSingleton`, outside `Assets`, not shipped, versioned in git)
 
+> 🚀 **Running from an external builder.** The swap can run without opening the editor — one command line from CI / a build script, with a non-zero exit code on any error:
+>
+> ```
+> Unity.exe -batchmode -quit -projectPath <path> \
+>   -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ApplyFromCommandLine \
+>   -assetSwap publisher:nutaku
+> ```
+>
+> Details, scenarios and pitfalls — [Running from an external builder](#running-from-an-external-builder).
+
 ---
 
 ## Purpose
@@ -19,7 +29,7 @@ Features:
 - **Bit-copy of file contents via `File.Copy`** — the target's `.meta` is not touched; GUIDs stay stable; all existing references (`[SerializeField]`, `AssetReference`, Addressables, scenes, prefabs) remain valid.
 - **Multi-file case (Spine, FBX + material)** — works natively: each file of the multi-file structure is labeled separately, pairs are matched automatically by file name.
 - **Validator before Apply** — checks pair completeness, reverse-completeness, importer type match, name uniqueness, and absence of runtime references to variant assets. Errors block Apply.
-- **CI hook API** — `AssetSwapController.Apply(int groupIndex, int variantIndex)` is callable from external build hooks (`unity -executeMethod` and batch scripts).
+- **Running from an external builder (command line)** — `unity -batchmode -executeMethod …ApplyFromCommandLine -assetSwap group:variant` (by names — the Comment fields — or numbers) swaps variants without the editor and fails the process (code 1) on any error; `…ValidateAllFromCommandLine` — a check without swapping. For build scripts inside Unity — synchronous `Apply(int, int)` / `ApplyByComment(string)`. See [Running from an external builder](#running-from-an-external-builder).
 - **Separate byte-match window** — diagnostics of which variant the current target contents currently correspond to.
 
 Out of scope:
@@ -33,7 +43,7 @@ Out of scope:
 
 ## Dependencies
 
-- **UniTask** (`Cysharp.Threading.Tasks`) — the only external dependency (referenced in the asmdef). All heavy operations (`ValidateAsync` / `ValidateAllAsync` / `ApplyAsync`, the holder scanner) are async on UniTask with `await UniTask.Yield()` between steps. The package does not compile without UniTask.
+- **UniTask** (`Cysharp.Threading.Tasks`) — the only external dependency (referenced in the asmdef). All heavy operations (`ValidateAsync` / `ValidateAllAsync` / `ApplyAsync`, the holder scanner) are async on UniTask with a pause between steps (`AssetSwapPause.Next()` — `UniTask.Yield()`; inside the sync wrappers — an already completed task, see [CI](#ci-build-pipeline-usage)). The package does not compile without UniTask.
 - Built-in `UnityEditor` API — SettingsProvider, ScriptableSingleton, AssetDatabase, AssetImporter, EditorWindow.
 
 No dependencies on other Vortex packages.
@@ -78,20 +88,73 @@ All actions live on the `Project Settings → Vortex/AssetSwap` page, on the but
 
 ## CI (build pipeline) usage
 
-Public API:
+### Running from an external builder
 
-```csharp
-Vortex.Unity.AssetSwapSystem.AssetSwapController.Apply(int groupIndex, int variantIndex);
-Vortex.Unity.AssetSwapSystem.AssetSwapController.Validate(int groupIndex);
-Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAll();
+The swap is invoked from any external builder (Jenkins, TeamCity, GitHub Actions, a bat/sh script) by a regular batchmode Unity launch — no need to open the editor. The result is read from the process exit code: `0` — all variants applied, `1` — an error (unknown group/variant, failed validation, copy failure, missing or malformed `-assetSwap` key); details are in the Unity log (`-logFile`).
+
+**Scenario A — swap as a separate pipeline step, build as the next one:**
+
+```
+# step 1: swap variants (group:variant by names, the key repeats, applied in order)
+Unity.exe -batchmode -quit -projectPath <path> -logFile swap.log \
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ApplyFromCommandLine \
+  -assetSwap publisher:nutaku -assetSwap censorship:soft
+
+# step 2: build — a separate Unity launch with your build method
+Unity.exe -batchmode -quit -projectPath <path> -logFile build.log \
+  -buildTarget Win64 -executeMethod MyBuilder.Build
 ```
 
-Command-line example:
+A check without swapping (e.g. on a pull request):
 
 ```
 Unity.exe -batchmode -quit -projectPath <path> \
-  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAll
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAllFromCommandLine
 ```
+
+**Scenario B — swap inside the build method** (one Unity launch): call `ApplyByComment` / `Apply` from your own `-executeMethod` before `BuildPipeline.BuildPlayer` — see the wrapper below. Selecting a variant by comment («steam», «nutaku») is more robust than by numbers: group and variant numbers depend on creation order.
+
+**Pitfalls:**
+
+- **Packages that react to their asset with a delay.** The swap is synchronous, but a package that reacts to its asset change via `EditorApplication.delayCall` (e.g. `SdkSettings` defines) may not get to run before `-quit` or before `BuildPlayer` in the same call. Sync such a package explicitly in the build method (for `SdkSettings` — `SdkSettings.SyncDefinesNow()`); in scenario A — at the start of step 2.
+- **Git state.** The swap overwrites files in the working copy. In CI that is the agent's working copy; locally — keep a clean git state so `git checkout` rolls it back.
+- **One variant per group per run.** A repeated `-assetSwap` for the same group simply overwrites the target with the next variant.
+
+Public API (synchronous, for build scripts):
+
+```csharp
+bool AssetSwapController.Apply(int groupIndex, int variantIndex); // true — variant copied into every target
+bool AssetSwapController.ApplyByComment(string variantComment);  // in every group, the variant with this comment
+int  AssetSwapController.FindVariantByComment(int groupIndex, string comment); // -1 — none
+bool AssetSwapController.Validate(int groupIndex);
+bool AssetSwapController.ValidateAll();
+```
+
+`ApplyByComment` matches the variant comment case-insensitively («steam», «nutaku»…); groups without such a variant are skipped with a log line. `false` — no group has the variant or at least one variant was not applied. `Apply` returns `false` on an unknown group/variant, failed validation, cancellation or a `File.Copy` failure (`ApplyAsync` returns the same `bool`).
+
+**How the sync wrappers work.** UniTask has no blocking wait: `GetAwaiter().GetResult()` on an unfinished task throws «Not yet completed». The wrappers therefore switch on the synchronous mode `AssetSwapPause.Synchronous` for the duration of the call: the pause between steps becomes an already completed task, the async method runs to the end without returning to the frame loop, and the result is taken right away. If anything is still pending afterwards, the wrapper throws an `InvalidOperationException` instead of returning an unreliable result. The editor is not responsive during the call — fine for CI and build scripts.
+
+`-executeMethod` calls only parameterless static methods, and the process exit code ignores a `bool` result. For the command line there are methods that throw on failure — Unity in batchmode then exits with code 1:
+
+```
+Unity.exe -batchmode -quit -projectPath <path> \
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ApplyFromCommandLine \
+  -assetSwap publisher:nutaku -assetSwap censorship:soft
+
+Unity.exe -batchmode -quit -projectPath <path> \
+  -executeMethod Vortex.Unity.AssetSwapSystem.AssetSwapController.ValidateAllFromCommandLine
+```
+
+The `-assetSwap` value (the key repeats, applied in order):
+
+| Form | Example | What it does |
+|---|---|---|
+| `group:variant` by names | `publisher:nutaku` | Group — by the group's **Comment** field, variant — by the variant's Comment field in that group |
+| `group:variant` by numbers | `1:2` | `AssetGroup1` → `Variant2` |
+| Mixed | `1:nutaku`, `publisher:2` | A number is an index, anything else is a name |
+| `variant` without a group | `nutaku` | The variant with this name in **all** groups (`ApplyByComment`); groups without it are skipped |
+
+Names are compared case-insensitively, on the text trimmed at the edges. A number is always treated as an index — do not give groups and variants numeric names. Group names must be unique: on a clash the group is not selected (error). Group/variant not found, no key or an unparsable form — exception (code 1).
 
 For complex hooks — a wrapper:
 
@@ -100,8 +163,10 @@ public static class MyPublishHooks
 {
     public static void BuildForGog()
     {
-        AssetSwapController.Apply(1, 2); // AssetGroup1 → Variant2
-        AssetSwapController.Apply(3, 1); // AssetGroup3 → Variant1
+        if (!AssetSwapController.ApplyByComment("gog"))
+            EditorApplication.Exit(1);
+        // Assets swapped synchronously; a package that reacts to its asset with a delayCall
+        // (e.g. SdkSettings defines) must be synced explicitly before the build.
         BuildPipeline.BuildPlayer(...);
     }
 }

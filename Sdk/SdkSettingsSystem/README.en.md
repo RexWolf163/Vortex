@@ -9,7 +9,7 @@ A single entry point for managing `Scripting Define Symbols` of pluggable Vortex
 
 Capabilities:
 - A single inspector asset with toggles to enable/disable each SDK package
-- Automatic sync of defines on domain reload and target platform switch
+- Automatic sync of defines on domain reload, target platform switch and import of the asset itself (file replaced by AssetSwap, `git checkout/pull`)
 - Two-way mode: "apply toggle state into PlayerSettings" and "read current defines back into toggles"
 - Extension via `partial` + `asmref` — a new package adds one file, no central edits
 
@@ -33,7 +33,8 @@ sdk.settings.system  (asmdef)
 ├── Attribute/
 │   └── DefineSymbolAttribute.cs
 └── Editor/
-    └── MenuController.cs     ← Tools/Vortex/Configs/SDK Settings menu item
+    ├── MenuController.cs     ← Tools/Vortex/Configs/SDK Settings menu item
+    └── SdkSettingsImportWatcher.cs ← AssetPostprocessor: the asset was imported → sync
 
 <package>/DefineSettings/
 ├── SdkSettings.<Package>.cs  ← partial chunk with one bool field
@@ -97,7 +98,7 @@ After project reimport a new toggle appears in the `SdkSettings` inspector.
 - Duplicate `[DefineSymbol("X")]` → `LogError` and the second entry is skipped
 
 ### Constraints
-- One `SdkSettings` asset per project (multiple → `LogError` + abort)
+- One `SdkSettings` asset per project outside `Editor` folders (multiple → `LogError` with the paths + abort). Assets inside `Editor` folders are ignored: they are templates (e.g. AssetSwap variants), never ship and do not drive the defines
 - All partial chunks must live in folders with an asmref to `sdk.settings.system`
 - Editor-only: the engine does not ship into runtime builds
 
@@ -108,6 +109,7 @@ After project reimport a new toggle appears in the `SdkSettings` inspector.
 | First run after the asset is created (via `CoreAssetsController`) | `OnPlatformChanged` → asset has `_initialized = false` → `ReloadStates` (toggles are populated from the existing defines), then `_initialized = true` |
 | `[InitializeOnLoadMethod]` (domain reload) on an already-initialized asset | `OnPlatformChanged` → `RefreshDefines` |
 | `EditorUserBuildSettings.activeBuildTargetChanged` | Same — `RefreshDefines` |
+| Import of the `SdkSettings` asset outside `Editor` folders (`SdkSettingsImportWatcher`) | `delayCall` → `OnPlatformChanged` → `RefreshDefines`. Covers asset changes without a domain reload: AssetSwap variant applied, `git checkout/pull`, external edit. Script recompilation does not trigger it (only `.cs` are imported); a repeat is harmless — PlayerSettings are written only when the define set changes |
 | `ApplyChanges` button in the inspector | `RefreshDefines` — bool fields → PlayerSettings |
 | `ReloadStates` button in the inspector | Read PlayerSettings → bool fields + `SetDirty` + `SaveAssets` |
 
@@ -122,7 +124,8 @@ The flag is serialized in the asset (hidden from the inspector via `[HideInInspe
 | Situation | Behaviour |
 |-----------|-----------|
 | `SdkSettings` asset is absent | Silent no-op (`OnPlatformChanged` does nothing) |
-| Multiple assets found | `LogError` and abort |
+| Multiple assets found outside `Editor` folders | `LogError` with the paths and abort |
+| Asset copies in `Editor` folders (AssetSwap variants) | Ignored by the search and by the import watcher. Their inspector buttons still work: `ApplyChanges` on a copy applies **its** toggles to the project defines, `ReloadStates` overwrites the copy with the current defines — edit copies with toggles only |
 | Two partial chunks declare the same `[DefineSymbol("X")]` | `LogError` about the duplicate, only the first stays in the map |
 | A `[DefineSymbol]`-marked field is not `bool` | Ignored |
 | `BuildTargetGroup.Unknown` | Silent exit |

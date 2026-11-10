@@ -72,7 +72,7 @@ namespace Vortex.Unity.AssetSwapSystem
                 if (i % YieldBatchSize == 0)
                 {
                     onProgress?.Invoke((i + 1) / (float)total);
-                    await UniTask.Yield();
+                    await AssetSwapPause.Next();
                 }
             }
 

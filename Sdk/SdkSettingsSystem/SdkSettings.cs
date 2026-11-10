@@ -32,12 +32,13 @@ namespace Vortex.Sdk.SdkSettingsSystem
         [SerializeField, HideInInspector] private bool _initialized;
 
         /// <summary>
-        /// Проверка соответствия дефайнов
+        /// Проверка соответствия дефайнов. <c>false</c> — синхронизация не выполнена: неизвестная платформа или
+        /// ошибка записи PlayerSettings (в лог). Совпадение без записи — <c>true</c>.
         /// </summary>
-        private void RefreshDefines()
+        private bool RefreshDefines()
         {
             var group = EditorUserBuildSettings.selectedBuildTargetGroup;
-            if (group == BuildTargetGroup.Unknown) return;
+            if (group == BuildTargetGroup.Unknown) return false;
 
             var defines = new Dictionary<string, bool>();
             var fields = GetFields();
@@ -90,7 +91,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
                     }
                 }
 
-                if (modifiedCount <= 0) return;
+                if (modifiedCount <= 0) return true;
 
                 var newDefines = string.Join(";", definesSet.OrderBy(x => x));
                 var currentSorted = string.Join(";",
@@ -99,14 +100,16 @@ namespace Vortex.Sdk.SdkSettingsSystem
                         .Select(s => s.Trim())
                         .Where(s => !string.IsNullOrEmpty(s))
                         .OrderBy(x => x));
-                if (newDefines == currentSorted) return;
+                if (newDefines == currentSorted) return true;
 
                 AssetDatabase.SaveAssets();
                 PlayerSettings.SetScriptingDefineSymbols(namedTarget, newDefines);
+                return true;
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[SdkSettings] Ошибка при обработке {group} — {ex.Message}", this);
+                return false;
             }
         }
 
@@ -198,7 +201,12 @@ namespace Vortex.Sdk.SdkSettingsSystem
             EditorApplication.delayCall += OnPlatformChanged;
         }
 
-        private static void OnPlatformChanged()
+        /// <summary>
+        /// Синхронизация ассета с PlayerSettings. Точки входа: перезагрузка домена, смена платформы и импорт самого
+        /// ассета (<c>SdkSettingsImportWatcher</c>) — последний покрывает подмену файла (AssetSwap,
+        /// git) без перезагрузки домена.
+        /// </summary>
+        internal static void OnPlatformChanged()
         {
             // Во время сборки или активного импорта/компиляции запись в ассет конфликтует
             // с AssetDatabase (mtime-рассинхрон → "Build asset version error"). Откладываем.
@@ -210,17 +218,7 @@ namespace Vortex.Sdk.SdkSettingsSystem
                 return;
             }
 
-            var guids = AssetDatabase.FindAssets("t:SdkSettings");
-            if (guids.Length > 1)
-            {
-                Debug.LogError("[SdkSettings] Обнаружено несколько ассетов конфигурации! Должен быть только один!");
-                return;
-            }
-
-            if (guids.Length == 0) return;
-
-            var path = AssetDatabase.GUIDToAssetPath(guids[0]);
-            var settings = AssetDatabase.LoadAssetAtPath<SdkSettings>(path);
+            var settings = FindActive();
             if (settings == null) return;
 
             if (!settings._initialized)
@@ -231,6 +229,75 @@ namespace Vortex.Sdk.SdkSettingsSystem
 
             settings.RefreshDefines();
         }
+
+        /// <summary>
+        /// Немедленно привести дефайны PlayerSettings (текущая <c>selectedBuildTargetGroup</c>) к галочкам ассета — для
+        /// скриптов сборки и CI: внутри одного <c>-executeMethod</c> отложенный <c>delayCall</c> не успел бы до
+        /// <c>BuildPipeline.BuildPlayer</c>. Дефайны плеерная сборка берёт из PlayerSettings в момент сборки — отдельная
+        /// перекомпиляция редактора не нужна.
+        ///
+        /// <c>false</c> (с ошибкой в лог): идёт сборка/импорт/компиляция, ассета нет или их несколько, ассет не
+        /// инициализирован (первый прогон прочитал бы текущие дефайны в ассет, а не наоборот), запись не удалась.
+        /// </summary>
+        public static bool SyncDefinesNow()
+        {
+            if (BuildPipeline.isBuildingPlayer || EditorApplication.isUpdating || EditorApplication.isCompiling)
+            {
+                Debug.LogError("[SdkSettings] SyncDefinesNow: идёт сборка, импорт или компиляция — синхронизация отклонена.");
+                return false;
+            }
+
+            var settings = FindActive();
+            if (settings == null)
+            {
+                Debug.LogError("[SdkSettings] SyncDefinesNow: действующий ассет настроек не найден.");
+                return false;
+            }
+
+            if (!settings._initialized)
+            {
+                Debug.LogError($"[SdkSettings] SyncDefinesNow: ассет {AssetDatabase.GetAssetPath(settings)} не " +
+                               "инициализирован — галочки не отражают проект, синхронизация отклонена.", settings);
+                return false;
+            }
+
+            return settings.RefreshDefines();
+        }
+
+        /// <summary>Действующий ассет настроек (вне Editor-папок). Несколько — ошибка в лог и <c>null</c>.</summary>
+        private static SdkSettings FindActive()
+        {
+            var paths = FindActivePaths();
+            if (paths.Count > 1)
+            {
+                Debug.LogError("[SdkSettings] Обнаружено несколько ассетов конфигурации вне Editor-папок! " +
+                               $"Должен быть только один: {string.Join(", ", paths)}");
+                return null;
+            }
+
+            return paths.Count == 0 ? null : AssetDatabase.LoadAssetAtPath<SdkSettings>(paths[0]);
+        }
+
+        /// <summary>
+        /// Пути действующих ассетов настроек. Ассеты в Editor-папках не учитываются: это заготовки (напр. варианты
+        /// AssetSwap), в сборку они не попадают и дефайнами не управляют.
+        /// </summary>
+        private static List<string> FindActivePaths()
+        {
+            var paths = new List<string>();
+            foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(SdkSettings)}"))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!IsInEditorFolder(path))
+                    paths.Add(path);
+            }
+
+            return paths;
+        }
+
+        /// <summary>Путь лежит внутри папки с именем <c>Editor</c> на любой глубине.</summary>
+        internal static bool IsInEditorFolder(string path) =>
+            path.StartsWith("Editor/") || path.Contains("/Editor/");
 #endif
     }
 }

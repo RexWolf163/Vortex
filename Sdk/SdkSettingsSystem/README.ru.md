@@ -9,7 +9,7 @@
 
 Возможности:
 - Один инспектор-ассет с тогглами включения/выключения каждого SDK-пакета
-- Авто-синхронизация дефайнов при загрузке домена и смене целевой платформы
+- Авто-синхронизация дефайнов при загрузке домена, смене целевой платформы и импорте самого ассета (подмена файла AssetSwap, `git checkout/pull`)
 - Двунаправленный режим: «применить состояние тогглов в PlayerSettings» и «вычитать текущие defines обратно в тогглы»
 - Расширение через `partial`+`asmref` — новый пакет добавляет один файл, без правок в центре
 
@@ -33,7 +33,8 @@ sdk.settings.system  (asmdef)
 ├── Attribute/
 │   └── DefineSymbolAttribute.cs
 └── Editor/
-    └── MenuController.cs     ← пункт меню Tools/Vortex/Configs/SDK Settings
+    ├── MenuController.cs     ← пункт меню Tools/Vortex/Configs/SDK Settings
+    └── SdkSettingsImportWatcher.cs ← AssetPostprocessor: ассет импортирован → синхронизация
 
 <package>/DefineSettings/
 ├── SdkSettings.<Package>.cs  ← partial-кусок с bool-полем
@@ -97,7 +98,7 @@ sdk.settings.system  (asmdef)
 - На дубликат `[DefineSymbol("X")]` — `LogError` и пропуск второго
 
 ### Ограничения
-- Один ассет `SdkSettings` на проект (при множественных — `LogError` + abort)
+- Один ассет `SdkSettings` на проект вне `Editor`-папок (при множественных — `LogError` со списком путей + abort). Ассеты в `Editor`-папках не учитываются: это заготовки (напр. варианты AssetSwap), в сборку не попадают и дефайнами не управляют
 - Все partial-куски обязаны лежать в asmref'ах на `sdk.settings.system`
 - Editor-only: в рантайм-сборку движок не попадает
 
@@ -108,6 +109,7 @@ sdk.settings.system  (asmdef)
 | Первый запуск после создания ассета (через `CoreAssetsController`) | `OnPlatformChanged` → ассет с `_initialized = false` → `ReloadStates` (тогглы выставляются по уже существующим defines), затем `_initialized = true` |
 | `[InitializeOnLoadMethod]` (загрузка домена) на «прогретом» ассете | `OnPlatformChanged` → `RefreshDefines` |
 | `EditorUserBuildSettings.activeBuildTargetChanged` | То же — `RefreshDefines` |
+| Импорт ассета `SdkSettings` вне `Editor`-папок (`SdkSettingsImportWatcher`) | `delayCall` → `OnPlatformChanged` → `RefreshDefines`. Покрывает смену ассета без перезагрузки домена: применение варианта AssetSwap, `git checkout/pull`, внешняя правка. Перекомпиляция скриптов не срабатывает (импортируются только `.cs`); повтор безвреден — запись в PlayerSettings только при изменении набора дефайнов |
 | Кнопка `ApplyChanges` в инспекторе | `RefreshDefines` — bool-поля → PlayerSettings |
 | Кнопка `ReloadStates` в инспекторе | Чтение PlayerSettings → bool-поля + `SetDirty` + `SaveAssets` |
 
@@ -122,7 +124,8 @@ sdk.settings.system  (asmdef)
 | Ситуация | Поведение |
 |----------|-----------|
 | Ассет `SdkSettings` отсутствует в проекте | Тихий no-op (`OnPlatformChanged` ничего не делает) |
-| Найдено более одного ассета | `LogError` и abort |
+| Найдено более одного ассета вне `Editor`-папок | `LogError` со списком путей и abort |
+| Копии ассета в `Editor`-папках (варианты AssetSwap) | Поиском и наблюдателем импорта игнорируются. Кнопки инспектора у них работают: `ApplyChanges` на копии применит **её** тогглы к дефайнам проекта, `ReloadStates` перезапишет копию текущими дефайнами — копии правьте только тогглами |
 | Два partial-куска объявляют один и тот же `[DefineSymbol("X")]` | `LogError` про дубликат, в карту попадает первый |
 | Поле помечено `[DefineSymbol]`, но не `bool` | Игнорируется |
 | `BuildTargetGroup.Unknown` | Тихий выход |
