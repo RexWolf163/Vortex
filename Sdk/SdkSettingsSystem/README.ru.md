@@ -10,6 +10,7 @@
 Возможности:
 - Один инспектор-ассет с тогглами включения/выключения каждого SDK-пакета
 - Авто-синхронизация дефайнов при загрузке домена, смене целевой платформы и импорте самого ассета (подмена файла AssetSwap, `git checkout/pull`)
+- Немедленная синхронизация из кода для скриптов сборки и CI — `SdkSettings.SyncDefinesNow()` (см. [Синхронизация из скрипта сборки](#синхронизация-из-скрипта-сборки))
 - Двунаправленный режим: «применить состояние тогглов в PlayerSettings» и «вычитать текущие defines обратно в тогглы»
 - Расширение через `partial`+`asmref` — новый пакет добавляет один файл, без правок в центре
 
@@ -50,6 +51,9 @@ sdk.settings.system  (asmdef)
 | `SdkSettings` | `partial ScriptableObject`, `ICoreAsset` | Главный ассет, partial-кусками собирает поля из всех Sdk-пакетов |
 | `DefineSymbolAttribute` | `Attribute` | Метка bool-поля: с каким `define` в PlayerSettings оно связано |
 | `MenuController` | static, Editor-only | Пункт меню `Tools/Vortex/Configs/SDK Settings` для перехода к ассету |
+| `SdkSettingsImportWatcher` | `AssetPostprocessor`, Editor-only | Импорт действующего ассета → отложенная синхронизация |
+
+Публичное Editor-API: `SdkSettings.SyncDefinesNow()` — немедленная синхронизация для скриптов сборки.
 
 ## Как добавить новый Sdk-пакет
 
@@ -90,6 +94,7 @@ sdk.settings.system  (asmdef)
 
 ### Выход
 - `PlayerSettings.SetScriptingDefineSymbols` — синхронизированный набор defines для текущей `BuildTargetGroup`
+- `SyncDefinesNow()` → `bool` — выполнена ли синхронизация (совпадение без записи — тоже `true`)
 
 ### Гарантии
 - Каждое включённое поле → соответствующий define присутствует в PlayerSettings
@@ -111,6 +116,7 @@ sdk.settings.system  (asmdef)
 | `EditorUserBuildSettings.activeBuildTargetChanged` | То же — `RefreshDefines` |
 | Импорт ассета `SdkSettings` вне `Editor`-папок (`SdkSettingsImportWatcher`) | `delayCall` → `OnPlatformChanged` → `RefreshDefines`. Покрывает смену ассета без перезагрузки домена: применение варианта AssetSwap, `git checkout/pull`, внешняя правка. Перекомпиляция скриптов не срабатывает (импортируются только `.cs`); повтор безвреден — запись в PlayerSettings только при изменении набора дефайнов |
 | Кнопка `ApplyChanges` в инспекторе | `RefreshDefines` — bool-поля → PlayerSettings |
+| Вызов `SdkSettings.SyncDefinesNow()` (скрипт сборки, CI) | Сразу, без `delayCall`: `RefreshDefines` действующего ассета. Отказ (с ошибкой в лог) — во время сборки/импорта/компиляции, без ассета или при неинициализированном ассете |
 | Кнопка `ReloadStates` в инспекторе | Чтение PlayerSettings → bool-поля + `SetDirty` + `SaveAssets` |
 
 ### Зачем `_initialized`-флаг
@@ -118,6 +124,38 @@ sdk.settings.system  (asmdef)
 При свеже-созданном ассете все bool-поля имеют дефолтные значения (обычно `true`). Без флага первый же `RefreshDefines` затёр бы существующий набор defines в PlayerSettings — например, если в проекте до подключения Vortex уже были собственные defines с пересекающимися именами или если пакет создан в проекте с уже проставленными defines из git. Поэтому первый прогон — `ReloadStates` (читаем то, что уже есть в PlayerSettings, в тогглы), и только потом начинается обычная синхронизация.
 
 Флаг сериализуется в ассете (скрыт в инспекторе через `[HideInInspector]`).
+
+### Синхронизация из скрипта сборки
+
+Автоматические точки синхронизации отложены (`EditorApplication.delayCall`): они ждут конца импорта/компиляции. Внутри одного `-executeMethod` отложенный вызов не успевает до `BuildPipeline.BuildPlayer`, а с `-quit` может не выполниться вовсе — сборка уйдёт со старыми дефайнами. Поэтому скрипт сборки, который меняет ассет `SdkSettings` (напр. применяет вариант AssetSwap) или просто хочет гарантии, синхронизирует явно:
+
+```csharp
+public static void BuildNutaku()
+{
+    if (!AssetSwapController.ApplyByComment("nutaku"))   // подменили SdkSettings.asset (и не только)
+        EditorApplication.Exit(1);
+
+    if (!SdkSettings.SyncDefinesNow())                     // дефайны → PlayerSettings прямо сейчас
+        EditorApplication.Exit(1);
+
+    BuildPipeline.BuildPlayer(...);
+}
+```
+
+`SyncDefinesNow()`:
+
+| Результат | Когда |
+|---|---|
+| `true` | Дефайны записаны или уже совпадали с галочками |
+| `false` + ошибка в лог | Идёт сборка (`BuildPipeline.isBuildingPlayer`), импорт или компиляция |
+| | Действующего ассета нет или их несколько (вне `Editor`-папок) |
+| | Ассет не инициализирован (`_initialized = false`): первый прогон прочитал бы текущие дефайны в ассет, а не наоборот — для сборки это неверное направление |
+| | Неизвестная платформа или ошибка записи PlayerSettings |
+
+Особенности:
+- **Платформа.** Пишется набор для `EditorUserBuildSettings.selectedBuildTargetGroup`. В batchmode запускайте Unity с `-buildTarget`, совпадающим с целью сборки, иначе дефайны уйдут другой платформе.
+- **Перекомпиляция не нужна.** Плеерная сборка берёт дефайны из PlayerSettings в момент сборки. Редакторские сборки в этом процессе остаются скомпилированными со старыми дефайнами — это касается только редакторского кода под условием (build-хуки и т.п.).
+- **Повтор безвреден.** Позже сработает и отложенная синхронизация от импорта ассета — она увидит совпадение и ничего не запишет.
 
 ## Граничные случаи
 

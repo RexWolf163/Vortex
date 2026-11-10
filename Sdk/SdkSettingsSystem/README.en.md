@@ -10,6 +10,7 @@ A single entry point for managing `Scripting Define Symbols` of pluggable Vortex
 Capabilities:
 - A single inspector asset with toggles to enable/disable each SDK package
 - Automatic sync of defines on domain reload, target platform switch and import of the asset itself (file replaced by AssetSwap, `git checkout/pull`)
+- Immediate sync from code for build scripts and CI — `SdkSettings.SyncDefinesNow()` (see [Sync from a build script](#sync-from-a-build-script))
 - Two-way mode: "apply toggle state into PlayerSettings" and "read current defines back into toggles"
 - Extension via `partial` + `asmref` — a new package adds one file, no central edits
 
@@ -50,6 +51,9 @@ The `asmref` ensures partial chunks are physically compiled into the same assemb
 | `SdkSettings` | `partial ScriptableObject`, `ICoreAsset` | Master asset; partial chunks contribute fields from each Sdk package |
 | `DefineSymbolAttribute` | `Attribute` | Marker on a bool field: which `define` in PlayerSettings it controls |
 | `MenuController` | static, Editor-only | `Tools/Vortex/Configs/SDK Settings` menu item to locate the asset |
+| `SdkSettingsImportWatcher` | `AssetPostprocessor`, Editor-only | Import of the active asset → deferred sync |
+
+Public Editor API: `SdkSettings.SyncDefinesNow()` — immediate sync for build scripts.
 
 ## How to add a new Sdk package
 
@@ -90,6 +94,7 @@ After project reimport a new toggle appears in the `SdkSettings` inspector.
 
 ### Output
 - `PlayerSettings.SetScriptingDefineSymbols` — the synchronized set of defines for the current `BuildTargetGroup`
+- `SyncDefinesNow()` → `bool` — whether the sync was performed (a match without writing is `true` as well)
 
 ### Guarantees
 - Every enabled field → its define is present in PlayerSettings
@@ -111,6 +116,7 @@ After project reimport a new toggle appears in the `SdkSettings` inspector.
 | `EditorUserBuildSettings.activeBuildTargetChanged` | Same — `RefreshDefines` |
 | Import of the `SdkSettings` asset outside `Editor` folders (`SdkSettingsImportWatcher`) | `delayCall` → `OnPlatformChanged` → `RefreshDefines`. Covers asset changes without a domain reload: AssetSwap variant applied, `git checkout/pull`, external edit. Script recompilation does not trigger it (only `.cs` are imported); a repeat is harmless — PlayerSettings are written only when the define set changes |
 | `ApplyChanges` button in the inspector | `RefreshDefines` — bool fields → PlayerSettings |
+| `SdkSettings.SyncDefinesNow()` call (build script, CI) | Immediately, without `delayCall`: `RefreshDefines` of the active asset. Refused (with an error in the log) during a build/import/compilation, without an asset or with an uninitialized asset |
 | `ReloadStates` button in the inspector | Read PlayerSettings → bool fields + `SetDirty` + `SaveAssets` |
 
 ### Why the `_initialized` flag
@@ -118,6 +124,38 @@ After project reimport a new toggle appears in the `SdkSettings` inspector.
 A freshly-created asset has all bool fields at their default values (usually `true`). Without the flag the very first `RefreshDefines` would overwrite the existing set of defines in PlayerSettings — for example, if the project already had its own defines with overlapping names before Vortex was added, or if the asset is created in a project where defines are already set via git. Therefore the first run is `ReloadStates` (read what's already in PlayerSettings into the toggles), and only after that does the normal sync kick in.
 
 The flag is serialized in the asset (hidden from the inspector via `[HideInInspector]`).
+
+### Sync from a build script
+
+The automatic sync points are deferred (`EditorApplication.delayCall`): they wait for import/compilation to finish. Inside a single `-executeMethod` the deferred call does not get to run before `BuildPipeline.BuildPlayer`, and with `-quit` it may not run at all — the build would ship with the old defines. So a build script that changes the `SdkSettings` asset (e.g. applies an AssetSwap variant) or simply wants a guarantee syncs explicitly:
+
+```csharp
+public static void BuildNutaku()
+{
+    if (!AssetSwapController.ApplyByComment("nutaku"))   // swapped SdkSettings.asset (and more)
+        EditorApplication.Exit(1);
+
+    if (!SdkSettings.SyncDefinesNow())                     // defines → PlayerSettings right now
+        EditorApplication.Exit(1);
+
+    BuildPipeline.BuildPlayer(...);
+}
+```
+
+`SyncDefinesNow()`:
+
+| Result | When |
+|---|---|
+| `true` | Defines were written or already matched the toggles |
+| `false` + error in the log | A build (`BuildPipeline.isBuildingPlayer`), import or compilation is in progress |
+| | No active asset, or several of them (outside `Editor` folders) |
+| | The asset is not initialized (`_initialized = false`): the first run would read the current defines into the asset, not the other way round — the wrong direction for a build |
+| | Unknown platform or a PlayerSettings write error |
+
+Notes:
+- **Platform.** The set is written for `EditorUserBuildSettings.selectedBuildTargetGroup`. In batchmode launch Unity with `-buildTarget` matching the build target, otherwise the defines go to another platform.
+- **No recompilation needed.** The player build takes defines from PlayerSettings at build time. Editor assemblies in this process stay compiled with the old defines — this only matters for conditional editor code (build hooks etc.).
+- **A repeat is harmless.** The deferred sync from the asset import fires later as well — it sees a match and writes nothing.
 
 ## Edge cases
 
