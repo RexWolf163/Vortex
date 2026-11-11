@@ -323,8 +323,9 @@ Sound playback component. Works with a personal `AudioSource` or relays to `Audi
 Music playback component triggered on GameObject activation.
 
 - Sample GUID via `[DbRecord(typeof(Music))]`
-- `OnEnable` → start music with `UniTask.DelayFrame(2)` delay to guarantee order after `OnDisable`
-- `OnDisable` → deferred stop via `TimeController.Call` (bypass "hot restart")
+- `OnEnable` → start music with `UniTask.DelayFrame(2)` delay to guarantee order after `OnDisable`. The start is re-checked after the delay: if the handler was disabled or destroyed meanwhile, or another call has already started the music, nothing is played
+- `OnDisable` → deferred stop via `TimeController.Call` (bypass "hot restart"). Only a handler that actually started the music stops it
+- The stop is global (`AudioController.StopMusic` / `StopCoverMusic`): it silences the channel even if another handler's track is playing there by then
 - `isCoverMusic` field — switch between main and situational music
 - `fadeStart` / `fadeEnd` fields — fade transition control
 - Initialization deferred until `AudioController.OnInit` via `TimeController.Accumulate`
@@ -426,6 +427,8 @@ This is a direct application of the data placement matrix (see `Core/DatabaseSys
 | No settings in `PlayerPrefs` | Default values (everything on, volume 1) |
 | Corrupt data in `PlayerPrefs` | `try/catch`, defaults restored |
 | `MusicHandler` quick disable/enable | `TimeController.RemoveCall` cancels pending stop, `UniTask.DelayFrame(2)` ensures play-after-stop order |
+| `MusicHandler` quick enable/disable (the object flickered or was destroyed during the start delay) | No music is started: after `DelayFrame(2)` the handler is disabled or destroyed; the stop silences nothing because nothing was started |
+| `MusicHandler` enable → disable → enable during the start delay | Two deferred starts, only the first one starts the music |
 | First `GetClip()` of an addressable sound | Synchronous `WaitForCompletion` load — a short frame stall is possible; the clip is cached afterwards |
 | Addressable clip removed/absent from the build | `WaitForCompletion` returns `null` → NRE in `SoundClipFixed` (fail-fast; verify the clip is in an addressable group) |
 | Converting `SoundSamplePreset` → addressable | The framework GUID is preserved, `[DbRecord]` references survive; the Unity asset GUID changes |

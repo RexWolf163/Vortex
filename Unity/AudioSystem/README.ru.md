@@ -323,8 +323,9 @@ SoundClipFixed (: SoundClip)
 Компонент запуска музыки при активации GameObject.
 
 - GUID сэмпла через `[DbRecord(typeof(Music))]`
-- `OnEnable` → запуск музыки с задержкой `UniTask.DelayFrame(2)` для гарантии порядка после `OnDisable`
-- `OnDisable` → отложенная остановка через `TimeController.Call` (обход «горячего рестарта»)
+- `OnEnable` → запуск музыки с задержкой `UniTask.DelayFrame(2)` для гарантии порядка после `OnDisable`. После задержки старт перепроверяется: если хэндлер за это время выключили, уничтожили или музыку уже запустил другой вызов — запуска нет
+- `OnDisable` → отложенная остановка через `TimeController.Call` (обход «горячего рестарта»). Останавливает только хэндлер, который успел запустить музыку
+- Остановка глобальная (`AudioController.StopMusic` / `StopCoverMusic`): гасит канал, даже если к этому моменту там играет трек другого хэндлера
 - Поле `isCoverMusic` — переключение между основной и ситуативной музыкой
 - Поля `fadeStart` / `fadeEnd` — управление fade-переходами
 - Инициализация отложена до `AudioController.OnInit` через `TimeController.Accumulate`
@@ -426,6 +427,8 @@ UI-слайдер громкости.
 | Нет настроек в `PlayerPrefs` | Значения по умолчанию (всё включено, громкость 1) |
 | Некорректные данные в `PlayerPrefs` | `try/catch`, настройки сбрасываются к дефолтам |
 | `MusicHandler` быстрый disable/enable | `TimeController.RemoveCall` отменяет pending stop, `UniTask.DelayFrame(2)` обеспечивает play после stop |
+| `MusicHandler` быстрый enable/disable (объект мигнул или уничтожен за время задержки старта) | Музыка не запускается: после `DelayFrame(2)` хэндлер выключен или уничтожен; стоп ничего не гасит, так как запуска не было |
+| `MusicHandler` enable → disable → enable за время задержки старта | Два отложенных старта, музыку запускает только первый |
 | Первый `GetClip()` у addressable-звука | Синхронная загрузка `WaitForCompletion` — возможен короткий стопор кадра; далее клип закеширован |
 | Addressable-клип удалён/отсутствует в билде | `WaitForCompletion` вернёт `null` → NRE в `SoundClipFixed` (fail-fast; проверь, что клип в addressable-группе) |
 | Конвертация `SoundSamplePreset` → addressable | Framework-GUID сохраняется, `[DbRecord]`-ссылки живут; Unity-GUID ассета меняется |

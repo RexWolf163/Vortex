@@ -70,8 +70,11 @@ namespace Vortex.Unity.AudioSystem.Handlers
         {
             if (_isPlay)
                 return;
-            _isPlay = true;
             await UniTask.DelayFrame(2);
+            // За время задержки хэндлер могли выключить, уничтожить или уже запустить вторым вызовом
+            if (_isPlay || this == null || !isActiveAndEnabled)
+                return;
+            _isPlay = true;
             if (isCoverMusic)
                 AudioController.PlayCoverMusic(_sample, fadeStart, fadeEnd);
             else
