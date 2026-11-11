@@ -93,7 +93,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
                 RefreshFocus();
             }
 
-            timestamp?.SetText(_data.Summary.Date.ToString(timestampPattern, CultureInfo.InvariantCulture));
+            timestamp?.SetText(_data.Summary.Date.ToLocalTime().ToString(timestampPattern, CultureInfo.InvariantCulture));
             slotName?.SetText(_data.Summary.GetDisplayName(autoSavePattern, manualSavePattern));
         }
 

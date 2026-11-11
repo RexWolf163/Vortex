@@ -49,7 +49,7 @@ namespace Vortex.Sdk.UIs.SaveLoad.Views
             var lastSave = dict.OrderByDescending(p => p.Value.UnixTimestamp).First().Value;
 
             componentName?.SetText(lastSave.GetDisplayName(autoSavePattern, manualSavePattern));
-            componentTimestamp?.SetText(lastSave.Date.ToString(timestampPattern, CultureInfo.InvariantCulture));
+            componentTimestamp?.SetText(lastSave.Date.ToLocalTime().ToString(timestampPattern, CultureInfo.InvariantCulture));
         }
     }
 }
