@@ -31,10 +31,13 @@ AITools/
 ├── AIContextCreator.cs                  # Editor-only aggregation utility
 ├── Prompt code quality analysis.md      # Prompt: code quality evaluation
 ├── Prompt create docs.md               # Prompt: documentation generation
-└── ClaudeCodeSkills/                    # Skills for Claude Code (+ its own README)
+├── ClaudeCodeSkills/                    # Skills for Claude Code (+ its own README)
+└── ZCodeSkills/                         # The same skills adapted for ZCode (+ its own README)
 ```
 
 The [ClaudeCodeSkills](ClaudeCodeSkills/) subpackage contains a set of Claude Code skills that package Vortex methodologies (layer detection, initial architecture, quality evaluation, TZ design) into an executable format. See its own README for details.
+
+The [ZCodeSkills](ZCodeSkills/) subpackage is an adaptation of the code evaluation and TZ design skills for ZCode: the canon is the same, the packaging is `SKILL.md` + `references/`. See its own README for details.
 
 ### AIContextCreator
 
