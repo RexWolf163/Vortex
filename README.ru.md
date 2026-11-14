@@ -192,10 +192,11 @@ public class HeroPanel : MonoBehaviour
 ## Зависимости
 
 **Обязательные:**
-- Unity 2021.3+
-- UniTask — async/await
-- TextMeshPro — текстовый рендеринг
-- Sirenix Odin Inspector — атрибуты для Inspector и собственный EditorTools-пакет
+- Unity 6000.3+
+- Sirenix Odin Inspector — атрибуты для Inspector и собственный EditorTools-пакет. Распространяется через Asset Store, в UPM-реестрах отсутствует, поэтому в `package.json` не объявлен и **автоматически не устанавливается**. Установить в проект до подключения Vortex, иначе сборки фреймворка не скомпилируются
+- UniTask 2.5.10+ — async/await. В `package.json` не объявлен (пакет опубликован в OpenUPM, а не в реестре Unity, и без scoped registry в проекте установка Vortex падала бы) и **автоматически не устанавливается**. Установить любым способом: `.unitypackage` в `Assets/Plugins`, git-URL `https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.10` или OpenUPM (`com.cysharp.unitask`)
+- Input System (`com.unity.inputsystem` 1.18.0+) — объявлен зависимостью пакета
+- TextMeshPro — текстовый рендеринг, входит в `com.unity.ugui` 2.0.0 (объявлен зависимостью пакета)
 
 **Опциональные:**
 - Addressables — для `AddressablesDriver` пакета `Database` и для `AssetCache` (если не установлен — соответствующие сборки автоматически отключаются через `defineConstraints`)

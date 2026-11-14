@@ -192,10 +192,11 @@ public class HeroPanel : MonoBehaviour
 ## Dependencies
 
 **Required:**
-- Unity 2021.3+
-- UniTask — async/await
-- TextMeshPro — text rendering
-- Sirenix Odin Inspector — Inspector attributes and the EditorTools package
+- Unity 6000.3+
+- Sirenix Odin Inspector — Inspector attributes and the EditorTools package. Distributed via the Asset Store and absent from UPM registries, so it is not declared in `package.json` and is **not installed automatically**. Install it into the project before adding Vortex, otherwise the framework assemblies will not compile
+- UniTask 2.5.10+ — async/await. Not declared in `package.json` (it is published on OpenUPM, not in the Unity registry, and without a scoped registry in the project the Vortex installation would fail) and **not installed automatically**. Install it any way you like: a `.unitypackage` into `Assets/Plugins`, the git URL `https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.10`, or OpenUPM (`com.cysharp.unitask`)
+- Input System (`com.unity.inputsystem` 1.18.0+) — declared as a package dependency
+- TextMeshPro — text rendering, part of `com.unity.ugui` 2.0.0 (declared as a package dependency)
 
 **Optional:**
 - Addressables — for `AddressablesDriver` of the `Database` package and for `AssetCache` (if not installed, the corresponding assemblies are auto-disabled via `defineConstraints`)
