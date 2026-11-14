@@ -8,6 +8,14 @@ namespace Vortex.Core.LogicChainsSystem.Model
     [Serializable]
     public abstract class LogicAction
     {
+        protected string ChainOwner;
+
+        public void Invoke(string guid)
+        {
+            ChainOwner = guid;
+            Invoke();
+        }
+
         public abstract void Invoke();
     }
 }

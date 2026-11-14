@@ -2,7 +2,8 @@
     "name": "ru.vortex.core.assethandle",
     "rootNamespace": "",
     "references": [
-        "UniTask"
+        "UniTask",
+        "ru.vortex.unity.editortools"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

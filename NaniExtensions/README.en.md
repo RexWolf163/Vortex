@@ -7,7 +7,6 @@ Bridge between the Vortex framework and the Naninovel visual novel engine. Conta
 - Volume settings translation from Vortex to Naninovel
 - Nani scene management from Vortex (pause, stop, actor reset)
 - Multi-channel localization (default, dialogue, voice)
-- Spine-animated cutscene management via Nani backgrounds
 - Editor tools: Naninovel variables panel, script link validator
 
 Out of scope: Naninovel scripts, scene content, Spine asset configuration.
@@ -18,7 +17,7 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 |------------|----------|-------|---------|
 | [Core](Core/) | `ru.vortex.nani.core` | 3 | `NaniWrapper` — lazy access to Naninovel services |
 | [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Volume translation, Nani audio control, `NaniVoicePlayBus` |
-| [CutsceneSystem](CutsceneSystem/) | `ru.vortex.nani.cutscenes` | 3 | Spine cutscene controller |
+| [CutsceneSystem](CutsceneSystem/README.en.md) | `ru.vortex.nani.cutscenes` | 3 | Script commands for cutscenes: `@cutscene_Play`, `@cutscene_Next`, `@cutscene_Stop`, `@cutscene_Skip` |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Localization driver with channels |
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | `NaniPlayerState` quest condition — reacts to Nani player start/stop; quest logics on Naninovel variables: `NaniVariableValueComparation` (compare), `NaniVariableValueWait` (wait for a comparison), `NaniExpressionComparation` (Naninovel expression with a formula check button); quest logics on scripts: `RunNaniScript` (launches a script via `NaniWrapper.PlayScript`, implements `INaniScriptLaunch`), `WaitStopNaniScript` (waits for a script to stop) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — saves/restores Nani variables via `GameController` |
@@ -157,49 +156,6 @@ Algorithm:
 4. `OnNaniStop` / `App.OnExit` — `FlushAll`, close every open line.
 
 Lifecycle: subscriptions in `App.OnStart`, unsubscription in `App.OnExit`. No project-side registration or initialisation required.
-
----
-
-## CutsceneSystem
-
-**Namespace:** `Vortex.NaniExtensions.CutsceneSystem`, `Vortex.NaniExtensions.CutsceneSystem.Models`
-
-Controller for Spine-animated cutscenes displayed as Naninovel `SpineBackground`.
-
-### CutsceneController
-
-Static controller. Lifecycle:
-
-```
-Open(key) → load CutsceneData → SpineBackground → LoadPhase → [NextPhase]* → Close
-```
-
-| Method | Description |
-|--------|-------------|
-| `Open(key, canBeClosedByButton)` | Load cutscene by Addressable key, start first phase |
-| `NextPhase()` | Advance to next phase |
-| `Close()` | Stop, cleanup, remove background |
-
-Phases:
-- Each `CutscenePhase` — animation (looped/non-looped) + optional ambient sound
-- Non-looped animations automatically advance to next phase
-- Spine events (`Event`) are mapped to sounds via `EventToAudioData`
-
-`GameStates` reaction:
-- `Play` → `timeScale = 1`, resume sounds
-- `Paused` → `timeScale = 0`, stop all sounds
-- `Off` → `Close()`
-
-### Models
-
-| Class | Description |
-|-------|-------------|
-| `CutsceneData` | ScriptableObject: `SkeletonDataAsset`, `List<CutscenePhase>`, `List<EventToAudioData>`, `List<string> SexSceneAmbients` |
-| `CutscenePhase` | Phase: `AnimationKey`, `AnimationLooped`, `AmbientAudioPack` |
-| `CutscenePhaseData` | Dialogue data: `AuthorTextKey`, `DialogueTextKey`, voice-over (Ru/En) |
-| `EventToAudioData` | Spine event → sound mapping: `EventName`, `AudioPack` |
-
-`CutsceneData.SyncWithSpine()` — Editor button: synchronizes phases and events with `SkeletonDataAsset`.
 
 ---
 

@@ -1,0 +1,26 @@
+{
+    "name": "ru.vortex.spine.cutscene",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.unity.cutscene",
+        "ru.vortex.unity.ui.misc",
+        "ru.vortex.system",
+        "ru.vortex.audio",
+        "ru.vortex.unity.audio",
+        "ru.vortex.database",
+        "ru.vortex.unity.database",
+        "spine-unity",
+        "spine-csharp"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_SPINE"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

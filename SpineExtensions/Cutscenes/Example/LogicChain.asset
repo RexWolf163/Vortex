@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63335efb6ded435a9e43b8d89181ee7c, type: 3}
+  m_Name: LogicChain
+  m_EditorClassIdentifier: ru.vortex.unity.logicchains::Vortex.Unity.LogicChainsSystem.Presets.LogicChainPreset
+  type: 0
+  guid: ddc9accee9c07f6381fc769f0ce3e423a2521628d6f02c5447b9e2a2de035cf5
+  nameRecord: LogicChain
+  description: 
+  icon: {fileID: 0}
+  startStep: fa769e4b03ccb24b05b803ed34a83489322e682c6fc08e31fc207384dbcf5471
+  chainSteps:
+  - rid: 3043771768226185300
+  references:
+    version: 2
+    RefIds:
+    - rid: 3043771768226185300
+      type: {class: ChainStepPreset, ns: Vortex.Unity.LogicChainsSystem.Presets, asm: ru.vortex.unity.logicchains}
+      data:
+        guid: fa769e4b03ccb24b05b803ed34a83489322e682c6fc08e31fc207384dbcf5471
+        name: 
+        description: 
+        actions:
+        - rid: 3043771768226185305
+        connectors:
+        - rid: 3043771768226185303
+    - rid: 3043771768226185303
+      type: {class: ConnectorPreset, ns: Vortex.Unity.LogicChainsSystem.Presets, asm: ru.vortex.unity.logicchains}
+      data:
+        targetStepGuid: -1
+        conditions:
+        - rid: 3043771768226185304
+    - rid: 3043771768226185304
+      type: {class: CutsceneReadyCondition, ns: Vortex.Unity.CutsceneSystem.LogicChains, asm: ru.vortex.unity.cutscene}
+      data: 
+    - rid: 3043771768226185305
+      type: {class: CutscenePhase, ns: Vortex.Unity.CutsceneSystem.LogicChains, asm: ru.vortex.unity.cutscene}
+      data: 

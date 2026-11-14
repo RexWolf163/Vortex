@@ -68,7 +68,7 @@ namespace Vortex.Core.LogicChainsSystem.Bus
 
             var actions = step.Actions;
             foreach (var action in actions)
-                action.Invoke();
+                action.Invoke(guid);
 
             var connectors = step.Connectors;
             foreach (var connector in connectors)
@@ -93,7 +93,7 @@ namespace Vortex.Core.LogicChainsSystem.Bus
                             Log.Print(new LogData(LogLevel.Error, ex.Message, chain));
                             condition.DeInit();
                         }
-                    });
+                    }, guid);
             }
         }
 

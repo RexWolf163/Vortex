@@ -13,7 +13,7 @@ Bridge between the Vortex framework and Spine (Esoteric Software). Contains subp
 
 Every Tween/Scrub class ships as a pair `SkeletonGraphic` (UGUI) / `SkeletonAnimation` (MeshRenderer) over a common generic base.
 
-Out of scope: Spine runtime, asset import, skeleton rendering, cutscene logic (see [`NaniExtensions/CutsceneSystem`](../NaniExtensions/README.en.md)).
+Out of scope: Spine runtime, asset import, skeleton rendering.
 
 ## Activation
 
@@ -23,7 +23,7 @@ The `ru.vortex.spine` assembly has `defineConstraints: ["USING_SPINE"]` — when
 
 ## Assembly
 
-A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExtensions/` root).
+A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExtensions/` root). The exception is the `Cutscenes` subpackage with its own `ru.vortex.spine.cutscene` assembly: it needs references to the cutscene package, audio and the database, which the rest of the module does not.
 
 ## Subfolders
 
@@ -34,6 +34,7 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 | Addressable | Addressable support for Spine: typed `AssetReferenceSkeletonDataAsset` reference, layer gate by skeleton readiness `SpineReadyGateHandler` |
 | Links | Animation link model `SpineAnimationLink`, `MasterLink` attribute and an Odin drawer with an animation dropdown and Play / Stop |
 | DefineSettings | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
+| [Cutscenes](Cutscenes/README.en.md) | Spine implementation of cutscenes for `CutsceneSystem`: phase auto-transition at the end of an animation, event sounds. Own assembly `ru.vortex.spine.cutscene` |
 
 ## Dependencies
 

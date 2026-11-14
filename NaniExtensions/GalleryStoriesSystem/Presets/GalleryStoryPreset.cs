@@ -23,13 +23,17 @@ namespace Vortex.NaniExtensions.GalleryStoriesSystem.Presets
         menuName = "Database/Gallery/Story")]
     public class GalleryStoryPreset : RecordPreset<GalleryStoryModel>
     {
-        [SerializeField, Naninovel.ReadOnly] [InfoBox("$ScriptPathValidationMessage", "$ScriptPathValidationType")]
+        // У InfoBox тип сообщения статичен (второй строковый аргумент — условие видимости), поэтому по боксу на статус
+        [SerializeField, Naninovel.ReadOnly]
+        [InfoBox("$ScriptPathValidationMessage", InfoMessageType.Warning, "IsScriptPathEmpty")]
+        [InfoBox("$ScriptPathValidationMessage", InfoMessageType.Info, "IsScriptPathFound")]
+        [InfoBox("$ScriptPathValidationMessage", InfoMessageType.Error, "IsScriptPathMissing")]
         private string scriptPath;
 
         [NonSerialized, ShowInInspector]
         [Tooltip("Перетащи сюда nani-скрипт — его Path скопируется в scriptPath, а поле очистится. " +
                  "Ссылка на Script не сериализуется (защита от выгрузки инстанса самой naninovel).")]
-        [OnValueChanged("$OnScriptChanged")]
+        [OnValueChanged("OnScriptChanged")]
         private Script script;
 
         /// <summary>
@@ -66,16 +70,12 @@ namespace Vortex.NaniExtensions.GalleryStoriesSystem.Presets
             }
         }
 
-        private InfoMessageType ScriptPathValidationType
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(scriptPath)) return InfoMessageType.Warning;
-                return FindScriptByPath(scriptPath) != null
-                    ? InfoMessageType.Info
-                    : InfoMessageType.Error;
-            }
-        }
+        // Статус пути для выбора InfoBox: пусто (Warning) / найден (Info) / не найден (Error)
+        private bool IsScriptPathEmpty => string.IsNullOrWhiteSpace(scriptPath);
+
+        private bool IsScriptPathFound => !IsScriptPathEmpty && FindScriptByPath(scriptPath) != null;
+
+        private bool IsScriptPathMissing => !IsScriptPathEmpty && FindScriptByPath(scriptPath) == null;
 
         /// <summary>
         /// Найти в проекте <see cref="Script"/>-ассет по <c>Path</c>. Editor-only, используется

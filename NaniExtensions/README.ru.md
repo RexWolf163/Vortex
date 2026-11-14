@@ -7,7 +7,6 @@
 - Трансляция настроек громкости Vortex в Naninovel
 - Управление Nani-сценами из Vortex (пауза, стоп, сброс акторов)
 - Многоканальная локализация (общий язык, диалоги, озвучка)
-- Управление катсценами на Spine-анимациях через Nani-бэкграунды
 - Инструменты редактора: панель переменных Naninovel, валидатор связей сценариев
 
 Вне ответственности: Naninovel-скрипты, контент сцен, настройка Spine-ассетов.
@@ -18,7 +17,7 @@
 |----------|--------|------|-----------|
 | [Core](Core/) | `ru.vortex.nani.core` | 3 | `NaniWrapper` — ленивый доступ к сервисам Naninovel |
 | [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Трансляция громкости, управление Nani-аудио, `NaniVoicePlayBus` |
-| [CutsceneSystem](CutsceneSystem/) | `ru.vortex.nani.cutscenes` | 3 | Контроллер Spine-катсцен |
+| [CutsceneSystem](CutsceneSystem/README.ru.md) | `ru.vortex.nani.cutscenes` | 3 | Команды сценария для катсцен: `@cutscene_Play`, `@cutscene_Next`, `@cutscene_Stop`, `@cutscene_Skip` |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Драйвер локализации с каналами |
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера; логики квеста по переменным Naninovel: `NaniVariableValueComparation` (сравнение), `NaniVariableValueWait` (ожидание сравнения), `NaniExpressionComparation` (выражение Naninovel с кнопкой проверки формулы); логики квеста по сценариям: `RunNaniScript` (запуск сценария через `NaniWrapper.PlayScript`, реализует `INaniScriptLaunch`), `WaitStopNaniScript` (ожидание остановки сценария) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — сохранение/восстановление Nani-переменных через `GameController` |
@@ -157,49 +156,6 @@ public static event Action<string> OnVoiceStop;    // authorId говоряще�
 4. `OnNaniStop` / `App.OnExit` — `FlushAll`, закрытие всех открытых реплик.
 
 Жизненный цикл: подписки в `App.OnStart`, отписка в `App.OnExit`. Не требует регистрации/инициализации со стороны проекта.
-
----
-
-## CutsceneSystem
-
-**Namespace:** `Vortex.NaniExtensions.CutsceneSystem`, `Vortex.NaniExtensions.CutsceneSystem.Models`
-
-Контроллер Spine-анимированных катсцен, отображаемых как Naninovel `SpineBackground`.
-
-### CutsceneController
-
-Статический контроллер. Жизненный цикл:
-
-```
-Open(key) → загрузка CutsceneData → SpineBackground → LoadPhase → [NextPhase]* → Close
-```
-
-| Метод | Описание |
-|-------|----------|
-| `Open(key, canBeClosedByButton)` | Загрузка катсцены по Addressable-ключу, запуск первой фазы |
-| `NextPhase()` | Переход к следующей фазе |
-| `Close()` | Остановка, очистка, удаление бэкграунда |
-
-Фазы:
-- Каждая `CutscenePhase` — анимация (looped/не looped) + опциональный ambient-звук
-- Не looped-анимации автоматически переходят к следующей фазе
-- Spine-события (`Event`) маппятся на звуки через `EventToAudioData`
-
-Реакция на `GameStates`:
-- `Play` → `timeScale = 1`, возобновление звуков
-- `Paused` → `timeScale = 0`, остановка всех звуков
-- `Off` → `Close()`
-
-### Модели
-
-| Класс | Описание |
-|-------|----------|
-| `CutsceneData` | ScriptableObject: `SkeletonDataAsset`, `List<CutscenePhase>`, `List<EventToAudioData>`, `List<string> SexSceneAmbients` |
-| `CutscenePhase` | Фаза: `AnimationKey`, `AnimationLooped`, `AmbientAudioPack` |
-| `CutscenePhaseData` | Диалоговые данные: `AuthorTextKey`, `DialogueTextKey`, озвучка (Ru/En) |
-| `EventToAudioData` | Маппинг Spine-события → звук: `EventName`, `AudioPack` |
-
-`CutsceneData.SyncWithSpine()` — Editor-кнопка: синхронизирует фазы и события с `SkeletonDataAsset`.
 
 ---
 

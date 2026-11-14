@@ -13,7 +13,7 @@
 
 Все Tween- и Scrub-классы реализованы парой `SkeletonGraphic` (UGUI) / `SkeletonAnimation` (MeshRenderer) поверх общей generic-базы.
 
-Вне ответственности: рантайм Spine, импорт ассетов, рендеринг скелетов, логика катсцен (см. [`NaniExtensions/CutsceneSystem`](../NaniExtensions/README.ru.md)).
+Вне ответственности: рантайм Spine, импорт ассетов, рендеринг скелетов.
 
 ## Активация
 
@@ -23,7 +23,7 @@
 
 ## Сборка
 
-Единый asmdef на весь модуль: **`ru.vortex.spine`** (в корне `SpineExtensions/`).
+Единый asmdef на весь модуль: **`ru.vortex.spine`** (в корне `SpineExtensions/`). Исключение — подпакет `Cutscenes` со своей сборкой `ru.vortex.spine.cutscene`: ему нужны ссылки на пакет катсцен, звук и базу, которые остальному модулю не требуются.
 
 ## Подпапки
 
@@ -34,6 +34,7 @@
 | Addressable | Addressable-поддержка Spine: типизированная ссылка `AssetReferenceSkeletonDataAsset`, гейт слоёв по готовности скелета `SpineReadyGateHandler` |
 | Links | Модель ссылки на анимацию `SpineAnimationLink`, атрибут `MasterLink` и Odin-drawer с выпадашкой анимаций и Play / Stop |
 | DefineSettings | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
+| [Cutscenes](Cutscenes/README.ru.md) | Spine-реализация катсцен для `CutsceneSystem`: автопереход фазы по концу анимации, звуки событий. Своя сборка `ru.vortex.spine.cutscene` |
 
 ## Зависимости
 
