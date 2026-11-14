@@ -1,0 +1,29 @@
+{
+    "name": "ru.vortex.sdk.cutscene",
+    "rootNamespace": "",
+    "references": [
+        "GUID:66c3850540390be44aa49f25786b3c3a",
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:70004f1eb3bb8854bb26c209a55550de",
+        "GUID:cad4de33a6235bb42a7e0f3710a4ae0d",
+        "GUID:02b574238dac1c642a506184679b46c4",
+        "GUID:7c6d3de99517c0549ae82af52cb16906",
+        "GUID:61328ee0671b5b5429f7ef2e1137c0b5",
+        "GUID:826a37b90dd7f8849a995e26104dd48e",
+        "GUID:68765d262e2128e4ab49c983f3411946",
+        "GUID:72d1fea872bd7a449bf3818f2b0a6708",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:2bafac87e7f4b9b418d9448d219b01ab"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "USING_SPINE"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
