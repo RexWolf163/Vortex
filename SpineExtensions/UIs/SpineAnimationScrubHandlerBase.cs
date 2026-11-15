@@ -22,9 +22,9 @@ namespace Vortex.SpineExtensions.UIs
     /// (поле <c>source</c> в инспекторе), наполнение через <see cref="DataStorageView{T}"/>.
     /// </summary>
     public abstract class SpineAnimationScrubHandlerBase<TSkeleton> : DataStorageView<FloatData>
-        where TSkeleton : MonoBehaviour, IAnimationStateComponent, IHasSkeletonDataAsset
+        where TSkeleton : MonoBehaviour, IHasSkeletonDataAsset
     {
-        [SerializeField, ClassFilter(typeof(IAnimationStateComponent), typeof(IHasSkeletonDataAsset))]
+        [SerializeField, ClassFilter(typeof(IHasSkeletonDataAsset))]
         protected TSkeleton skeleton;
 
         [SerializeField, ValueSelector("GetListAnimations")]
@@ -40,15 +40,17 @@ namespace Vortex.SpineExtensions.UIs
             base.Init();
             if (skeleton == null || string.IsNullOrEmpty(animationName)) return;
 
-            _track = skeleton.AnimationState.SetAnimation(channel, animationName, false);
+            _track = SpineCompat.GetAnimationState(skeleton).SetAnimation(channel, animationName, false);
             _track.TimeScale = 0;
             Apply();
         }
 
         protected override void DeInit()
         {
-            if (skeleton != null && skeleton.AnimationState != null)
-                skeleton.AnimationState.SetEmptyAnimation(channel, 0);
+            //Состояние анимации берётся независимо от версии Spine: в 4.3 его ведёт соседний компонент
+            var state = skeleton != null ? SpineCompat.GetAnimationState(skeleton) : null;
+            if (state != null)
+                state.SetEmptyAnimation(channel, 0);
             _track = null;
             base.DeInit();
         }

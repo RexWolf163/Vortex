@@ -72,8 +72,8 @@ namespace Vortex.SpineExtensions.Links
             if (newLoop != loop)
                 loopProperty.ValueEntry.WeakSmartValue = newLoop;
 
-            if (skeleton is IAnimationStateComponent stateComponent)
-                DrawDebugButton(stateComponent, animationName, newTrack, newLoop);
+            if (skeleton is Component skeletonComponent)
+                DrawDebugButton(skeletonComponent, animationName, newTrack, newLoop);
 
             EditorGUILayout.EndHorizontal();
 
@@ -82,11 +82,11 @@ namespace Vortex.SpineExtensions.Links
         }
 
         /// <summary>Play / Stop для теста; вне Play Mode кнопка неактивна</summary>
-        private void DrawDebugButton(IAnimationStateComponent stateComponent, string animationName, int track,
-            bool loop)
+        private void DrawDebugButton(Component skeleton, string animationName, int track, bool loop)
         {
-            var state = Application.isPlaying ? stateComponent.AnimationState : null;
-            var running = state != null && _debugEntry != null && state.GetCurrent(_debugTrack) == _debugEntry;
+            var state = Application.isPlaying ? SpineCompat.GetAnimationState(skeleton) : null;
+            var running = state != null && _debugEntry != null &&
+                          SpineCompat.GetTrack(state, _debugTrack) == _debugEntry;
             using (new EditorGUI.DisabledScope(state == null || (!running && string.IsNullOrEmpty(animationName))))
             {
                 if (!GUILayout.Button(running ? "Stop" : "Play", GUILayout.Width(50f)))
@@ -122,13 +122,15 @@ namespace Vortex.SpineExtensions.Links
             skeleton = field.GetValue(owner) as Object;
             if (skeleton == null)
                 return null;
-            if (skeleton is IAnimationStateComponent && skeleton is IHasSkeletonDataAsset)
+            //Анимацию ведёт сам компонент либо, в Spine 4.3, соседний на том же объекте
+            if (skeleton is Component component && skeleton is IHasSkeletonDataAsset &&
+                (component is IAnimationStateComponent || component.GetComponent<IAnimationStateComponent>() != null))
                 return null;
 
             var type = skeleton.GetType().Name;
             skeleton = null;
             return $"[MasterLink] Поле «{fieldName}» ({type}) — не скелет Spine " +
-                   "(нужны IAnimationStateComponent и IHasSkeletonDataAsset).";
+                   "(нужен IHasSkeletonDataAsset и компонент с IAnimationStateComponent на том же объекте).";
         }
 
         private object ResolveOwner()

@@ -12,8 +12,9 @@ namespace Vortex.SpineExtensions.TweenerSystem
     /// <summary>
     /// Базовый класс одиночной анимации Spine — общий для SkeletonGraphic (UGUI) и
     /// SkeletonAnimation (MeshRenderer). Конкретные подклассы отличаются только типом поля skeleton;
-    /// все источники данных идут через интерфейсы Spine (<see cref="IAnimationStateComponent"/>,
-    /// <see cref="IHasSkeletonDataAsset"/>).
+    /// данные скелета идут через интерфейс Spine <see cref="IHasSkeletonDataAsset"/>, состояние анимации —
+    /// через <see cref="SpineCompat.GetAnimationState"/>: в Spine 4.3 его ведёт не сам SkeletonGraphic,
+    /// а соседний компонент анимации.
     ///
     /// Логика работает по бинарному принципу жесткого переключателя.
     /// Если передается 0, то выставляется animationIdle0
@@ -23,12 +24,17 @@ namespace Vortex.SpineExtensions.TweenerSystem
     /// Если анимация не указана, не воздействует на spine.
     /// </summary>
     public abstract class SpineAnimationLogicBase<TSkeleton> : TweenLogic
-        where TSkeleton : MonoBehaviour, IAnimationStateComponent, IHasSkeletonDataAsset
+        where TSkeleton : MonoBehaviour, IHasSkeletonDataAsset
     {
         private const string None = "[NONE]";
 
-        [ClassFilter(typeof(IAnimationStateComponent), typeof(IHasSkeletonDataAsset))] [SerializeField]
+        [ClassFilter(typeof(IHasSkeletonDataAsset))] [SerializeField]
         protected TSkeleton skeleton;
+
+        /// <summary>
+        /// Состояние анимации скелета — независимо от версии Spine
+        /// </summary>
+        private Spine.AnimationState State => SpineCompat.GetAnimationState(skeleton);
 
         [SerializeField, Range(0, 10)] private byte animationChannel = 1;
 
@@ -72,9 +78,9 @@ namespace Vortex.SpineExtensions.TweenerSystem
                 return true;
 
             if (forwardDirection)
-                return skeleton.AnimationState.Tracks.Any(t => t?.Animation?.Name == animationIdle0);
+                return State.Tracks.Any(t => t?.Animation?.Name == animationIdle0);
 
-            return skeleton.AnimationState.Tracks.Any(t => t?.Animation?.Name == animationIdle1);
+            return State.Tracks.Any(t => t?.Animation?.Name == animationIdle1);
         }
 
         protected override void SetValue(float value)
@@ -87,21 +93,21 @@ namespace Vortex.SpineExtensions.TweenerSystem
 
             if (!_isForwardState && CheckStartAnimationForDirection(true))
             {
-                skeleton.AnimationState.SetAnimation(animationChannel, animationFrw, false);
+                State.SetAnimation(animationChannel, animationFrw, false);
                 if (!animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
-                    skeleton.AnimationState.AddAnimation(animationChannel, animationIdle1, true, 0);
+                    State.AddAnimation(animationChannel, animationIdle1, true, 0);
                 else
-                    skeleton.AnimationState.AddEmptyAnimation(animationChannel, 0, 0);
+                    State.AddEmptyAnimation(animationChannel, 0, 0);
                 _isRunningState = true;
                 _isForwardState = !_isForwardState;
             }
             else if (_isForwardState && CheckStartAnimationForDirection(false))
             {
-                skeleton.AnimationState.SetAnimation(animationChannel, animationBack, false);
+                State.SetAnimation(animationChannel, animationBack, false);
                 if (!animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
-                    skeleton.AnimationState.AddAnimation(animationChannel, animationIdle0, true, 0);
+                    State.AddAnimation(animationChannel, animationIdle0, true, 0);
                 else
-                    skeleton.AnimationState.AddEmptyAnimation(animationChannel, 0, 0);
+                    State.AddEmptyAnimation(animationChannel, 0, 0);
 
                 _isRunningState = true;
                 _isForwardState = !_isForwardState;
@@ -121,9 +127,9 @@ namespace Vortex.SpineExtensions.TweenerSystem
             }
 
             if (!animationIdle0.IsNullOrWhitespace() && !animationIdle0.Equals(None))
-                skeleton.AnimationState.SetAnimation(animationChannel, animationIdle0, true);
+                State.SetAnimation(animationChannel, animationIdle0, true);
             else
-                skeleton.AnimationState.SetEmptyAnimation(animationChannel, 0);
+                State.SetEmptyAnimation(animationChannel, 0);
         }
 
         protected override void OnEnd()
@@ -135,9 +141,9 @@ namespace Vortex.SpineExtensions.TweenerSystem
             }
 
             if (!animationIdle1.IsNullOrWhitespace() && !animationIdle1.Equals(None))
-                skeleton.AnimationState.SetAnimation(animationChannel, animationIdle1, true);
+                State.SetAnimation(animationChannel, animationIdle1, true);
             else
-                skeleton.AnimationState.SetEmptyAnimation(animationChannel, 0);
+                State.SetEmptyAnimation(animationChannel, 0);
         }
 
 #if UNITY_EDITOR

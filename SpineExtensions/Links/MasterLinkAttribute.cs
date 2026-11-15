@@ -5,7 +5,8 @@ namespace Vortex.SpineExtensions.Links
     /// <summary>
     /// Связь поля <see cref="SpineAnimationLink"/> со скелетом: <see cref="FieldName"/> — имя поля того же объекта со
     /// ссылкой на скелет (<c>SkeletonGraphic</c> или <c>SkeletonAnimation</c> — любой компонент с
-    /// <c>IAnimationStateComponent</c> и <c>IHasSkeletonDataAsset</c>). В инспекторе имя анимации выбирается из
+    /// <c>IHasSkeletonDataAsset</c>, у которого анимацию ведёт он сам либо, в Spine 4.3, соседний компонент
+    /// с <c>IAnimationStateComponent</c>). В инспекторе имя анимации выбирается из
     /// анимаций этого скелета, появляются кнопки Play / Stop для теста в Play Mode
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]

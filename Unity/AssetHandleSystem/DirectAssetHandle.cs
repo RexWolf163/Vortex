@@ -12,7 +12,7 @@ namespace Vortex.Unity.AssetHandleSystem
     /// его пресет. Compat-реализация для проектов без Addressables и для лёгких/всегда нужных
     /// ассетов, где lazy-load избыточен.
     /// </summary>
-    [Serializable, ClassLabel("$ClassLabel")]
+    [Serializable, ClassLabel("DirectAsset")]
     public sealed class DirectAssetHandle<T> : AssetHandle<T> where T : UnityEngine.Object
     {
         [SerializeField] private T asset;
@@ -27,7 +27,5 @@ namespace Vortex.Unity.AssetHandleSystem
         public override void Release()
         {
         }
-
-        private string ClassLabel() => Asset?.GetType().Name ?? "Empty";
     }
 }

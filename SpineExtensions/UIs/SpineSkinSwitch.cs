@@ -50,7 +50,7 @@ namespace Vortex.SpineExtensions.UIs
         private static void ApplySkin(Skeleton skeleton, string skinName)
         {
             skeleton.SetSkin(skinName);
-            skeleton.SetSlotsToSetupPose();
+            SpineCompat.ResetSlots(skeleton);
         }
 
 #if UNITY_EDITOR

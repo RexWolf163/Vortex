@@ -14,8 +14,9 @@ namespace Vortex.SpineExtensions.TweenerSystem
     /// <summary>
     /// Базовый класс взвешенной случайной анимации Spine — общий для SkeletonGraphic (UGUI) и
     /// SkeletonAnimation (MeshRenderer). Конкретные подклассы отличаются только типом поля skeleton;
-    /// все источники данных идут через интерфейсы Spine (<see cref="IAnimationStateComponent"/>,
-    /// <see cref="IHasSkeletonDataAsset"/>).
+    /// данные скелета идут через интерфейс Spine <see cref="IHasSkeletonDataAsset"/>, состояние анимации —
+    /// через <see cref="SpineCompat.GetAnimationState"/>: в Spine 4.3 его ведёт не сам SkeletonGraphic,
+    /// а соседний компонент анимации.
     ///
     /// Логика работает по бинарному принципу жесткого переключателя.
     /// Если передается 0, то выставляется animationIdle0
@@ -26,11 +27,16 @@ namespace Vortex.SpineExtensions.TweenerSystem
     /// выбирается случайным образом с вероятностью, пропорциональной весу.
     /// </summary>
     public abstract class SpineAnimationRandomLogicBase<TSkeleton> : TweenLogic
-        where TSkeleton : MonoBehaviour, IAnimationStateComponent, IHasSkeletonDataAsset
+        where TSkeleton : MonoBehaviour, IHasSkeletonDataAsset
     {
         [SerializeField, OnValueChanged("UpdateSkeleton"),
-         ClassFilter(typeof(IAnimationStateComponent), typeof(IHasSkeletonDataAsset))]
+         ClassFilter(typeof(IHasSkeletonDataAsset))]
         protected TSkeleton skeleton;
+
+        /// <summary>
+        /// Состояние анимации скелета — независимо от версии Spine
+        /// </summary>
+        private Spine.AnimationState State => SpineCompat.GetAnimationState(skeleton);
 
         [SerializeField, Range(0, 10)] private byte animationChannel = 1;
 
@@ -75,10 +81,10 @@ namespace Vortex.SpineExtensions.TweenerSystem
 
             if (forwardDirection)
                 return animationsIdle0.Any(v =>
-                    skeleton.AnimationState.Tracks.Any(t => t?.Animation?.Name == v.Name));
+                    State.Tracks.Any(t => t?.Animation?.Name == v.Name));
 
             return animationsIdle1.Any(v =>
-                skeleton.AnimationState.Tracks.Any(t => t?.Animation?.Name == v.Name));
+                State.Tracks.Any(t => t?.Animation?.Name == v.Name));
         }
 
         /// <summary>
@@ -119,16 +125,16 @@ namespace Vortex.SpineExtensions.TweenerSystem
                 if (animationFrw == null)
                     return;
                 CancelIdleReroll();
-                skeleton.AnimationState.SetAnimation(animationChannel, animationFrw, false);
+                State.SetAnimation(animationChannel, animationFrw, false);
                 var animationIdle1 = GetAnimation(animationsIdle1);
                 if (!animationIdle1.IsNullOrWhitespace())
                 {
-                    skeleton.AnimationState.AddAnimation(animationChannel, animationIdle1, true, 0);
+                    State.AddAnimation(animationChannel, animationIdle1, true, 0);
                     ScheduleIdleReroll(animationsIdle1, animationIdle1,
                         GetAnimationDuration(animationFrw));
                 }
                 else
-                    skeleton.AnimationState.AddEmptyAnimation(animationChannel, 0, 0);
+                    State.AddEmptyAnimation(animationChannel, 0, 0);
 
                 _isRunningState = true;
                 _isForwardState = !_isForwardState;
@@ -139,16 +145,16 @@ namespace Vortex.SpineExtensions.TweenerSystem
                 if (animationBack == null)
                     return;
                 CancelIdleReroll();
-                skeleton.AnimationState.SetAnimation(animationChannel, animationBack, false);
+                State.SetAnimation(animationChannel, animationBack, false);
                 var animationIdle0 = GetAnimation(animationsIdle0);
                 if (!animationIdle0.IsNullOrWhitespace())
                 {
-                    skeleton.AnimationState.AddAnimation(animationChannel, animationIdle0, true, 0);
+                    State.AddAnimation(animationChannel, animationIdle0, true, 0);
                     ScheduleIdleReroll(animationsIdle0, animationIdle0,
                         GetAnimationDuration(animationBack));
                 }
                 else
-                    skeleton.AnimationState.AddEmptyAnimation(animationChannel, 0, 0);
+                    State.AddEmptyAnimation(animationChannel, 0, 0);
 
                 _isRunningState = true;
                 _isForwardState = !_isForwardState;
@@ -171,11 +177,11 @@ namespace Vortex.SpineExtensions.TweenerSystem
             var animationIdle0 = GetAnimation(animationsIdle0);
             if (!animationIdle0.IsNullOrWhitespace())
             {
-                skeleton.AnimationState.SetAnimation(animationChannel, animationIdle0, true);
+                State.SetAnimation(animationChannel, animationIdle0, true);
                 ScheduleIdleReroll(animationsIdle0, animationIdle0, 0f);
             }
             else
-                skeleton.AnimationState.SetEmptyAnimation(animationChannel, 0);
+                State.SetEmptyAnimation(animationChannel, 0);
         }
 
         protected override void OnEnd()
@@ -190,11 +196,11 @@ namespace Vortex.SpineExtensions.TweenerSystem
             var animationIdle1 = GetAnimation(animationsIdle1);
             if (!animationIdle1.IsNullOrWhitespace())
             {
-                skeleton.AnimationState.SetAnimation(animationChannel, animationIdle1, true);
+                State.SetAnimation(animationChannel, animationIdle1, true);
                 ScheduleIdleReroll(animationsIdle1, animationIdle1, 0f);
             }
             else
-                skeleton.AnimationState.SetEmptyAnimation(animationChannel, 0);
+                State.SetEmptyAnimation(animationChannel, 0);
         }
 
         /// <summary>
@@ -217,7 +223,7 @@ namespace Vortex.SpineExtensions.TweenerSystem
             if (skeleton == null) return;
             var nextIdle = GetAnimation(block);
             if (string.IsNullOrEmpty(nextIdle)) return;
-            skeleton.AnimationState.SetAnimation(animationChannel, nextIdle, true);
+            State.SetAnimation(animationChannel, nextIdle, true);
             var dur = GetAnimationDuration(nextIdle);
             if (dur <= 0f) return;
             TimeController.Call(() => RerollIdle(block), dur, this);

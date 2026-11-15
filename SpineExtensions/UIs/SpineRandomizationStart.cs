@@ -30,16 +30,22 @@ namespace Vortex.SpineExtensions.UIs
 
         private void RandomShift()
         {
-            if (skeletonGraphic != null)
-                ApplyForState(skeletonGraphic.AnimationState);
+            //У SkeletonGraphic состояние берётся независимо от версии Spine: в 4.3 его ведёт соседний компонент
+            var graphicState = skeletonGraphic != null ? SpineCompat.GetAnimationState(skeletonGraphic) : null;
+            if (graphicState != null)
+                ApplyForState(graphicState);
 
-            if (skeletonAnimation != null)
-                ApplyForState(skeletonAnimation.AnimationState);
+            if (skeletonAnimation == null) return;
+
+            //В 4.3 оба поля ведут на один объект — тогда состояние у них общее и уже сдвинуто
+            var animationState = skeletonAnimation.AnimationState;
+            if (!ReferenceEquals(animationState, graphicState))
+                ApplyForState(animationState);
         }
 
         private void ApplyForState(AnimationState state)
         {
-            var track = state.GetCurrent(channelAnimation);
+            var track = SpineCompat.GetTrack(state, channelAnimation);
             if (track == null) return;
             track.TrackTime = Random.Range(0f, track.Animation.Duration);
         }

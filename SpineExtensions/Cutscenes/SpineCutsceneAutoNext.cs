@@ -48,7 +48,7 @@ namespace Vortex.SpineExtensions.Cutscenes
         private void OnComplete(TrackEntry entry)
         {
             //Уходящая в миксе анимация тоже сообщает о своём конце — ждём только текущую
-            if (_fired || entry.TrackIndex != track || entry != _state.GetCurrent(track))
+            if (_fired || entry.TrackIndex != track || entry != SpineCutsceneSkeleton.GetTrack(_state, track))
                 return;
 
             _fired = true;

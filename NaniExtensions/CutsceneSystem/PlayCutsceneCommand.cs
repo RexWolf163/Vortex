@@ -7,26 +7,39 @@ using Vortex.Unity.CutsceneSystem.Bus;
 namespace Vortex.NaniExtensions.CutsceneSystem
 {
     /// <summary>
-    /// Nani-команда: открыть катсцену. Ключ — идентификатор записи <c>LogicChain</c>, описывающей катсцену.
+    /// Nani-команда: открыть катсцену. Параметр — имя записи <c>LogicChain</c>, описывающей катсцену;
+    /// идентификатор записи для шины катсцен команда находит по имени через <see cref="CutsceneNameIndex"/>.
     /// Идущая катсцена сначала пролетает до конца.
     ///
     /// Сценарий ждёт, пока контент загрузится и показ начнётся, — либо пока открытие не будет отклонено
     /// (причину пишет в лог пакет катсцен). Конца катсцены команда не ждёт
     /// </summary>
-    /// <example>@cutscene_Play 3f6c1c0e-…</example>
+    /// <example>@cutscene_Play SexSceneSibylla1</example>
     [Serializable]
     [CommandAlias("cutscene_Play"), Preserve]
     public class PlayCutsceneCommand : Command
     {
+        /// <summary>
+        /// Имя записи цепочки катсцены
+        /// </summary>
         [ParameterAlias(NamelessParameterAlias), RequiredParameter]
         public StringParameter Key;
 
         public override async UniTask Execute(AsyncToken token = default)
         {
-            var key = Key?.Value;
-            if (string.IsNullOrEmpty(key))
+            var name = Key?.Value;
+            if (string.IsNullOrEmpty(name))
             {
-                Debug.LogError("[PlayCutsceneCommand] Пустой ключ катсцены — команда пропущена.");
+                Debug.LogError("[PlayCutsceneCommand] Пустое имя катсцены — команда пропущена.");
+                return;
+            }
+
+            //Шина катсцен и её события работают с идентификатором записи цепочки
+            var key = CutsceneNameIndex.GetGuid(name);
+            if (key == null)
+            {
+                Debug.LogError(
+                    $"[PlayCutsceneCommand] Записи LogicChain с именем '{name}' нет — команда пропущена.");
                 return;
             }
 

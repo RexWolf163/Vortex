@@ -13,7 +13,7 @@ Controllable, unloadable game audio: music and sound loops bound to an object's 
 
 - **Two handlers:** `AdvancedMusicHandler` (the cover-music slot) and `AdvancedSoundHandler` (a regular sound with a volume channel).
 - **A clip list behind `AssetHandle<AudioClip>`** — only the playing track's clip is in memory.
-- **Three modes:** tracks in list order, random with anti-repeat, once.
+- **Four modes:** the track is picked in list order or at random with anti-repeat; with a switch to the next track or once.
 - **Control from `UIStateSwitcher`:** public methods for `EventFire`.
 - **Two pauses:** game pause and manual pause.
 
@@ -74,7 +74,7 @@ Handlers/
   └── AdvancedSoundHandler         — output: a regular sound, a volume channel
 
 Model/
-  AdvancedPlaybackMode             — Index / Random / OneShot
+  AdvancedPlaybackMode             — Index / Random / IndexOneShot / RandomOneShot
 ```
 
 The package consists of handlers: it has no shared state, no bus and no controller.
@@ -85,25 +85,28 @@ The package consists of handlers: it has no shared state, no bus and no controll
 |---|---|
 | `Index` | tracks play in list order: when a track ends the next one starts, after the last one — the first |
 | `Random` | when a track ends a random one starts; recently played ones are not picked |
-| `OneShot` | the track plays once, then the audio stops and the clip is released |
+| `IndexOneShot` | the next track in list order plays once, then the audio stops and the clip is released |
+| `RandomOneShot` | a random track plays once, then the audio stops and the clip is released; recently played ones are not picked |
 
-Only `OneShot` stops after playing. In `Index` and `Random` the audio keeps going until it is stopped.
+A mode combines two independent settings: how the track is picked (in list order or at random) and what happens when it ends (the next track or a stop).
+
+`IndexOneShot` and `RandomOneShot` stop after playing: every request (`PlayNext`, auto-start) plays one track. In `Index` and `Random` the audio keeps going until it is stopped.
 
 ### Track selection
 
 The current track number is -1 when the object is enabled. The next number comes from a single internal method:
 
-- `Index` and `OneShot` — increment by one, wrapping to the first after the last;
-- `Random` — a random number outside the history. The history holds half of the list (rounded down) — the same mechanic as database sounds.
+- `Index` and `IndexOneShot` — increment by one, wrapping to the first after the last;
+- `Random` and `RandomOneShot` — a random number outside the history. The history holds half of the list (rounded down) — the same mechanic as database sounds.
 
-Auto-start, `PlayNext` and the switch to the next track at the end of one go through it: from -1 the first result is track 0, in `Random` — a random one. `Play(number)` sets the number directly.
+Auto-start, `PlayNext` and the switch to the next track at the end of one go through it: from -1 the first result is track 0, in the random modes — a random one. `Play(number)` sets the number directly.
 
 ### Lifecycle
 
 ```
 OnEnable  → number = -1 → [autoStart] PlayNext
 PlayNext / Play(n) → load the clip → stop the previous track → start
-track ended → [Index / Random] next track  |  [OneShot] stop → release the clip
+track ended → [Index / Random] next track  |  [IndexOneShot / RandomOneShot] stop → release the clip
 Stop      → stop → release the clip
 OnDisable → Stop
 ```
@@ -125,10 +128,10 @@ The handler does not count track time itself. The end is reported by the audio s
 
 | Event | When it comes | What the handler does |
 |---|---|---|
-| `OnLoopRestart` | a looped clip played to the end and started a new lap | `Index`, `Random` — requests the next track; `OneShot` — stops the audio |
+| `OnLoopRestart` | a looped clip played to the end and started a new lap | `Index`, `Random` — requests the next track; `IndexOneShot`, `RandomOneShot` — stops the audio |
 | `OnFinished` | a non-looped clip played to the end, or the audio was removed from outside | stops the audio and releases the clip |
 
-- **Looping.** In `Index` and `Random` the clip is started looped, in `OneShot` it is not. Music in the slot always loops, so in `OneShot` it is stopped by the restart.
+- **Looping.** In `Index` and `Random` the clip is started looped, in `IndexOneShot` and `RandomOneShot` it is not. Music in the slot always loops, so in these two modes it is stopped by the restart.
 - **The next track turned out to be the same one** (a single clip in the list) — the handler does nothing: the clip has already started a new lap by itself.
 - **While the requested clip is loading**, neither event touches the request.
 - **The restart comes after the wrap**, up to ~0.1 s late (see `AudioSystem`). By that moment the clip has already started a new lap.
@@ -147,7 +150,7 @@ The manual pause lives while the object is enabled: it is reset when the object 
 ### Music specifics
 
 - **The cover-music slot.** The main theme is dimmed for the duration and returns after the stop. Volume follows the general music settings.
-- **A track in the slot always loops.** The end of a track comes only as a restart, already after the wrap. A track change and the stop in `OneShot` go with a fade, so the beginning of the previous track is heard during it.
+- **A track in the slot always loops.** The end of a track comes only as a restart, already after the wrap. A track change and the stop in `IndexOneShot` and `RandomOneShot` go with a fade, so the beginning of the previous track is heard during it.
 - **The slot itself replaces the previous track**, with a fade: the handler gives no separate stop command before starting the new one.
 - **The clip is released at the moment of the command.** The fade tail plays out of the asset cache buffer.
 - **Displacement.** If other music takes the slot, the handler goes silent and releases the clip.
@@ -157,7 +160,7 @@ The manual pause lives while the object is enabled: it is reset when the object 
 - Plays as a regular audio system sound; volume follows the channel from the `channel` field.
 - The previous track is stopped at the moment the new one starts, without a fade.
 - In `Index` and `Random` the clip is looped: between the restart and the start of the next track (the event delay and the clip load) the beginning of the previous one is heard.
-- In `OneShot` the clip is not looped and finishes by itself, without starting over.
+- In `IndexOneShot` and `RandomOneShot` the clip is not looped and finishes by itself, without starting over.
 - A stop coming from the audio system's side (for example, a global sound clear) stops the handler in any mode — the next track is not started.
 
 ---
@@ -229,6 +232,6 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
 
 namespace Vortex.Sdk.AudioAdvancedControl.Model
 {
-    public enum AdvancedPlaybackMode { Index, Random, OneShot }
+    public enum AdvancedPlaybackMode { Index, Random, IndexOneShot, RandomOneShot }
 }
 ```

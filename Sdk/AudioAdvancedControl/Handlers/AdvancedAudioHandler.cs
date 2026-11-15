@@ -25,9 +25,9 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
     ///
     /// Конец трека хэндлер сам не отсчитывает — его сообщает аудиосистема (пауза в её сигналах уже учтена):
     /// зацикленный клип пошёл на новый круг (<see cref="AudioSampleWrapper.OnLoopRestart"/>) либо незацикленный
-    /// доиграл (<see cref="AudioSampleWrapper.OnFinished"/>). В режиме <see cref="AdvancedPlaybackMode.OneShot"/>
-    /// трек после этого останавливается, в <see cref="AdvancedPlaybackMode.Index"/> и
-    /// <see cref="AdvancedPlaybackMode.Random"/> запускается следующий.
+    /// доиграл (<see cref="AudioSampleWrapper.OnFinished"/>). В режимах <see cref="AdvancedPlaybackMode.IndexOneShot"/>
+    /// и <see cref="AdvancedPlaybackMode.RandomOneShot"/> трек после этого останавливается, в
+    /// <see cref="AdvancedPlaybackMode.Index"/> и <see cref="AdvancedPlaybackMode.Random"/> запускается следующий.
     ///
     /// Пауз две, независимых: пауза игры (<see cref="GameStates.Paused"/>) и ручная (<see cref="Pause"/> /
     /// <see cref="Unpause"/>). Звук играет, только когда нет ни одной.
@@ -37,18 +37,12 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
     /// </summary>
     public abstract class AdvancedAudioHandler : MonoBehaviour
     {
-        private enum ClipState
-        {
-            Stopped,
-            Loading,
-            Playing
-        }
-
         [SerializeReference, Tooltip("Клипы. В памяти держится только клип играющего трека.")]
         private AssetHandle<AudioClip>[] clips = new AssetHandle<AudioClip>[0];
 
         [SerializeField, Tooltip(
-             "Index — после окончания трека следующий по списку; Random — после окончания случайный; OneShot — трек один раз.")]
+             "Index — после окончания трека следующий по списку; Random — после окончания случайный; " +
+             "IndexOneShot — следующий по списку один раз; RandomOneShot — случайный один раз.")]
         private AdvancedPlaybackMode mode = AdvancedPlaybackMode.Index;
 
         [SerializeField, Tooltip("Запускать при включении объекта.")]
@@ -79,13 +73,8 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         private bool _active;
 
         /// <summary>
-        /// Состояние трека: остановлен, грузится запрошенный клип либо играет
-        /// </summary>
-        private ClipState _state = ClipState.Stopped;
-
-        /// <summary>
-        /// Отмена запроса, который ещё грузится. У каждого запроса свой токен: новый запрос и останов
-        /// отменяют прежний
+        /// Отмена запроса, который ещё грузится; <c>null</c> — сейчас ничего не грузится. У каждого запроса
+        /// свой токен: новый запрос и останов отменяют прежний
         /// </summary>
         private CancellationTokenSource _loadCts;
 
@@ -192,12 +181,24 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         // ── Выбор трека ───────────────────────────────────────────────────────
 
         /// <summary>
+        /// Трек выбирается случайно, а не по списку
+        /// </summary>
+        private bool IsRandom =>
+            mode == AdvancedPlaybackMode.Random || mode == AdvancedPlaybackMode.RandomOneShot;
+
+        /// <summary>
+        /// Трек играет один раз: после него звук останавливается, следующий не запускается
+        /// </summary>
+        private bool IsOneShot =>
+            mode == AdvancedPlaybackMode.IndexOneShot || mode == AdvancedPlaybackMode.RandomOneShot;
+
+        /// <summary>
         /// Новое значение <see cref="_current"/> по режиму: случайный выбор либо следующий по списку
         /// </summary>
         private void Next()
         {
             var newNumber = -1;
-            if (mode == AdvancedPlaybackMode.Random)
+            if (IsRandom)
             {
                 newNumber = PickRandom();
             }
@@ -286,7 +287,6 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
 
         private async UniTaskVoid LoadAndPlay(AssetHandle<AudioClip> handle, int number, CancellationToken ct)
         {
-            _state = ClipState.Loading;
             AudioClip clip;
             try
             {
@@ -309,6 +309,10 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
                 return;
             }
 
+            //Клип получен — запрос больше не грузится
+            _loadCts.Dispose();
+            _loadCts = null;
+
             if (clip == null)
             {
                 Debug.LogError($"[{GetType().Name}] Трек №{number}: пустой клип.", this);
@@ -324,22 +328,18 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
             AudioSampleWrapper playback = null;
             try
             {
-                playback = StartPlayback(clip, mode != AdvancedPlaybackMode.OneShot);
+                playback = StartPlayback(clip, !IsOneShot);
             }
             finally
             {
                 //Запуск не состоялся — клип держать незачем
                 if (playback == null)
-                {
                     handle.Release();
-                    _state = ClipState.Stopped;
-                }
             }
 
             if (playback == null)
                 return;
 
-            _state = ClipState.Playing;
             _playback = playback;
             _playingHandle = handle;
             _playback.OnPlay += ApplyPause;
@@ -370,7 +370,6 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         private void StopTrack()
         {
             CancelLoad();
-            _state = ClipState.Stopped;
             var playback = Detach();
             if (playback != null && playback.State != PlaybackState.Finished)
                 StopPlayback(playback);
@@ -382,16 +381,16 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         }
 
         /// <summary>
-        /// Зацикленный клип доиграл и пошёл на новый круг. В режиме <see cref="AdvancedPlaybackMode.OneShot"/>
+        /// Зацикленный клип доиграл и пошёл на новый круг. В режимах «один раз» (<see cref="IsOneShot"/>)
         /// звук останавливается, в остальных запускается следующий трек. Пока грузится запрошенный клип,
         /// конец прежнего трека запрос не трогает
         /// </summary>
         private void HandleLoopRestart()
         {
-            if (_state != ClipState.Playing)
+            if (_loadCts != null)
                 return;
 
-            if (mode == AdvancedPlaybackMode.OneShot)
+            if (IsOneShot)
             {
                 StopTrack();
                 return;
@@ -410,7 +409,7 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         /// </summary>
         private void HandleFinished()
         {
-            if (_state == ClipState.Playing)
+            if (_loadCts == null)
                 StopTrack();
         }
 

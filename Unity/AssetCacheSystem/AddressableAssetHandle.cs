@@ -30,7 +30,7 @@ namespace Vortex.Unity.AssetCacheSystem
     ///   ассет заново. Load и Release — забота держателя handle, по одному разу за цикл.</item>
     /// </list>
     /// </summary>
-    [Serializable, ClassLabel("ClassLabel")]
+    [Serializable, ClassLabel("AddressableAssetHandle")]
     public sealed class AddressableAssetHandle<T> : AssetHandle<T> where T : UnityEngine.Object
     {
         private const string LoggerCategory = "AddressableAssetHandle";
@@ -72,7 +72,5 @@ namespace Vortex.Unity.AssetCacheSystem
             AssetCache.Release(this, group);
             _cached = null;
         }
-
-        private string ClassLabel() => Asset?.GetType().Name ?? "Empty";
     }
 }

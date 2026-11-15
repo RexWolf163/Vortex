@@ -14,7 +14,8 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
     /// перебивают друг друга. Вытесненный хэндлер замолкает и отпускает клип.
     ///
     /// Музыка в слоте зациклена всегда, поэтому конец трека приходит рестартом — уже после того, как клип
-    /// пошёл на новый круг. В режиме <see cref="AdvancedPlaybackMode.OneShot"/> трек останавливается по нему же.
+    /// пошёл на новый круг. В режимах <see cref="AdvancedPlaybackMode.IndexOneShot"/> и
+    /// <see cref="AdvancedPlaybackMode.RandomOneShot"/> трек останавливается по нему же.
     /// Клип отпускается в момент команды: хвост затухания доигрывает из буфера кэша ассетов
     /// </summary>
     public class AdvancedMusicHandler : AdvancedAudioHandler

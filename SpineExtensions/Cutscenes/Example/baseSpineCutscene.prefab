@@ -339,7 +339,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5100000000000000032}
   - component: {fileID: 5100000000000000033}
-  - component: {fileID: 3481767440105888984}
   - component: {fileID: 569703998084647582}
   m_Layer: 0
   m_Name: '[AudioControl]'
@@ -378,25 +377,6 @@ MonoBehaviour:
   clips: []
   mode: 0
   autoStart: 1
-  references:
-    version: 2
-    RefIds: []
---- !u!114 &3481767440105888984
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5100000000000000031}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8217d6d4d4880e643a5de0fae711e3fa, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.sdk.audio.advancedcontrol::Vortex.Sdk.AudioAdvancedControl.Handlers.AdvancedSoundHandler
-  clips: []
-  mode: 0
-  autoStart: 1
-  channel: sfx
   references:
     version: 2
     RefIds: []

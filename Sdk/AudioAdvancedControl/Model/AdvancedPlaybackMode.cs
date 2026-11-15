@@ -16,8 +16,13 @@ namespace Vortex.Sdk.AudioAdvancedControl.Model
         Random = 1,
 
         /// <summary>
-        /// Трек играет один раз и останавливается
+        /// Следующий по списку трек играет один раз и останавливается
         /// </summary>
-        OneShot = 2,
+        IndexOneShot = 2,
+
+        /// <summary>
+        /// Случайный трек играет один раз и останавливается, недавно игравшие не выбираются
+        /// </summary>
+        RandomOneShot = 3,
     }
 }

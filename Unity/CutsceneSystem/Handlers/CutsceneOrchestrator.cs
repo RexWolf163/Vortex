@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.AssetHandleSystem;
+using Vortex.Core.DatabaseSystem;
 using Vortex.Core.DatabaseSystem.Bus;
 using Vortex.Core.DatabaseSystem.Model.Enums;
 using Vortex.Core.LogicChainsSystem.Model;
@@ -11,6 +12,8 @@ using Vortex.Unity.CutsceneSystem.Bus;
 using Vortex.Unity.CutsceneSystem.Controllers;
 using Vortex.Unity.CutsceneSystem.Models;
 using Vortex.Unity.DatabaseSystem.Attributes;
+using Vortex.Unity.DatabaseSystem.Presets;
+using Vortex.Unity.EditorTools.Attributes;
 using Vortex.Unity.UI.Attributes;
 using Vortex.Unity.UI.Misc;
 using Vortex.Unity.UI.StateSwitcher;
@@ -32,7 +35,7 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
     /// </summary>
     public class CutsceneOrchestrator : MonoBehaviour
     {
-        [Serializable]
+        [Serializable, ClassLabel("$Label")]
         private class Entry
         {
             [SerializeField, DbRecord(typeof(LogicChain), RecordTypes.MultiInstance)]
@@ -42,6 +45,23 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
 
             public string Chain => chain;
             public AssetHandle<GameObject> Prefab => prefab;
+
+            /// <summary>
+            /// Подпись элемента в инспекторе — имя цепочки. Берётся из её пресета (как в выпадашке
+            /// <see cref="DbRecordAttribute"/>): <c>GetNewRecord</c> на каждую перерисовку создавал бы копию цепочки
+            /// </summary>
+            private string Label()
+            {
+#if UNITY_EDITOR
+                if (string.IsNullOrEmpty(chain))
+                    return "(null)";
+                return (Database.GetDriver() as IDriverEditor)?.GetPresetForRecord(chain) is IRecordPreset preset
+                    ? preset.Name
+                    : "(null)";
+#else
+                return string.Empty;
+#endif
+            }
         }
 
         [SerializeField, Tooltip("Катсцены сцены: цепочка-описание и префаб её контента.")]

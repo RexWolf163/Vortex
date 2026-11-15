@@ -37,20 +37,25 @@ namespace Vortex.SpineExtensions.UIs
 
         private void SetAnimation()
         {
-            if (spine != null)
-            {
-                if (animationName != None)
-                    spine.AnimationState.SetAnimation(channel, animationName, loop);
-                else
-                    spine.AnimationState.SetEmptyAnimation(channel, 0);
-            }
+            //У SkeletonGraphic состояние берётся независимо от версии Spine: в 4.3 его ведёт соседний компонент
+            var graphicState = spine != null ? SpineCompat.GetAnimationState(spine) : null;
+            if (graphicState != null)
+                Apply(graphicState);
 
             if (spineAnimation == null) return;
 
+            //В 4.3 оба поля могут вести на один объект — тогда состояние у них общее и уже выставлено
+            var animationState = spineAnimation.AnimationState;
+            if (!ReferenceEquals(animationState, graphicState))
+                Apply(animationState);
+        }
+
+        private void Apply(Spine.AnimationState state)
+        {
             if (animationName != None)
-                spineAnimation.AnimationState.SetAnimation(channel, animationName, loop);
+                state.SetAnimation(channel, animationName, loop);
             else
-                spineAnimation.AnimationState.SetEmptyAnimation(channel, 0);
+                state.SetEmptyAnimation(channel, 0);
         }
 
 #if UNITY_EDITOR
