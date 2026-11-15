@@ -189,8 +189,8 @@ The `object` parameter represents a platform-specific audio data type. Typing is
 
 ## Playback control via wrappers (`AudioSampleWrapper`)
 
-A handle to a specific playback: control (Play/Pause/Stop) and observation (Play/Paused/Finished events,
-state, duration) over a **single** started sound/music. The abstraction and facade live in Core; the
+A handle to a specific playback: control (Play/Pause/Stop) and observation (Play/Paused/Finished/LoopRestart
+events, state, duration) over a **single** started sound/music. The abstraction and facade live in Core; the
 concrete wrappers (`SoundWrapper` via the pool, `MusicWrapper` via the player) live in the Unity layer.
 
 A plain `PlaySound` is fire-and-forget: you start it and lose the reference, the only lever back is
@@ -217,6 +217,7 @@ AudioSampleWrapper : IDisposable
 ├── event OnPlay        — actually started playing (including resume after pause)
 ├── event OnPaused      — went to pause
 ├── event OnFinished    — finished (stop / natural end / preemption)
+├── event OnLoopRestart — a looped clip played to the end and started a new lap
 ├── IsLoop   : bool     — whether it loops
 ├── IsPaused : bool     — paused (only the controller sets it)
 ├── Duration : float    — duration (accounting for pitch)
@@ -227,6 +228,23 @@ AudioSampleWrapper : IDisposable
 The holder cannot catch the `OnPlay` of the initial start (for SFX it is synchronous inside
 `PlaySoundWithControl`, before the handle is returned) — read the initial state via `State`; the practical
 value of `OnPlay` is **resume after pause**.
+
+`OnLoopRestart` is raised by the wrapper itself (not the controller): it is an observation of the source, not
+a control command. The state does not change — the handle stays in `Playing`. Specifics:
+
+- **Looped only.** A non-loop sound finishes instead of restarting (`OnFinished`). Music always loops.
+- **Pause-aware.** While the handle is paused the event does not come; after resume the countdown continues
+  from the rest of the clip.
+- **Comes after the wrap, up to ~0.1 s late** (the `TimeController` queue step). By the time of the event the
+  clip has already started a new lap — it is not suitable for a seamless track change, it is a "lap finished"
+  signal.
+- **No error accumulation.** After every firing the countdown is re-armed for the rest of the clip by the
+  actual source position.
+- **Short clips.** On clips shorter than ~0.5 s some restarts may be missed.
+- **A pause that bypasses the handle** (`AudioListener.pause`, a minimised window) and a source restart that
+  bypasses the handle do not correct the countdown: the timer fires by the old estimate. If the source is in
+  the first half of the clip at that moment the event comes falsely, if in the second half it does not come.
+  From the next firing the countdown is correct again.
 
 ### Control facade (`AudioSampleWrapperController`)
 
@@ -258,19 +276,25 @@ calls are no-ops (idempotent; dual ownership holder+pool is safe).
 ### Concrete wrappers (Unity)
 
 - **`SoundWrapper` (SFX via the pool):** lives in the pool element's data next to the clip; `AudioSourceHandler`
-  finds it and connects `Init(source, stopCallback)`. A non-loop one finishes itself by `Duration`
-  (timer → finish via the controller); `Pause`/`Stop`/`Dispose` cancel the timer. `Stop` fires `stopCallback`
-  → the element is auto-evicted from the pool.
+  finds it and connects `Init(source, stopCallback)`. The end-of-clip timer (`TimeController.Call` for
+  `Duration`) is one for both cases: a non-loop sound finishes itself by it (via the controller), a looped one
+  raises `OnLoopRestart` and re-arms the timer for the rest. `Pause`/`Stop`/`Dispose` cancel the timer, resume
+  re-arms it for the rest by the source position. `Stop` fires `stopCallback` → the element is auto-evicted
+  from the pool.
 - **`MusicWrapper` (music/cover):** a single owner — `MusicPlayer` keeps one current handle; on a new track
   the previous one is finished via `Finish` (without stopping the source — the fade-out is not cut off).
   `*WithControl` returns this handle in all branches, including the deferred start after a fade-out (then it
-  lives in `Pending`).
+  lives in `Pending`). Music always loops and has no natural end (`OnFinished`) — the end of the clip is
+  visible only as `OnLoopRestart`. The restart timer is armed for the rest of the clip by the source position
+  and pitch; `Pause`/`Stop`/`Dispose` and preemption (`Finish`) cancel it. There is no timer in `Pending`
+  (waiting for the fade).
 
 ### Ownership and lifetime
 
 A fire-and-forget sound is owned by the pool (auto-release). `*WithControl` is co-ownership: **whoever
-controls, finishes**. In particular: `Pause()` cancels the auto-stop timer, and `Resume` does **not**
-restore it — once you pause and resume, call `Stop()` yourself when the sound is no longer needed.
+controls, finishes**. `Pause()` cancels the end-of-clip timer, resume re-arms it for the rest: a non-loop
+sound finishes itself after a pause, a looped one keeps reporting restarts. A looped sound and music are
+finished only by the holder (`Stop()`) or by preemption.
 
 ### Migration from the old system
 

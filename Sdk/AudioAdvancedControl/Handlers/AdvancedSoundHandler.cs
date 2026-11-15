@@ -20,10 +20,5 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
             AudioController.PlaySoundWithControl(new SoundClipFixed(clip, loop, channel), loop);
 
         protected override void StopPlayback(AudioSampleWrapper playback) => playback.Stop();
-
-        /// <summary>
-        /// Звук доиграл либо был остановлен аудиосистемой
-        /// </summary>
-        protected override void OnPlaybackFinished() => CompleteTrack();
     }
 }

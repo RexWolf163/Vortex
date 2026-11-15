@@ -44,9 +44,26 @@ namespace Vortex.Unity.AudioSystem.Model
             if (_source == null)
                 return;
             _source.Play();
-            if (IsLoop) return;
-            TimeController.Call(AutoComplete, Duration, this);
+            SetTimer(Duration);
         }
+
+        /// <summary>
+        /// Таймер конца клипа: не-луп звук по нему завершается, зацикленный — сообщает о рестарте
+        /// </summary>
+        private void SetTimer(float delay)
+        {
+            delay = Mathf.Max(0f, delay);
+            if (IsLoop)
+                TimeController.Call(LoopRestart, delay, this);
+            else
+                TimeController.Call(AutoComplete, delay, this);
+        }
+
+        /// <summary>
+        /// Остаток клипа в секундах: доля непроигранного (позиция источника в секундах клипа) ×
+        /// <see cref="AudioSampleWrapper.Duration"/> (длительность уже с учётом pitch)
+        /// </summary>
+        private float GetRemaining() => Duration * (1f - _source.time / _clip.length);
 
         /// <summary>
         /// Естественный конец не-луп звука по таймеру: полное завершение ЧЕРЕЗ контроллер
@@ -56,18 +73,35 @@ namespace Vortex.Unity.AudioSystem.Model
         private void AutoComplete() => AudioSampleWrapperController.Stop(this);
 
         /// <summary>
-        /// Снятие паузы. Pause снимает таймер естественного конца — для не-луп звука ставим его заново на остаток:
-        /// доля непроигранного клипа (позиция источника в секундах клипа) × <see cref="AudioSampleWrapper.Duration"/>
-        /// (длительность уже с учётом pitch). Без этого звук доигрывал, но хэндл не завершался и пул-элемент висел
+        /// Таймер зацикленного звука: клип пошёл на новый круг — событие рестарта. Таймер ставится заново
+        /// на остаток по фактической позиции источника, поэтому ошибка от круга к кругу не копится.
+        ///
+        /// Сработать таймер может и чуть раньше перехода (очередь считает от времени начала кадра, источник
+        /// стартует с задержкой вывода): источник ещё во второй половине клипа — событие не поднимаем и ждём
+        /// остаток, иначе один переход дал бы два события.
+        ///
+        /// Таймер ставится до события: если подписчик остановит звук или поставит на паузу, он будет снят
+        /// </summary>
+        private void LoopRestart()
+        {
+            if (_source == null)
+                return;
+            var restarted = _source.time * 2f < _clip.length;
+            SetTimer(GetRemaining());
+            if (restarted)
+                CallOnLoopRestart();
+        }
+
+        /// <summary>
+        /// Снятие паузы. Pause снимает таймер конца клипа — ставим его заново на остаток. Без этого не-луп звук
+        /// доигрывал, но хэндл не завершался и пул-элемент висел, а зацикленный перестал бы сообщать о рестартах
         /// </summary>
         protected override void Resume()
         {
             if (_source == null)
                 return;
             _source.UnPause();
-            if (IsLoop) return;
-            var remaining = Duration * (1f - _source.time / _clip.length);
-            TimeController.Call(AutoComplete, Mathf.Max(0f, remaining), this);
+            SetTimer(GetRemaining());
         }
 
         protected override void Stop()

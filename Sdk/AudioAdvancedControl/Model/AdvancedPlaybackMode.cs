@@ -6,7 +6,7 @@ namespace Vortex.Sdk.AudioAdvancedControl.Model
     public enum AdvancedPlaybackMode
     {
         /// <summary>
-        /// Выбранный трек играет в цикле
+        /// Треки играют по списку: после окончания трека запускается следующий, после последнего — первый
         /// </summary>
         Index = 0,
 
@@ -16,7 +16,7 @@ namespace Vortex.Sdk.AudioAdvancedControl.Model
         Random = 1,
 
         /// <summary>
-        /// Трек играет один раз
+        /// Трек играет один раз и останавливается
         /// </summary>
         OneShot = 2,
     }

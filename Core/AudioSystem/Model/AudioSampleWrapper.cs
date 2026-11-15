@@ -14,6 +14,11 @@ namespace Vortex.Core.AudioSystem.Model
         public event Action OnFinished;
         public event Action OnPaused;
 
+        /// <summary>
+        /// Зацикленный звук доиграл клип и пошёл на новый круг. Поднимает сама обёртка
+        /// </summary>
+        public event Action OnLoopRestart;
+
         public bool IsLoop { get; protected set; }
         public bool IsPaused { get; internal set; }
         public float Duration { get; protected set; }
@@ -30,5 +35,11 @@ namespace Vortex.Core.AudioSystem.Model
         internal void CallOnPaused() => OnPaused.Fire();
         internal void CallOnPlay() => OnPlay.Fire();
         internal void CallOnFinished() => OnFinished.Fire();
+
+        /// <summary>
+        /// Рестарт зацикленного звука — не команда управления, а наблюдение обёртки за своим источником,
+        /// поэтому поднимает его наследник, а не контроллер
+        /// </summary>
+        protected void CallOnLoopRestart() => OnLoopRestart.Fire();
     }
 }

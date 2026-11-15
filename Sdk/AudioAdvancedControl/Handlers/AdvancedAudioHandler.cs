@@ -17,7 +17,17 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
     /// выбор трека по режиму, загрузка клипа перед запуском и отпуск после останова, пауза.
     ///
     /// Жизнь звука привязана к объекту: на <c>OnEnable</c> — автозапуск (если включён), на <c>OnDisable</c> —
-    /// останов и отпуск клипа. В памяти держится только клип играющего трека.
+    /// останов и отпуск клипа. Хэндлер удерживает только клип играющего трека; отпущенный клип остаётся
+    /// в буфере кэша ассетов и выгружается по его правилам.
+    ///
+    /// Запрос трека: клип асинхронно запрашивается у хэндла. У каждого запроса свой токен отмены:
+    /// новый запрос и останов отменяют прежний, ещё не исполненный, — до запуска он не дойдёт.
+    ///
+    /// Конец трека хэндлер сам не отсчитывает — его сообщает аудиосистема (пауза в её сигналах уже учтена):
+    /// зацикленный клип пошёл на новый круг (<see cref="AudioSampleWrapper.OnLoopRestart"/>) либо незацикленный
+    /// доиграл (<see cref="AudioSampleWrapper.OnFinished"/>). В режиме <see cref="AdvancedPlaybackMode.OneShot"/>
+    /// трек после этого останавливается, в <see cref="AdvancedPlaybackMode.Index"/> и
+    /// <see cref="AdvancedPlaybackMode.Random"/> запускается следующий.
     ///
     /// Пауз две, независимых: пауза игры (<see cref="GameStates.Paused"/>) и ручная (<see cref="Pause"/> /
     /// <see cref="Unpause"/>). Звук играет, только когда нет ни одной.
@@ -27,11 +37,18 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
     /// </summary>
     public abstract class AdvancedAudioHandler : MonoBehaviour
     {
+        private enum ClipState
+        {
+            Stopped,
+            Loading,
+            Playing
+        }
+
         [SerializeReference, Tooltip("Клипы. В памяти держится только клип играющего трека.")]
         private AssetHandle<AudioClip>[] clips = new AssetHandle<AudioClip>[0];
 
         [SerializeField, Tooltip(
-             "Index — выбранный трек в цикле; Random — после окончания трека случайный; OneShot — трек один раз.")]
+             "Index — после окончания трека следующий по списку; Random — после окончания случайный; OneShot — трек один раз.")]
         private AdvancedPlaybackMode mode = AdvancedPlaybackMode.Index;
 
         [SerializeField, Tooltip("Запускать при включении объекта.")]
@@ -54,34 +71,33 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         /// </summary>
         private AssetHandle<AudioClip> _playingHandle;
 
-        private CancellationTokenSource _loading;
-
-        /// <summary>
-        /// Хэндлы, ожидающие отложенного отпуска
-        /// </summary>
-        private readonly Dictionary<AssetHandle<AudioClip>, CancellationTokenSource> _pendingRelease = new();
-
         private bool _manualPause;
 
-        protected AdvancedPlaybackMode Mode => mode;
+        /// <summary>
+        /// Хэндлер включён: между <c>OnEnable</c> и <c>OnDisable</c>
+        /// </summary>
+        private bool _active;
 
         /// <summary>
-        /// Управление играющим треком. <c>null</c> — ничего не играет
+        /// Состояние трека: остановлен, грузится запрошенный клип либо играет
         /// </summary>
-        protected AudioSampleWrapper Playback => _playback;
+        private ClipState _state = ClipState.Stopped;
 
         /// <summary>
-        /// Не глушить прошлый трек, пока грузится новый: его сменит сама аудиосистема
+        /// Отмена запроса, который ещё грузится. У каждого запроса свой токен: новый запрос и останов
+        /// отменяют прежний
         /// </summary>
-        protected virtual bool KeepPlayingWhileLoading => false;
+        private CancellationTokenSource _loadCts;
 
         /// <summary>
-        /// Сколько секунд клип ещё нужен после команды останова (затухание). 0 — отпускается сразу
+        /// Прежний трек при запуске нового сменяет сама аудиосистема (общий слот с затуханием) —
+        /// останавливать его отдельной командой не нужно
         /// </summary>
-        protected virtual float ReleaseDelay => 0f;
+        protected virtual bool ReplacedOnStart => false;
 
         private void OnEnable()
         {
+            _active = true;
             _current = -1;
             _history.Clear();
             _manualPause = false;
@@ -93,8 +109,22 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
 
         private void OnDisable()
         {
+            _active = false;
             GameController.OnGameStateChanged -= ApplyPause;
             StopTrack();
+        }
+
+        /// <summary>
+        /// Трек запрашивается только у включённого хэндлера: звук, запущенный на выключенном объекте,
+        /// выпал бы из жизненного цикла — его некому было бы остановить
+        /// </summary>
+        private bool CanRequest(string method)
+        {
+            if (_active)
+                return true;
+
+            Debug.LogError($"[{GetType().Name}] {method}: хэндлер выключен — запрос трека пропущен.", this);
+            return false;
         }
 
         // ── Управление ────────────────────────────────────────────────────────
@@ -104,6 +134,9 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         /// </summary>
         public void Play(int number)
         {
+            if (!CanRequest(nameof(Play)))
+                return;
+
             if (number < 0 || number >= clips.Length)
             {
                 Debug.LogError($"[{GetType().Name}] Нет трека №{number}: в списке {clips.Length}.", this);
@@ -120,6 +153,9 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         /// </summary>
         public void PlayNext()
         {
+            if (!CanRequest(nameof(PlayNext)))
+                return;
+
             if (clips.Length == 0)
             {
                 Debug.LogError($"[{GetType().Name}] Список клипов пуст.", this);
@@ -160,15 +196,19 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         /// </summary>
         private void Next()
         {
+            var newNumber = -1;
             if (mode == AdvancedPlaybackMode.Random)
             {
-                _current = PickRandom();
-                return;
+                newNumber = PickRandom();
+            }
+            else
+            {
+                newNumber = _current + 1;
+                if (newNumber >= clips.Length)
+                    newNumber = 0;
             }
 
-            _current++;
-            if (_current >= clips.Length)
-                _current = 0;
+            _current = newNumber;
         }
 
         /// <summary>
@@ -208,85 +248,129 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
 
         // ── Запуск и останов ──────────────────────────────────────────────────
 
+        /// <summary>
+        /// Запрос трека. Порядок один для всех хэндлеров: загрузка клипа → останов прежнего трека →
+        /// воспроизведение. Пока клип грузится, прежний трек играет. Загрузка сорвалась — ошибка в лог
+        /// и останов прежнего трека. Новый запрос отменяет прежний, ещё не исполненный: его метод
+        /// завершится по отмене, не дойдя до запуска
+        /// </summary>
         private void StartCurrent()
         {
-            CancelLoading();
-
-            var handle = clips[_current];
+            var number = _current;
+            var handle = clips[number];
             if (handle == null)
             {
-                Debug.LogError($"[{GetType().Name}] Трек №{_current} не задан.", this);
+                Debug.LogError($"[{GetType().Name}] Трек №{number} не задан.", this);
                 StopTrack();
                 return;
             }
 
-            if (!KeepPlayingWhileLoading)
-                StopTrack();
-
-            _loading = new CancellationTokenSource();
-            LoadAndPlay(handle, _loading.Token).Forget();
+            CancelLoad();
+            _loadCts = new CancellationTokenSource();
+            LoadAndPlay(handle, number, _loadCts.Token).Forget();
         }
 
-        private async UniTaskVoid LoadAndPlay(AssetHandle<AudioClip> handle, CancellationToken token)
+        /// <summary>
+        /// Отменить запрос, который ещё грузится
+        /// </summary>
+        private void CancelLoad()
         {
+            var cts = _loadCts;
+            if (cts == null)
+                return;
+
+            _loadCts = null;
+            cts.Cancel();
+            cts.Dispose();
+        }
+
+        private async UniTaskVoid LoadAndPlay(AssetHandle<AudioClip> handle, int number, CancellationToken ct)
+        {
+            _state = ClipState.Loading;
             AudioClip clip;
             try
             {
-                //Клип мог ждать отложенного отпуска — тогда он ещё в памяти и грузить его заново не нужно
-                CancelRelease(handle);
-                clip = handle.IsLoaded ? handle.Asset : await handle.LoadAsync(token);
+                //Клип играющего трека уже в памяти — трек просто запускается заново
+                clip = handle.IsLoaded ? handle.Asset : await handle.LoadAsync(ct);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                //Запрос отменён. Своё удержание клипа снял сам кэш; Release тут нельзя — он снимет
+                //и удержание нового запроса, если тот грузит этот же клип
                 return;
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                Debug.LogError($"[{GetType().Name}] Трек №{_current}: клип не загружен. {exception}", this);
-                StopTrack();
-                return;
-            }
-
-            if (token.IsCancellationRequested)
-            {
-                ReleaseHandle(handle);
+                //Исходное исключение — вложенным: в консоли видны и хэндлер с номером трека, и причина со стеком
+                Debug.LogException(
+                    new Exception($"[{GetType().Name}] Трек №{number}: клип не загружен.", ex), this);
+                handle.Release();
+                if (!ct.IsCancellationRequested) StopTrack();
                 return;
             }
 
             if (clip == null)
             {
-                Debug.LogError($"[{GetType().Name}] Трек №{_current}: пустой клип.", this);
+                Debug.LogError($"[{GetType().Name}] Трек №{number}: пустой клип.", this);
                 StopTrack();
                 return;
             }
 
-            var previousHandle = _playingHandle;
-            Detach();
+            // ── Останов прежнего трека ──
+            StopPrevious(handle);
 
-            _playback = StartPlayback(clip, mode == AdvancedPlaybackMode.Index);
-            if (previousHandle != null && previousHandle != handle)
-                ReleaseHandle(previousHandle);
 
-            //Запуск не состоялся — клип держать незачем
-            if (_playback == null)
+            // ── Воспроизведение ──
+            AudioSampleWrapper playback = null;
+            try
             {
-                ReleaseHandle(handle);
-                return;
+                playback = StartPlayback(clip, mode != AdvancedPlaybackMode.OneShot);
+            }
+            finally
+            {
+                //Запуск не состоялся — клип держать незачем
+                if (playback == null)
+                {
+                    handle.Release();
+                    _state = ClipState.Stopped;
+                }
             }
 
+            if (playback == null)
+                return;
+
+            _state = ClipState.Playing;
+            _playback = playback;
             _playingHandle = handle;
             _playback.OnPlay += ApplyPause;
+            _playback.OnLoopRestart += HandleLoopRestart;
             _playback.OnFinished += HandleFinished;
             ApplyPause();
         }
 
         /// <summary>
-        /// Остановить звук, снять незавершённую загрузку и отпустить клип
+        /// Остановить прежний трек перед запуском нового. Его клип отпускается, если новый трек играет
+        /// не тот же клип
         /// </summary>
-        protected void StopTrack()
+        private void StopPrevious(AssetHandle<AudioClip> next)
         {
-            CancelLoading();
+            var playback = Detach();
+            if (playback != null && playback.State != PlaybackState.Finished && !ReplacedOnStart)
+                StopPlayback(playback);
 
+            var handle = _playingHandle;
+            _playingHandle = null;
+            if (handle != null && handle != next)
+                handle.Release();
+        }
+
+        /// <summary>
+        /// Остановить звук и отпустить клип. Запрос, который ещё грузится, отменяется
+        /// </summary>
+        private void StopTrack()
+        {
+            CancelLoad();
+            _state = ClipState.Stopped;
             var playback = Detach();
             if (playback != null && playback.State != PlaybackState.Finished)
                 StopPlayback(playback);
@@ -294,17 +378,39 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
             var handle = _playingHandle;
             _playingHandle = null;
             if (handle != null)
-                ReleaseHandle(handle);
+                handle.Release();
         }
 
         /// <summary>
-        /// Трек доиграл: в случайном режиме запускается следующий, в остальных звук останавливается
+        /// Зацикленный клип доиграл и пошёл на новый круг. В режиме <see cref="AdvancedPlaybackMode.OneShot"/>
+        /// звук останавливается, в остальных запускается следующий трек. Пока грузится запрошенный клип,
+        /// конец прежнего трека запрос не трогает
         /// </summary>
-        protected void CompleteTrack()
+        private void HandleLoopRestart()
         {
-            if (mode == AdvancedPlaybackMode.Random)
-                PlayNext();
-            else
+            if (_state != ClipState.Playing)
+                return;
+
+            if (mode == AdvancedPlaybackMode.OneShot)
+            {
+                StopTrack();
+                return;
+            }
+
+            var previous = _current;
+            Next();
+            //Следующим выпал тот же трек (в списке один клип) — он уже сам пошёл на новый круг
+            if (_current != previous)
+                StartCurrent();
+        }
+
+        /// <summary>
+        /// Аудиосистема завершила трек: незацикленный доиграл либо звук сняли снаружи (вытеснение из слота
+        /// музыки, общая очистка звуков). Пока грузится запрошенный клип, запрос остаётся в силе
+        /// </summary>
+        private void HandleFinished()
+        {
+            if (_state == ClipState.Playing)
                 StopTrack();
         }
 
@@ -319,64 +425,9 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
                 return null;
 
             playback.OnPlay -= ApplyPause;
+            playback.OnLoopRestart -= HandleLoopRestart;
             playback.OnFinished -= HandleFinished;
             return playback;
-        }
-
-        private void HandleFinished() => OnPlaybackFinished();
-
-        private void CancelLoading()
-        {
-            if (_loading == null)
-                return;
-
-            _loading.Cancel();
-            _loading.Dispose();
-            _loading = null;
-        }
-
-        // ── Отпуск клипов ─────────────────────────────────────────────────────
-
-        private void ReleaseHandle(AssetHandle<AudioClip> handle)
-        {
-            var delay = ReleaseDelay;
-            if (delay <= 0f)
-            {
-                handle.Release();
-                return;
-            }
-
-            CancelRelease(handle);
-            var source = new CancellationTokenSource();
-            _pendingRelease[handle] = source;
-            ReleaseLater(handle, delay, source).Forget();
-        }
-
-        /// <summary>
-        /// Отложенный отпуск. Не привязан к жизни объекта: клип должен дожить до конца затухания, даже если
-        /// хэндлер уже выключен или уничтожен
-        /// </summary>
-        private async UniTaskVoid ReleaseLater(AssetHandle<AudioClip> handle, float delay,
-            CancellationTokenSource source)
-        {
-            var canceled = await UniTask
-                .Delay(TimeSpan.FromSeconds(delay), DelayType.UnscaledDeltaTime, cancellationToken: source.Token)
-                .SuppressCancellationThrow();
-            if (canceled)
-                return;
-
-            _pendingRelease.Remove(handle);
-            source.Dispose();
-            handle.Release();
-        }
-
-        private void CancelRelease(AssetHandle<AudioClip> handle)
-        {
-            if (!_pendingRelease.Remove(handle, out var source))
-                return;
-
-            source.Cancel();
-            source.Dispose();
         }
 
         // ── Пауза ─────────────────────────────────────────────────────────────
@@ -386,8 +437,9 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         /// </summary>
         private void ApplyPause()
         {
+            //Доигравший трек остаётся текущим, пока грузится следующий, — приводить к паузам в нём нечего
             var playback = _playback;
-            if (playback == null)
+            if (playback == null || playback.State == PlaybackState.Finished)
                 return;
 
             if (_manualPause || GameController.GetState() == GameStates.Paused)
@@ -401,16 +453,17 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
         /// <summary>
         /// Запустить клип. Возвращает управление треком либо <c>null</c>, если запуск не состоялся
         /// </summary>
+        /// <param name="clip">Клип трека</param>
+        /// <param name="loop">
+        /// Зациклить клип: за ним должен запуститься следующий трек, конец круга придёт рестартом. Без
+        /// зацикливания клип играет один раз и завершается сам. Выход, который играет только зацикленно,
+        /// параметр не использует — хэндлер остановит трек по рестарту
+        /// </param>
         protected abstract AudioSampleWrapper StartPlayback(AudioClip clip, bool loop);
 
         /// <summary>
         /// Остановить ещё не завершённый трек
         /// </summary>
         protected abstract void StopPlayback(AudioSampleWrapper playback);
-
-        /// <summary>
-        /// Аудиосистема сообщила о завершении трека
-        /// </summary>
-        protected abstract void OnPlaybackFinished();
     }
 }

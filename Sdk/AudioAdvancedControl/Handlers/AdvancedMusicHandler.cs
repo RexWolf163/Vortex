@@ -3,7 +3,6 @@ using Vortex.Core.AudioSystem.Bus;
 using Vortex.Core.AudioSystem.Controllers;
 using Vortex.Core.AudioSystem.Model;
 using Vortex.Sdk.AudioAdvancedControl.Model;
-using Vortex.Unity.AudioSystem;
 
 namespace Vortex.Sdk.AudioAdvancedControl.Handlers
 {
@@ -14,46 +13,23 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
     /// Слот cover-музыки в приложении один: два одновременно играющих хэндлера (или хэндлер и другая система)
     /// перебивают друг друга. Вытесненный хэндлер замолкает и отпускает клип.
     ///
-    /// Конец трека слот не сообщает, поэтому в режимах <see cref="AdvancedPlaybackMode.Random"/> и
-    /// <see cref="AdvancedPlaybackMode.OneShot"/> хэндлер сам отсчитывает длительность клипа (паузы не считаются)
-    /// и действует за время затухания до конца — смена и останов ложатся на штатное затухание аудиосистемы.
-    /// Клип отпускается после затухания, а не в момент команды
+    /// Музыка в слоте зациклена всегда, поэтому конец трека приходит рестартом — уже после того, как клип
+    /// пошёл на новый круг. В режиме <see cref="AdvancedPlaybackMode.OneShot"/> трек останавливается по нему же.
+    /// Клип отпускается в момент команды: хвост затухания доигрывает из буфера кэша ассетов
     /// </summary>
     public class AdvancedMusicHandler : AdvancedAudioHandler
     {
         /// <summary>
-        /// Сколько трек уже отыграл, секунды
+        /// Слот cover-музыки сам сменяет прежний трек новым, с затуханием. Отдельный останов перед запуском
+        /// вернул бы основную тему и оборвал бы затухание
         /// </summary>
-        private float _elapsed;
+        protected override bool ReplacedOnStart => true;
 
         /// <summary>
-        /// На какой секунде трек считается доигравшим
+        /// Слот играет только зацикленно — <paramref name="loop"/> не используется
         /// </summary>
-        private float _limit;
-
-        /// <summary>
-        /// Конец текущего трека уже отработан
-        /// </summary>
-        private bool _completed;
-
-        /// <summary>
-        /// Время затухания музыки в аудиосистеме, взятое на запуске трека: к моменту останова
-        /// (выключение сцены, выход из приложения) самой аудиосистемы может уже не быть
-        /// </summary>
-        private float _fadeTime;
-
-        protected override bool KeepPlayingWhileLoading => true;
-
-        protected override float ReleaseDelay => _fadeTime;
-
-        protected override AudioSampleWrapper StartPlayback(AudioClip clip, bool loop)
-        {
-            _fadeTime = AudioPlayer.MusicFadeTime;
-            _elapsed = 0f;
-            _limit = Mathf.Max(0f, clip.length - _fadeTime);
-            _completed = false;
-            return AudioController.PlayCoverMusicWithControl(clip);
-        }
+        protected override AudioSampleWrapper StartPlayback(AudioClip clip, bool loop) =>
+            AudioController.PlayCoverMusicWithControl(clip);
 
         protected override void StopPlayback(AudioSampleWrapper playback)
         {
@@ -72,28 +48,6 @@ namespace Vortex.Sdk.AudioAdvancedControl.Handlers
                     AudioController.StopCoverMusic();
                     break;
             }
-        }
-
-        /// <summary>
-        /// Музыкальный трек «завершается» только вытеснением из слота — замолкаем и отпускаем клип
-        /// </summary>
-        protected override void OnPlaybackFinished() => StopTrack();
-
-        private void Update()
-        {
-            if (_completed || Mode == AdvancedPlaybackMode.Index)
-                return;
-
-            var playback = Playback;
-            if (playback == null || playback.State != PlaybackState.Playing)
-                return;
-
-            _elapsed += Time.unscaledDeltaTime;
-            if (_elapsed < _limit)
-                return;
-
-            _completed = true;
-            CompleteTrack();
         }
     }
 }

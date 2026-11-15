@@ -227,7 +227,7 @@ namespace Vortex.Unity.AudioSystem
 
             // Единый владелец: один хэндл (Pending) готовим заранее и возвращаем ЕГО во всех ветках —
             // и при мгновенном старте, и при отложенном (после фейд-аута предыдущего трека).
-            var wrapper = Instance.musicPlayer.Prepare(Instance._music);
+            var wrapper = Instance.musicPlayer.Prepare(clip);
 
             if (!FadeForMusic(() =>
                 {
@@ -348,7 +348,7 @@ namespace Vortex.Unity.AudioSystem
             Instance._coverMusic = clip.GetClip();
 
             // Единый владелец хэндла ситуативного трека (см. PlayMusic).
-            var wrapper = Instance.musicCoverPlayer.Prepare(Instance._coverMusic);
+            var wrapper = Instance.musicCoverPlayer.Prepare(clip);
 
             if (!FadeForCoverMusic(() => PlayCoverMusicInternal(clip, fadingStart, fadingEnd)))
                 return wrapper;
@@ -422,7 +422,7 @@ namespace Vortex.Unity.AudioSystem
 
         #endregion
 
-        private static SoundClip GetMusicClip(object music, string overrideChannel)
+        private static SoundClipFixed GetMusicClip(object music, string overrideChannel)
         {
             switch (music)
             {

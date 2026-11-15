@@ -62,26 +62,28 @@ namespace Vortex.Unity.AudioSystem
         /// поэтому хэндл валиден сразу — даже если реальный старт (<see cref="Play(SoundClip)"/>) произойдёт
         /// позже (после фейда). Реальное аудио стартует уже через <c>wrapper.Play()</c>.
         /// </summary>
-        public AudioSampleWrapper Prepare(AudioClip clip)
+        public AudioSampleWrapper Prepare(SoundClipFixed clip)
         {
             RetireCurrent();
-            _currentWrapper = new MusicWrapper(audioSource, clip);
+            _currentWrapper = new MusicWrapper(audioSource, clip.GetDuration());
             return _currentWrapper;
         }
 
         [HorizontalGroup("h1"), Button, ShowIf("ShowBtns")]
         public void Play(SoundClip music)
         {
-            _currentPitch = music.GetPitch();
-            _currentVolume = music.GetVolume();
-            _channel = music.Channel;
+            // Самостоятельный вызов (кнопка) может прийти с нефиксированным клипом — фиксируем, чтобы клип,
+            // pitch и длительность хэндла были от одного выбора. В штатном потоке клип уже фиксированный.
+            var fixedClip = music as SoundClipFixed ?? new SoundClipFixed(music);
+            _currentPitch = fixedClip.GetPitch();
+            _currentVolume = fixedClip.GetVolume();
+            _channel = fixedClip.Channel;
             if (audioSource == null)
                 return;
             CheckSettings();
-            var clip = music.GetClip();
-            audioSource.clip = clip;
+            audioSource.clip = fixedClip.GetClip();
             // В штатном потоке враппер уже создан через Prepare; guard — для самостоятельного вызова (кнопка).
-            _currentWrapper ??= new MusicWrapper(audioSource, clip);
+            _currentWrapper ??= new MusicWrapper(audioSource, fixedClip.GetDuration());
             _currentWrapper.Play(); // Pending → Playing (+ audioSource.Play())
         }
 
@@ -94,7 +96,8 @@ namespace Vortex.Unity.AudioSystem
                 return;
             CheckSettings();
             audioSource.clip = music;
-            Prepare(music); // standalone-путь: сам готовит хэндл (и завершает предыдущий)
+            // standalone-путь: сам готовит хэндл (и завершает предыдущий)
+            Prepare(new SoundClipFixed(music, true, (string)null));
             _currentWrapper.Play();
         }
 

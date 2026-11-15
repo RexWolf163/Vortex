@@ -57,10 +57,14 @@ namespace Vortex.SpineExtensions.UIs
         public override bool IsValid()
         {
             if (spine == null && spineAnimation == null) return false;
-            if (!GetListSkins().Contains(skin))
-                return false;
 
-            return true;
+            var skins = GetListSkins();
+            // Спайн выбран, но скинов у него нет (данные скелета не заданы или пусты) — выбирать не из чего,
+            // это не ошибка настройки состояния (напр. шаблон до назначения SkeletonData)
+            if (skins.Length == 0)
+                return true;
+
+            return skins.Contains(skin);
         }
 
         public override string DropDownItemName => "Switch Spine Skin";
