@@ -350,7 +350,19 @@ namespace Vortex.Unity.AudioSystem
             // Единый владелец хэндла ситуативного трека (см. PlayMusic).
             var wrapper = Instance.musicCoverPlayer.Prepare(clip);
 
-            if (!FadeForCoverMusic(() => PlayCoverMusicInternal(clip, fadingStart, fadingEnd)))
+            if (!FadeForCoverMusic(() =>
+                {
+                    // Держатель снял хэндл, пока слот ждал затухания: трек не запускаем — слот гасим
+                    // и возвращаем основную тему, как при StopCoverMusic
+                    if (wrapper.State == PlaybackState.Finished && Instance != null &&
+                        Instance.musicCoverPlayer.IsCurrent(wrapper))
+                    {
+                        CancelPendingCoverMusic();
+                        return;
+                    }
+
+                    PlayCoverMusicInternal(clip, fadingStart, fadingEnd);
+                }))
                 return wrapper;
 
             PlayCoverMusicInternal(clip, fadingStart, fadingEnd);
@@ -372,6 +384,17 @@ namespace Vortex.Unity.AudioSystem
                 Instance.musicCoverPlayer.SetVolumeMultiplier(1);
 
             Instance.musicCoverPlayer.Play(clip); // стартует ранее подготовленный хэндл (wrapper.Play())
+        }
+
+        /// <summary>
+        /// Отложенный старт ситуативного трека отменён держателем хэндла: слот гасится, основная тема
+        /// возвращается (если она есть). Затухание к этому моменту уже завершено
+        /// </summary>
+        private static void CancelPendingCoverMusic()
+        {
+            Instance._coverMusic = null;
+            Instance.musicCoverPlayer.Stop();
+            RestoreMainMusic();
         }
 
         /// <summary>

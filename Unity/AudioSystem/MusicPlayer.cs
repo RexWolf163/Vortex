@@ -102,6 +102,11 @@ namespace Vortex.Unity.AudioSystem
         }
 
         /// <summary>
+        /// Хэндл — текущий у плеера: его не вытеснил хэндл следующего трека (<see cref="Prepare"/>)
+        /// </summary>
+        public bool IsCurrent(AudioSampleWrapper wrapper) => wrapper != null && _currentWrapper == wrapper;
+
+        /// <summary>
         /// Проверка, играет ли аудио
         /// </summary>
         /// <returns></returns>
