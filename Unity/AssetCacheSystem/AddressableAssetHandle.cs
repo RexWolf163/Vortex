@@ -8,6 +8,7 @@ using Vortex.Core.LoggerSystem.Bus;
 using Vortex.Core.LoggerSystem.Model;
 using Vortex.Unity.AssetCacheSystem.Attributes;
 using Vortex.Unity.AssetCacheSystem.Bus;
+using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Unity.AssetCacheSystem
 {
@@ -29,7 +30,7 @@ namespace Vortex.Unity.AssetCacheSystem
     ///   ассет заново. Load и Release — забота держателя handle, по одному разу за цикл.</item>
     /// </list>
     /// </summary>
-    [Serializable]
+    [Serializable, ClassLabel("ClassLabel")]
     public sealed class AddressableAssetHandle<T> : AssetHandle<T> where T : UnityEngine.Object
     {
         private const string LoggerCategory = "AddressableAssetHandle";
@@ -71,5 +72,7 @@ namespace Vortex.Unity.AssetCacheSystem
             AssetCache.Release(this, group);
             _cached = null;
         }
+
+        private string ClassLabel() => Asset?.GetType().Name ?? "Empty";
     }
 }

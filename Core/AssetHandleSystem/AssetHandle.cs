@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Sirenix.OdinInspector;
-using Vortex.Unity.EditorTools.Attributes;
 
 namespace Vortex.Core.AssetHandleSystem
 {
@@ -17,7 +16,7 @@ namespace Vortex.Core.AssetHandleSystem
     /// </summary>
     /// <typeparam name="T">Тип ассета. Реализации платформенного слоя могут сужать ограничение
     /// до базового типа ассетов своей платформы.</typeparam>
-    [Serializable, HideReferenceObjectPicker, ClassLabel("ClassLabel")]
+    [Serializable, HideReferenceObjectPicker]
     public abstract class AssetHandle<T> where T : class
     {
         /// <summary>Синхронно проверить, доступен ли ассет для чтения через <see cref="Asset"/>.</summary>
@@ -46,7 +45,5 @@ namespace Vortex.Core.AssetHandleSystem
         /// (см. XML-doc конкретной реализации). Идемпотентно.
         /// </summary>
         public abstract void Release();
-
-        protected virtual string ClassLabel() => Asset.GetType().Name;
     }
 }
