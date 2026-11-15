@@ -34,7 +34,7 @@ A single asmdef for the entire module: **`ru.vortex.spine`** (at the `SpineExten
 | Addressable | Addressable support for Spine: typed `AssetReferenceSkeletonDataAsset` reference, layer gate by skeleton readiness `SpineReadyGateHandler` |
 | Links | Animation link model `SpineAnimationLink`, `MasterLink` attribute and an Odin drawer with an animation dropdown and Play / Stop |
 | DefineSettings | Partial extension of `SdkSettings` with the `spineExt` toggle (`USING_SPINE`) |
-| [Cutscenes](Cutscenes/README.en.md) | Spine implementation of cutscenes for `CutsceneSystem`: phase auto-transition at the end of an animation, event sounds. Own assembly `ru.vortex.spine.cutscene` |
+| [Cutscenes](Cutscenes/README.en.md) *(experimental)* | Spine implementation of cutscenes for `CutsceneSystem`: phase auto-transition at the end of an animation, event sounds. Own assembly `ru.vortex.spine.cutscene` |
 
 ## Dependencies
 

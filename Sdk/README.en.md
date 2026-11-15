@@ -54,8 +54,8 @@ State changes only through the controller. UI observes but does not decide.
 | **Quests** | `ru.vortex.sdk.game.quests` | Quest system: conditions, async logic execution, autorun |
 | **MiniGamesSystem** | `ru.vortex.sdk.minigames` + concrete games | Mini-game framework: Hub → Controller → Data → View |
 | **AudioLocalizationSystem** | `ru.vortex.sdk.localization.audio` | Localized line voice-over: binds voice to Sound by language |
-| **AudioAdvancedControl** | `ru.vortex.sdk.audio.advancedcontrol` | Controllable, unloadable audio bound to an object's lifetime: music in the cover-music slot and sound loops, clips behind `AssetHandle` |
-| **CutsceneSystem** | — (assets only) | A content prefab example for `Vortex.Unity.CutsceneSystem`: a sprite cutscene base with an old → current transition and audio slots |
+| **AudioAdvancedControl** *(experimental)* | `ru.vortex.sdk.audio.advancedcontrol` | Controllable, unloadable audio bound to an object's lifetime: music in the cover-music slot and sound loops, clips behind `AssetHandle` |
+| **CutsceneSystem** *(experimental)* | — (assets only) | A content prefab example for `Vortex.Unity.CutsceneSystem`: a sprite cutscene base with an old → current transition and audio slots |
 | **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Playable character: bus, controllers, view, save/load |
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Spawns visual effects from a catalog by key through a pool |
 | **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Item with an authored property set: access by purpose interface, `OnChanged` event for reactivity |

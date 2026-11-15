@@ -1,5 +1,7 @@
 # SpineExtensions — Cutscenes
 
+> ⚠️ **Experimental package** — a companion of [CutsceneSystem](../../Unity/CutsceneSystem/README.en.md), which has not been battle-tested in production. The set and settings of the handlers may change along with it without backwards compatibility.
+
 **Namespace:** `Vortex.SpineExtensions.Cutscenes`
 **Assembly:** `ru.vortex.spine.cutscene` (defineConstraints: `USING_SPINE`)
 

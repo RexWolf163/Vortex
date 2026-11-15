@@ -1,5 +1,7 @@
 # CutsceneSystem — content examples
 
+> ⚠️ **Experimental package** — a companion of [CutsceneSystem](../../Unity/CutsceneSystem/README.en.md), which has not been battle-tested in production. The structure of the prefab example may change along with it without backwards compatibility.
+
 **Assembly:** none — the folder holds assets only
 
 ---

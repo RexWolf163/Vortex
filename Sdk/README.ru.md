@@ -54,8 +54,8 @@ SDK — это контракт: «в наших проектах игра ус�
 | **Quests** | `ru.vortex.sdk.game.quests` | Квестовая система: условия, асинхронное выполнение логик, автозапуск |
 | **MiniGamesSystem** | `ru.vortex.sdk.minigames` + конкретные игры | Фреймворк миниигр: Hub → Controller → Data → View |
 | **AudioLocalizationSystem** | `ru.vortex.sdk.localization.audio` | Локализованная озвучка реплик: привязка voice к Sound по языку |
-| **AudioAdvancedControl** | `ru.vortex.sdk.audio.advancedcontrol` | Управляемый выгружаемый звук, привязанный к жизни объекта: музыка в слоте cover-музыки и звуковые петли, клипы за `AssetHandle` |
-| **CutsceneSystem** | — (только ассеты) | Пример префаба контента для `Vortex.Unity.CutsceneSystem`: основа спрайтовой катсцены с переходом old → current и слотами звука |
+| **AudioAdvancedControl** *(экспериментальный)* | `ru.vortex.sdk.audio.advancedcontrol` | Управляемый выгружаемый звук, привязанный к жизни объекта: музыка в слоте cover-музыки и звуковые петли, клипы за `AssetHandle` |
+| **CutsceneSystem** *(экспериментальный)* | — (только ассеты) | Пример префаба контента для `Vortex.Unity.CutsceneSystem`: основа спрайтовой катсцены с переходом old → current и слотами звука |
 | **CharacterViewSystem** | `ru.vortex.sdk.playablecharacter` | Играбельный персонаж: шина, контроллеры, view, сохранение/загрузка |
 | **EffectSpawnSystem** | `ru.vortex.sdk.effectspawn` | Спавн визуальных эффектов из каталога по ключу через пул |
 | **ItemsSystem** | `ru.vortex.sdk.itemssystem` | Предмет с набором свойств из настройки: доступ по интерфейсу назначения, событие `OnChanged` для реактивности |

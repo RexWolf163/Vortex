@@ -17,7 +17,7 @@
 |----------|--------|------|-----------|
 | [Core](Core/) | `ru.vortex.nani.core` | 3 | `NaniWrapper` — ленивый доступ к сервисам Naninovel |
 | [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Трансляция громкости, управление Nani-аудио, `NaniVoicePlayBus` |
-| [CutsceneSystem](CutsceneSystem/README.ru.md) | `ru.vortex.nani.cutscenes` | 3 | Команды сценария для катсцен: `@cutscene_Play`, `@cutscene_Next`, `@cutscene_Stop`, `@cutscene_Skip` |
+| [CutsceneSystem](CutsceneSystem/README.ru.md) *(экспериментальный)* | `ru.vortex.nani.cutscenes` | 3 | Команды сценария для катсцен: `@cutscene_Play`, `@cutscene_Next`, `@cutscene_Stop`, `@cutscene_Skip` |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Драйвер локализации с каналами |
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера; логики квеста по переменным Naninovel: `NaniVariableValueComparation` (сравнение), `NaniVariableValueWait` (ожидание сравнения), `NaniExpressionComparation` (выражение Naninovel с кнопкой проверки формулы); логики квеста по сценариям: `RunNaniScript` (запуск сценария через `NaniWrapper.PlayScript`, реализует `INaniScriptLaunch`), `WaitStopNaniScript` (ожидание остановки сценария) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — сохранение/восстановление Nani-переменных через `GameController` |

@@ -1,5 +1,7 @@
 # AudioAdvancedControl
 
+> ⚠️ **Экспериментальный пакет.** Не прошёл обкатку в продуктовой эксплуатации. Публичное API хэндлеров (`AdvancedMusicHandler`, `AdvancedSoundHandler`), режимы воспроизведения и состав настроечных полей могут измениться без обратной совместимости.
+
 **Namespace:** `Vortex.Sdk.AudioAdvancedControl.*`
 **Сборка:** `ru.vortex.sdk.audio.advancedcontrol`
 

@@ -1,5 +1,7 @@
 # CutsceneSystem
 
+> ⚠️ **Experimental package.** It has not been battle-tested in production. The `CutsceneBus` public API, the content prefab contract and the set of `LogicChain` logics may change without backwards compatibility. Its companion packages are experimental as well: [NaniExtensions/CutsceneSystem](../../NaniExtensions/CutsceneSystem/README.en.md), [SpineExtensions/Cutscenes](../../SpineExtensions/Cutscenes/README.en.md), [Sdk/CutsceneSystem](../../Sdk/CutsceneSystem/README.en.md).
+
 **Namespace:** `Vortex.Unity.CutsceneSystem.*`
 **Assembly:** `ru.vortex.unity.cutscene`
 

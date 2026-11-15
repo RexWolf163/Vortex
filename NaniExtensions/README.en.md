@@ -17,7 +17,7 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 |------------|----------|-------|---------|
 | [Core](Core/) | `ru.vortex.nani.core` | 3 | `NaniWrapper` — lazy access to Naninovel services |
 | [AudioSystem](AudioSystem/) | `ru.vortex.nani.audiosystem` | 3 | Volume translation, Nani audio control, `NaniVoicePlayBus` |
-| [CutsceneSystem](CutsceneSystem/README.en.md) | `ru.vortex.nani.cutscenes` | 3 | Script commands for cutscenes: `@cutscene_Play`, `@cutscene_Next`, `@cutscene_Stop`, `@cutscene_Skip` |
+| [CutsceneSystem](CutsceneSystem/README.en.md) *(experimental)* | `ru.vortex.nani.cutscenes` | 3 | Script commands for cutscenes: `@cutscene_Play`, `@cutscene_Next`, `@cutscene_Stop`, `@cutscene_Skip` |
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Localization driver with channels |
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | `NaniPlayerState` quest condition — reacts to Nani player start/stop; quest logics on Naninovel variables: `NaniVariableValueComparation` (compare), `NaniVariableValueWait` (wait for a comparison), `NaniExpressionComparation` (Naninovel expression with a formula check button); quest logics on scripts: `RunNaniScript` (launches a script via `NaniWrapper.PlayScript`, implements `INaniScriptLaunch`), `WaitStopNaniScript` (waits for a script to stop) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — saves/restores Nani variables via `GameController` |

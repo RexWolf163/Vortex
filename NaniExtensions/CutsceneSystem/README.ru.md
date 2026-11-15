@@ -1,5 +1,7 @@
 # NaniExtensions — CutsceneSystem
 
+> ⚠️ **Экспериментальный пакет** — спутник [CutsceneSystem](../../Unity/CutsceneSystem/README.ru.md), который не прошёл обкатку в продуктовой эксплуатации. Набор и параметры команд сценария может измениться вместе с ним без обратной совместимости.
+
 **Namespace:** `Vortex.NaniExtensions.CutsceneSystem`
 **Сборка:** `ru.vortex.nani.cutscenes` (defineConstraints: `USING_NANINOVELL`)
 

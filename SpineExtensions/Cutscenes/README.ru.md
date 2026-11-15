@@ -1,5 +1,7 @@
 # SpineExtensions — Cutscenes
 
+> ⚠️ **Экспериментальный пакет** — спутник [CutsceneSystem](../../Unity/CutsceneSystem/README.ru.md), который не прошёл обкатку в продуктовой эксплуатации. Состав и настройки хэндлеров может измениться вместе с ним без обратной совместимости.
+
 **Namespace:** `Vortex.SpineExtensions.Cutscenes`
 **Сборка:** `ru.vortex.spine.cutscene` (defineConstraints: `USING_SPINE`)
 

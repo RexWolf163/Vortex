@@ -34,7 +34,7 @@
 | Addressable | Addressable-поддержка Spine: типизированная ссылка `AssetReferenceSkeletonDataAsset`, гейт слоёв по готовности скелета `SpineReadyGateHandler` |
 | Links | Модель ссылки на анимацию `SpineAnimationLink`, атрибут `MasterLink` и Odin-drawer с выпадашкой анимаций и Play / Stop |
 | DefineSettings | Partial-расширение `SdkSettings` с тогглом `spineExt` (`USING_SPINE`) |
-| [Cutscenes](Cutscenes/README.ru.md) | Spine-реализация катсцен для `CutsceneSystem`: автопереход фазы по концу анимации, звуки событий. Своя сборка `ru.vortex.spine.cutscene` |
+| [Cutscenes](Cutscenes/README.ru.md) *(экспериментальный)* | Spine-реализация катсцен для `CutsceneSystem`: автопереход фазы по концу анимации, звуки событий. Своя сборка `ru.vortex.spine.cutscene` |
 
 ## Зависимости
 

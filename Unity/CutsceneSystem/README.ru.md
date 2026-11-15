@@ -1,5 +1,7 @@
 # CutsceneSystem
 
+> ⚠️ **Экспериментальный пакет.** Не прошёл обкатку в продуктовой эксплуатации. Публичное API `CutsceneBus`, контракт префаба контента и набор логик для `LogicChain` могут измениться без обратной совместимости. Вместе с ним экспериментальны пакеты-спутники: [NaniExtensions/CutsceneSystem](../../NaniExtensions/CutsceneSystem/README.ru.md), [SpineExtensions/Cutscenes](../../SpineExtensions/Cutscenes/README.ru.md), [Sdk/CutsceneSystem](../../Sdk/CutsceneSystem/README.ru.md).
+
 **Namespace:** `Vortex.Unity.CutsceneSystem.*`
 **Сборка:** `ru.vortex.unity.cutscene`
 

@@ -1,5 +1,7 @@
 # AudioAdvancedControl
 
+> ⚠️ **Experimental package.** It has not been battle-tested in production. The handlers' public API (`AdvancedMusicHandler`, `AdvancedSoundHandler`), the playback modes and the set of configuration fields may change without backwards compatibility.
+
 **Namespace:** `Vortex.Sdk.AudioAdvancedControl.*`
 **Assembly:** `ru.vortex.sdk.audio.advancedcontrol`
 
