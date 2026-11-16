@@ -151,7 +151,7 @@ The orchestrator executes on its `LateUpdate`, always in the same order:
 3. **Open** — refusal (`OnShowFinished(key)`) or loading starts and `OnShowOpening(key)`.
 4. **Load result** — content is created; its `StateGraphView` takes a graph copy and starts it from the start node; a node requested during loading is set instead of the start node; `OnShowStarted(key)`.
 5. **Graph progress** — set node, or if none requested — "next" (`Next` to the graph).
-6. **The graph reached its end** on this pass — the show closes right away.
+6. **The graph reached its end** on this pass — the show closes right away. This is checked twice: right after the show starts (a node requested during loading turned out to be an end node) and after the graph progress step.
 
 Rules:
 
@@ -197,7 +197,7 @@ CutsceneBus.Open(key)                       — the bus passes the request, the 
 
 - **The graph comes from the content** at show start: the root `StateGraphView` holds the copy. No `StateGraphView`, graph not obtained (no record, database not loaded) or not started (graph errors) — the show closes with an error in the log.
 - **"Next"** — a `Next` signal to the graph: it picks the first "on `Next`" transition in order whose conditions are met. None — the node's configured reaction (silent, warning, error), the node does not change.
-- **End** — entering a node without transitions: the show closes. That node's state (`End`) is shown before the content unloads.
+- **End** — entering a node without transitions: the show closes. `StateGraphView` switches the switcher to that node's state (`End`), but it hardly reaches the screen: after `Next` or `SetNode` the show closes in the same pass, before the frame renders, after a condition transition — on the nearest pass. The state is needed so the View does not log a missing-state error.
 - **Setting a node** — by Id or name, bypassing conditions. Unknown node — the graph logs an error, the node does not change. The current node — nothing happens.
 
 ### The "next" signal and debounce
