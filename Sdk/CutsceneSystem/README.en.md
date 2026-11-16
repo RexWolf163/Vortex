@@ -32,11 +32,13 @@ A UI prefab: the root is a `RectTransform` stretched over its parent. The orches
 
 ```
 baseSpriteCutscene   StateGraphView, UIStateSwitcher, TweenerHub
-├── Layers           disabled; enabled by phase states
-│   ├── current      Image — the picture of the current phase
-│   └── old          Image above current — the picture of the previous phase, fades out on transition
-└── [AudioControl]   AdvancedMusicHandler, AdvancedSoundHandler; disabled
+├── [AudioControl]   AdvancedMusicHandler; disabled
+└── Layers           disabled; enabled by phase states
+    ├── current      Image — the picture of the current phase
+    └── old          Image above current — the picture of the previous phase, fades out on transition
 ```
+
+The base has no ambient: a phase's ambient is a child layer of `[AudioControl]` with an `AdvancedSoundHandler`, enabled by the phase state through a `GameObjectsSwitch` with delayed switch-off.
 
 ### Switcher states
 
@@ -72,10 +74,10 @@ The base has no content handler (`CutsceneContentHandler`): a picture has no aut
 2. In each phase state set the sprite for `current`; for `old` — the sprite of the phase it is entered from.
 3. A new phase is a new state: the switcher duplicates the last one, only the sprites need changing.
 4. Create the cutscene graph (`Database/State Graph`): a node per state with the same name, including `End`; link the phases with "on `Next`" transitions, the last one — to `End`. Assign the graph in `StateGraphView`. The View's Sync button reconciles states with nodes.
-5. On `[AudioControl]`, add clips to the music and sound handlers; pick a volume channel for the sound handler.
+5. On `[AudioControl]`, add clips to the music handler. Phase ambient goes into a layer (see above); the volume channel is picked in its `AdvancedSoundHandler`.
 6. The transition duration is changed in the preset. For a custom one, copy the preset and assign the copy in the hub's `ColorLogic`. The View's `switchDelay` must be no less than the transition duration.
 
-The graph drives the show. The `old` slot holds one picture, so a phase entered from different phases gets a matching previous picture for only one of them. Steps 1–4 can be done by the [asset factory](../../../Plugins/AssetFactory/README.en.md).
+The graph drives the show. The `old` slot holds one picture, so a phase entered from different phases gets a matching previous picture for only one of them. Steps 1–5 can be done by the [asset factory](../../../Plugins/AssetFactory/README.en.md); it creates and enables the ambient layers itself.
 
 ---
 
@@ -83,7 +85,7 @@ The graph drives the show. The `old` slot holds one picture, so a phase entered 
 
 | Situation | Behaviour |
 |---|---|
-| An audio slot has an empty clip list | `Debug.LogError` "Список клипов пуст" on enable. An unused slot handler is removed from `[AudioControl]`: both sit on one object, and removing the object from the `GameObjectsSwitch` lists would switch both off |
+| The music handler has an empty clip list | auto start is on in the base — `Debug.LogError` "Список клипов пуст" on enable. Without music, turn the handler's `autoStart` off (the factory does this itself) or remove it. Do not take `[AudioControl]` out of the `GameObjectsSwitch` lists: the ambient layers live in it |
 | No previous-phase sprite set for `old` | a white rectangle fades out on transition |
 | "Next" arrives while a transition is running | the next phase is shown once `switchDelay` expires; if several arrived, the latest is shown at once |
 | The transition tween is longer than `switchDelay` | the next switch cuts the transition short: a brightness jump in the frame |

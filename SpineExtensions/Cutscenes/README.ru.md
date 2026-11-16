@@ -75,9 +75,9 @@
 
 ```
 baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
-├── spine               SkeletonAnimation, SpinePauseHandler; выключен
+├── [AudioControl]      AdvancedMusicHandler, SpineCutsceneEventSounds; выключен
 ├── [AutoNextControl]   SpineCutsceneAutoNext; выключен
-└── [AudioControl]      AdvancedMusicHandler, AdvancedSoundHandler, SpineCutsceneEventSounds; выключен
+└── spine               SkeletonAnimation, SpinePauseHandler; выключен
 ```
 
 | Состояние | Элементы |
@@ -88,7 +88,7 @@ baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
 
 - **Порядок элементов состояния важен:** сначала включение `spine`, потом `SpineAnimationSwitch`. Скелет создаёт `AnimationState` при включении объекта.
 - **`[AutoNextControl]` выключается без задержки**, остальные объекты — с отложенным выключением. Поэтому автопереход взводится заново в каждой фазе, а скелет и звук между фазами не перезапускаются.
-- **Слоты звука** — хэндлеры [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.ru.md) из SDK.
+- **Звук** — хэндлеры [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.ru.md) из SDK. На `[AudioControl]` — музыка (`AdvancedMusicHandler`) и таблица звуков событий. Эмбиента в основе нет: эмбиент фазы — дочерний слой `[AudioControl]` с `AdvancedSoundHandler`, его включает состояние фазы элементом `GameObjectsSwitch` с отложенным выключением.
 - **Граф катсцены** в основе не задан: у каждой катсцены свой. `StateGraphView` в режиме `Restart` без задержки переключения.
 
 Своя катсцена:
@@ -97,14 +97,14 @@ baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
 2. Назначить `SkeletonDataAsset` в `SkeletonAnimation`.
 3. В состояниях фаз выбрать анимации вместо заглушки `[NONE]`; новая фаза — новое состояние.
 4. Создать граф катсцены (`Database/State Graph`): узел на каждое состояние с тем же именем, включая `End`; фазы связать переходами «по `Next`», последнюю — с `End`. Назначить граф в `StateGraphView`. Кнопка Sync у View сверяет состояния с узлами.
-5. На `[AudioControl]` заполнить таблицу звуков событий и клипы музыкального и звукового хэндлеров.
+5. На `[AudioControl]` заполнить таблицу звуков событий и клипы музыкального хэндлера; эмбиент фаз — слоями (см. выше).
 
-Шаги 1–4 умеет делать [фабрика ассетов](../../../Plugins/AssetFactory/README.ru.md).
+Все шаги умеет делать [фабрика ассетов](../../../Plugins/AssetFactory/README.ru.md); слои эмбиента она заводит и включает сама.
 
 Ограничения основы:
 
 - Пока скелет не назначен, свитчер в редакторе пишет ошибку проверки состояний.
-- Слот звука с пустым списком клипов при включении пишет `Debug.LogError` «Список клипов пуст». Ненужный хэндлер слота удаляется с `[AudioControl]`: все три компонента стоят на одном объекте, и убрать объект из списков `GameObjectsSwitch` значит отключить их все.
+- Музыкальный хэндлер основы с автозапуском и пустым списком клипов при включении пишет `Debug.LogError` «Список клипов пуст». Без музыки у него выключается `autoStart` (фабрика делает это сама) либо он удаляется. Убирать `[AudioControl]` из списков `GameObjectsSwitch` нельзя: на нём же таблица звуков событий и слои эмбиента.
 - Для катсцены под канвасом нужен `SkeletonGraphic`: компонент скелета и ссылки на него в хэндлерах и состояниях меняются вручную.
 
 Основа спрайтовой катсцены лежит в [`Sdk/CutsceneSystem`](../../Sdk/CutsceneSystem/README.ru.md).

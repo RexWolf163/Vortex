@@ -75,9 +75,9 @@ Plays a sound database record on a skeleton event.
 
 ```
 baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
-├── spine               SkeletonAnimation, SpinePauseHandler; disabled
+├── [AudioControl]      AdvancedMusicHandler, SpineCutsceneEventSounds; disabled
 ├── [AutoNextControl]   SpineCutsceneAutoNext; disabled
-└── [AudioControl]      AdvancedMusicHandler, AdvancedSoundHandler, SpineCutsceneEventSounds; disabled
+└── spine               SkeletonAnimation, SpinePauseHandler; disabled
 ```
 
 | State | Items |
@@ -88,7 +88,7 @@ baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
 
 - **The order of state items matters:** enabling `spine` first, then `SpineAnimationSwitch`. The skeleton creates its `AnimationState` when the object is enabled.
 - **`[AutoNextControl]` is switched off without delay**, the other objects use delayed switch-off. So the auto-transition is re-armed in every phase, while the skeleton and audio do not restart between phases.
-- **Audio slots** are [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.en.md) handlers from the SDK.
+- **Audio** uses [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.en.md) handlers from the SDK. `[AudioControl]` holds the music (`AdvancedMusicHandler`) and the event sound table. The base has no ambient: a phase's ambient is a child layer of `[AudioControl]` with an `AdvancedSoundHandler`, enabled by the phase state through a `GameObjectsSwitch` with delayed switch-off.
 - **The cutscene graph** is not set in the base: every cutscene has its own. `StateGraphView` is in `Restart` mode without a switch delay.
 
 Your own cutscene:
@@ -97,14 +97,14 @@ Your own cutscene:
 2. Assign a `SkeletonDataAsset` in `SkeletonAnimation`.
 3. Pick animations in the phase states instead of the `[NONE]` placeholder; a new phase is a new state.
 4. Create the cutscene graph (`Database/State Graph`): a node per state with the same name, including `End`; link the phases with "on `Next`" transitions, the last one — to `End`. Assign the graph in `StateGraphView`. The View's Sync button reconciles states with nodes.
-5. On `[AudioControl]`, fill in the event sound table and the clips of the music and sound handlers.
+5. On `[AudioControl]`, fill in the event sound table and the music handler clips; phase ambient goes into layers (see above).
 
-Steps 1–4 can be done by the [asset factory](../../../Plugins/AssetFactory/README.en.md).
+All the steps can be done by the [asset factory](../../../Plugins/AssetFactory/README.en.md); it creates and enables the ambient layers itself.
 
 Limitations of the base:
 
 - Until a skeleton is assigned, the switcher logs a state validation error in the editor.
-- An audio slot with an empty clip list logs `Debug.LogError` "Список клипов пуст" on enable. An unused slot handler is removed from `[AudioControl]`: all three components sit on one object, and removing the object from the `GameObjectsSwitch` lists would switch all of them off.
+- The base music handler, with auto start on and an empty clip list, logs `Debug.LogError` "Список клипов пуст" on enable. Without music, turn its `autoStart` off (the factory does this itself) or remove it. Do not take `[AudioControl]` out of the `GameObjectsSwitch` lists: the event sound table and the ambient layers live on it too.
 - A cutscene under a canvas needs `SkeletonGraphic`: the skeleton component and the references to it in handlers and states are replaced by hand.
 
 The base for a sprite cutscene lives in [`Sdk/CutsceneSystem`](../../Sdk/CutsceneSystem/README.en.md).
