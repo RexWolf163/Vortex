@@ -11,7 +11,7 @@
 
 Всё, что относится к Spine-реализации катсцен для [`CutsceneSystem`](../../Unity/CutsceneSystem/README.ru.md). Сам пакет катсцен про Spine не знает; здесь лежат хэндлеры, которые ставятся в префаб контента.
 
-- `SpineCutsceneAutoNext` — автопереход фазы по концу анимации.
+- `SpineCutsceneAutoNext` — автопереход узла графа катсцены по концу анимации.
 - `SpineCutsceneEventSounds` — звуки на события анимации.
 
 Оба хэндлера принимают `SkeletonGraphic` либо `SkeletonAnimation`: задаётся одно поле из двух. Если заданы оба, берётся `SkeletonGraphic`.
@@ -31,7 +31,6 @@
 |---|---|
 | `spine-unity`, `spine-csharp` | скелет, `AnimationState`, события |
 | `Vortex.Unity.CutsceneSystem` | `CutsceneContentHandler.Next` — сигнал автоперехода |
-| `Vortex.Unity.UI.Misc` | базовый тип хэндлера контента |
 | `Vortex.Core.AudioSystem`, `Vortex.Unity.AudioSystem` | `AudioController.PlaySound`, тип записи `Sound` |
 | `Vortex.Core.DatabaseSystem`, `Vortex.Unity.DatabaseSystem` | `[DbRecord]` — выбор записи звука |
 
@@ -39,7 +38,7 @@
 
 ## SpineCutsceneAutoNext
 
-Когда текущая анимация трека отыграла проход, шине уходит сигнал «дальше». Сигнал идёт через хэндлер контента (`CutsceneContentHandler.Next()`): тот называет шине показанную фазу, и сигнал от фазы, с которой цепочка уже ушла, отбрасывается.
+Когда текущая анимация трека отыграла проход, шине уходит сигнал «дальше». Сигнал идёт через хэндлер контента (`CutsceneContentHandler.Next()`): тот называет шине показанный узел графа, и сигнал от узла, с которого граф уже ушёл, отбрасывается. В графе у такого узла переход «по `Next`».
 
 | Поле | Назначение |
 |---|---|
@@ -72,10 +71,10 @@
 
 ## Пример
 
-`Example/baseSpineCutscene.prefab` — основа префаба контента Spine-катсцены. Мировой объект: корень — `Transform`, скелет — `SkeletonAnimation`.
+`Example/baseSpine42Cutscene.prefab` и `Example/baseSpine43Cutscene.prefab` — основы префаба контента Spine-катсцены под Spine 4.2 и 4.3. Ниже — основа 4.2: мировой объект, корень — `Transform`, скелет — `SkeletonAnimation`.
 
 ```
-baseSpineCutscene       DataStorage, CutsceneContentHandler, UIStateSwitcher
+baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
 ├── spine               SkeletonAnimation, SpinePauseHandler; выключен
 ├── [AutoNextControl]   SpineCutsceneAutoNext; выключен
 └── [AudioControl]      AdvancedMusicHandler, AdvancedSoundHandler, SpineCutsceneEventSounds; выключен
@@ -83,20 +82,24 @@ baseSpineCutscene       DataStorage, CutsceneContentHandler, UIStateSwitcher
 
 | Состояние | Элементы |
 |---|---|
-| `Empty` | пусто — катсцена ещё не показана |
+| `End` | пусто — состояние конечного узла графа |
 | `Phase 1 (auto next)` | `GameObjectsSwitch` (`spine`, `[AudioControl]`); `SpineAnimationSwitch` без `loop`; `GameObjectsSwitch` (`[AutoNextControl]`) — фаза уходит дальше сама по концу анимации |
 | `Phase 2 (loop)` | `GameObjectsSwitch` (`spine`, `[AudioControl]`); `SpineAnimationSwitch` с `loop` — фаза ждёт команды «дальше» |
 
 - **Порядок элементов состояния важен:** сначала включение `spine`, потом `SpineAnimationSwitch`. Скелет создаёт `AnimationState` при включении объекта.
 - **`[AutoNextControl]` выключается без задержки**, остальные объекты — с отложенным выключением. Поэтому автопереход взводится заново в каждой фазе, а скелет и звук между фазами не перезапускаются.
 - **Слоты звука** — хэндлеры [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.ru.md) из SDK.
+- **Граф катсцены** в основе не задан: у каждой катсцены свой. `StateGraphView` в режиме `Restart` без задержки переключения.
 
 Своя катсцена:
 
 1. Создать вариант префаба (`Prefab Variant`).
 2. Назначить `SkeletonDataAsset` в `SkeletonAnimation`.
 3. В состояниях фаз выбрать анимации вместо заглушки `[NONE]`; новая фаза — новое состояние.
-4. На `[AudioControl]` заполнить таблицу звуков событий и клипы музыкального и звукового хэндлеров.
+4. Создать граф катсцены (`Database/State Graph`): узел на каждое состояние с тем же именем, включая `End`; фазы связать переходами «по `Next`», последнюю — с `End`. Назначить граф в `StateGraphView`. Кнопка Sync у View сверяет состояния с узлами.
+5. На `[AudioControl]` заполнить таблицу звуков событий и клипы музыкального и звукового хэндлеров.
+
+Шаги 1–4 умеет делать [фабрика ассетов](../../../Plugins/AssetFactory/README.ru.md).
 
 Ограничения основы:
 

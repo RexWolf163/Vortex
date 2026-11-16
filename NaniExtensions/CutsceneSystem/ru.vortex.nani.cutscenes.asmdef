@@ -5,8 +5,6 @@
         "Elringus.Naninovel.Runtime",
         "ru.vortex.unity.cutscene",
         "ru.vortex.nani.core",
-        "ru.vortex.database",
-        "ru.vortex.logicchains",
         "ru.vortex.system"
     ],
     "includePlatforms": [],

@@ -11,7 +11,7 @@
 
 Everything related to the Spine implementation of cutscenes for [`CutsceneSystem`](../../Unity/CutsceneSystem/README.en.md). The cutscene package itself knows nothing about Spine; this folder holds the handlers placed in the content prefab.
 
-- `SpineCutsceneAutoNext` — phase auto-transition at the end of an animation.
+- `SpineCutsceneAutoNext` — auto-transition of a cutscene graph node at the end of an animation.
 - `SpineCutsceneEventSounds` — sounds on animation events.
 
 Both handlers accept either `SkeletonGraphic` or `SkeletonAnimation`: one of the two fields is assigned. If both are assigned, `SkeletonGraphic` is used.
@@ -31,7 +31,6 @@ The subpackage has its own assembly rather than the shared `ru.vortex.spine`: it
 |---|---|
 | `spine-unity`, `spine-csharp` | the skeleton, `AnimationState`, events |
 | `Vortex.Unity.CutsceneSystem` | `CutsceneContentHandler.Next` — the auto-transition signal |
-| `Vortex.Unity.UI.Misc` | the base type of the content handler |
 | `Vortex.Core.AudioSystem`, `Vortex.Unity.AudioSystem` | `AudioController.PlaySound`, the `Sound` record type |
 | `Vortex.Core.DatabaseSystem`, `Vortex.Unity.DatabaseSystem` | `[DbRecord]` — picking a sound record |
 
@@ -39,7 +38,7 @@ The subpackage has its own assembly rather than the shared `ru.vortex.spine`: it
 
 ## SpineCutsceneAutoNext
 
-When the current animation of the track completes a pass, the bus gets the "next" signal. It goes through the content handler (`CutsceneContentHandler.Next()`): the handler tells the bus which phase is shown, and a signal from a phase the chain has already left is dropped.
+When the current animation of the track completes a pass, the bus gets the "next" signal. It goes through the content handler (`CutsceneContentHandler.Next()`): the handler tells the bus which graph node is shown, and a signal from a node the graph has already left is dropped. In the graph such a node has an "on `Next`" transition.
 
 | Field | Purpose |
 |---|---|
@@ -72,10 +71,10 @@ Plays a sound database record on a skeleton event.
 
 ## Example
 
-`Example/baseSpineCutscene.prefab` — a base for the content prefab of a Spine cutscene. A world object: the root is a `Transform`, the skeleton is a `SkeletonAnimation`.
+`Example/baseSpine42Cutscene.prefab` and `Example/baseSpine43Cutscene.prefab` — content prefab bases of a Spine cutscene for Spine 4.2 and 4.3. Below — the 4.2 base: a world object, the root is a `Transform`, the skeleton is a `SkeletonAnimation`.
 
 ```
-baseSpineCutscene       DataStorage, CutsceneContentHandler, UIStateSwitcher
+baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
 ├── spine               SkeletonAnimation, SpinePauseHandler; disabled
 ├── [AutoNextControl]   SpineCutsceneAutoNext; disabled
 └── [AudioControl]      AdvancedMusicHandler, AdvancedSoundHandler, SpineCutsceneEventSounds; disabled
@@ -83,20 +82,24 @@ baseSpineCutscene       DataStorage, CutsceneContentHandler, UIStateSwitcher
 
 | State | Items |
 |---|---|
-| `Empty` | nothing — the cutscene is not shown yet |
+| `End` | nothing — the state of the graph's end node |
 | `Phase 1 (auto next)` | `GameObjectsSwitch` (`spine`, `[AudioControl]`); `SpineAnimationSwitch` without `loop`; `GameObjectsSwitch` (`[AutoNextControl]`) — the phase moves on by itself when the animation ends |
 | `Phase 2 (loop)` | `GameObjectsSwitch` (`spine`, `[AudioControl]`); `SpineAnimationSwitch` with `loop` — the phase waits for the "next" command |
 
 - **The order of state items matters:** enabling `spine` first, then `SpineAnimationSwitch`. The skeleton creates its `AnimationState` when the object is enabled.
 - **`[AutoNextControl]` is switched off without delay**, the other objects use delayed switch-off. So the auto-transition is re-armed in every phase, while the skeleton and audio do not restart between phases.
 - **Audio slots** are [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.en.md) handlers from the SDK.
+- **The cutscene graph** is not set in the base: every cutscene has its own. `StateGraphView` is in `Restart` mode without a switch delay.
 
 Your own cutscene:
 
 1. Create a prefab variant.
 2. Assign a `SkeletonDataAsset` in `SkeletonAnimation`.
 3. Pick animations in the phase states instead of the `[NONE]` placeholder; a new phase is a new state.
-4. On `[AudioControl]`, fill in the event sound table and the clips of the music and sound handlers.
+4. Create the cutscene graph (`Database/State Graph`): a node per state with the same name, including `End`; link the phases with "on `Next`" transitions, the last one — to `End`. Assign the graph in `StateGraphView`. The View's Sync button reconciles states with nodes.
+5. On `[AudioControl]`, fill in the event sound table and the clips of the music and sound handlers.
+
+Steps 1–4 can be done by the [asset factory](../../../Plugins/AssetFactory/README.en.md).
 
 Limitations of the base:
 

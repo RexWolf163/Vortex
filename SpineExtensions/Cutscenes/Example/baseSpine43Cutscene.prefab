@@ -50,10 +50,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1900118992085716168}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b0f7157f69e94842882a4576a47953b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.Misc.DataStorage
-  dataSwitcher: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: d92473490ec543f4587e76b43fb94bbf, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: ru.vortex.unity.stategraph::Vortex.Unity.StateGraphSystem.Views.StateGraphView
+  graph:
+  onEnableBehavior: 0
+  switcher: {fileID: 1900118992085716172}
+  switchDelay: 0
 --- !u!114 &1900118992085716173
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -66,8 +69,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd0ad414ab55d8f4385e2b9bff51dff6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ru.vortex.unity.cutscene::Vortex.Unity.CutsceneSystem.Handlers.CutsceneContentHandler
-  source: {fileID: 1900118992085716170}
-  switcher: {fileID: 1900118992085716172}
+  view: {fileID: 1900118992085716170}
 --- !u!114 &1900118992085716172
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -83,7 +85,7 @@ MonoBehaviour:
   stateOnEnable: 0
   duplicateOnCreate: 1
   states:
-  - name: Empty
+  - name: End
     stateItems: []
   - name: act_1_intro
     stateItems:

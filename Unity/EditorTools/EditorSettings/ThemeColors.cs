@@ -26,6 +26,21 @@ namespace Vortex.Unity.EditorTools.EditorSettings
         public Color ToggleBoxBorder;
         public Color DragIndicator;
 
+        [Header("Graph editors")] public Color GraphBg;
+        public Color GraphNodeBg;
+        public Color GraphNodeCurrentBg;
+        public Color GraphNodeText;
+        public Color GraphNodeTagText;
+        public Color GraphNodeBorder;
+        public Color GraphStart;
+        public Color GraphSelected;
+        public Color GraphWarning;
+        public Color GraphError;
+        public Color GraphEdge;
+        public Color GraphEdgeNext;
+        public Color GraphLabelBg;
+        public Color GraphPort;
+
         public Color GetColor(DefaultColors key)
         {
             switch (key)
@@ -49,6 +64,20 @@ namespace Vortex.Unity.EditorTools.EditorSettings
                 case DefaultColors.SwitcherOffBg: return SwitcherOffBg;
                 case DefaultColors.ToggleBoxBorder: return ToggleBoxBorder;
                 case DefaultColors.DragIndicator: return DragIndicator;
+                case DefaultColors.GraphBg: return GraphBg;
+                case DefaultColors.GraphNodeBg: return GraphNodeBg;
+                case DefaultColors.GraphNodeCurrentBg: return GraphNodeCurrentBg;
+                case DefaultColors.GraphNodeText: return GraphNodeText;
+                case DefaultColors.GraphNodeTagText: return GraphNodeTagText;
+                case DefaultColors.GraphNodeBorder: return GraphNodeBorder;
+                case DefaultColors.GraphStart: return GraphStart;
+                case DefaultColors.GraphSelected: return GraphSelected;
+                case DefaultColors.GraphWarning: return GraphWarning;
+                case DefaultColors.GraphError: return GraphError;
+                case DefaultColors.GraphEdge: return GraphEdge;
+                case DefaultColors.GraphEdgeNext: return GraphEdgeNext;
+                case DefaultColors.GraphLabelBg: return GraphLabelBg;
+                case DefaultColors.GraphPort: return GraphPort;
                 default: return Color.magenta;
             }
         }
@@ -76,6 +105,20 @@ namespace Vortex.Unity.EditorTools.EditorSettings
                 SwitcherOffBg = ParseColor("#ff0000ff"),
                 ToggleBoxBorder = ParseColor("#7F7F7Fff"),
                 DragIndicator = ParseColor("#6F1717ff"),
+                GraphBg = ParseColor("#A9A9A9ff"),
+                GraphNodeBg = ParseColor("#F4F4F4ff"),
+                GraphNodeCurrentBg = ParseColor("#B6E3B6ff"),
+                GraphNodeText = ParseColor("#111111ff"),
+                GraphNodeTagText = ParseColor("#555555ff"),
+                GraphNodeBorder = ParseColor("#6E6E6Eff"),
+                GraphStart = ParseColor("#1565C0ff"),
+                GraphSelected = ParseColor("#8E24AAff"),
+                GraphWarning = ParseColor("#D86F00ff"),
+                GraphError = ParseColor("#D32F2Fff"),
+                GraphEdge = ParseColor("#333333ff"),
+                GraphEdgeNext = ParseColor("#00838Fff"),
+                GraphLabelBg = ParseColor("#F4F4F4ff"),
+                GraphPort = ParseColor("#6E6E6Eff"),
             };
         }
 
@@ -102,6 +145,20 @@ namespace Vortex.Unity.EditorTools.EditorSettings
                 SwitcherOffBg = ParseColor("#ff4040ff"),
                 ToggleBoxBorder = ParseColor("#292929ff"),
                 DragIndicator = ParseColor("#9F2525ff"),
+                GraphBg = ParseColor("#1E1E1Eff"),
+                GraphNodeBg = ParseColor("#3A3A3Aff"),
+                GraphNodeCurrentBg = ParseColor("#2E5E33ff"),
+                GraphNodeText = ParseColor("#E6E6E6ff"),
+                GraphNodeTagText = ParseColor("#A0A0A0ff"),
+                GraphNodeBorder = ParseColor("#6A6A6Aff"),
+                GraphStart = ParseColor("#4DA3FFff"),
+                GraphSelected = ParseColor("#C792EAff"),
+                GraphWarning = ParseColor("#FFA726ff"),
+                GraphError = ParseColor("#FF5252ff"),
+                GraphEdge = ParseColor("#BDBDBDff"),
+                GraphEdgeNext = ParseColor("#4DD0E1ff"),
+                GraphLabelBg = ParseColor("#2A2A2Aff"),
+                GraphPort = ParseColor("#9E9E9Eff"),
             };
         }
 

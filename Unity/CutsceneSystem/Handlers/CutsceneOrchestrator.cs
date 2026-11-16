@@ -4,67 +4,49 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Vortex.Core.AssetHandleSystem;
-using Vortex.Core.DatabaseSystem;
-using Vortex.Core.DatabaseSystem.Bus;
-using Vortex.Core.DatabaseSystem.Model.Enums;
-using Vortex.Core.LogicChainsSystem.Model;
+using Vortex.Core.StateGraphSystem.Controllers;
+using Vortex.Core.StateGraphSystem.Model;
 using Vortex.Unity.CutsceneSystem.Bus;
-using Vortex.Unity.CutsceneSystem.Controllers;
 using Vortex.Unity.CutsceneSystem.Models;
-using Vortex.Unity.DatabaseSystem.Attributes;
-using Vortex.Unity.DatabaseSystem.Presets;
 using Vortex.Unity.EditorTools.Attributes;
+using Vortex.Unity.StateGraphSystem.Views;
 using Vortex.Unity.UI.Attributes;
-using Vortex.Unity.UI.Misc;
 using Vortex.Unity.UI.StateSwitcher;
-using ChainsBus = Vortex.Core.LogicChainsSystem.Bus.LogicChains;
 
 namespace Vortex.Unity.CutsceneSystem.Handlers
 {
     /// <summary>
     /// Оркестратор катсцен на сцене: держит единственный слот <see cref="CutsceneBus"/> и ведёт показ целиком —
-    /// принимает обращения, загружает контент, запускает цепочку, двигает фазы, закрывает показ.
+    /// принимает обращения, загружает контент, ведёт граф, закрывает показ.
+    ///
+    /// Ход показа — граф состояний катсцены (<see cref="StateGraph"/>): его держит и показывает
+    /// <see cref="StateGraphView"/> на корне контента. Оркестратор подаёт графу сигналы — «дальше» (<c>Next</c>)
+    /// и выставление узла (<c>ForceNode</c>); вход графа в конечный узел (<c>OnFinished</c>) закрывает показ.
     ///
     /// Обращение шины оркестратор не исполняет в момент прихода, а только запоминает: «просили открыть»,
-    /// «просили дальше», «просили пропустить». Исполняет он их сам, на своём <c>LateUpdate</c>. Поэтому
-    /// обращения никогда не исполняются вложенно друг в друга, а повторные просьбы одного кадра сливаются
-    /// в одну.
+    /// «просили дальше», «просили узел», «просили пропустить». Завершение графа тоже лишь запоминается. Исполняет
+    /// он их сам, на своём <c>LateUpdate</c>. Поэтому обращения никогда не исполняются вложенно друг в друга,
+    /// а повторные просьбы одного кадра сливаются в одну.
     ///
-    /// Контент — префаб за <see cref="AssetHandle{T}"/>, выбирается по ключу катсцены (запись <c>LogicChain</c>).
-    /// Экземпляру передаются управляющие данные показа через <c>DataStorage</c> на его корне
+    /// Контент — префаб за <see cref="AssetHandle{T}"/>, выбирается по ключу катсцены
     /// </summary>
     public class CutsceneOrchestrator : MonoBehaviour
     {
         [Serializable, ClassLabel("$Label")]
         private class Entry
         {
-            [SerializeField, DbRecord(typeof(LogicChain), RecordTypes.MultiInstance)]
-            private string chain;
+            [SerializeField, Tooltip("Ключ катсцены: его передают в CutsceneBus.Open и команде сценария.")]
+            private string key;
 
             [SerializeReference] private AssetHandle<GameObject> prefab;
 
-            public string Chain => chain;
+            public string Key => key;
             public AssetHandle<GameObject> Prefab => prefab;
 
-            /// <summary>
-            /// Подпись элемента в инспекторе — имя цепочки. Берётся из её пресета (как в выпадашке
-            /// <see cref="DbRecordAttribute"/>): <c>GetNewRecord</c> на каждую перерисовку создавал бы копию цепочки
-            /// </summary>
-            private string Label()
-            {
-#if UNITY_EDITOR
-                if (string.IsNullOrEmpty(chain))
-                    return "(null)";
-                return (Database.GetDriver() as IDriverEditor)?.GetPresetForRecord(chain) is IRecordPreset preset
-                    ? preset.Name
-                    : "(null)";
-#else
-                return string.Empty;
-#endif
-            }
+            private string Label() => string.IsNullOrEmpty(key) ? "(null)" : key;
         }
 
-        [SerializeField, Tooltip("Катсцены сцены: цепочка-описание и префаб её контента.")]
+        [SerializeField, Tooltip("Катсцены сцены: ключ и префаб её контента. Ключи не повторяются.")]
         private Entry[] cutscenes = new Entry[0];
 
         [SerializeField, StateSwitcher(typeof(CutsceneStageState))]
@@ -74,7 +56,7 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         private Transform target;
 
         [SerializeField, Min(0f), Tooltip(
-             "Защита от дребезга: сколько секунд после входа в фазу команда «дальше» игнорируется.")]
+             "Защита от дребезга: сколько секунд после входа в узел команда «дальше» игнорируется.")]
         private float nextDelay = 0.2f;
 
         private bool _registered;
@@ -86,11 +68,22 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         private string _openKey;
 
         /// <summary>
-        /// Просили «дальше». Держится до исполнения: повторные просьбы той же фазы ничего не добавляют
+        /// Просили «дальше». Держится до исполнения: повторные просьбы того же узла ничего не добавляют
         /// </summary>
         private bool _nextRequested;
 
+        /// <summary>
+        /// Просили выставить узел (Id или имя); null — не просили. Пришла до старта показа — ждёт его и заменяет
+        /// стартовый узел
+        /// </summary>
+        private string _nodeRequested;
+
         private bool _skipRequested;
+
+        /// <summary>
+        /// Граф катсцены завершился — показ закрывается на ближайшем проходе
+        /// </summary>
+        private bool _finishRequested;
 
         /// <summary>
         /// Открытия, которые не состоятся (вытеснены более поздним, отменены, оркестратор выключен).
@@ -105,14 +98,13 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         /// </summary>
         private string _key;
 
-        private Entry _entry;
-        private LogicChain _chain;
-
         /// <summary>
-        /// Идентификатор запущенной цепочки. <c>null</c> — цепочка не запущена (контент ещё грузится)
+        /// Номер показа: растёт на каждом открытии. По нему проход узнаёт, что просьба относится к тому же
+        /// показу, для которого её приняли
         /// </summary>
-        private string _chainGuid;
+        private int _show;
 
+        private Entry _entry;
         private GameObject _instance;
         private CancellationTokenSource _loading;
 
@@ -125,25 +117,14 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         private Exception _loadError;
 
         /// <summary>
-        /// Номер фазы, набранный звеньями. Контенту уходит, когда цепочка вернула управление
+        /// Граф идущей катсцены — копия, которую держит <see cref="StateGraphView"/> контента
         /// </summary>
-        private int _phase;
+        private StateGraph _graph;
 
-        private float _phaseStartedAt = float.NegativeInfinity;
+        private float _nodeStartedAt = float.NegativeInfinity;
 
         /// <summary>
-        /// Завершающее звено отработало: показ закрывается, как только цепочка вернёт управление
-        /// </summary>
-        private bool _completed;
-
-        /// <summary>
-        /// Цепочка исполняется прямо сейчас — этот оркестратор её и двигает
-        /// </summary>
-        private bool _chainRunning;
-
-        /// <summary>
-        /// Первая фаза запущена: контент создан, первый этап цепочки отработал. До этого «дальше»
-        /// не принимается
+        /// Показ запущен: контент создан, граф показывает первый узел. До этого «дальше» не принимается
         /// </summary>
         private bool _started;
 
@@ -156,6 +137,7 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             CutsceneBus.OnOpenRequested += RequestOpen;
             CutsceneBus.OnNextRequested += RequestNext;
             CutsceneBus.OnAutoNextRequested += RequestAutoNext;
+            CutsceneBus.OnNodeRequested += RequestNode;
             CutsceneBus.OnSkipRequested += RequestSkip;
             SetState(_state);
         }
@@ -169,6 +151,7 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             CutsceneBus.OnOpenRequested -= RequestOpen;
             CutsceneBus.OnNextRequested -= RequestNext;
             CutsceneBus.OnAutoNextRequested -= RequestAutoNext;
+            CutsceneBus.OnNodeRequested -= RequestNode;
             CutsceneBus.OnSkipRequested -= RequestSkip;
 
             //Слот освобождается вместе с отпиской, до закрытия показа: обращение, пришедшее из обработчика
@@ -177,13 +160,8 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
 
             try
             {
-                //Показ не переживает оркестратор: оставшиеся этапы цепочки проходят до финала пролётом.
-                //Если цепочка исполняется прямо сейчас (оркестратор выключило её звено), она дойдёт уже
-                //в режиме пролёта, а показ закроет тот, кто её запустил, — когда она вернёт управление
-                if (_chainRunning)
-                    CutsceneBus.SetSkipping(true);
-                else
-                    Finish();
+                //Показ не переживает оркестратор
+                Close();
             }
             finally
             {
@@ -194,9 +172,22 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
                 _openKey = null;
                 _skipRequested = false;
                 _nextRequested = false;
+                _nodeRequested = null;
                 FlushRefused();
             }
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            var keys = new HashSet<string>();
+            foreach (var entry in cutscenes)
+                if (entry != null && !string.IsNullOrEmpty(entry.Key) && !keys.Add(entry.Key))
+                    Debug.LogWarning(
+                        $"[CutsceneOrchestrator] Ключ '{entry.Key}' повторяется в индексе — открывается первая запись.",
+                        this);
+        }
+#endif
 
         // ── Приём обращений ───────────────────────────────────────────────────
 
@@ -209,21 +200,37 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             _openRequested = true;
             _openKey = key;
 
-            //«Дальше» относилось к катсцене, которую это открытие закроет
+            //«Дальше» и узел относились к катсцене, которую это открытие закроет
             _nextRequested = false;
+            _nodeRequested = null;
         }
 
         private void RequestNext()
         {
-            if (CanAdvance && Time.unscaledTime - _phaseStartedAt >= nextDelay)
+            if (CanAdvance && Time.unscaledTime - _nodeStartedAt >= nextDelay)
                 _nextRequested = true;
         }
 
-        private void RequestAutoNext(int phase)
+        private void RequestAutoNext(string nodeId)
         {
-            //Контент называет фазу, которую показывает: с ушедшей фазы сигнал не принимается
-            if (CanAdvance && phase == _phase)
+            //Контент называет узел, который показывает: с ушедшего узла сигнал не принимается
+            if (CanAdvance && _graph != null && nodeId == _graph.CurrentNode.Value)
                 _nextRequested = true;
+        }
+
+        private void RequestNode(string node)
+        {
+            //Узел есть к чему отнести: катсцена открывается (тогда узел ждёт старта) либо идёт
+            if (_skipRequested || (!_openRequested && _key == null))
+                return;
+
+            if (string.IsNullOrEmpty(node))
+            {
+                Debug.LogError("[CutsceneOrchestrator] Пустое имя узла. Команда пропущена.", this);
+                return;
+            }
+
+            _nodeRequested = node;
         }
 
         private void RequestSkip()
@@ -235,15 +242,32 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             _openRequested = false;
             _openKey = null;
             _nextRequested = false;
+            _nodeRequested = null;
             _skipRequested = true;
         }
 
         /// <summary>
-        /// «Дальше» есть к чему отнести: первая фаза запущена, и показ не собираются закрывать. Пока контент
-        /// грузится и первый этап цепочки не отработал, любая просьба «дальше» игнорируется
+        /// «Дальше» есть к чему отнести: показ запущен, и его не собираются закрывать. Пока контент
+        /// грузится, любая просьба «дальше» игнорируется
         /// </summary>
-        private bool CanAdvance =>
-            _started && !_openRequested && !_skipRequested && !CutsceneBus.IsSkipping;
+        private bool CanAdvance => _started && !_openRequested && !_skipRequested && !_finishRequested;
+
+        // ── Сигналы графа ─────────────────────────────────────────────────────
+
+        private void OnNodeChanged(string nodeId)
+        {
+            //Пустой узел — граф завершился: показ закроет OnGraphFinished
+            if (string.IsNullOrEmpty(nodeId))
+                return;
+
+            _nodeStartedAt = Time.unscaledTime;
+            CutsceneBus.PublishNode(_graph?.GetNode(nodeId)?.Name);
+        }
+
+        /// <summary>
+        /// Граф вошёл в конечный узел. Закрытие — на проходе оркестратора, не вложенно в сигнал графа
+        /// </summary>
+        private void OnGraphFinished() => _finishRequested = true;
 
         // ── Исполнение ────────────────────────────────────────────────────────
 
@@ -252,16 +276,23 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             if (!_registered)
                 return;
 
-            //«Дальше» исполняется последним и только то, что просили до этого прохода — и только для того
-            //показа, для которого просили: если за проход открылась другая катсцена, просьба пропадает
+            //Просьбы о ходе графа исполняются последними и только те, что пришли до этого прохода, — и только
+            //для того показа, для которого их приняли: если за проход открылась другая катсцена, они пропадают.
+            //Узел, попрошенный для катсцены, которая ещё не начата, остаётся ждать её старта
+            var show = _show;
             var next = _nextRequested;
-            var show = _chainGuid;
+            string node = null;
             _nextRequested = false;
+            if (_started && !_openRequested)
+            {
+                node = _nodeRequested;
+                _nodeRequested = null;
+            }
 
-            if (_skipRequested || _openRequested)
+            if (_skipRequested || _openRequested || _finishRequested)
             {
                 _skipRequested = false;
-                Step(Finish);
+                Step(Close);
             }
 
             if (_refused.Count > 0)
@@ -273,8 +304,22 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             if (_loadDone)
                 Step(CompleteLoad);
 
-            if (next && show == _chainGuid)
+            //Граф мог завершиться на старте (выставленный узел — конечный)
+            if (_finishRequested)
+                Step(Close);
+
+            if (show != _show || !_started)
+                return;
+
+            //Выставление узла точнее, чем «дальше»: пришли оба — исполняется оно
+            if (node != null)
+                Step(() => GoToNode(node));
+            else if (next)
                 Step(Advance);
+
+            //«Дальше» привело граф в конечный узел — показ закрывается в этом же проходе
+            if (_finishRequested)
+                Step(Close);
         }
 
         /// <summary>
@@ -293,14 +338,14 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         }
 
         /// <summary>
-        /// Начать открытие: найти запись, проверить цепочку, запустить загрузку контента. К этому моменту
-        /// прежняя катсцена закрыта и её «показ завершён» разослан
+        /// Начать открытие: найти запись и запустить загрузку контента. К этому моменту прежняя катсцена
+        /// закрыта и её «показ завершён» разослан
         /// </summary>
         private void StartShow()
         {
             //Просьба могла прийти из обработчика события уже после шага закрытия — тогда идущая катсцена
             //закрывается здесь. Ключ берём после: обработчик её «показ завершён» может попросить другую
-            Finish();
+            Close();
 
             var key = _openKey;
             _openRequested = false;
@@ -325,34 +370,9 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
                 return;
             }
 
-            LogicChain chain;
-            string error;
-            try
-            {
-                chain = Database.GetNewRecord<LogicChain>(key);
-                if (chain == null)
-                {
-                    Refuse(key, $"цепочка '{key}' не найдена в базе");
-                    return;
-                }
-
-                if (!CutsceneChainValidator.Validate(chain, out error))
-                {
-                    Refuse(key, $"цепочка «{chain.Name}» не годится для катсцены: {error}");
-                    return;
-                }
-            }
-            catch (Exception exception)
-            {
-                //Испорченная запись цепочки, сбой драйвера базы — тот же отказ, только с исключением
-                Debug.LogException(exception, this);
-                Refuse(key, $"сбой чтения цепочки '{key}'");
-                return;
-            }
-
             _key = key;
+            _show++;
             _entry = entry;
-            _chain = chain;
             _loading = new CancellationTokenSource();
 
             //Токен берём до смены состояния: свитчер на входе в Loading может исполнить чужой код,
@@ -412,24 +432,23 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             _loadError = null;
 
             var key = _key;
-            var chain = _chain;
             if (error != null)
             {
-                Fail($"контент «{chain.Name}» не загружен. {error}");
+                Fail($"контент '{key}' не загружен. {error}");
                 return;
             }
 
             if (prefab == null)
             {
-                Fail($"у катсцены «{chain.Name}» пустой префаб контента");
+                Fail($"у катсцены '{key}' пустой префаб контента");
                 return;
             }
 
             try
             {
-                //Создание контента, привязка данных и смена состояния исполняют чужой код (Awake контента,
-                //его хэндлеры, состояния свитчера). Если он выключил оркестратор, показ уже закрыт —
-                //запуск дальше не идёт
+                //Создание контента и смена состояния исполняют чужой код (Awake контента, его хэндлеры,
+                //состояния свитчера). Если он выключил оркестратор, показ уже закрыт — запуск дальше не идёт.
+                //View графа на своём OnEnable берёт копию графа из базы и запускает её со стартового узла
                 var instance = Instantiate(prefab, target != null ? target : transform);
                 if (_key == null)
                 {
@@ -440,168 +459,88 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
                 }
 
                 _instance = instance;
-                var storage = instance.GetComponent<DataStorage>();
-                if (storage == null)
+                var view = instance.GetComponent<StateGraphView>();
+                if (view == null)
                 {
-                    Fail($"на корне контента «{chain.Name}» нет DataStorage — управляющие данные передать некуда");
+                    Fail($"на корне контента '{key}' нет {nameof(StateGraphView)} — графа катсцены нет");
                     return;
                 }
 
-                storage.SetData(CutsceneBus.Control);
-                if (_key == null)
+                var graph = view.GetData<StateGraph>();
+                if (graph == null)
+                {
+                    Fail($"граф контента '{key}' не получен — запись графа не найдена либо база не загружена");
                     return;
+                }
+
+                if (string.IsNullOrEmpty(graph.CurrentNode.Value))
+                {
+                    Fail($"граф контента '{key}' не запустился — ошибки графа в логе");
+                    return;
+                }
+
+                _graph = graph;
+                graph.CurrentNode.OnUpdate += OnNodeChanged;
+                graph.OnFinished += OnGraphFinished;
 
                 SetState(CutsceneStageState.On);
                 if (_key == null)
                     return;
 
-                //В реестр цепочка попадает прямо перед запуском: сбой до этого места её там не оставит
-                var guid = ChainsBus.AddChain(chain);
-                _chainGuid = guid;
-                _completed = false;
-                _phase = 0;
-                CutsceneBus.SetChain(guid);
-                CutsceneBus.OnPhaseEntered += EnterPhase;
-                CutsceneBus.OnCompleted += Complete;
-                RunChain(guid);
+                //Стартовый узел граф уже показывает — сообщаем его
+                OnNodeChanged(graph.CurrentNode.Value);
 
-                //Первая фаза запущена — с этого момента принимается «дальше»
+                //Узел, попрошенный во время загрузки, заменяет стартовый
+                var requested = _nodeRequested;
+                _nodeRequested = null;
+                if (requested != null)
+                    GoToNode(requested);
+                if (_key == null)
+                    return;
+
+                //Показ запущен — с этого момента принимается «дальше»
                 _started = true;
             }
             catch (Exception exception)
             {
-                //Сбой запуска (исключение контента на привязке данных либо звена первого этапа): показ
-                //открытым не оставляем
+                //Сбой запуска (исключение контента на создании либо на входе в узел): показ открытым не оставляем
                 Debug.LogException(exception, this);
-                Fail($"сбой запуска показа «{chain.Name}»");
+                Fail($"сбой запуска показа '{key}'");
                 return;
             }
 
-            Settle();
-            if (_key == null)
-                return;
-
-            //Показ состоялся: первая фаза уже у контента
+            //Показ состоялся: первый узел уже у контента
             if (CutsceneBus.NotifyStarted(key) && _key != null)
                 Interrupt();
         }
 
-        private void RunChain(string guid)
-        {
-            _chainRunning = true;
-            try
-            {
-                ChainsBus.RunChain(guid);
-            }
-            finally
-            {
-                _chainRunning = false;
-            }
-        }
+        /// <summary>
+        /// Исполнить просьбу «дальше»: сигнал <c>Next</c> графу. Вход в конечный узел закроет показ
+        /// </summary>
+        private void Advance() => _graph?.Next();
 
         /// <summary>
-        /// Подать цепочке сигнал «можно дальше»: она идёт, пока снова не встанет на условии
+        /// Исполнить просьбу выставить узел. Текущий узел — ничего не происходит
         /// </summary>
-        private void Signal()
+        private void GoToNode(string node)
         {
-            _chainRunning = true;
-            try
-            {
-                CutsceneBus.SignalNext();
-            }
-            finally
-            {
-                _chainRunning = false;
-            }
-        }
-
-        /// <summary>
-        /// Исполнить просьбу «дальше»
-        /// </summary>
-        private void Advance()
-        {
-            if (_chainGuid == null)
+            if (_graph == null)
                 return;
 
-            Signal();
-            Settle();
-        }
-
-        /// <summary>
-        /// Цепочка вернула управление: закрыть показ либо сообщить контенту набранную фазу
-        /// </summary>
-        private void Settle()
-        {
-            if (_key == null)
+            var current = _graph.GetCurrentNode();
+            if (current != null && (current.Id == node || current.Name == node))
                 return;
 
-            if (_completed)
-            {
-                Close();
-                return;
-            }
-
-            if (CutsceneBus.IsSkipping)
-            {
-                //Оркестратор выключили посреди исполнения цепочки, а до завершающего этапа она не дошла
-                Debug.LogError(
-                    $"[CutsceneOrchestrator] Пролёт катсцены '{_key}' не дошёл до завершающего этапа — показ закрыт принудительно.",
-                    this);
-                Close();
-                return;
-            }
-
-            if (!CutsceneBus.HasWaiter)
-            {
-                //Цепочку остановило исключение в звене: такой показ уже не сдвинуть
-                Debug.LogError(
-                    $"[CutsceneOrchestrator] Цепочка катсцены '{_key}' остановилась и не ждёт сигнала «дальше» — показ закрыт.",
-                    this);
-                Close();
-                return;
-            }
-
-            try
-            {
-                CutsceneBus.SetPhase(_phase);
-            }
-            catch (Exception exception)
-            {
-                //Исключение контента (рассогласование фаз и состояний в редакторе) показ не останавливает
-                Debug.LogException(exception, this);
-            }
-        }
-
-        /// <summary>
-        /// Довести идущую катсцену до конца: загрузка отменяется, цепочка пролетает до завершающего этапа
-        /// </summary>
-        private void Finish()
-        {
-            if (_key == null)
-                return;
-
-            if (_chainGuid != null)
-            {
-                CutsceneBus.SetSkipping(true);
-                Signal();
-                if (_key == null)
-                    return;
-
-                if (!_completed)
-                    Debug.LogError(
-                        $"[CutsceneOrchestrator] Пролёт катсцены '{_key}' не дошёл до завершающего этапа — показ закрыт принудительно.",
-                        this);
-            }
-
-            Close();
+            _graph.ForceNode(node);
         }
 
         /// <summary>
         /// Единственное место, где показ закрывается: контент выгружается, данные показа сбрасываются,
-        /// рассылается «показ завершён»
+        /// рассылается «показ завершён». Показа нет — ничего не делает
         /// </summary>
         private void Close()
         {
+            _finishRequested = false;
             var key = _key;
             if (key == null)
                 return;
@@ -609,28 +548,26 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             //Состояние сбрасывается первым: показ считается закрытым до выгрузки, и повторное закрытие
             //(контент при выгрузке выключил оркестратор) ничего не сделает
             _key = null;
-            _chainGuid = null;
-            _completed = false;
             _started = false;
-            _phase = 0;
-            _phaseStartedAt = float.NegativeInfinity;
+            _nodeStartedAt = float.NegativeInfinity;
             _nextRequested = false;
-            CutsceneBus.OnPhaseEntered -= EnterPhase;
-            CutsceneBus.OnCompleted -= Complete;
+            if (_graph != null)
+            {
+                _graph.CurrentNode.OnUpdate -= OnNodeChanged;
+                _graph.OnFinished -= OnGraphFinished;
+                _graph = null;
+            }
 
             try
             {
-                CutsceneBus.SetChain(null);
-                CutsceneBus.SetSkipping(false);
                 Unload();
             }
             finally
             {
-                //Фаза сбрасывается и событие рассылается при любом исходе выгрузки. Контент уже выключен
-                //и от данных отписан — сброс фазы до него не дойдёт
+                //Узел сбрасывается и событие рассылается при любом исходе выгрузки
                 try
                 {
-                    CutsceneBus.SetPhase(0);
+                    CutsceneBus.PublishNode(string.Empty);
                 }
                 finally
                 {
@@ -652,7 +589,6 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             _loading = null;
             _instance = null;
             _entry = null;
-            _chain = null;
             _loadDone = false;
             _loadedPrefab = null;
             _loadError = null;
@@ -661,8 +597,8 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             {
                 if (instance != null)
                 {
-                    //Уничтожение отложено до конца кадра. Выключаем сразу: контент отписывается от управляющих
-                    //данных и не получит фазу следующего показа
+                    //Уничтожение отложено до конца кадра. Выключаем сразу: View графа гасит условия графа,
+                    //а отложенные сигналы контента в следующий показ не попадут
                     instance.SetActive(false);
                     Destroy(instance);
                 }
@@ -679,29 +615,6 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             {
                 SetState(CutsceneStageState.Off);
             }
-        }
-
-        // ── Сигналы звеньев цепочки ───────────────────────────────────────────
-
-        /// <summary>
-        /// Звено «Фаза»: номер фазы растёт. При пролёте не исполняется; звено чужой цепочки не исполняется
-        /// </summary>
-        private void EnterPhase(string chain)
-        {
-            if (chain != _chainGuid || CutsceneBus.IsSkipping)
-                return;
-
-            _phase++;
-            _phaseStartedAt = Time.unscaledTime;
-        }
-
-        /// <summary>
-        /// Звено «Завершение»: показ закроется, когда цепочка вернёт управление
-        /// </summary>
-        private void Complete(string chain)
-        {
-            if (chain == _chainGuid)
-                _completed = true;
         }
 
         // ── Служебное ─────────────────────────────────────────────────────────
@@ -722,7 +635,7 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         private Entry Find(string key)
         {
             foreach (var entry in cutscenes)
-                if (entry.Chain == key)
+                if (entry != null && entry.Key == key)
                     return entry;
 
             return null;
