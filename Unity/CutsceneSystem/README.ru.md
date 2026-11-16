@@ -38,6 +38,7 @@
 | `Vortex.Core.Extensions` | `StringData`, `IReactiveData` — управляющие данные |
 | `Vortex.Unity.UI.Misc` | `UIStateSwitcher`, `[StateSwitcher]` |
 | `Vortex.Unity.AppSystem` | `TimeController` — отложенная рассылка отказа открытию, пришедшему при пустом слоте |
+| `Vortex.Core.UIProviderSystem`, `Vortex.Unity.UIProviderSystem` | `UnityUserInterfaceCondition`, `ConditionAnswer` — условие интерфейса `NoneCutscene` |
 | `Vortex.Unity.EditorTools` | `[ClassLabel]` — подпись записи индекса в инспекторе |
 | `UniTask` | асинхронная загрузка контента |
 
@@ -109,6 +110,9 @@ Models/
 Handlers/
   CutsceneOrchestrator             — приём обращений и весь показ: загрузка, сигналы графу, закрытие
   CutsceneContentHandler           — источник автоперехода: сигнал «дальше» с Id показанного узла
+
+UIConditions/
+  NoneCutscene                     — условие интерфейса: открыт без катсцены (с Invert — только во время неё)
 ```
 
 ### Шина и оркестратор
@@ -241,6 +245,19 @@ CutsceneBus.Open(key)                       — шина передаёт про
 ### Прерывание
 
 `Skip` закрывает показ сразу — на ближайшем проходе оркестратора: контент выгружается, рассылается `OnShowFinished`. Пока контент ещё грузится, `Skip` отменяет загрузку.
+
+### Условие интерфейса
+
+`NoneCutscene` — условие для пресета интерфейса (`UserInterfacePreset`, массив `Conditions`, пакет `UIProviderSystem`).
+
+| Поле | Значение |
+|---|---|
+| `invert` выключен (по умолчанию), надпись `NoneCutscene` | интерфейс открыт, пока катсцены нет; закрыт, пока она открывается или идёт |
+| `invert` включён, надпись `ActiveCutscene` | наоборот: открыт только на время катсцены — например, кнопка пропуска |
+
+- Источник — `CutsceneBus.IsActive`: истинно с обращения `Open` до рассылки его `OnShowFinished`.
+- Перепроверка — по `OnShowOpening` и `OnShowFinished`. Интерфейс меняет состояние в кадре, когда оркестратор принял открытие, и после выгрузки контента; отклонённое открытие перепроверяется по своему `OnShowFinished`.
+- Закрытие у провайдера интерфейсов приоритетнее открытия: «закрыт» этого условия перекрывает «открыт» других условий того же пресета.
 
 ### Выключение оркестратора
 
@@ -384,5 +401,10 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
     {
         public void Next();                                   // автопереход: Id показанного узла — шине
     }
+}
+
+namespace Vortex.Unity.CutsceneSystem.UIConditions
+{
+    public class NoneCutscene : UnityUserInterfaceCondition { }   // invert — в инспекторе пресета интерфейса
 }
 ```

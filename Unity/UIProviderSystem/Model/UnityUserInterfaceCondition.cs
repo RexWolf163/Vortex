@@ -12,6 +12,11 @@ namespace Vortex.Unity.UIProviderSystem.Model
     public abstract class UnityUserInterfaceCondition : UserInterfaceCondition
     {
         [DisplayAsString, ShowInInspector, HideLabel, PropertyOrder(-100)]
-        private string Name => GetType().Name;
+        private string Name => GetLabel();
+
+        /// <summary>
+        /// Надпись условия в инспекторе. По умолчанию — имя типа; наследник может показывать свой режим
+        /// </summary>
+        protected virtual string GetLabel() => GetType().Name;
     }
 }

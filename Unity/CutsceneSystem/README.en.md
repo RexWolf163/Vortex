@@ -38,6 +38,7 @@ Out of scope:
 | `Vortex.Core.Extensions` | `StringData`, `IReactiveData` — control data |
 | `Vortex.Unity.UI.Misc` | `UIStateSwitcher`, `[StateSwitcher]` |
 | `Vortex.Unity.AppSystem` | `TimeController` — deferred refusal of an open that arrived while the slot was empty |
+| `Vortex.Core.UIProviderSystem`, `Vortex.Unity.UIProviderSystem` | `UnityUserInterfaceCondition`, `ConditionAnswer` — the `NoneCutscene` interface condition |
 | `Vortex.Unity.EditorTools` | `[ClassLabel]` — index entry label in the inspector |
 | `UniTask` | async content loading |
 
@@ -109,6 +110,9 @@ Models/
 Handlers/
   CutsceneOrchestrator             — request intake and the whole show: loading, graph signals, closing
   CutsceneContentHandler           — auto-transition source: "next" signal with the shown node Id
+
+UIConditions/
+  NoneCutscene                     — interface condition: open without a cutscene (with Invert — only during it)
 ```
 
 ### Bus and orchestrator
@@ -241,6 +245,19 @@ For content where a node change is a tween transition, `StateGraphView` has `swi
 ### Interruption
 
 `Skip` closes the show at once — on the nearest orchestrator pass: content unloads, `OnShowFinished` is raised. While content is loading, `Skip` cancels the load.
+
+### Interface condition
+
+`NoneCutscene` — a condition for an interface preset (`UserInterfacePreset`, the `Conditions` array, `UIProviderSystem` package).
+
+| Field | Meaning |
+|---|---|
+| `invert` off (default), label `NoneCutscene` | the interface is open while there is no cutscene; closed while one is opening or running |
+| `invert` on, label `ActiveCutscene` | the opposite: open only during a cutscene — e.g. a skip button |
+
+- Source — `CutsceneBus.IsActive`: true from the `Open` call until its `OnShowFinished` is raised.
+- Re-checked on `OnShowOpening` and `OnShowFinished`. The interface changes state in the frame the orchestrator accepts the open and after the content unloads; a refused open is re-checked on its `OnShowFinished`.
+- The interface provider gives closing priority over opening: this condition's "closed" overrides "open" from other conditions of the same preset.
 
 ### Disabling the orchestrator
 
@@ -384,5 +401,10 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
     {
         public void Next();                                   // auto transition: the shown node Id — to the bus
     }
+}
+
+namespace Vortex.Unity.CutsceneSystem.UIConditions
+{
+    public class NoneCutscene : UnityUserInterfaceCondition { }   // invert — in the interface preset inspector
 }
 ```
