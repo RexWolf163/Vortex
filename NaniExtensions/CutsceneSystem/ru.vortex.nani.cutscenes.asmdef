@@ -5,7 +5,8 @@
         "Elringus.Naninovel.Runtime",
         "ru.vortex.unity.cutscene",
         "ru.vortex.nani.core",
-        "ru.vortex.system"
+        "ru.vortex.system",
+        "ru.vortex.extensions"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
