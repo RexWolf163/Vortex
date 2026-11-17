@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Vortex.Core.AppSystem.Bus;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.SettingsSystem.Bus;
 
 namespace Vortex.Unity.InputBusSystem
@@ -22,7 +23,10 @@ namespace Vortex.Unity.InputBusSystem
     {
         private static readonly Dictionary<string, InputAction> Actions = new();
         private static readonly Dictionary<string, InputActionMap> Maps = new();
-        private static readonly Dictionary<string, List<object>> MapsUsers = new();
+        /// <summary>
+        /// Пользователи карт ввода: карта включена, пока её замок держит хотя бы один пользователь
+        /// </summary>
+        private static readonly Dictionary<string, MultiLock> MapsUsers = new();
         private static readonly Dictionary<string, List<InputSubscriber>> ActionsUsers = new();
 
         /// <summary>
@@ -41,7 +45,7 @@ namespace Vortex.Unity.InputBusSystem
             var maps = asset.actionMaps;
             foreach (var map in maps)
             {
-                MapsUsers.AddNew(map.name, new List<object>());
+                MapsUsers.AddNew(map.name, new MultiLock());
                 Maps.Add(map.name, map);
                 map.Disable();
 
@@ -102,7 +106,7 @@ namespace Vortex.Unity.InputBusSystem
         /// <param name="inputMapUser"></param>
         public static void AddMapUser(string mapId, object inputMapUser)
         {
-            MapsUsers[mapId].AddOnce(inputMapUser);
+            MapsUsers[mapId].Lock(inputMapUser);
             Maps[mapId].Enable();
         }
 
@@ -114,7 +118,10 @@ namespace Vortex.Unity.InputBusSystem
         /// <param name="inputMapUser"></param>
         public static void RemoveMapUser(string mapId, object inputMapUser)
         {
-            if (MapsUsers[mapId].Remove(inputMapUser) && MapsUsers[mapId].Count == 0)
+            var users = MapsUsers[mapId];
+            var wasLocked = users.IsLocked.Value;
+            users.Unlock(inputMapUser);
+            if (wasLocked && !users.IsLocked.Value)
                 Maps[mapId].Disable();
         }
 

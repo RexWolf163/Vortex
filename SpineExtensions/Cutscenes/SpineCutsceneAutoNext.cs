@@ -7,12 +7,15 @@ using AnimationState = Spine.AnimationState;
 namespace Vortex.SpineExtensions.Cutscenes
 {
     /// <summary>
-    /// Автопереход фазы катсцены по концу Spine-анимации: когда текущая анимация трека отыграла проход, шине
-    /// уходит сигнал «дальше». Сигнал идёт через хэндлер контента: тот называет шине показанную фазу, и
-    /// сигнал от фазы, с которой цепочка уже ушла, отбрасывается.
+    /// Автопереход узла катсцены по концу Spine-анимации: когда текущая анимация трека отыграла проход, шине
+    /// уходит сигнал «дальше». Сигнал идёт через хэндлер контента: тот называет шине показанный узел, и
+    /// сигнал от узла, с которого граф уже ушёл, отбрасывается.
+    ///
+    /// Пока включён и не сработал, держит замок «дальше» шины: команда сценария ждёт конца анимации.
+    /// Анимация идёт по игровому времени скелета, поэтому при промотке ускоряется вместе с текстом.
     ///
     /// Работает, пока включён, и срабатывает один раз за включение. Ставится на объект, который включает
-    /// состояние фазы с автопереходом; в фазах, ждущих команды, его быть не должно
+    /// состояние узла с автопереходом; в узлах, ждущих команды, его быть не должно
     /// </summary>
     public class SpineCutsceneAutoNext : MonoBehaviour
     {
@@ -36,6 +39,9 @@ namespace Vortex.SpineExtensions.Cutscenes
             _fired = false;
             _state = SpineCutsceneSkeleton.GetState(skeletonGraphic, skeletonAnimation);
             _state.Complete += OnComplete;
+
+            //Пока анимация узла не доиграла, команда сценария «дальше» ждёт
+            content.Lock(this);
         }
 
         private void OnDisable()
@@ -43,6 +49,7 @@ namespace Vortex.SpineExtensions.Cutscenes
             if (_state != null)
                 _state.Complete -= OnComplete;
             _state = null;
+            content.Unlock(this);
         }
 
         private void OnComplete(TrackEntry entry)
@@ -52,6 +59,7 @@ namespace Vortex.SpineExtensions.Cutscenes
                 return;
 
             _fired = true;
+            content.Unlock(this);
             content.Next();
         }
     }

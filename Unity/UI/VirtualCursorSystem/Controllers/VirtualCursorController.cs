@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Unity.UI.VirtualCursorSystem.Bus;
 using Vortex.Unity.UI.VirtualCursorSystem.Model;
 
@@ -208,14 +209,14 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
         /// Держатели действий по индексу <see cref="PointerAction"/>: источники, удерживающие действие сейчас.
         /// Бит маски активен, пока держатель есть хотя бы один.
         /// </summary>
-        private static readonly HashSet<object>[] ActionHolders = CreateActionHolders();
+        private static readonly MultiLock[] ActionHolders = CreateActionHolders();
 
-        /// <summary>Пустые наборы держателей — по одному на значение <see cref="PointerAction"/>.</summary>
-        private static HashSet<object>[] CreateActionHolders()
+        /// <summary>Открытые замки держателей — по одному на значение <see cref="PointerAction"/>.</summary>
+        private static MultiLock[] CreateActionHolders()
         {
-            var holders = new HashSet<object>[System.Enum.GetValues(typeof(PointerAction)).Length];
+            var holders = new MultiLock[System.Enum.GetValues(typeof(PointerAction)).Length];
             for (var i = 0; i < holders.Length; i++)
-                holders[i] = new HashSet<object>();
+                holders[i] = new MultiLock();
             return holders;
         }
 
@@ -231,10 +232,10 @@ namespace Vortex.Unity.UI.VirtualCursorSystem.Controllers
         internal static void SetAction(PointerAction action, bool active, object source)
         {
             var holders = ActionHolders[(int)action];
-            if (active) holders.Add(source);
-            else holders.Remove(source);
+            if (active) holders.Lock(source);
+            else holders.Unlock(source);
 
-            _model.Actions.Set(_model.Actions.Value.Set(action, holders.Count > 0), Key);
+            _model.Actions.Set(_model.Actions.Value.Set(action, holders.IsLocked.Value), Key);
         }
 
         /// <summary>

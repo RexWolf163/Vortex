@@ -47,6 +47,8 @@ When the current animation of the track completes a pass, the bus gets the "next
 | `track` | the track whose animation end is awaited |
 
 - Works while enabled and fires **once per enable**.
+- **Holds the bus "next" lock** (through `CutsceneContentHandler.Lock`): takes it on enable, releases it when it fires and on disable. While the lock is locked, the `@cutscene_Play` and `@cutscene_Next` script commands wait for the animation to end — the player cannot cut it short, and text fast-forward does not move the graph off this node too early.
+- The animation runs on the skeleton's game time (`unscaledTime` is off in the bases), so under speed-up — Naninovel fast-forward — its end, and the lock's with it, comes sooner.
 - Placed on an object enabled by the state of a phase with auto-transition (`GameObjectsSwitch`). Phases that wait for a command must not have it.
 - Only the current animation of the track counts: an animation mixing out does not produce the signal.
 - On pause the skeleton is frozen, so there is no signal.
@@ -118,4 +120,5 @@ The base for a sprite cutscene lives in [`Sdk/CutsceneSystem`](../../Sdk/Cutscen
 | No skeleton assigned | `NullReferenceException` on enable |
 | The skeleton has no data | `NullReferenceException` on enable |
 | The track animation changed before the pass ended | the end of the new animation is awaited |
+| The animation never finishes (empty, track not set) | no signal; the "next" lock stays locked until the object is disabled — script commands wait |
 | An event appears in the table twice | the first row plays; if its sound is empty, nothing plays |

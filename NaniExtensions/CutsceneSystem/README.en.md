@@ -24,8 +24,8 @@ Out of scope:
 
 | Command | What it does | What the script waits for |
 |---|---|---|
-| `@cutscene_Play key` | opens a cutscene; the key is an entry key in the scene orchestrator index | the show starting, or a refusal |
-| `@cutscene_Next` | "next": a `Next` signal to the cutscene graph; entering an end node closes the cutscene | nothing |
+| `@cutscene_Play key` | opens a cutscene; the key is an entry key in the scene orchestrator index | the show starting, or a refusal; if the first node has an auto transition — its end as well |
+| `@cutscene_Next` | "next": a `Next` signal to the cutscene graph; entering an end node closes the cutscene | before the signal — the end of an auto-transition node; after it — a 0.2 s real-time pause |
 | `@cutscene_Stop` | stops the cutscene: the show is interrupted, the content unloaded | the cutscene closing |
 | `@cutscene_Skip` | the same as `@cutscene_Stop` | the cutscene closing |
 
@@ -33,11 +33,23 @@ Out of scope:
 
 - A running cutscene is closed first, and the script waits for it to close.
 - Then the script waits until the content is loaded and the show starts — or until the open is refused (the cutscene package logs the reason). The command listens to bus events with its own key only.
+- If the first node has an auto transition (the "next" lock is locked, see below), the script also waits for its end.
 - The command does not wait for the cutscene to end: the script continues while the cutscene is shown.
+
+### The "next" lock
+
+A node with an auto transition (a Spine intro animation) holds the bus lock `CutsceneBus.IsLocked` until it finishes (see the cutscene package README and `SpineCutsceneAutoNext`). While the lock is locked, `@cutscene_Play` and `@cutscene_Next` do not complete: the player cannot cut the intro animation short, and text fast-forward does not move the graph off the intro node instead of the next one — otherwise the cutscene would lag behind the text.
+
+- The animation runs on game time, so fast-forward (Ctrl) speeds it up together with the text.
+- The lock is checked at the end of the frame: by then the auto transition that released the lock is already executed, and the command's "next" does not merge with it.
+- The wait is released by the cutscene closing and by a script stop. The player's request to complete commands (e.g. on save) releases it too; `@cutscene_Next` then still sends its signal, and the intro node is cut short.
+- A node whose animation never finishes holds the script until the cutscene is closed.
 
 ### `@cutscene_Next`
 
-Works on any graph node of a running cutscene: the graph picks the first "on `Next`" transition whose conditions are met; if it leads to an end node, the cutscene closes. Ignored: before the show has started (the content is still loading) and earlier than the debounce delay (an orchestrator setting). The node changes on the orchestrator's next pass; content with a switch delay shows it subject to that delay.
+Works on any graph node of a running cutscene: the graph picks the first "on `Next`" transition whose conditions are met; if it leads to an end node, the cutscene closes. The command first waits for the "next" lock to open. The node changes on the orchestrator's next pass; content with a switch delay shows it subject to that delay.
+
+After the signal the script holds a 0.2 s real-time pause (at least a frame). The bus executes "next" on an orchestrator pass, and two requests within one pass merge into one: without the pause, fast-forward (Ctrl) would lose adjacent commands and the cutscene would lag behind the text. The time is real: fast-forward speeds up game time but does not shorten the pause — fast-forward is held for 0.2 s on every command. With no open cutscene there is no pause. A script stop releases the pause, and so does the player's request to complete commands (e.g. on save).
 
 ### `@cutscene_Stop` and `@cutscene_Skip`
 

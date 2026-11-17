@@ -44,6 +44,11 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         private static int _opened;
 
         /// <summary>
+        /// Замок «дальше»: держат источники автоперехода, чей узел ещё доигрывает
+        /// </summary>
+        private static readonly MultiLock NextLock = new();
+
+        /// <summary>
         /// Управляющие данные показа: имя текущего узла графа катсцены
         /// </summary>
         public static CutsceneControl Control { get; } = new(NodeData);
@@ -52,6 +57,13 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         /// Катсцена открыта: открытие принято, контент загружается либо показ идёт
         /// </summary>
         public static bool IsActive => _opened > 0;
+
+        /// <summary>
+        /// Замок «дальше»: узел с автопереходом ещё доигрывает. Держится, пока его не отпустят все держатели.
+        /// Шина «дальше» при замке не отклоняет — замок читают источники команд, которым надо дождаться
+        /// автоперехода (команда сценария), прежде чем подать свою
+        /// </summary>
+        public static BoolData IsLocked => NextLock.IsLocked;
 
         /// <summary>
         /// Катсцена открывается: открытие принято оркестратором, началась загрузка контента. Параметр — ключ
@@ -88,6 +100,7 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         private static void Init()
         {
             Refused.Clear();
+            NextLock.Clear();
             _holder = null;
             _opened = 0;
 
@@ -128,13 +141,12 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         }
 
         /// <summary>
-        /// Команда «дальше»: сигнал <c>Next</c> графу катсцены. Вход в конечный узел закрывает показ. Запрос,
-        /// пришедший раньше заданной в оркестраторе задержки после входа в узел, игнорируется (защита от дребезга)
+        /// Команда «дальше»: сигнал <c>Next</c> графу катсцены. Вход в конечный узел закрывает показ
         /// </summary>
         public static void Next() => OnNextRequested?.Invoke();
 
         /// <summary>
-        /// Сигнал «дальше» от самого контента (узел с автопереходом). Защиту от дребезга обходит.
+        /// Сигнал «дальше» от самого контента (узел с автопереходом).
         /// Контент называет узел, который показывает: сигнал от узла, с которого показ уже ушёл,
         /// игнорируется — иначе он проскочил бы следующий узел
         /// </summary>
@@ -144,7 +156,7 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         /// <summary>
         /// Выставить узел графа, минуя условия (<c>ForceNode</c>): по Id или имени. Неизвестный узел — ошибка
         /// в лог, узел не меняется. Пришло, пока контент грузится, — применяется при старте показа вместо
-        /// стартового узла. Защиту от дребезга не проходит
+        /// стартового узла
         /// </summary>
         /// <param name="node">Id или имя узла</param>
         public static void SetNode(string node) => OnNodeRequested?.Invoke(node);
@@ -154,6 +166,18 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         /// Катсцена не открыта — ничего не делает
         /// </summary>
         public static void Skip() => OnSkipRequested?.Invoke();
+
+        // ── Замок «дальше» — держат источники автоперехода через хэндлер контента ──
+
+        /// <summary>
+        /// Взять замок «дальше». Повторный захват тем же держателем ничего не добавляет
+        /// </summary>
+        internal static void Lock(object holder) => NextLock.Lock(holder);
+
+        /// <summary>
+        /// Отпустить замок «дальше». Держатель, который замок не брал, ничего не меняет
+        /// </summary>
+        internal static void Unlock(object holder) => NextLock.Unlock(holder);
 
         /// <summary>
         /// Разослать «показ завершён» открытиям, отклонённым из-за пустого слота

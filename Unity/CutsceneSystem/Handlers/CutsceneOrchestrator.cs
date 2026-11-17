@@ -55,10 +55,6 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         [SerializeField, Tooltip("Куда ставится контент. Не задано — под сам оркестратор.")]
         private Transform target;
 
-        [SerializeField, Min(0f), Tooltip(
-             "Защита от дребезга: сколько секунд после входа в узел команда «дальше» игнорируется.")]
-        private float nextDelay = 0.2f;
-
         private bool _registered;
         private CutsceneStageState _state;
 
@@ -120,8 +116,6 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
         /// Граф идущей катсцены — копия, которую держит <see cref="StateGraphView"/> контента
         /// </summary>
         private StateGraph _graph;
-
-        private float _nodeStartedAt = float.NegativeInfinity;
 
         /// <summary>
         /// Показ запущен: контент создан, граф показывает первый узел. До этого «дальше» не принимается
@@ -207,7 +201,7 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
 
         private void RequestNext()
         {
-            if (CanAdvance && Time.unscaledTime - _nodeStartedAt >= nextDelay)
+            if (CanAdvance)
                 _nextRequested = true;
         }
 
@@ -260,7 +254,6 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             if (string.IsNullOrEmpty(nodeId))
                 return;
 
-            _nodeStartedAt = Time.unscaledTime;
             CutsceneBus.PublishNode(_graph?.GetNode(nodeId)?.Name);
         }
 
@@ -549,7 +542,6 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
             //(контент при выгрузке выключил оркестратор) ничего не сделает
             _key = null;
             _started = false;
-            _nodeStartedAt = float.NegativeInfinity;
             _nextRequested = false;
             if (_graph != null)
             {

@@ -63,7 +63,7 @@ The graph is edited in the visualizer. Cutscene prefabs and graphs can be create
 - If the cutscene has auto transitions — also a `CutsceneContentHandler` on the root: the content sends "next" through it.
 - `UIStateSwitcher`: a state per graph node, with the same name, including the empty `End` state.
 - A node's visuals and sound are the items and objects of its state.
-- A node with an auto transition has a signal source: a `CutsceneContentHandler.Next()` call from the state (`EventFire`) or a dedicated handler (for Spine — `SpineCutsceneAutoNext`).
+- A node with an auto transition has a signal source: a `CutsceneContentHandler.Next()` call from the state (`EventFire`) or a dedicated handler (for Spine — `SpineCutsceneAutoNext`). A dedicated handler locks the "next" lock for the node's duration (see "The "next" lock").
 
 Ready-made content prefab bases live one layer up, because their sound uses SDK handlers:
 
@@ -79,7 +79,6 @@ An object with `CutsceneOrchestrator`:
 | `cutscenes` | index: cutscene key and its content prefab handle. Keys are unique: on a duplicate the editor warns, the first entry is opened |
 | `switcher` | orchestrator state switcher: Off / Loading / On |
 | `target` | where content is placed; unset — under the orchestrator itself |
-| `nextDelay` | debounce, seconds; 0.2 by default |
 
 ### 4. Commands
 
@@ -109,7 +108,8 @@ Models/
 
 Handlers/
   CutsceneOrchestrator             — request intake and the whole show: loading, graph signals, closing
-  CutsceneContentHandler           — auto-transition source: "next" signal with the shown node Id
+  CutsceneContentHandler           — auto-transition source: "next" signal with the shown node Id;
+                                     gateway of the "next" lock for dedicated handlers
 
 UIConditions/
   NoneCutscene                     — interface condition: open without a cutscene (with Invert — only during it)
@@ -124,6 +124,7 @@ The dependency is one-way: the orchestrator knows the bus, the bus knows only th
 | Slot | a single holder; while taken, a second candidate is refused |
 | Requests | `Open`, `Next`, `Next(node)`, `SetNode`, `Skip`. The bus passes them to the slot holder as events at once and forgets them |
 | Show data | current node name (`Control`). Written by the slot holder |
+| "Next" lock | `IsLocked`: a node with an auto transition is still playing. Taken and released by auto-transition sources; the orchestrator does not read it |
 | Show events | `OnShowOpening`, `OnShowStarted`, `OnShowFinished`. Raised by the slot holder |
 
 The bus itself does one thing: it refuses an open that arrives while the slot is empty. It does not wait for an orchestrator: an error is logged at once, `OnShowFinished(key)` — at the end of the frame. The event is deferred so that a subscriber that reopens a cutscene on every refusal does not recurse forever. The deferred event is raised by `TimeController`: without it in the scene it will not come.
@@ -137,8 +138,8 @@ When a request arrives, the orchestrator only remembers it:
 | Request | What is remembered | When it is not accepted |
 |---|---|---|
 | `Open(key)` | "open requested" and the key. A previous, not yet executed open is pushed out and gets `OnShowFinished`; requests for the previous show's progress are cancelled | — |
-| `Next()` | "next requested" | the show is not started yet (content loading); an open, a skip or a close by graph end is pending; less than `nextDelay` since entering the node |
-| `Next(node)` | "next requested" | same, but without debounce; instead the node must match the graph's current node |
+| `Next()` | "next requested" | the show is not started yet (content loading); an open, a skip or a close by graph end is pending |
+| `Next(node)` | "next requested" | same, and also when the node does not match the graph's current node |
 | `SetNode(node)` | "node requested" with its Id or name; a later request replaces an earlier one. Arrived while the cutscene is opening — waits for the show to start | no cutscene open or opening; a skip is pending; empty name (error logged) |
 | `Skip()` | "skip requested". A pending open is cancelled and gets `OnShowFinished` | — |
 
@@ -159,7 +160,7 @@ Rules:
 - **Graph progress — only what was requested before the pass.** A request arriving during execution (e.g. an auto transition from the state of a just shown node) is executed next frame.
 - **Graph progress — only for its own cutscene and only after the show starts.** "Next" before the start is ignored; a node request before the start waits for it and replaces the start node. A request accepted for one cutscene does not carry over to another.
 - **Setting a node is more precise than "next".** Both in one pass — the node is set.
-- **Condition transitions** are made by the graph itself, at any moment: the orchestrator learns of them from the graph's current node (debounce counts from them too) and of the graph end — from `OnFinished`.
+- **Condition transitions** are made by the graph itself, at any moment: the orchestrator learns of them from the graph's current node and of the graph end — from `OnFinished`.
 - **No nesting.** An event handler may call the bus: the request is remembered and executed later — in the same pass if its step is still ahead, otherwise next frame.
 - **A failure does not stop the pass.** An exception in a step is logged; the remaining steps run.
 - **The step order is fixed**, not the arrival order. The difference shows only when different requests arrive in one frame: `Skip` after `Open` cancels that open; `Open` after `Skip` — both are executed.
@@ -200,19 +201,32 @@ CutsceneBus.Open(key)                       — the bus passes the request, the 
 - **End** — entering a node without transitions: the show closes. `StateGraphView` switches the switcher to that node's state (`End`), but it hardly reaches the screen: after `Next` or `SetNode` the show closes in the same pass, before the frame renders, after a condition transition — on the nearest pass. The state is needed so the View does not log a missing-state error.
 - **Setting a node** — by Id or name, bypassing conditions. Unknown node — the graph logs an error, the node does not change. The current node — nothing happens.
 
-### The "next" signal and debounce
+### The "next" signal
 
 One signal, two sources:
 
-- `CutsceneBus.Next()` — an external command. Not accepted until `nextDelay` has passed since entering the node; time ignores `Time.timeScale`. It carries no node and does not check it.
-- `CutsceneBus.Next(node)` — an auto transition from the content. Bypasses debounce. The content names the Id of the node it shows; the signal is accepted only if the graph is on that same node.
+- `CutsceneBus.Next()` — an external command. It carries no node and does not check it: accepted on any node of a started show.
+- `CutsceneBus.Next(node)` — an auto transition from the content. The content names the Id of the node it shows; the signal is accepted only if the graph is on that same node. The check happens when the request arrives.
 
-Both checks happen when the request arrives. Both orders are covered:
+There is no debounce: every command arriving on a separate orchestrator pass moves the graph. Signal orders:
 
-- An auto transition fired, then a command came — it falls into the new node's debounce window and does not skip it. The window counts from any node entry, including by setting and by conditions; with `nextDelay = 0` there is no debounce.
+- An auto transition fired, then a command came on another pass — it moves the graph on from the new node too. Both on one pass — they merge into one signal.
 - A command came, then the previous node's auto transition fired (while the content catches up) — the signal names the old node and is not accepted.
 
+Commands that follow each other faster than an orchestrator pass merge (see "One "next" request per node"). A source for which every command matters keeps at least a frame between them — the `@cutscene_Next` script command does so.
+
 The content handler supplies the node itself: the auto-transition source calls `CutsceneContentHandler.Next()`, which takes the shown node Id from `StateGraphView`. A call from disabled content is ignored: its show is closed, and a deferred signal (tween, timer) must not leak into the next cutscene.
+
+### The "next" lock
+
+An external command arriving while a node with an auto transition is still playing would move the graph off that node instead of the next one: on text fast-forward the cutscene would fall a node behind. The lock lets a command source wait for the auto transition.
+
+- **Holders.** The lock is locked while at least one holder holds it (`CutsceneBus.IsLocked` — the reactive `BoolData` of a `MultiLock` from `ReactiveValues`). Taking and releasing it is `internal` on the bus; outside the package — through `CutsceneContentHandler.Lock(holder)` / `Unlock(holder)`. Taking it again by the same holder adds nothing.
+- **Who holds.** An auto-transition source: takes the lock on enable, releases it when it fires and on disable. `SpineCutsceneAutoNext` does so itself; a `CutsceneContentHandler.Next()` call from `EventFire` does not take the lock.
+- **Who reads.** A command source that must not cut a node short — e.g. the `@cutscene_Play` and `@cutscene_Next` script commands: they wait until the lock opens. The orchestrator and the bus do not reject "next" while the lock is locked.
+- **Order.** The source releases the lock and sends its signal right away; the orchestrator executes it on the nearest pass. A reader checking the lock at the end of the frame sees it open only after the auto transition is executed — its command does not merge with the auto transition.
+- **Time.** The lock lasts as long as the node plays — on the time the content runs on. A Spine skeleton runs on game time, so under speed-up (`Time.timeScale`, Naninovel fast-forward) the node and the lock end sooner.
+- **Show end.** Content is disabled on close — holders release the lock on disable. The reset at game start clears the lock together with the bus statics.
 
 ### Show events
 
@@ -331,7 +345,6 @@ The slot is free from the moment of disabling: another orchestrator may take it 
 | Prefab load failure, empty prefab, no `StateGraphView` on the root, graph not obtained or not started | `Debug.LogError`, content unloads, `OnShowFinished(key)` |
 | Exception while starting the show (content creation, node entry) | exception logged, the show closes, `OnShowFinished(key)`; `OnShowStarted` is not raised |
 | Load completed after cancellation, including a failure | the result is discarded, the running show is unaffected |
-| `Next` earlier than `nextDelay` after entering a node | not accepted |
 | `Next` / `SetNode` / `Skip` without an open cutscene, `Next` before the show starts | nothing |
 | `Next` in a node without a matching "on `Next`" transition | the node's configured reaction (silent / warning / error), node unchanged |
 | `Next` leads to an end node | the show closes in the same pass, `OnShowFinished(key)` |
@@ -346,6 +359,8 @@ The slot is free from the moment of disabling: another orchestrator may take it 
 | Several `Next` per frame from any sources | one signal to the graph |
 | `Next(node)` with a node the graph already left | not accepted |
 | `CutsceneContentHandler.Next()` from disabled content | ignored |
+| `Next` while the lock is locked | accepted: command sources read the lock, the bus and the orchestrator do not check it |
+| An auto-transition source never sees its node end (the animation does not finish) | the lock stays locked until the source is disabled — usually until the node changes or the show closes |
 | `Skip` during loading | loading cancelled, `OnShowFinished(key)` |
 | `Skip` twice per frame | one skip |
 | Exception in a show event subscriber | logged; other subscribers get the event; after `OnShowOpening` or `OnShowStarted` the cutscene is interrupted next frame |
@@ -369,13 +384,14 @@ namespace Vortex.Unity.CutsceneSystem.Bus
     {
         public static CutsceneControl Control { get; }
         public static bool IsActive { get; }      // open accepted, content loading or show running
+        public static BoolData IsLocked { get; }  // "next" lock (MultiLock): a node with an auto transition is playing
 
         public static event Action<string> OnShowOpening;    // parameter — cutscene key
         public static event Action<string> OnShowStarted;    // parameter — cutscene key
         public static event Action<string> OnShowFinished;   // parameter — cutscene key
 
         public static void Open(string key);      // key — orchestrator index entry key
-        public static void Next();                // external command, debounced
+        public static void Next();                // external command
         public static void Next(string nodeId);   // auto transition from content; nodeId — the shown node
         public static void SetNode(string node);  // set a node — Id or name
         public static void Skip();                // close the show at once
@@ -400,6 +416,8 @@ namespace Vortex.Unity.CutsceneSystem.Handlers
     public class CutsceneContentHandler : MonoBehaviour
     {
         public void Next();                                   // auto transition: the shown node Id — to the bus
+        public void Lock(Object holder);                      // lock "next" for the node's duration
+        public void Unlock(Object holder);                    // release the lock
     }
 }
 

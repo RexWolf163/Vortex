@@ -16,6 +16,7 @@
 - Implicit-оператор для чтения без `.Value`
 - Владелец контейнера — только владелец может изменять значение через `Set()`
 - Интерфейс `IReactiveData` помечен `[POCO]` — все реализации автоматически сериализуемы через `SerializeController`
+- Мультизамок `MultiLock` — заперт, пока его держит хотя бы один держатель; состояние — реактивное `BoolData`
 
 Вне ответственности:
 - Потокобезопасность
@@ -181,6 +182,29 @@ inventory.Items.Add(itemId, other);          // Error: чужой owner
 var snapshot = inventory.Items.GetList();    // IReadOnlyList<ItemId>, доступ только для чтения
 ```
 
+### Мультизамок
+
+`MultiLock` — замок с держателями: заперт, пока его держит хотя бы один. Каждый держатель берёт и отпускает замок сам за себя, поэтому уход одного не открывает замок, пока держат другие. Так устроены «карта ввода активна, пока у неё есть пользователи», «действие курсора удерживается, пока его держит хоть один источник», замок «дальше» катсцен.
+
+```csharp
+public class MapUsers
+{
+    private readonly MultiLock _users = new();
+
+    public MapUsers() => _users.IsLocked.OnUpdate += active => Debug.Log($"Карта активна: {active}");
+
+    public void Add(object user) => _users.Lock(user);       // первый держатель — замок заперт
+    public void Remove(object user) => _users.Unlock(user);  // ушёл последний — замок открыт
+
+    public bool IsActive => _users.IsLocked;                 // implicit operator BoolData → bool
+}
+```
+
+- **`IsLocked`** — реактивное `BoolData`; события приходят только при смене «заперт ↔ открыт». Владелец значения — сам замок: запись снаружи (`IsLocked.Set(...)`) даёт ошибку в лог и ничего не меняет.
+- **Держатель** — любой объект, сравнивается по `Equals` / `GetHashCode` (`HashSet`). Повторный `Lock` тем же держателем и `Unlock` не державшим ничего не меняют.
+- **`Clear()`** снимает всех держателей — для сброса статики и общей очистки.
+- Набор замков по ключу (карта ввода, действие) потребитель держит сам — например, `Dictionary<string, MultiLock>` или массив по enum.
+
 ### Использование с QuestController
 
 ```csharp
@@ -203,6 +227,8 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 │
 └── ReactiveCollection<T> (abstract)     ← реактивный List<T>: Add/Remove/Insert/Sort/...
     └── ListData<T>                      ← конструкторы (пустой / из List<T>)
+
+MultiLock                                ← замок с держателями; IsLocked: BoolData (владелец — сам замок)
 ```
 
 ### Компоненты
@@ -218,6 +244,7 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 | `EnumData<TEnum>` | `ReactiveValue<TEnum>` для любого `Enum`. Конструкторы: `(TEnum)`, `(TEnum, object owner)` |
 | `ReactiveCollection<T>` | Абстрактный реактивный `List<T>`: `OnUpdate(IReadOnlyList<T>)`, мутаторы Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, индексатор по чтению, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Identity внутреннего списка сохраняется навсегда. Конструкторов нет — использовать `ListData<T>` |
 | `ListData<T>` | Канонический наследник `ReactiveCollection<T>` с инициализирующими конструкторами: `()` — пустой, `(List<T>)` — копия переданного |
+| `MultiLock` | Замок с держателями: `IsLocked` (`BoolData`), `Count`, `Lock(holder)`, `Unlock(holder)`, `Clear()`. Не реализует `IReactiveData` — реактивно его поле `IsLocked` |
 
 ---
 
@@ -277,3 +304,8 @@ IReactiveData [POCO]                     ← интерфейс: event OnUpdateD
 | `ReactiveCollection.GetList()` | Возвращает `ReadOnlyCollection<T>`-обёртку над внутренним списком. Снэпшот **живой** — отражает все последующие мутации (Add/Remove/Insert/Sort/...) и полную замену через `Set(List<T>)` (которая использует Clear+AddRange и сохраняет identity внутреннего списка). Напрямую изменить нельзя |
 | `new ListData<T>(list)` | Хранит копию переданного списка (через `.ToList()`); мутации источника не влияют |
 | `new ListData<T>(null)` | `NullReferenceException`. Для пустого списка использовать параметрless-конструктор |
+| `MultiLock.Lock(null)` / `Unlock(null)` | Ошибка в лог, замок не меняется |
+| `MultiLock.Lock` тем же держателем повторно | Ничего: держатель учитывается один раз, одного `Unlock` хватает |
+| `MultiLock.Unlock` держателем, который не брал замок | Ничего |
+| `MultiLock.IsLocked.Set(...)` снаружи | Ошибка владения в лог, значение не меняется |
+| Держатель уничтожен, не отпустив замок | Замок остаётся запертым — отпускать обязан сам держатель (обычно на `OnDisable` / `Dispose`) |
