@@ -115,9 +115,10 @@ sdk.settings.system  (asmdef)
 | `[InitializeOnLoadMethod]` (загрузка домена) на «прогретом» ассете | `OnPlatformChanged` → `RefreshDefines` |
 | `EditorUserBuildSettings.activeBuildTargetChanged` | То же — `RefreshDefines` |
 | Импорт ассета `SdkSettings` вне `Editor`-папок (`SdkSettingsImportWatcher`) | `delayCall` → `OnPlatformChanged` → `RefreshDefines`. Покрывает смену ассета без перезагрузки домена: применение варианта AssetSwap, `git checkout/pull`, внешняя правка. Перекомпиляция скриптов не срабатывает (импортируются только `.cs`); повтор безвреден — запись в PlayerSettings только при изменении набора дефайнов |
-| Кнопка `ApplyChanges` в инспекторе | `RefreshDefines` — bool-поля → PlayerSettings |
+| Кнопка `ApplyChanges` в инспекторе | `RefreshDefines` — bool-поля → PlayerSettings. У заготовки в `Editor`-папке кнопки нет (вызов отклоняется с `LogError`) |
 | Вызов `SdkSettings.SyncDefinesNow()` (скрипт сборки, CI) | Сразу, без `delayCall`: `RefreshDefines` действующего ассета. Отказ (с ошибкой в лог) — во время сборки/импорта/компиляции, без ассета или при неинициализированном ассете |
-| Кнопка `ReloadStates` в инспекторе | Чтение PlayerSettings → bool-поля + `SetDirty` + `SaveAssets` |
+| Кнопка `ReloadStates` в инспекторе | Чтение PlayerSettings → bool-поля + `SetDirty` + `SaveAssets`. У заготовки в `Editor`-папке кнопки нет (вызов отклоняется с `LogError`) |
+| Тоггл на заготовке в `Editor`-папке (вариант AssetSwap) | Меняется только файл заготовки; дефайны не трогаются. Вместо кнопок — пояснение. Галочки действуют после подмены действующего ассета этим файлом (через `SdkSettingsImportWatcher`) |
 
 ### Зачем `_initialized`-флаг
 
@@ -163,7 +164,7 @@ public static void BuildNutaku()
 |----------|-----------|
 | Ассет `SdkSettings` отсутствует в проекте | Тихий no-op (`OnPlatformChanged` ничего не делает) |
 | Найдено более одного ассета вне `Editor`-папок | `LogError` со списком путей и abort |
-| Копии ассета в `Editor`-папках (варианты AssetSwap) | Поиском и наблюдателем импорта игнорируются. Кнопки инспектора у них работают: `ApplyChanges` на копии применит **её** тогглы к дефайнам проекта, `ReloadStates` перезапишет копию текущими дефайнами — копии правьте только тогглами |
+| Копии ассета в `Editor`-папках (варианты AssetSwap) | Поиском и наблюдателем импорта игнорируются. Кнопки `ApplyChanges` / `ReloadStates` у них скрыты, вместо них — пояснение; вызов в обход инспектора отклоняется с `LogError`. Копии правятся только тогглами |
 | Два partial-куска объявляют один и тот же `[DefineSymbol("X")]` | `LogError` про дубликат, в карту попадает первый |
 | Поле помечено `[DefineSymbol]`, но не `bool` | Игнорируется |
 | `BuildTargetGroup.Unknown` | Тихий выход |

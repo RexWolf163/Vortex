@@ -115,9 +115,10 @@ After project reimport a new toggle appears in the `SdkSettings` inspector.
 | `[InitializeOnLoadMethod]` (domain reload) on an already-initialized asset | `OnPlatformChanged` → `RefreshDefines` |
 | `EditorUserBuildSettings.activeBuildTargetChanged` | Same — `RefreshDefines` |
 | Import of the `SdkSettings` asset outside `Editor` folders (`SdkSettingsImportWatcher`) | `delayCall` → `OnPlatformChanged` → `RefreshDefines`. Covers asset changes without a domain reload: AssetSwap variant applied, `git checkout/pull`, external edit. Script recompilation does not trigger it (only `.cs` are imported); a repeat is harmless — PlayerSettings are written only when the define set changes |
-| `ApplyChanges` button in the inspector | `RefreshDefines` — bool fields → PlayerSettings |
+| `ApplyChanges` button in the inspector | `RefreshDefines` — bool fields → PlayerSettings. A template in an `Editor` folder has no button (a call is rejected with `LogError`) |
 | `SdkSettings.SyncDefinesNow()` call (build script, CI) | Immediately, without `delayCall`: `RefreshDefines` of the active asset. Refused (with an error in the log) during a build/import/compilation, without an asset or with an uninitialized asset |
-| `ReloadStates` button in the inspector | Read PlayerSettings → bool fields + `SetDirty` + `SaveAssets` |
+| `ReloadStates` button in the inspector | Read PlayerSettings → bool fields + `SetDirty` + `SaveAssets`. A template in an `Editor` folder has no button (a call is rejected with `LogError`) |
+| Toggle on a template in an `Editor` folder (AssetSwap variant) | Only the template file changes; defines are untouched. A note is shown instead of the buttons. The toggles take effect once this file replaces the active asset (via `SdkSettingsImportWatcher`) |
 
 ### Why the `_initialized` flag
 
@@ -163,7 +164,7 @@ Notes:
 |-----------|-----------|
 | `SdkSettings` asset is absent | Silent no-op (`OnPlatformChanged` does nothing) |
 | Multiple assets found outside `Editor` folders | `LogError` with the paths and abort |
-| Asset copies in `Editor` folders (AssetSwap variants) | Ignored by the search and by the import watcher. Their inspector buttons still work: `ApplyChanges` on a copy applies **its** toggles to the project defines, `ReloadStates` overwrites the copy with the current defines — edit copies with toggles only |
+| Asset copies in `Editor` folders (AssetSwap variants) | Ignored by the search and by the import watcher. Their `ApplyChanges` / `ReloadStates` buttons are hidden, a note is shown instead; a call bypassing the inspector is rejected with `LogError`. Copies are edited with toggles only |
 | Two partial chunks declare the same `[DefineSymbol("X")]` | `LogError` about the duplicate, only the first stays in the map |
 | A `[DefineSymbol]`-marked field is not `bool` | Ignored |
 | `BuildTargetGroup.Unknown` | Silent exit |

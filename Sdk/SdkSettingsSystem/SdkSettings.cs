@@ -113,9 +113,30 @@ namespace Vortex.Sdk.SdkSettingsSystem
             }
         }
 
-        [Button, HorizontalGroup("btns")]
+        /// <summary>
+        /// Ассет — заготовка в Editor-папке (напр. вариант AssetSwap): дефайнами не управляет, кнопки синхронизации
+        /// скрыты. Галочки заготовки начинают действовать, когда её файл подменяет действующий ассет
+        /// </summary>
+        private bool IsTemplate => IsInEditorFolder(AssetDatabase.GetAssetPath(this));
+
+        [OnInspectorGUI, PropertyOrder(-100), ShowIf(nameof(IsTemplate))]
+        private void DrawTemplateNote() =>
+            EditorGUILayout.HelpBox(
+                "Заготовка в Editor-папке (вариант AssetSwap): дефайнами проекта не управляет. Галочки задают, какие " +
+                "дефайны получит проект, когда этот файл подменит действующий ассет. Кнопки синхронизации " +
+                "(ApplyChanges / ReloadStates) — только у действующего ассета.",
+                MessageType.Info);
+
+        [Button, HorizontalGroup("btns"), HideIf(nameof(IsTemplate))]
         private void ReloadStates()
         {
+            if (IsTemplate)
+            {
+                Debug.LogError($"[SdkSettings] ReloadStates на заготовке {AssetDatabase.GetAssetPath(this)} " +
+                               "отклонён — галочки варианта не перезаписываются дефайнами проекта.", this);
+                return;
+            }
+
             var group = EditorUserBuildSettings.selectedBuildTargetGroup;
             if (group == BuildTargetGroup.Unknown) return;
 
@@ -178,9 +199,16 @@ namespace Vortex.Sdk.SdkSettingsSystem
             }
         }
 
-        [Button, HorizontalGroup("btns")]
+        [Button, HorizontalGroup("btns"), HideIf(nameof(IsTemplate))]
         private void ApplyChanges()
         {
+            if (IsTemplate)
+            {
+                Debug.LogError($"[SdkSettings] ApplyChanges на заготовке {AssetDatabase.GetAssetPath(this)} " +
+                               "отклонён — дефайны проекта задаёт только действующий ассет.", this);
+                return;
+            }
+
             RefreshDefines();
         }
 
