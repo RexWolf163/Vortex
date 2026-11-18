@@ -241,6 +241,8 @@ ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
 ToolsSettings.GetLineColor(DefaultColors.TextColor);
 ```
 
+The `Graph*` keys (`GraphBg`, `GraphNodeBg`, `GraphNodeCurrentBg`, `GraphNodeText`, `GraphNodeTagText`, `GraphNodeBorder`, `GraphStart`, `GraphSelected`, `GraphWarning`, `GraphError`, `GraphEdge`, `GraphEdgeNext`, `GraphLabelBg`, `GraphPort`) are the palette for graph editors (the `StateGraphSystem` visualizer), the "Graph editors" section of the asset.
+
 ### `PrefabTools/PrefabOverrideCleanerWindow`
 
 A window for cleaning up redundant prefab overrides — modifications whose value equals the value in the source prefab. Such overrides pile up while editing variants and clutter the Overrides list.

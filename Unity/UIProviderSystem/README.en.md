@@ -100,6 +100,14 @@ public sealed class MyCondition : UnityUserInterfaceCondition
 }
 ```
 
+The condition's label in the Inspector is the type name. A condition with a mode (e.g. inversion) can show it in the label by overriding `GetLabel()`:
+
+```csharp
+[SerializeField] private bool invert;
+
+protected override string GetLabel() => invert ? "NotMyCondition" : nameof(MyCondition);
+```
+
 ---
 
 ## Architecture
@@ -151,7 +159,8 @@ UIDragHandler : MonoBehaviour, IDragHandler, IPointerDownHandler, IPointerUpHand
   └── OnPointerUp → uiStateSwitcher.Set(DragState.Free)
 
 UnityUserInterfaceCondition : UserInterfaceCondition
-  └── [DisplayAsString] Name (for Inspector)
+  ├── [DisplayAsString] Name (for Inspector) ← GetLabel()
+  └── protected virtual GetLabel() → type name; a subclass may override it
 
 Built-in conditions:
   ├── AutoLoadCondition        → always Open, reopens on Close

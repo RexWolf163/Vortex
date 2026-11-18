@@ -12,18 +12,16 @@ namespace Vortex.Unity.CutsceneSystem.Bus
     /// Шина катсцен: единая точка обращений. Вызывающему не нужно знать, какая катсцена идёт и чем она
     /// показана.
     ///
-    /// Шина ничего не решает и ничего не исполняет. Обращение (открыть, дальше, пропустить, сигнал звена
-    /// цепочки) она сразу передаёт держателю слота событием и забывает о нём. Всё остальное — проверки,
-    /// загрузка, запуск цепочки, закрытие — делает держатель слота, оркестратор сцены. Шина о нём знает
-    /// только то, что слот занят.
+    /// Шина ничего не решает и ничего не исполняет. Обращение (открыть, дальше, выставить узел, пропустить)
+    /// она сразу передаёт держателю слота событием и забывает о нём. Всё остальное — проверки, загрузка, ход
+    /// графа, закрытие — делает держатель слота, оркестратор сцены. Шина о нём знает только то, что слот занят.
     ///
-    /// Кроме слота шина хранит данные показа, которые читают звенья, условия и контент: номер фазы, признак
-    /// пролёта и идентификатор цепочки идущего показа. Пишет их держатель слота
+    /// Кроме слота шина хранит управляющие данные показа: имя текущего узла графа. Пишет их держатель слота
     /// </summary>
     public static class CutsceneBus
     {
         private static readonly object Key = new();
-        private static readonly IntData PhaseData = new(0, Key);
+        private static readonly StringData NodeData = new(string.Empty, Key);
 
         /// <summary>
         /// Владелец отложенной рассылки отказов
@@ -41,30 +39,31 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         private static Object _holder;
 
         /// <summary>
-        /// Идентификатор цепочки идущего показа в реестре логических цепочек. По нему условия узнают свой
-        /// показ. <c>null</c> — цепочка не запущена
-        /// </summary>
-        private static string _chain;
-
-        /// <summary>
         /// Сколько принятых открытий ещё не получили свой «показ завершён»
         /// </summary>
         private static int _opened;
 
         /// <summary>
-        /// Управляющие данные показа — их получает контент катсцены
+        /// Замок «дальше»: держат источники автоперехода, чей узел ещё доигрывает
         /// </summary>
-        public static CutsceneControl Control { get; } = new(PhaseData);
+        private static readonly MultiLock NextLock = new();
 
         /// <summary>
-        /// Идёт пролёт до конца цепочки
+        /// Управляющие данные показа: имя текущего узла графа катсцены
         /// </summary>
-        public static bool IsSkipping { get; private set; }
+        public static CutsceneControl Control { get; } = new(NodeData);
 
         /// <summary>
         /// Катсцена открыта: открытие принято, контент загружается либо показ идёт
         /// </summary>
         public static bool IsActive => _opened > 0;
+
+        /// <summary>
+        /// Замок «дальше»: узел с автопереходом ещё доигрывает. Держится, пока его не отпустят все держатели.
+        /// Шина «дальше» при замке не отклоняет — замок читают источники команд, которым надо дождаться
+        /// автоперехода (команда сценария), прежде чем подать свою
+        /// </summary>
+        public static BoolData IsLocked => NextLock.IsLocked;
 
         /// <summary>
         /// Катсцена открывается: открытие принято оркестратором, началась загрузка контента. Параметр — ключ
@@ -74,8 +73,7 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         public static event Action<string> OnShowOpening;
 
         /// <summary>
-        /// Показ начался: контент загружен, цепочка запущена, первая фаза ушла контенту. Параметр — ключ
-        /// катсцены
+        /// Показ начался: контент загружен, граф запущен и показывает первый узел. Параметр — ключ катсцены
         /// </summary>
         public static event Action<string> OnShowStarted;
 
@@ -90,23 +88,9 @@ namespace Vortex.Unity.CutsceneSystem.Bus
 
         internal static event Action<string> OnOpenRequested;
         internal static event Action OnNextRequested;
-        internal static event Action<int> OnAutoNextRequested;
+        internal static event Action<string> OnAutoNextRequested;
+        internal static event Action<string> OnNodeRequested;
         internal static event Action OnSkipRequested;
-
-        /// <summary>
-        /// Звено «Фаза» отработало. Параметр — идентификатор цепочки звена
-        /// </summary>
-        internal static event Action<string> OnPhaseEntered;
-
-        /// <summary>
-        /// Звено «Завершение» отработало. Параметр — идентификатор цепочки звена
-        /// </summary>
-        internal static event Action<string> OnCompleted;
-
-        /// <summary>
-        /// Сигнал цепочке «можно дальше» — слушают условия
-        /// </summary>
-        internal static event Action OnNext;
 
         /// <summary>
         /// Сброс статики. До загрузки первой сцены: её оркестратор занимает слот на своём <c>OnEnable</c>,
@@ -116,10 +100,9 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         private static void Init()
         {
             Refused.Clear();
+            NextLock.Clear();
             _holder = null;
-            _chain = null;
             _opened = 0;
-            IsSkipping = false;
 
             //Подписчики прошлого запуска (вход в Play Mode без перезагрузки домена) новому запуску не нужны
             OnShowOpening = null;
@@ -128,19 +111,17 @@ namespace Vortex.Unity.CutsceneSystem.Bus
             OnOpenRequested = null;
             OnNextRequested = null;
             OnAutoNextRequested = null;
+            OnNodeRequested = null;
             OnSkipRequested = null;
-            OnPhaseEntered = null;
-            OnCompleted = null;
-            OnNext = null;
-            PhaseData.Set(0, Key);
+            NodeData.Set(string.Empty, Key);
         }
 
         // ── Обращения ─────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Открыть катсцену. Ключ — идентификатор записи <c>LogicChain</c>. Идущая катсцена сначала пролетает
-        /// до конца. Отказ (пустой ключ, нет оркестратора, ключа нет в его индексе, цепочка не проходит
-        /// проверку) — ошибка в лог и <see cref="OnShowFinished"/> с этим ключом
+        /// Открыть катсцену. Ключ — ключ записи в индексе оркестратора сцены. Идущая катсцена сначала
+        /// закрывается. Отказ (пустой ключ, нет оркестратора, ключа нет в его индексе) — ошибка в лог
+        /// и <see cref="OnShowFinished"/> с этим ключом
         /// </summary>
         public static void Open(string key)
         {
@@ -160,24 +141,43 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         }
 
         /// <summary>
-        /// Команда «дальше»: переход к следующему этапу. Запрос, пришедший раньше заданной в оркестраторе
-        /// задержки после входа в фазу, игнорируется (защита от дребезга)
+        /// Команда «дальше»: сигнал <c>Next</c> графу катсцены. Вход в конечный узел закрывает показ
         /// </summary>
         public static void Next() => OnNextRequested?.Invoke();
 
         /// <summary>
-        /// Сигнал «дальше» от самого контента (фаза с автопереходом). Защиту от дребезга обходит.
-        /// Контент называет фазу, которую показывает: сигнал от фазы, с которой цепочка уже ушла,
-        /// игнорируется — иначе он проскочил бы следующую фазу
+        /// Сигнал «дальше» от самого контента (узел с автопереходом).
+        /// Контент называет узел, который показывает: сигнал от узла, с которого показ уже ушёл,
+        /// игнорируется — иначе он проскочил бы следующий узел
         /// </summary>
-        /// <param name="phase">Номер фазы, которую показывает контент</param>
-        public static void Next(int phase) => OnAutoNextRequested?.Invoke(phase);
+        /// <param name="nodeId">Id узла, который показывает контент</param>
+        public static void Next(string nodeId) => OnAutoNextRequested?.Invoke(nodeId);
 
         /// <summary>
-        /// Пропустить катсцену: цепочка пролетает до завершающего этапа и заканчивается. Контент ещё
-        /// загружается — загрузка отменяется. Катсцена не открыта — ничего не делает
+        /// Выставить узел графа, минуя условия (<c>ForceNode</c>): по Id или имени. Неизвестный узел — ошибка
+        /// в лог, узел не меняется. Пришло, пока контент грузится, — применяется при старте показа вместо
+        /// стартового узла
+        /// </summary>
+        /// <param name="node">Id или имя узла</param>
+        public static void SetNode(string node) => OnNodeRequested?.Invoke(node);
+
+        /// <summary>
+        /// Пропустить катсцену: показ закрывается сразу. Контент ещё загружается — загрузка отменяется.
+        /// Катсцена не открыта — ничего не делает
         /// </summary>
         public static void Skip() => OnSkipRequested?.Invoke();
+
+        // ── Замок «дальше» — держат источники автоперехода через хэндлер контента ──
+
+        /// <summary>
+        /// Взять замок «дальше». Повторный захват тем же держателем ничего не добавляет
+        /// </summary>
+        internal static void Lock(object holder) => NextLock.Lock(holder);
+
+        /// <summary>
+        /// Отпустить замок «дальше». Держатель, который замок не брал, ничего не меняет
+        /// </summary>
+        internal static void Unlock(object holder) => NextLock.Unlock(holder);
 
         /// <summary>
         /// Разослать «показ завершён» открытиям, отклонённым из-за пустого слота
@@ -221,26 +221,9 @@ namespace Vortex.Unity.CutsceneSystem.Bus
         // ── Данные показа — пишет держатель слота ─────────────────────────────
 
         /// <summary>
-        /// Цепочка идущего показа; <c>null</c> — показа нет
+        /// Сообщить имя текущего узла (пусто — показа нет)
         /// </summary>
-        internal static void SetChain(string chain) => _chain = chain;
-
-        internal static void SetSkipping(bool skipping) => IsSkipping = skipping;
-
-        /// <summary>
-        /// Сообщить контенту номер фазы
-        /// </summary>
-        internal static void SetPhase(int phase) => PhaseData.Set(phase, Key);
-
-        /// <summary>
-        /// Подать цепочке сигнал «можно дальше»
-        /// </summary>
-        internal static void SignalNext() => OnNext?.Invoke();
-
-        /// <summary>
-        /// Сигнала «можно дальше» кто-то ждёт: цепочка стоит на условии
-        /// </summary>
-        internal static bool HasWaiter => OnNext != null;
+        internal static void PublishNode(string node) => NodeData.Set(node ?? string.Empty, Key);
 
         /// <summary>
         /// Разослать «катсцена открывается». Возвращает <c>true</c>, если хотя бы один подписчик бросил
@@ -288,22 +271,5 @@ namespace Vortex.Unity.CutsceneSystem.Bus
 
             return failed;
         }
-
-        // ── Звенья и условия цепочки ──────────────────────────────────────────
-
-        /// <summary>
-        /// Цепочка с этим идентификатором — цепочка идущего показа
-        /// </summary>
-        internal static bool IsCurrent(string chain) => chain != null && chain == _chain;
-
-        /// <summary>
-        /// Звено «Фаза»: вход в следующую фазу
-        /// </summary>
-        internal static void EnterPhase(string chain) => OnPhaseEntered?.Invoke(chain);
-
-        /// <summary>
-        /// Звено «Завершение»: показ пора закрыть
-        /// </summary>
-        internal static void Complete(string chain) => OnCompleted?.Invoke(chain);
     }
 }

@@ -241,6 +241,8 @@ ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
 ToolsSettings.GetLineColor(DefaultColors.TextColor);
 ```
 
+Ключи `Graph*` (`GraphBg`, `GraphNodeBg`, `GraphNodeCurrentBg`, `GraphNodeText`, `GraphNodeTagText`, `GraphNodeBorder`, `GraphStart`, `GraphSelected`, `GraphWarning`, `GraphError`, `GraphEdge`, `GraphEdgeNext`, `GraphLabelBg`, `GraphPort`) — палитра редакторов графов (визуализатор `StateGraphSystem`), раздел «Graph editors» в ассете.
+
 ### `PrefabTools/PrefabOverrideCleanerWindow`
 
 Окно чистки избыточных переопределений префаба — модификаций, значение которых совпадает со значением в исходном префабе. Такие переопределения копятся при правках вариантов и засоряют список Overrides.

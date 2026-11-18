@@ -1,4 +1,5 @@
 using Naninovel;
+using UnityEngine;
 using Vortex.Unity.CutsceneSystem.Bus;
 
 namespace Vortex.NaniExtensions.CutsceneSystem
@@ -32,6 +33,20 @@ namespace Vortex.NaniExtensions.CutsceneSystem
             {
                 CutsceneBus.OnShowFinished -= OnFinished;
             }
+        }
+
+        /// <summary>
+        /// Дождаться, пока откроется замок «дальше» (<see cref="CutsceneBus.IsLocked"/>): узел с автопереходом
+        /// доиграет. Замок проверяется в конце кадра — к этому моменту оркестратор уже исполнил автопереход,
+        /// который отпустил замок. Ожидание снимают закрытие катсцены, остановка сценария и запрос плеера
+        /// завершить команды
+        /// </summary>
+        public static async UniTask Unlocked(AsyncToken token)
+        {
+            var player = Engine.GetServiceOrErr<IScriptPlayer>();
+            while (CutsceneBus.IsLocked.Value && CutsceneBus.IsActive && Application.isPlaying && !player.Completing &&
+                   token.EnsureNotCanceledOrCompleted())
+                await AsyncUtils.WaitEndOfFrame(token);
         }
     }
 }

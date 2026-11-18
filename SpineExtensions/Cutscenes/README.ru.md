@@ -11,7 +11,7 @@
 
 Всё, что относится к Spine-реализации катсцен для [`CutsceneSystem`](../../Unity/CutsceneSystem/README.ru.md). Сам пакет катсцен про Spine не знает; здесь лежат хэндлеры, которые ставятся в префаб контента.
 
-- `SpineCutsceneAutoNext` — автопереход фазы по концу анимации.
+- `SpineCutsceneAutoNext` — автопереход узла графа катсцены по концу анимации.
 - `SpineCutsceneEventSounds` — звуки на события анимации.
 
 Оба хэндлера принимают `SkeletonGraphic` либо `SkeletonAnimation`: задаётся одно поле из двух. Если заданы оба, берётся `SkeletonGraphic`.
@@ -31,7 +31,6 @@
 |---|---|
 | `spine-unity`, `spine-csharp` | скелет, `AnimationState`, события |
 | `Vortex.Unity.CutsceneSystem` | `CutsceneContentHandler.Next` — сигнал автоперехода |
-| `Vortex.Unity.UI.Misc` | базовый тип хэндлера контента |
 | `Vortex.Core.AudioSystem`, `Vortex.Unity.AudioSystem` | `AudioController.PlaySound`, тип записи `Sound` |
 | `Vortex.Core.DatabaseSystem`, `Vortex.Unity.DatabaseSystem` | `[DbRecord]` — выбор записи звука |
 
@@ -39,7 +38,7 @@
 
 ## SpineCutsceneAutoNext
 
-Когда текущая анимация трека отыграла проход, шине уходит сигнал «дальше». Сигнал идёт через хэндлер контента (`CutsceneContentHandler.Next()`): тот называет шине показанную фазу, и сигнал от фазы, с которой цепочка уже ушла, отбрасывается.
+Когда текущая анимация трека отыграла проход, шине уходит сигнал «дальше». Сигнал идёт через хэндлер контента (`CutsceneContentHandler.Next()`): тот называет шине показанный узел графа, и сигнал от узла, с которого граф уже ушёл, отбрасывается. В графе у такого узла переход «по `Next`».
 
 | Поле | Назначение |
 |---|---|
@@ -48,6 +47,8 @@
 | `track` | трек, конец анимации которого ждём |
 
 - Работает, пока включён, и срабатывает **один раз за включение**.
+- **Держит замок «дальше»** шины (через `CutsceneContentHandler.Lock`): берёт его на включении, отпускает при срабатывании и на выключении. Пока замок заперт, команды сценария `@cutscene_Play` и `@cutscene_Next` ждут конца анимации — игрок её не прервёт, а промотка текста не уведёт граф с этого узла раньше времени.
+- Анимация идёт по игровому времени скелета (`unscaledTime` выключен в основах), поэтому при ускорении — промотке Naninovel — конец, а с ним и замок, наступают раньше.
 - Ставится на объект, который включает состояние фазы с автопереходом (`GameObjectsSwitch`). В фазах, ждущих команды, его быть не должно.
 - Учитывается только текущая анимация трека: уходящая в миксе анимация сигнал не даёт.
 - На паузе скелет заморожен, поэтому сигнала нет.
@@ -72,36 +73,40 @@
 
 ## Пример
 
-`Example/baseSpineCutscene.prefab` — основа префаба контента Spine-катсцены. Мировой объект: корень — `Transform`, скелет — `SkeletonAnimation`.
+`Example/baseSpine42Cutscene.prefab` и `Example/baseSpine43Cutscene.prefab` — основы префаба контента Spine-катсцены под Spine 4.2 и 4.3. Ниже — основа 4.2: мировой объект, корень — `Transform`, скелет — `SkeletonAnimation`.
 
 ```
-baseSpineCutscene       DataStorage, CutsceneContentHandler, UIStateSwitcher
-├── spine               SkeletonAnimation, SpinePauseHandler; выключен
+baseSpine42Cutscene     StateGraphView, CutsceneContentHandler, UIStateSwitcher
+├── [AudioControl]      AdvancedMusicHandler, SpineCutsceneEventSounds; выключен
 ├── [AutoNextControl]   SpineCutsceneAutoNext; выключен
-└── [AudioControl]      AdvancedMusicHandler, AdvancedSoundHandler, SpineCutsceneEventSounds; выключен
+└── spine               SkeletonAnimation, SpinePauseHandler; выключен
 ```
 
 | Состояние | Элементы |
 |---|---|
-| `Empty` | пусто — катсцена ещё не показана |
+| `End` | пусто — состояние конечного узла графа |
 | `Phase 1 (auto next)` | `GameObjectsSwitch` (`spine`, `[AudioControl]`); `SpineAnimationSwitch` без `loop`; `GameObjectsSwitch` (`[AutoNextControl]`) — фаза уходит дальше сама по концу анимации |
 | `Phase 2 (loop)` | `GameObjectsSwitch` (`spine`, `[AudioControl]`); `SpineAnimationSwitch` с `loop` — фаза ждёт команды «дальше» |
 
 - **Порядок элементов состояния важен:** сначала включение `spine`, потом `SpineAnimationSwitch`. Скелет создаёт `AnimationState` при включении объекта.
 - **`[AutoNextControl]` выключается без задержки**, остальные объекты — с отложенным выключением. Поэтому автопереход взводится заново в каждой фазе, а скелет и звук между фазами не перезапускаются.
-- **Слоты звука** — хэндлеры [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.ru.md) из SDK.
+- **Звук** — хэндлеры [`AudioAdvancedControl`](../../Sdk/AudioAdvancedControl/README.ru.md) из SDK. На `[AudioControl]` — музыка (`AdvancedMusicHandler`) и таблица звуков событий. Эмбиента в основе нет: эмбиент фазы — дочерний слой `[AudioControl]` с `AdvancedSoundHandler`, его включает состояние фазы элементом `GameObjectsSwitch` с отложенным выключением.
+- **Граф катсцены** в основе не задан: у каждой катсцены свой. `StateGraphView` в режиме `Restart` без задержки переключения.
 
 Своя катсцена:
 
 1. Создать вариант префаба (`Prefab Variant`).
 2. Назначить `SkeletonDataAsset` в `SkeletonAnimation`.
 3. В состояниях фаз выбрать анимации вместо заглушки `[NONE]`; новая фаза — новое состояние.
-4. На `[AudioControl]` заполнить таблицу звуков событий и клипы музыкального и звукового хэндлеров.
+4. Создать граф катсцены (`Database/State Graph`): узел на каждое состояние с тем же именем, включая `End`; фазы связать переходами «по `Next`», последнюю — с `End`. Назначить граф в `StateGraphView`. Кнопка Sync у View сверяет состояния с узлами.
+5. На `[AudioControl]` заполнить таблицу звуков событий и клипы музыкального хэндлера; эмбиент фаз — слоями (см. выше).
+
+Все шаги умеет делать [фабрика ассетов](../../../Plugins/AssetFactory/README.ru.md); слои эмбиента она заводит и включает сама.
 
 Ограничения основы:
 
 - Пока скелет не назначен, свитчер в редакторе пишет ошибку проверки состояний.
-- Слот звука с пустым списком клипов при включении пишет `Debug.LogError` «Список клипов пуст». Ненужный хэндлер слота удаляется с `[AudioControl]`: все три компонента стоят на одном объекте, и убрать объект из списков `GameObjectsSwitch` значит отключить их все.
+- Музыкальный хэндлер основы с автозапуском и пустым списком клипов при включении пишет `Debug.LogError` «Список клипов пуст». Без музыки у него выключается `autoStart` (фабрика делает это сама) либо он удаляется. Убирать `[AudioControl]` из списков `GameObjectsSwitch` нельзя: на нём же таблица звуков событий и слои эмбиента.
 - Для катсцены под канвасом нужен `SkeletonGraphic`: компонент скелета и ссылки на него в хэндлерах и состояниях меняются вручную.
 
 Основа спрайтовой катсцены лежит в [`Sdk/CutsceneSystem`](../../Sdk/CutsceneSystem/README.ru.md).
@@ -115,4 +120,5 @@ baseSpineCutscene       DataStorage, CutsceneContentHandler, UIStateSwitcher
 | Не задан ни один скелет | `NullReferenceException` при включении |
 | У скелета нет данных | `NullReferenceException` при включении |
 | Анимация трека сменилась до конца прохода | ждётся конец новой анимации |
+| Анимация не доигрывает (пустая, трек не задан) | сигнала нет; замок «дальше» заперт, пока объект не выключат — команды сценария ждут |
 | Событие встречается в таблице дважды | играет первая строка; если звук в ней пуст, не играет ничего |

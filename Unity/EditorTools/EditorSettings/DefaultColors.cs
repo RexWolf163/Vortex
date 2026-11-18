@@ -21,5 +21,21 @@ namespace Vortex.Unity.EditorTools.EditorSettings
         ToggleBg,
         ToggleBoxBorder,
         DragIndicator,
+
+        // Редакторы графов (визуализатор StateGraph)
+        GraphBg,
+        GraphNodeBg,
+        GraphNodeCurrentBg,
+        GraphNodeText,
+        GraphNodeTagText,
+        GraphNodeBorder,
+        GraphStart,
+        GraphSelected,
+        GraphWarning,
+        GraphError,
+        GraphEdge,
+        GraphEdgeNext,
+        GraphLabelBg,
+        GraphPort,
     }
 }

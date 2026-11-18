@@ -100,6 +100,14 @@ public sealed class MyCondition : UnityUserInterfaceCondition
 }
 ```
 
+Надпись условия в инспекторе — имя типа. Условие с режимом (например, с инверсией) может показывать его в надписи, переопределив `GetLabel()`:
+
+```csharp
+[SerializeField] private bool invert;
+
+protected override string GetLabel() => invert ? "NotMyCondition" : nameof(MyCondition);
+```
+
 ---
 
 ## Архитектура
@@ -151,7 +159,8 @@ UIDragHandler : MonoBehaviour, IDragHandler, IPointerDownHandler, IPointerUpHand
   └── OnPointerUp → uiStateSwitcher.Set(DragState.Free)
 
 UnityUserInterfaceCondition : UserInterfaceCondition
-  └── [DisplayAsString] Name (для Inspector)
+  ├── [DisplayAsString] Name (для Inspector) ← GetLabel()
+  └── protected virtual GetLabel() → имя типа; наследник может переопределить
 
 Встроенные условия:
   ├── AutoLoadCondition        → всегда Open, переоткрывается при Close

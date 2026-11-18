@@ -9,13 +9,13 @@
 
 ## Purpose
 
-Naninovel script commands for [`CutsceneSystem`](../../Unity/CutsceneSystem/README.en.md). The commands only translate script lines into `CutsceneBus` calls: content loading, phases and completion are handled by the cutscene package.
+Naninovel script commands for [`CutsceneSystem`](../../Unity/CutsceneSystem/README.en.md). The commands only translate script lines into `CutsceneBus` calls: content loading, the cutscene graph progress and completion are handled by the cutscene package.
 
 The cutscene bus executes commands at the end of the frame, not at the moment of the call. So script commands whose result the next script line depends on wait for that result.
 
 Out of scope:
 
-- Closing a cutscene when the script stops is not done by itself: a cutscene is finished by its chain or by `@cutscene_Stop` / `@cutscene_Skip`. The safety net for that case is `CutsceneAutostopHandler` in the scene (see below).
+- Closing a cutscene when the script stops is not done by itself: a cutscene is closed when its graph enters an end node (usually "next" on the last phase) or by `@cutscene_Stop` / `@cutscene_Skip`. The safety net for that case is `CutsceneAutostopHandler` in the scene (see below).
 - The render order of a cutscene relative to Naninovel backgrounds, characters and text.
 
 ---
@@ -24,8 +24,8 @@ Out of scope:
 
 | Command | What it does | What the script waits for |
 |---|---|---|
-| `@cutscene_Play key` | opens a cutscene; the key is the `LogicChain` record id | the show starting, or a refusal |
-| `@cutscene_Next` | "next": go to the next step | nothing |
+| `@cutscene_Play key` | opens a cutscene; the key is an entry key in the scene orchestrator index | the show starting, or a refusal; if the first node has an auto transition — its end as well |
+| `@cutscene_Next` | "next": a `Next` signal to the cutscene graph; entering an end node closes the cutscene | before the signal — the end of an auto-transition node; after it — a 0.2 s real-time pause |
 | `@cutscene_Stop` | stops the cutscene: the show is interrupted, the content unloaded | the cutscene closing |
 | `@cutscene_Skip` | the same as `@cutscene_Stop` | the cutscene closing |
 
@@ -33,15 +33,27 @@ Out of scope:
 
 - A running cutscene is closed first, and the script waits for it to close.
 - Then the script waits until the content is loaded and the show starts — or until the open is refused (the cutscene package logs the reason). The command listens to bus events with its own key only.
+- If the first node has an auto transition (the "next" lock is locked, see below), the script also waits for its end.
 - The command does not wait for the cutscene to end: the script continues while the cutscene is shown.
+
+### The "next" lock
+
+A node with an auto transition (a Spine intro animation) holds the bus lock `CutsceneBus.IsLocked` until it finishes (see the cutscene package README and `SpineCutsceneAutoNext`). While the lock is locked, `@cutscene_Play` and `@cutscene_Next` do not complete: the player cannot cut the intro animation short, and text fast-forward does not move the graph off the intro node instead of the next one — otherwise the cutscene would lag behind the text.
+
+- The animation runs on game time, so fast-forward (Ctrl) speeds it up together with the text.
+- The lock is checked at the end of the frame: by then the auto transition that released the lock is already executed, and the command's "next" does not merge with it.
+- The wait is released by the cutscene closing and by a script stop. The player's request to complete commands (e.g. on save) releases it too; `@cutscene_Next` then still sends its signal, and the intro node is cut short.
+- A node whose animation never finishes holds the script until the cutscene is closed.
 
 ### `@cutscene_Next`
 
-Works on any phase of a running cutscene. Ignored: before the first phase has started (the content is still loading), during a fly-through, and earlier than the debounce delay (an orchestrator setting). The phase changes on the orchestrator's next pass; sprite content shows it subject to its own switch delay.
+Works on any graph node of a running cutscene: the graph picks the first "on `Next`" transition whose conditions are met; if it leads to an end node, the cutscene closes. The command first waits for the "next" lock to open. The node changes on the orchestrator's next pass; content with a switch delay shows it subject to that delay.
+
+After the signal the script holds a 0.2 s real-time pause (at least a frame). The bus executes "next" on an orchestrator pass, and two requests within one pass merge into one: without the pause, fast-forward (Ctrl) would lose adjacent commands and the cutscene would lag behind the text. The time is real: fast-forward speeds up game time but does not shorten the pause — fast-forward is held for 0.2 s on every command. With no open cutscene there is no pause. A script stop releases the pause, and so does the player's request to complete commands (e.g. on save).
 
 ### `@cutscene_Stop` and `@cutscene_Skip`
 
-The bus has a single way to interrupt — a fly-through of the chain to the final step — so the two commands do the same thing. Two names are for script readability: `Stop` — the script itself stops the cutscene, `Skip` — it is being skipped.
+The bus has a single way to interrupt — an immediate close of the show — so the two commands do the same thing. Two names are for script readability: `Stop` — the script itself stops the cutscene, `Skip` — it is being skipped.
 
 The script continues once the cutscene is closed.
 
@@ -56,7 +68,7 @@ The handler keeps a "cutscene is open" latch:
 - the bus event `OnShowOpening` (the orchestrator accepted an open and started loading) opens the latch;
 - the `OnShowFinished` event closes it.
 
-If the script stops (`NaniWrapper.OnNaniStop`) while the latch is open, the cutscene is interrupted, as with `@cutscene_Stop`: a running one flies through to the end, a loading one is cancelled. If the latch is closed, the handler does nothing.
+If the script stops (`NaniWrapper.OnNaniStop`) while the latch is open, the cutscene is interrupted, as with `@cutscene_Stop`: a running one is closed, a loading one is cancelled. If the latch is closed, the handler does nothing.
 
 The handler's contract: **a cutscene plays while the script plays.** There is one latch and it does not compare cutscene keys — the handler has no per-cutscene setting. If the latch is open, whichever cutscene is open right now gets stopped.
 
@@ -73,7 +85,7 @@ The handler's contract: **a cutscene plays while the script plays.** There is on
 ## Example
 
 ```
-@cutscene_Play 3f6c1c0e-8d2a-4b7e-9a51-0c2f6d1e7b90
+@cutscene_Play SexSceneSibylla1
 The first phase plays under this line.
 @cutscene_Next
 The second phase.
@@ -87,11 +99,11 @@ The second phase.
 | Situation | Behaviour |
 |---|---|
 | `@cutscene_Play` with no key | `Debug.LogError`, the command is skipped |
-| No orchestrator, key not in the index, the chain failed validation | an error logged by the cutscene package, the script continues |
+| No orchestrator, key not in the index, the content has no graph or it did not start | an error logged by the cutscene package, the script continues |
 | The script is stopped while a command waits | the wait is released; a load already started and a command already issued are not cancelled |
 | The script is stopped while `@cutscene_Play` waits for the previous cutscene to close | the new cutscene is not opened |
 | `@cutscene_Next` / `@cutscene_Stop` / `@cutscene_Skip` with no open cutscene | nothing |
 | `@cutscene_Play` of the cutscene that is already running | the previous show is closed, then the cutscene opens again |
-| The script stops while a cutscene is running and the scene has `CutsceneAutostopHandler` | the cutscene is interrupted: the stop event arrives one frame later, the fly-through runs on the orchestrator's next pass |
+| The script stops while a cutscene is running and the scene has `CutsceneAutostopHandler` | the cutscene is interrupted: the stop event arrives one frame later, the close happens on the orchestrator's next pass |
 | The script stops while the cutscene content is loading and the scene has `CutsceneAutostopHandler` | the load is cancelled, the cutscene does not appear |
 | `CutsceneAutostopHandler` is on a content prefab | never fires |

@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4100000000000000002}
   - component: {fileID: 4100000000000000003}
-  - component: {fileID: 4100000000000000004}
   - component: {fileID: 4100000000000000005}
   - component: {fileID: 4100000000000000006}
   m_Layer: 5
@@ -50,23 +49,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 4100000000000000001}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b0f7157f69e94842882a4576a47953b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.unity.ui.misc::Vortex.Unity.UI.Misc.DataStorage
-  dataSwitcher: {fileID: 0}
---- !u!114 &4100000000000000004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4100000000000000001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4789bf0bca1f460e9d85dd2aadd09497, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: ru.vortex.unity.cutscene::Vortex.Unity.CutsceneSystem.Handlers.CutsceneSpriteContentHandler
-  source: {fileID: 4100000000000000003}
+  m_Script: {fileID: 11500000, guid: d92473490ec543f4587e76b43fb94bbf, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: ru.vortex.unity.stategraph::Vortex.Unity.StateGraphSystem.Views.StateGraphView
+  graph:
+  onEnableBehavior: 0
   switcher: {fileID: 4100000000000000005}
   switchDelay: 0.5
 --- !u!114 &4100000000000000005
@@ -84,7 +71,7 @@ MonoBehaviour:
   stateOnEnable: 0
   duplicateOnCreate: 1
   states:
-  - name: Empty
+  - name: End
     stateItems: []
   - name: Phase 1
     stateItems:

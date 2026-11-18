@@ -16,6 +16,7 @@ Capabilities:
 - Implicit operator for reading without `.Value`
 - Container ownership — only the owner can modify the value via `Set()`
 - `IReactiveData` interface is marked `[POCO]` — all implementations are automatically serializable via `SerializeController`
+- `MultiLock` — a lock that stays locked while at least one holder holds it; its state is a reactive `BoolData`
 
 Out of scope:
 - Thread safety
@@ -181,6 +182,29 @@ inventory.Items.Add(itemId, other);          // Error: foreign owner
 var snapshot = inventory.Items.GetList();    // IReadOnlyList<ItemId>, read-only access
 ```
 
+### Multi-lock
+
+`MultiLock` is a lock with holders: it stays locked while at least one holder holds it. Each holder takes and releases the lock for itself, so one leaving does not open the lock while others still hold it. This is the shape of "an input map is active while it has users", "a cursor action is held while any source holds it", the cutscene "next" lock.
+
+```csharp
+public class MapUsers
+{
+    private readonly MultiLock _users = new();
+
+    public MapUsers() => _users.IsLocked.OnUpdate += active => Debug.Log($"Map active: {active}");
+
+    public void Add(object user) => _users.Lock(user);       // first holder — the lock locks
+    public void Remove(object user) => _users.Unlock(user);  // last one left — the lock opens
+
+    public bool IsActive => _users.IsLocked;                 // implicit operator BoolData → bool
+}
+```
+
+- **`IsLocked`** is a reactive `BoolData`; events fire only on a "locked ↔ open" change. The value's owner is the lock itself: writing from outside (`IsLocked.Set(...)`) logs an error and changes nothing.
+- **A holder** is any object, compared by `Equals` / `GetHashCode` (`HashSet`). A repeated `Lock` by the same holder and an `Unlock` by a non-holder change nothing.
+- **`Clear()`** removes all holders — for resetting statics and general cleanup.
+- A set of locks per key (input map, action) is kept by the consumer — e.g. `Dictionary<string, MultiLock>` or an array indexed by an enum.
+
 ### Usage with QuestController
 
 ```csharp
@@ -203,6 +227,8 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 │
 └── ReactiveCollection<T> (abstract)     ← reactive List<T>: Add/Remove/Insert/Sort/...
     └── ListData<T>                      ← constructors (empty / from List<T>)
+
+MultiLock                                ← lock with holders; IsLocked: BoolData (owned by the lock itself)
 ```
 
 ### Components
@@ -218,6 +244,7 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | `EnumData<TEnum>` | `ReactiveValue<TEnum>` for any `Enum`. Constructors: `(TEnum)`, `(TEnum, object owner)` |
 | `ReactiveCollection<T>` | Abstract reactive `List<T>`: `OnUpdate(IReadOnlyList<T>)`, mutators Add/Remove/Insert/Sort/Reverse/Clear/RemoveAt/RemoveRange/Set(index, …)/Set(List<T>), `GetList()`, read-only indexer, `SetOwner`/`ReleaseOwner`/`ForceUpdate`. Internal list identity is preserved for the lifetime of the container. No constructors — use `ListData<T>` |
 | `ListData<T>` | Canonical `ReactiveCollection<T>` subclass with initializing constructors: `()` empty, `(List<T>)` copy of supplied |
+| `MultiLock` | Lock with holders: `IsLocked` (`BoolData`), `Count`, `Lock(holder)`, `Unlock(holder)`, `Clear()`. Does not implement `IReactiveData` — its `IsLocked` field is the reactive part |
 
 ---
 
@@ -277,3 +304,8 @@ IReactiveData [POCO]                     ← interface: event OnUpdateData
 | `ReactiveCollection.GetList()` | Returns a `ReadOnlyCollection<T>` view over the internal list. **Live** snapshot — reflects all subsequent mutations (Add/Remove/Insert/Sort/...) and full replacement via `Set(List<T>)` (which uses Clear+AddRange and preserves the internal list's identity). Cannot be modified directly |
 | `new ListData<T>(list)` | Stores a copy of the supplied list (via `.ToList()`); mutations of the source do not affect the container |
 | `new ListData<T>(null)` | `NullReferenceException`. Use the parameterless constructor for an empty list |
+| `MultiLock.Lock(null)` / `Unlock(null)` | Error logged, the lock does not change |
+| `MultiLock.Lock` by the same holder again | Nothing: the holder counts once, one `Unlock` is enough |
+| `MultiLock.Unlock` by a holder that never took the lock | Nothing |
+| `MultiLock.IsLocked.Set(...)` from outside | Ownership error logged, the value does not change |
+| A holder destroyed without releasing the lock | The lock stays locked — the holder itself must release it (usually on `OnDisable` / `Dispose`) |
