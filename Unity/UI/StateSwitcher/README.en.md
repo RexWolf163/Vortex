@@ -13,6 +13,7 @@ Capabilities:
 - `StateSwitcherAttribute` for enum binding with Inspector visualization
 - `OnStateSwitch` event on state change
 - Reentrancy protection
+- `UISlaveStateSwitcher` — a slave switcher that mirrors the master's state
 - `Alt+S` / `Ctrl+Alt+S` hotkeys — add a `UIStateSwitcher` to an object or as a separate layer
 
 Out of scope:
@@ -37,6 +38,7 @@ Out of scope:
 ```
 StateSwitcher/
 ├── UIStateSwitcher.cs          # State machine (MonoBehaviour)
+├── UISlaveStateSwitcher.cs     # Slave switcher: mirrors the master's state
 ├── StateItem.cs                # Abstract behavior base
 ├── Items/
 │   ├── GameObjectsSwitch.cs    # SetActive on GameObject array
@@ -82,6 +84,31 @@ int index = switcher.GetState("name");  // index by name (-1 = not found)
 | `states` | `StateData[]` | State array |
 | `stateOnEnable` | `int` | Initial state (dropdown) |
 | `duplicateOnCreate` | `bool` | Editor-only: clone items from last state when adding new one |
+
+---
+
+## UISlaveStateSwitcher
+
+A `UIStateSwitcher` subclass that mirrors the state of a master switcher. The slave has its own states and its own `StateItem`s, set up like on a regular switcher; only the state number is shared with the master.
+
+| Inspector Field | Type | Description |
+|-----------------|------|-------------|
+| `master` | `UIStateSwitcher` | Master switcher, required |
+
+Behavior:
+- `OnEnable` — subscribes to `master.OnStateSwitch` and immediately calls `Set(master.State)`: the slave takes the master's current state.
+- Master state change — the slave sets the same index (`-1` on the master → `-1` on the slave).
+- `OnDisable` — unsubscribes; while disabled the slave does not follow the master, and catches up when enabled.
+
+States are matched **by index**: their count and names must match the master's.
+
+**«Синхронизировать с мастером» (Sync with master) button** (editor):
+- state count and names — as the master's, by index;
+- missing states are added empty (no `StateItem`s);
+- states already set up only get renamed, their items are left alone;
+- extra states are not removed — `LogError`, remove them manually.
+
+`OnValidate` logs an error when the states differ from the master's in count or names, and when the switcher itself is set as the master.
 
 ---
 
@@ -164,3 +191,7 @@ MonoBehaviour — switches a `UIStateSwitcher` to a given state on `OnEnable`.
 | `StateItem.Set()` throws an exception | A `try/catch` wraps the `foreach`: `LogError` + `LogException`, the remaining `StateItem`s in this state are **not applied** (fail fast, do not mask the actual problem) |
 | `ColorsSwitch` with `_smoothChange` and zero `_duration` | Instant change (AsyncTween with duration ≤ 0) |
 | Duplicate `DropDownGroupName/DropDownItemName` across StateItem classes | `LogError`, duplicate skipped in dropdown |
+| `UISlaveStateSwitcher`: the master has more states than the slave | Out-of-range index — the slave's `LogError`, its state unchanged |
+| `UISlaveStateSwitcher` enabled before the master's `Awake` | The slave goes to `-1`; the master sets its initial state in `Awake` — the slave catches up via the event |
+| `UISlaveStateSwitcher` in `Awake` | First its own `stateOnEnable`, then in `OnEnable` of the same frame — the master's state: two switches in a row, `StateItem`s with side effects (`EventFire`) fire twice |
+| `master` not set | `NullReferenceException` in `OnEnable` — a configuration error |

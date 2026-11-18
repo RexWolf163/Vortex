@@ -374,7 +374,7 @@ namespace Vortex.Unity.UI.StateSwitcher
             }
         }
 
-        private void OnValidate()
+        protected virtual void OnValidate()
         {
             if (Application.isPlaying)
                 return;

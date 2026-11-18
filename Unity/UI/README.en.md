@@ -10,7 +10,7 @@ This section does not manage interface lifecycles — that's `UIProviderSystem`'
 
 **TweenerSystem** — UniTask-based animations. Two modes. Scene-bound — `TweenerHub` on a scene object with a `TweenLogic` array (color, opacity, scale, fill, pivot), Forward/Back/Pulse. Standalone — `AsyncTween` fluent API for one-off code-driven animations, with shortcuts for Move, Scale, Fade, Color. 16 easing types. `StateView<TEnum>` — a field-level state switcher on tweeners: a hub per enum value, with a state table and automatic hub creation in the inspector.
 
-**StateSwitcher** — state machine. `UIStateSwitcher` switches named states, each containing a set of `StateItem`: toggle GameObjects, change color (animated or instant), swap sprites, trigger Animator, run TweenerHub, fire UnityEvent.
+**StateSwitcher** — state machine. `UIStateSwitcher` switches named states, each containing a set of `StateItem`: toggle GameObjects, change color (animated or instant), swap sprites, trigger Animator, run TweenerHub, fire UnityEvent. `UISlaveStateSwitcher` — a slave switcher: mirrors the master's state number and syncs its own states with the master by a button.
 
 **PoolSystem** — pool with data keys. `Pool` creates, reuses, and deactivates `PoolItem` instances. Elements are never destroyed — they are disabled and returned to the queue.
 
