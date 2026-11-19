@@ -10,6 +10,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
     /// <list type="bullet">
     /// <item><c>@set</c> — левая часть присваивания — запись, идентификаторы правой части — чтение;</item>
     /// <item>параметр <c>if:</c> любой команды, <c>@if</c>, <c>@elseif</c> — сравнения и чтения;</item>
+    /// <item>любой именованный параметр со значением-выражением в фигурных скобках (<c>lock:{Attribute1&lt;5}</c>) — так же;</item>
     /// <item>команды в строках текста (<c>[set …]</c>) разбираются так же; комментарии и метки пропускаются.</item>
     /// </list>
     /// Переменная в выражении — идентификатор вне строкового литерала, за которым не идёт <c>(</c> (вызов функции), и не
@@ -111,7 +112,7 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
                 var (name, value) = SplitNamed(parameters[i]);
                 if (name == null)
                     nameless ??= value;
-                else if (name.Equals("if", StringComparison.OrdinalIgnoreCase))
+                else if (name.Equals("if", StringComparison.OrdinalIgnoreCase) || IsBracedExpression(value))
                     ProcessCondition(value, LinkSource.Nani, location, links);
             }
 
@@ -191,6 +192,13 @@ namespace Vortex.NaniExtensions.CustomVariablesDashboard.Editor.Sources
                 return (parameter.Substring(0, colon), Unquote(parameter.Substring(colon + 1)));
             return (null, Unquote(parameter));
         }
+
+        /// <summary>
+        /// Значение параметра — выражение Naninovel целиком в фигурных скобках (<c>lock:{Attribute1&lt;5}</c>,
+        /// <c>time:{Delay*2}</c>): разбирается как условие
+        /// </summary>
+        private static bool IsBracedExpression(string value) =>
+            value.Length >= 2 && value[0] == '{' && value[^1] == '}';
 
         private static string Unquote(string value) =>
             value.Length >= 2 && value[0] == '"' && value[^1] == '"' ? value.Substring(1, value.Length - 2) : value;
