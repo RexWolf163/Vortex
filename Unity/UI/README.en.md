@@ -20,6 +20,8 @@ This section does not manage interface lifecycles — that's `UIProviderSystem`'
 
 **RollbackSystem** — rolling back a screen's unsaved changes. `RollbackHandler` combines rollback sources (`RollbackSource` descendants), shows a change flag through `UIStateSwitcher` and drives two paths — "Save" and "Rollback"; disabling the screen means rollback. Reactive, no per-frame checks. A ready source covers dropdowns and sliders with a `RollbackControl` marker on the control.
 
+**TextInputSystem** — keyboard text input over a value. `UITextInput` on the built-in `TMP_InputField`: `Begin(text)` opens the field via `UIStateSwitcher`, Enter — `Save` (the `OnSave(text)` event), Esc — `Rollback`. The mask is a list of filters via `[SerializeReference]` (integer in range, regular expressions). Knows no data; muting game keys during input is done by layout handlers.
+
 **UIBuilder** — an editor layout tool. Right-click in the Hierarchy → `Vortex Primitives/Create Text` / `Create Button`: a layer with `UIComponent`, an instance of the chosen primitive and the required `Set*Component`s is created under the object. The primitive catalog is a folder set in `Project Settings → Vortex/UIBuilder`; window parameters depend on the primitive's parts. New element kinds and sections are added without touching the core.
 
 ## Hotkeys
@@ -49,4 +51,5 @@ Each subsystem is documented separately:
 - `Misc/` — utility components
 - `CursorSystem/` — custom cursor
 - `RollbackSystem/` — screen change rollback
+- `TextInputSystem/` — keyboard text input
 - `UIBuilder/` — creating UI layers from primitives (Editor)

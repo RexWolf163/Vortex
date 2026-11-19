@@ -79,6 +79,18 @@ Subscription is deferred until `AppStates.Running` (as in `InputActionHandler`);
 
 The map is active as long as at least one `InputMapHandler` for it is enabled in the scene.
 
+### Map mute (InputMapMuteHandler)
+
+`InputMapMuteHandler` component on a GameObject:
+- `inputMap` — map from dropdown
+- `exceptions` — actions of this map that keep working (the dropdown lists only the selected map's actions)
+
+While enabled, the component subscribes empty callbacks to every action of the map except the exceptions, and by LIFO takes their signals from earlier subscribers. A quick map mute without disabling the map — e.g. during text input: the input field layer enables mutes for the needed maps. The mute neither enables nor disables the map.
+
+It overrides only bus subscribers that subscribed **before** it was enabled: a later subscriber goes on top — the order is set by the layout. It does not mute those subscribed to `InputAction` bypassing the bus (Naninovel) or value polling via `GetAction`.
+
+Everything subscribed through the bus is muted, service actions included. Example: the virtual cursor position and clicks come through the bus (`MouseInputDriver`, `ActionInputDriver`) — a `VirtualCursor` map mute without exceptions for them freezes the cursor and clicks. A setup example for text input — `UI/TextInputSystem` → «Mutes during input».
+
 ### Direct key binding (KeyboardHandler)
 
 `KeyboardHandler` component on a GameObject:
@@ -98,6 +110,7 @@ InputBusSystem/
 │   ├── InputActionHandler.cs   # Action subscription via InputController
 │   ├── InputPointerHandler.cs  # Emits the pointer position (screen) on every action event
 │   ├── InputMapHandler.cs      # Input map activation
+│   ├── InputMapMuteHandler.cs  # Mutes map actions with empty subscribers (LIFO)
 │   └── KeyboardHandler.cs      # Direct key/combination binding
 └── Debug/
     ├── Model/SettingsModelExtInput.cs    # partial SettingsModel + InputDebugMode
@@ -236,4 +249,5 @@ When enabled, logs: subscriber registration/removal, `performed`/`canceled` deli
 | `Keyboard.current == null` | Warning; presses ignored |
 | Combination with 4+ modifiers | Warning; combination skipped |
 | `OnEnable` before `AppStates.Running` | Subscription deferred until state change |
+| A mute is enabled while a key of its map is held | `canceled` is discarded: the `performed` receiver is no longer on top (see «Performed/Canceled Pairing») |
 | Input Actions Asset not assigned | Dictionaries empty; `KeyNotFoundException` on registration |

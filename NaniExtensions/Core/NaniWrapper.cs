@@ -7,6 +7,7 @@ using Naninovel;
 using Naninovel.UI;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
+using Vortex.Core.Extensions.ReactiveValues;
 using Vortex.Core.SettingsSystem.Bus;
 using Vortex.Sdk.Core.GameCore;
 using Vortex.Unity.AppSystem.System.TimeSystem;
@@ -32,6 +33,7 @@ namespace Vortex.NaniExtensions.Core
         private static IUnlockableManager _unlockableManager;
         private static IUIManager _uiManager;
         private static ICustomVariableManager _variablesManager;
+        private static IInputManager _inputManager;
 
         public static IAudioManager AudioManager => _audioManager ??= Engine.GetService<IAudioManager>();
         public static IStateManager StateManager => _stateManager ??= Engine.GetService<IStateManager>();
@@ -62,6 +64,17 @@ namespace Vortex.NaniExtensions.Core
 
         public static ICustomVariableManager VariablesManager =>
             _variablesManager ??= Engine.GetService<ICustomVariableManager>();
+
+        public static IInputManager InputManager => _inputManager ??= Engine.GetService<IInputManager>();
+
+        /// <summary>Держатели отключения ввода Naninovel (см. <see cref="MuteInput"/>)</summary>
+        private static readonly MultiLock InputMute = new();
+
+        /// <summary>Отключение применено: первый держатель пришёл при готовом движке</summary>
+        private static bool _inputMuteApplied;
+
+        /// <summary><c>ProcessInput</c> до отключения — возвращается при уходе последнего держателя</summary>
+        private static bool _processInputBeforeMute;
 
         /// <summary>
         /// Nani script player Запущен
@@ -320,6 +333,50 @@ namespace Vortex.NaniExtensions.Core
                 // Снимаем шлюз и на исключении: иначе одна упавшая загрузка навсегда заблокировала бы запуски.
                 _starting = false;
             }
+        }
+
+        /// <summary>
+        /// Отключить ввод Naninovel, пока держит хотя бы один держатель. Нужен вводу текста: Naninovel подписан на
+        /// экшены ввода напрямую, заглушки шины ввода его не перекрывают, а блокирующий UI Naninovel не глушит
+        /// Submit/Cancel/Delete — у них в конфигурации <c>AlwaysProcess</c>.
+        ///
+        /// Костыль: отключение — общий флаг <see cref="IInputManager.ProcessInput"/>, у которого нет владельца.
+        /// Первый держатель запоминает значение и выключает флаг, последний — возвращает запомненное. Ограничения:
+        /// <list type="bullet">
+        /// <item>флаг входит в состояние игры Naninovel — сохранение игры во время отключения запишет <c>false</c>;</item>
+        /// <item>загрузка сейва или <c>@processInput</c> во время отключения меняют флаг, а уход последнего держателя
+        /// перезапишет их значение запомненным;</item>
+        /// <item>держатель, пришедший до готовности движка, ничего не отключает.</item>
+        /// </list>
+        /// </summary>
+        /// <param name="holder">Ключ держателя; отпустить — <see cref="UnmuteInput"/> с тем же ключом</param>
+        public static void MuteInput(object holder)
+        {
+            var wasLocked = InputMute.IsLocked.Value;
+            InputMute.Lock(holder);
+            if (wasLocked || !InputMute.IsLocked.Value || !Engine.Initialized)
+                return;
+
+            _processInputBeforeMute = InputManager.ProcessInput;
+            InputManager.ProcessInput = false;
+            _inputMuteApplied = true;
+        }
+
+        /// <summary>
+        /// Отпустить отключение ввода Naninovel. Ушёл последний держатель — <c>ProcessInput</c> возвращается к
+        /// значению до отключения. Держатель, который не отключал, ничего не меняет
+        /// </summary>
+        public static void UnmuteInput(object holder)
+        {
+            var wasLocked = InputMute.IsLocked.Value;
+            InputMute.Unlock(holder);
+            if (!wasLocked || InputMute.IsLocked.Value || !_inputMuteApplied)
+                return;
+
+            _inputMuteApplied = false;
+            // Движок уничтожен (выход из плей-мода) — возвращать флаг некому
+            if (Engine.Initialized)
+                InputManager.ProcessInput = _processInputBeforeMute;
         }
 
         public static bool NaniIsPlaying()

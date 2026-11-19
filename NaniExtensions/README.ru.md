@@ -21,7 +21,7 @@
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Драйвер локализации с каналами |
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | Условие квеста `NaniPlayerState` — реакция на старт/стоп Nani-плеера; логики квеста по переменным Naninovel: `NaniVariableValueComparation` (сравнение), `NaniVariableValueWait` (ожидание сравнения), `NaniExpressionComparation` (выражение Naninovel с кнопкой проверки формулы); логики квеста по сценариям: `RunNaniScript` (запуск сценария через `NaniWrapper.PlayScript`, реализует `INaniScriptLaunch`), `WaitStopNaniScript` (ожидание остановки сценария) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — сохранение/восстановление Nani-переменных через `GameController` |
-| [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Точечные хэндлеры сцены (активный говорящий, баббл, эмоции, ZPosition, тестовые тулзы галереи) |
+| [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Точечные хэндлеры сцены (активный говорящий, баббл, эмоции, ZPosition, тестовые тулзы галереи, отключение ввода Naninovel) |
 | [CustomVariablesDashboard](CustomVariablesDashboard/) | `ru.vortex.nani.variables.dashboard` (+ `.editor`) | 3 | Панель переменных Naninovel: значения в Play Mode, карта связей со сценариями `.nani` и квестами Vortex, «потеряшки». Контракт `INaniVariableReference` для объектов квеста |
 | [NaniScriptLinks](NaniScriptLinks/) | `ru.vortex.nani.script.links` (+ `.editor`) | 3 | Валидатор связей сценариев `.nani`: сироты (никто не запускает и не переходит), неиспользуемые метки, битые ссылки `@goto`/`@gosub`/`@choice`, исключения. Контракт `INaniScriptLaunch` для логик квеста, запускающих сценарий |
 
@@ -37,7 +37,7 @@
 
 ### Доступные сервисы
 
-`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`, `VariablesManager`
+`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`, `VariablesManager`, `InputManager`
 
 ### Жизненный цикл
 
@@ -54,6 +54,7 @@
 | `PlayScript(path, beforeLoad, token)` | Единая точка запуска скрипта под локом — см. ниже |
 | `IsStartingScript` | `true` пока шлюз `PlayScript` захвачен (идёт `Load`, `Play` ещё не вызван) |
 | `NaniIsPlaying()` | `true` если **идёт запуск через `PlayScript`**, ScriptPlayer играет **или видим хэндлер выбора** (обе дополнительные проверки несущие — см. ниже) |
+| `MuteInput(holder)` / `UnmuteInput(holder)` | Отключение ввода Naninovel, пока держит хотя бы один держатель — см. ниже |
 
 ### PlayScript — шлюз запуска
 
@@ -66,6 +67,17 @@
 `beforeLoad` выполняется **после** захвата шлюза и **до** `Load` — туда выносится подготовка, которая вне лока порвала бы чужой цикл (типовой случай: `ScriptPlayer.ResetService()` у галереи). `token` отменяет только ожидание шлюза; уже начатый `Load` не прерывается.
 
 **Границы.** Лок держит лишь запуски, идущие через `PlayScript`. Синхронные сбросы плеера мимо него — `OnLoadGame` (`ScriptPlayer.ResetService()`) и `OnStateChanged` на `Off/Win/Fail` — шлюз не ждут: загрузка сейва или выход из сессии ровно в окне `Load→Play` по-прежнему способны оборвать запуск.
+
+### MuteInput — отключение ввода Naninovel
+
+Нужен вводу текста поверх Nani-сцены. Naninovel подписан на экшены ввода напрямую, поэтому заглушки шины ввода (`InputMapMuteHandler`) его не перекрывают. Блокирующий UI Naninovel (`AddBlockingUI`) тоже не подходит: у Submit, Cancel и Delete в конфигурации ввода стоит `AlwaysProcess` — это ровно Enter, Esc и Backspace поля ввода.
+
+Отключение держится по держателям (`MultiLock`): первый держатель запоминает `IInputManager.ProcessInput` и выключает его, последний возвращает запомненное значение. Из вёрстки — `NaniInputMuteHandler` (см. Misc).
+
+**Это костыль** — `ProcessInput` общий флаг без владельца:
+- флаг входит в состояние игры Naninovel — сохранение игры во время отключения запишет `false`;
+- загрузка сейва или `@processInput` во время отключения меняют флаг, а уход последнего держателя перезапишет их значение запомненным;
+- держатель, пришедший до готовности движка, ничего не отключает; если движок уничтожен к уходу последнего держателя — возвращать флаг некому.
 
 ### События воспроизведения
 
@@ -179,4 +191,5 @@ public static event Action<string> OnVoiceStop;    // authorId говоряще�
 | `ResetAllGalleryCardsHandler` | Editor-инструмент: сбрасывает прогресс открытых карт галереи в `UnlockableManager` (для тестирования сцен галереи в чистом состоянии). |
 | `AutoPlaySwitcher` | Тоггл «авто-режима» Naninovel. Привязывается к `UIComponent` (Switcher On/Off). На клике переключает `IScriptPlayer.SetAutoPlayEnabled(!cached)`, по событию `OnAutoPlay` синхронизирует визуал с реальным состоянием плеера. |
 | `SkipDialogueSwitcher` | Тоггл «скип-режима» диалогов. Кроме собственного состояния учитывает `PlayerSkipMode`: при `Everything` скип всегда доступен, иначе — только если текущая позиция уже была воспроизведена (`Player.HasPlayed(path, index+1)`). Дополнительный `UIStateSwitcher` (`enableSwitcher`) показывает «доступно/недоступно» — для затемнения кнопки на ещё непрочитанных репликах. По `OnStop` (смене скрипта) скип принудительно сбрасывается. |
+| `NaniInputMuteHandler` | Отключает ввод Naninovel, пока объект включён (`NaniWrapper.MuteInput` / `UnmuteInput`). Вешается на слой, который показывается на время ввода текста, рядом с заглушками карт шины ввода. |
 

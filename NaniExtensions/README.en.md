@@ -21,7 +21,7 @@ Out of scope: Naninovel scripts, scene content, Spine asset configuration.
 | [LocalizationSystem](LocalizationSystem/) | `ru.vortex.nani.localization` | 2 | Localization driver with channels |
 | [QuestSystem](QuestSystem/) | `ru.vortex.nani.quests` | 3 | `NaniPlayerState` quest condition — reacts to Nani player start/stop; quest logics on Naninovel variables: `NaniVariableValueComparation` (compare), `NaniVariableValueWait` (wait for a comparison), `NaniExpressionComparation` (Naninovel expression with a formula check button); quest logics on scripts: `RunNaniScript` (launches a script via `NaniWrapper.PlayScript`, implements `INaniScriptLaunch`), `WaitStopNaniScript` (waits for a script to stop) (`defineConstraints`: `USING_VORTEX_QUESTS`, `USING_NANINOVELL`) |
 | [SaveSystem](SaveSystem/) | `ru.vortex.nani.saves` | 3 | `NaniDataSaveController` — saves/restores Nani variables via `GameController` |
-| [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Scene-glue handlers (active speaker, dialog bubble, emotions, Z-position, gallery test tools) |
+| [Misc](Misc/) | `ru.vortex.nani.misc` | 3 | Scene-glue handlers (active speaker, dialog bubble, emotions, Z-position, gallery test tools, Naninovel input mute) |
 | [CustomVariablesDashboard](CustomVariablesDashboard/) | `ru.vortex.nani.variables.dashboard` (+ `.editor`) | 3 | Naninovel variables panel: values in Play Mode, a link map to `.nani` scripts and Vortex quests, "lost" variables. The `INaniVariableReference` contract for quest objects |
 | [NaniScriptLinks](NaniScriptLinks/) | `ru.vortex.nani.script.links` (+ `.editor`) | 3 | `.nani` script link validator: orphans (nothing launches or jumps into them), unused labels, broken `@goto`/`@gosub`/`@choice` links, exclusions. The `INaniScriptLaunch` contract for quest logics that launch a script |
 
@@ -37,7 +37,7 @@ The whole Nani package family is activated via the `USING_NANINOVELL` symbol, se
 
 ### Available Services
 
-`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`, `VariablesManager`
+`AudioManager`, `StateManager`, `L10N`, `CommunityL10N`, `ScriptPlayer`, `BackgroundManager`, `CharacterManager`, `TextPrinterManager`, `ChoiceHandlerManager`, `UnlockableManager`, `UIManager`, `VariablesManager`, `InputManager`
 
 ### Lifecycle
 
@@ -54,6 +54,7 @@ The whole Nani package family is activated via the `USING_NANINOVELL` symbol, se
 | `PlayScript(path, beforeLoad, token)` | The single entry point for starting a script, guarded by a gate — see below |
 | `IsStartingScript` | `true` while the `PlayScript` gate is held (`Load` in flight, `Play` not called yet) |
 | `NaniIsPlaying()` | `true` if **a start is in flight via `PlayScript`**, ScriptPlayer is playing **or a choice handler is visible** (both extra checks are load-bearing — see below) |
+| `MuteInput(holder)` / `UnmuteInput(holder)` | Disables Naninovel input while at least one holder holds it — see below |
 
 ### PlayScript — the start gate
 
@@ -66,6 +67,17 @@ Start scripts **only** through `NaniWrapper.PlayScript`, never via `ScriptPlayer
 `beforeLoad` runs **after** the gate is taken and **before** `Load`; put there any preparation that would tear a concurrent cycle apart outside the lock (the typical case: `ScriptPlayer.ResetService()` in the gallery). `token` cancels only the wait on the gate; a `Load` already in flight is not interrupted.
 
 **Boundaries.** The lock only covers starts routed through `PlayScript`. Synchronous player resets that bypass it — `OnLoadGame` (`ScriptPlayer.ResetService()`) and `OnStateChanged` on `Off/Win/Fail` — do not wait for the gate: a save load or a session exit landing exactly inside the `Load→Play` window can still abort the start.
+
+### MuteInput — disabling Naninovel input
+
+Needed for text input over a Nani scene. Naninovel subscribes to input actions directly, so input bus mutes (`InputMapMuteHandler`) do not override it. Naninovel's blocking UI (`AddBlockingUI`) does not fit either: Submit, Cancel and Delete have `AlwaysProcess` in the input configuration — exactly the input field's Enter, Esc and Backspace.
+
+The mute is held per holder (`MultiLock`): the first holder stores `IInputManager.ProcessInput` and turns it off, the last one restores the stored value. From the layout — `NaniInputMuteHandler` (see Misc).
+
+**This is a workaround** — `ProcessInput` is a shared flag without an owner:
+- the flag is part of Naninovel's game state — saving the game while muted writes `false`;
+- a save load or `@processInput` while muted changes the flag, and the last holder leaving overwrites that value with the stored one;
+- a holder arriving before the engine is ready mutes nothing; if the engine is destroyed by the time the last holder leaves, there is nothing to restore.
 
 ### Playback events
 
@@ -179,4 +191,5 @@ A grab-bag of small handlers that glue a Naninovel scene to project UI and logic
 | `ResetAllGalleryCardsHandler` | Editor tool: resets the unlocked-card progress in `UnlockableManager` (for testing gallery scenes from a clean state). |
 | `AutoPlaySwitcher` | Toggle for Naninovel "auto-play mode". Wires up to a `UIComponent` (Switcher On/Off). On click invokes `IScriptPlayer.SetAutoPlayEnabled(!cached)`; on the `OnAutoPlay` event syncs the visual with the player's real state. |
 | `SkipDialogueSwitcher` | Toggle for dialogue "skip mode". On top of its own state, respects `PlayerSkipMode`: with `Everything` skip is always allowed, otherwise only if the current position has already been played (`Player.HasPlayed(path, index+1)`). An additional `UIStateSwitcher` (`enableSwitcher`) reflects "available / unavailable" — useful for dimming the button on yet-unread lines. On `OnStop` (script switch) the skip flag is force-reset. |
+| `NaniInputMuteHandler` | Disables Naninovel input while the object is enabled (`NaniWrapper.MuteInput` / `UnmuteInput`). Put it on the layer shown during text input, next to the input bus map mutes. |
 
