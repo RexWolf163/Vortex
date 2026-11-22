@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sirenix.OdinInspector;
-using UnityEditor;
 using UnityEngine;
 using Vortex.Core.MappedParametersSystem.Base;
 using Vortex.Core.MappedParametersSystem.Bus;
 
 #if UNITY_EDITOR
+using UnityEditor;
 using System.Reflection;
 using Sirenix.Utilities;
 using Vortex.Core.MappedParametersSystem;
@@ -21,6 +21,7 @@ namespace Vortex.Unity.MappedParametersSystem.Base.Preset
     /// Для переноса в центральную шину преобразуется в ParametersMap
     /// </summary>
     [Serializable]
+    [CreateAssetMenu(fileName = "ParametersMap", menuName = "Vortex/Parameters Map")]
     public partial class ParametersMapStorage : ScriptableObject
     {
         [SerializeField, ValueDropdown("GetGuidList")]

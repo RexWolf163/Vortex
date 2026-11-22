@@ -49,7 +49,7 @@ Out of scope:
 
 ### Creating a parameter map
 
-1. Open `ParametersMapStorage` — the asset is auto-created by `EditorRegister` in `Resources/MapsConfig/`
+1. Create a `ParametersMapStorage` asset via `Create → Vortex/Parameters Map` in `Resources/MapsConfig/` (the folder is created by `EditorRegister` automatically; any `Resources/` folder works). One asset — one map per model type
 2. Select model type (`IMappedModel`) in `guid` dropdown
 3. Add base parameters (`baseParams`) — string names
 4. Add derived parameters (`mappedParams`) — name, parents with costs, `CostLogic` when >1 parent
@@ -173,7 +173,7 @@ On list changes (`OnListChanged`), `CheckErrors()` executes:
 
 ### Input
 
-- `ParametersMapStorage` auto-created (`EditorRegister`) in `Resources/MapsConfig/` when missing — no `[CreateAssetMenu]`
+- `ParametersMapStorage` is created manually (`Create → Vortex/Parameters Map`) in any `Resources/` folder; `EditorRegister` only creates the `Resources/MapsConfig/` folder
 - `guid` points to `FullName` of `IMappedModel` type
 - Base and derived parameters configured in Inspector
 

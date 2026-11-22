@@ -49,7 +49,7 @@ Unity-слой системы параметрических карт. Пред�
 
 ### Создание карты параметров
 
-1. Открыть `ParametersMapStorage` — ассет авто-создаётся `EditorRegister` в `Resources/MapsConfig/`
+1. Создать ассет `ParametersMapStorage` через `Create → Vortex/Parameters Map` в `Resources/MapsConfig/` (папка создаётся `EditorRegister` автоматически; подойдёт любая папка `Resources/`). Один ассет — одна карта на тип модели
 2. В `guid` выбрать тип модели (`IMappedModel`) из dropdown
 3. Добавить базовые параметры (`baseParams`) — строковые имена
 4. Добавить производные параметры (`mappedParams`) — имя, родители с стоимостями, `CostLogic` при >1 родителе
@@ -173,7 +173,7 @@ MappedModelStorage : MonoBehaviour, IDataStorage  (abstract)
 
 ### Вход
 
-- `ParametersMapStorage` создаётся автоматически (`EditorRegister`) в `Resources/MapsConfig/` при отсутствии — `[CreateAssetMenu]` отсутствует
+- `ParametersMapStorage` создаётся вручную (`Create → Vortex/Parameters Map`) в любой папке `Resources/`; `EditorRegister` создаёт только папку `Resources/MapsConfig/`
 - `guid` указывает на `FullName` типа `IMappedModel`
 - Базовые и производные параметры настраиваются в Inspector
 

@@ -1,11 +1,11 @@
-﻿using UnityEditor;
+﻿#if UNITY_EDITOR
+using UnityEditor;
 using UnityEngine;
 using Vortex.Core.Extensions.LogicExtensions;
 using Vortex.Core.MappedParametersSystem.Bus;
 using Vortex.Unity.FileSystem.Bus;
 using Vortex.Unity.MappedParametersSystem.Base.Preset;
 
-#if UNITY_EDITOR
 namespace Vortex.Unity.MappedParametersSystem
 {
     public partial class MappedParametersDriver
