@@ -41,6 +41,12 @@ namespace Vortex.Unity.EditorTools.EditorSettings
         public Color GraphLabelBg;
         public Color GraphPort;
 
+        [Header("Tool statuses")] public Color StatusOk;
+        public Color StatusWarning;
+        public Color StatusError;
+        public Color StatusInfo;
+        public Color StatusAccent;
+
         public Color GetColor(DefaultColors key)
         {
             switch (key)
@@ -78,6 +84,11 @@ namespace Vortex.Unity.EditorTools.EditorSettings
                 case DefaultColors.GraphEdgeNext: return GraphEdgeNext;
                 case DefaultColors.GraphLabelBg: return GraphLabelBg;
                 case DefaultColors.GraphPort: return GraphPort;
+                case DefaultColors.StatusOk: return StatusOk;
+                case DefaultColors.StatusWarning: return StatusWarning;
+                case DefaultColors.StatusError: return StatusError;
+                case DefaultColors.StatusInfo: return StatusInfo;
+                case DefaultColors.StatusAccent: return StatusAccent;
                 default: return Color.magenta;
             }
         }
@@ -119,6 +130,11 @@ namespace Vortex.Unity.EditorTools.EditorSettings
                 GraphEdgeNext = ParseColor("#00838Fff"),
                 GraphLabelBg = ParseColor("#F4F4F4ff"),
                 GraphPort = ParseColor("#6E6E6Eff"),
+                StatusOk = ParseColor("#11661Fff"),
+                StatusWarning = ParseColor("#8A4F00ff"),
+                StatusError = ParseColor("#B71C1Cff"),
+                StatusInfo = ParseColor("#0D57A8ff"),
+                StatusAccent = ParseColor("#8E24AAff"),
             };
         }
 
@@ -159,6 +175,11 @@ namespace Vortex.Unity.EditorTools.EditorSettings
                 GraphEdgeNext = ParseColor("#4DD0E1ff"),
                 GraphLabelBg = ParseColor("#2A2A2Aff"),
                 GraphPort = ParseColor("#9E9E9Eff"),
+                StatusOk = ParseColor("#4DD959ff"),
+                StatusWarning = ParseColor("#F2BF40ff"),
+                StatusError = ParseColor("#F25959ff"),
+                StatusInfo = ParseColor("#73B8FFff"),
+                StatusAccent = ParseColor("#F28CF2ff"),
             };
         }
 

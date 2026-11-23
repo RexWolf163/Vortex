@@ -234,7 +234,7 @@ The stateless overload is needed where the popup acts as a "selection view" rath
 
 ### `EditorSettings/ToolsSettings`
 
-`ScriptableObject` with two `ThemeColors` (light / pro). `ThemeColors` holds a `Dictionary<DefaultColors, Color>` — a centralized palette for drawers. Access:
+`ScriptableObject` with two `ThemeColors` (light / pro). `ThemeColors` is a struct with one `Color` field per `DefaultColors` key (`GetColor(key)`) — a centralized palette for drawers and tools. Access:
 
 ```csharp
 ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
@@ -242,6 +242,8 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 ```
 
 The `Graph*` keys (`GraphBg`, `GraphNodeBg`, `GraphNodeCurrentBg`, `GraphNodeText`, `GraphNodeTagText`, `GraphNodeBorder`, `GraphStart`, `GraphSelected`, `GraphWarning`, `GraphError`, `GraphEdge`, `GraphEdgeNext`, `GraphLabelBg`, `GraphPort`) are the palette for graph editors (the `StateGraphSystem` visualizer), the "Graph editors" section of the asset.
+
+The `Status*` keys (`StatusOk`, `StatusWarning`, `StatusError`, `StatusInfo`, `StatusAccent`) are text colors for statuses in tool tables (create / update, found / not found, etc.) on top of the inspector background, the "Tool statuses" section of the asset. The light theme uses dark saturated shades, the pro theme uses bright ones — readable on both. Read the color on every draw (`GetLineColor`) rather than caching it in a `GUIStyle` once, so editor theme switches and palette edits apply immediately.
 
 ### `PrefabTools/PrefabOverrideCleanerWindow`
 

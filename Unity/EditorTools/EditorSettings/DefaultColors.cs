@@ -37,5 +37,12 @@ namespace Vortex.Unity.EditorTools.EditorSettings
         GraphEdgeNext,
         GraphLabelBg,
         GraphPort,
+
+        // Статусы в таблицах инструментов (цвет текста поверх фона инспектора)
+        StatusOk,
+        StatusWarning,
+        StatusError,
+        StatusInfo,
+        StatusAccent,
     }
 }

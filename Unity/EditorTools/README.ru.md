@@ -234,7 +234,7 @@ Stateless-перегрузка нужна там, где попап исполь
 
 ### `EditorSettings/ToolsSettings`
 
-`ScriptableObject` с парой `ThemeColors` (light / pro). `ThemeColors` хранит словарь `Dictionary<DefaultColors, Color>` — централизованная палитра для drawer'ов. Доступ:
+`ScriptableObject` с парой `ThemeColors` (light / pro). `ThemeColors` — struct с полем `Color` на каждый ключ `DefaultColors` (`GetColor(key)`) — централизованная палитра для drawer'ов и инструментов. Доступ:
 
 ```csharp
 ToolsSettings.GetBgColor(DefaultColors.SwitcherOnBg);
@@ -242,6 +242,8 @@ ToolsSettings.GetLineColor(DefaultColors.TextColor);
 ```
 
 Ключи `Graph*` (`GraphBg`, `GraphNodeBg`, `GraphNodeCurrentBg`, `GraphNodeText`, `GraphNodeTagText`, `GraphNodeBorder`, `GraphStart`, `GraphSelected`, `GraphWarning`, `GraphError`, `GraphEdge`, `GraphEdgeNext`, `GraphLabelBg`, `GraphPort`) — палитра редакторов графов (визуализатор `StateGraphSystem`), раздел «Graph editors» в ассете.
+
+Ключи `Status*` (`StatusOk`, `StatusWarning`, `StatusError`, `StatusInfo`, `StatusAccent`) — цвета текста статусов в таблицах инструментов (создать / обновить, найден / не найден и т. п.) поверх фона инспектора, раздел «Tool statuses» в ассете. Для светлой темы — тёмные насыщенные оттенки, для pro — яркие: читаются на обеих. Цвет брать при каждой отрисовке (`GetLineColor`), а не запекать один раз в `GUIStyle` — тогда смена темы редактора и правка палитры видны сразу.
 
 ### `PrefabTools/PrefabOverrideCleanerWindow`
 
