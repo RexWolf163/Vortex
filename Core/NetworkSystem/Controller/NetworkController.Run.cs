@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -50,6 +51,11 @@ namespace Vortex.Core.NetworkSystem
             {
                 while (true)
                 {
+                    // Токен — до слота: источник токена может сам ходить в сеть через этот контроллер,
+                    // и ожидание токена под занятым слотом при заполненном лимите даёт дедлок.
+                    if (prepared.Auth != null)
+                        authToken ??= await TokenSources[prepared.Auth.TokenSourceKey](false, token);
+
                     await Registry.AcquireSlotAsync(limit, token);
                     try
                     {
@@ -60,12 +66,8 @@ namespace Vortex.Core.NetworkSystem
                         query.SetState(QueryState.Running);
 
                         var headers = new Dictionary<string, string>(prepared.Headers, StringComparer.OrdinalIgnoreCase);
-                        if (prepared.Auth != null)
-                        {
-                            authToken ??= await TokenSources[prepared.Auth.TokenSourceKey](false, token);
-                            if (!string.IsNullOrEmpty(authToken))
-                                prepared.Auth.ApplyHeaders(authToken, headers);
-                        }
+                        if (prepared.Auth != null && !string.IsNullOrEmpty(authToken))
+                            prepared.Auth.ApplyHeaders(authToken, headers);
 
                         last = await ExecuteAttemptAsync(query, prepared, headers, token);
                     }
@@ -263,7 +265,11 @@ namespace Vortex.Core.NetworkSystem
 
         #region Завершение и освобождение
 
-        /// <summary>Присвоить итог (один раз): итог → обработчик → «Завершён» → обработчик → ожидающие.</summary>
+        /// <summary>
+        /// Присвоить итог (один раз): итог → обработчик → «Завершён» → обработчик → ожидающие.
+        /// Исключение обработчика (ошибка программиста) не прерывает завершение: запрос доходит до «Завершён»,
+        /// ожидающие отпускаются, автоосвобождение выполняется, затем первое исключение пробрасывается.
+        /// </summary>
         private static void Complete(Query query, QueryOutcome outcome, AttemptResult result, TimeSpan duration,
             int attempts, string message, string filePath)
         {
@@ -272,8 +278,26 @@ namespace Vortex.Core.NetworkSystem
 
             query.Result = new QueryResult(result?.StatusCode ?? 0, result?.Headers,
                 filePath == null ? result?.Body : null, filePath, duration, attempts, message);
-            query.SetOutcome(outcome);
-            query.SetState(QueryState.Completed);
+
+            ExceptionDispatchInfo handlerError = null;
+            try
+            {
+                query.SetOutcome(outcome);
+            }
+            catch (Exception e)
+            {
+                handlerError = ExceptionDispatchInfo.Capture(e);
+            }
+
+            try
+            {
+                query.SetState(QueryState.Completed);
+            }
+            catch (Exception e)
+            {
+                handlerError ??= ExceptionDispatchInfo.Capture(e);
+            }
+
             query.CompleteAwaiters();
 
             if (outcome is QueryOutcome.Success or QueryOutcome.NotModified)
@@ -283,7 +307,18 @@ namespace Vortex.Core.NetworkSystem
                 LogWarning($"#{query.Id} → {outcome} ({query.Result.StatusCode}): {message}" + BodyForLog(query.Result));
 
             if (query.AutoRelease || query.ReleaseRequested)
-                ReleaseInternal(query);
+            {
+                try
+                {
+                    ReleaseInternal(query);
+                }
+                catch (Exception e)
+                {
+                    handlerError ??= ExceptionDispatchInfo.Capture(e);
+                }
+            }
+
+            handlerError?.Throw();
         }
 
         internal static void TakeResult(Query query)
@@ -314,25 +349,71 @@ namespace Vortex.Core.NetworkSystem
             }
         }
 
+        /// <summary>
+        /// Исключить из реестра, перевести в «Освобождён», освободить токен. Исключение подписчика или обработчика
+        /// не прерывает освобождение: шаги выполняются все, затем первое исключение пробрасывается.
+        /// </summary>
         private static void ReleaseInternal(Query query)
         {
-            Registry.Remove(query);
-            query.SetState(QueryState.Released);
+            ExceptionDispatchInfo handlerError = null;
+            try
+            {
+                Registry.Remove(query);
+            }
+            catch (Exception e)
+            {
+                handlerError = ExceptionDispatchInfo.Capture(e);
+            }
+
+            try
+            {
+                query.SetState(QueryState.Released);
+            }
+            catch (Exception e)
+            {
+                handlerError ??= ExceptionDispatchInfo.Capture(e);
+            }
+
             query.Cancellation?.Dispose();
             query.Cancellation = null;
+
+            handlerError?.Throw();
         }
 
-        /// <summary>Выход из приложения: всё незавершённое отменяется, всё освобождается.</summary>
+        /// <summary>
+        /// Выход из приложения: всё незавершённое отменяется, всё освобождается. Исключение обработчика одного
+        /// запроса не прерывает освобождение остальных: первое исключение пробрасывается после обхода.
+        /// </summary>
         private static void ExitAll()
         {
+            ExceptionDispatchInfo handlerError = null;
             var active = new List<Query>(Registry.Active);
             foreach (var query in active)
             {
-                query.Cancellation?.Cancel();
-                Complete(query, QueryOutcome.Cancelled, null, TimeSpan.Zero, query.Attempt, "Application exit.", null);
-                if (query.State.Value != QueryState.Released)
+                try
+                {
+                    query.Cancellation?.Cancel();
+                    Complete(query, QueryOutcome.Cancelled, null, TimeSpan.Zero, query.Attempt, "Application exit.", null);
+                }
+                catch (Exception e)
+                {
+                    handlerError ??= ExceptionDispatchInfo.Capture(e);
+                }
+
+                if (query.State.Value == QueryState.Released)
+                    continue;
+
+                try
+                {
                     ReleaseInternal(query);
+                }
+                catch (Exception e)
+                {
+                    handlerError ??= ExceptionDispatchInfo.Capture(e);
+                }
             }
+
+            handlerError?.Throw();
         }
 
         #endregion
