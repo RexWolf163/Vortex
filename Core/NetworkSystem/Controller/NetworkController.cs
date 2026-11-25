@@ -69,18 +69,29 @@ namespace Vortex.Core.NetworkSystem
             CreateSimple(url, parameters).SetAutoRelease().Send();
 
         /// <summary>Простой запрос с ожиданием: ждёт завершения, освобождает и возвращает <see cref="Query"/>.</summary>
-        public static async UniTask<Query> SendAsync(UrlData url, object payload, CancellationToken token = default)
-        {
-            var query = CreateSimple(url, payload).SetCancellation(token).Send();
-            await query.Completion;
-            return query.GetResult();
-        }
+        public static UniTask<Query> SendAsync(UrlData url, object payload, CancellationToken token = default) =>
+            SendAndTakeAsync(CreateSimple(url, payload).SetCancellation(token));
 
         /// <summary>Простой запрос с ожиданием и словарём параметров адреса.</summary>
-        public static async UniTask<Query> SendAsync(UrlData url, IReadOnlyDictionary<string, object> parameters,
-            CancellationToken token = default)
+        public static UniTask<Query> SendAsync(UrlData url, IReadOnlyDictionary<string, object> parameters,
+            CancellationToken token = default) =>
+            SendAndTakeAsync(CreateSimple(url, parameters).SetCancellation(token));
+
+        private static async UniTask<Query> SendAndTakeAsync(Query query)
         {
-            var query = CreateSimple(url, parameters).SetCancellation(token).Send();
+            try
+            {
+                query.Send();
+            }
+            catch
+            {
+                // Запрос ушёл в работу, но обработчик при запуске бросил: забрать его будет некому — освобождаем,
+                // иначе он навсегда останется в реестре. Не запущен (ошибка проверки) — освобождать нечего.
+                if (query.State.Value != QueryState.Draft)
+                    query.Release();
+                throw;
+            }
+
             await query.Completion;
             return query.GetResult();
         }
@@ -171,7 +182,8 @@ namespace Vortex.Core.NetworkSystem
             if (string.IsNullOrWhiteSpace(s.ActiveEnvironment) || active == null)
                 throw Config($"active environment '{s.ActiveEnvironment}' is empty or not found");
 
-            if (s.DefaultTimeout <= 0f) throw Config("default timeout must be positive");
+            if (!(s.DefaultTimeout > 0f) || float.IsInfinity(s.DefaultTimeout))
+                throw Config("default timeout must be a finite positive number");
             if (s.MaxConcurrentRequests < 1) throw Config("max concurrent requests must be ≥ 1");
             if (s.MaxRequestBodyBytes <= 0 || s.MaxResponseBytes <= 0) throw Config("size limits must be positive");
 

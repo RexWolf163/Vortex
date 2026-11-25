@@ -53,12 +53,17 @@ namespace Vortex.Core.NetworkSystem
                 {
                     // Токен — до слота: источник токена может сам ходить в сеть через этот контроллер,
                     // и ожидание токена под занятым слотом при заполненном лимите даёт дедлок.
-                    if (prepared.Auth != null)
-                        authToken ??= await TokenSources[prepared.Auth.TokenSourceKey](false, token);
+                    if (prepared.Auth != null && authToken == null)
+                    {
+                        authToken = await prepared.TokenSource(false, token);
+                        // Источник мог не учесть отмену: запрос уже завершён или освобождён — дальше не идём.
+                        token.ThrowIfCancellationRequested();
+                    }
 
                     await Registry.AcquireSlotAsync(limit, token);
                     try
                     {
+                        token.ThrowIfCancellationRequested();
                         query.Attempt++;
                         if (!isAuthRetry)
                             policyAttempts++;
@@ -67,7 +72,10 @@ namespace Vortex.Core.NetworkSystem
 
                         var headers = new Dictionary<string, string>(prepared.Headers, StringComparer.OrdinalIgnoreCase);
                         if (prepared.Auth != null && !string.IsNullOrEmpty(authToken))
+                        {
                             prepared.Auth.ApplyHeaders(authToken, headers);
+                            ThrowIfUnsettable(query.Id, headers.Keys); // провайдер мог дописать запрещённый заголовок
+                        }
 
                         last = await ExecuteAttemptAsync(query, prepared, headers, token);
                     }
@@ -82,7 +90,8 @@ namespace Vortex.Core.NetworkSystem
                     if (last.StatusCode == 401 && prepared.Auth != null && !authRefreshed)
                     {
                         authRefreshed = true;
-                        authToken = await TokenSources[prepared.Auth.TokenSourceKey](true, token);
+                        authToken = await prepared.TokenSource(true, token);
+                        token.ThrowIfCancellationRequested();
                         if (string.IsNullOrEmpty(authToken))
                             break;
                         isAuthRetry = true;
@@ -99,22 +108,50 @@ namespace Vortex.Core.NetworkSystem
                     query.SetState(QueryState.Queued);
                 }
 
-                FinishDownload(prepared, last.Outcome);
+                if (!TryFinishDownload(prepared, last.Outcome, out var fileError))
+                {
+                    Complete(query, QueryOutcome.BodyError, last.Result, clock.Elapsed, query.Attempt, fileError, null);
+                    return;
+                }
+
+                if (last.Outcome is QueryOutcome.Success or QueryOutcome.NotModified)
+                {
+                    // 1 — только по итогу: между попытками прогресс начинается заново, ложной «готовности» нет.
+                    query.SetUploadProgress(1f);
+                    query.SetDownloadProgress(1f);
+                }
+
                 Complete(query, last.Outcome, last.Result, clock.Elapsed, query.Attempt, last.Message,
                     last.Outcome == QueryOutcome.Success && prepared.DownloadPath != null ? prepared.DownloadPath : null);
             }
             catch (OperationCanceledException)
             {
-                FinishDownload(prepared, QueryOutcome.Cancelled);
+                TryFinishDownload(prepared, QueryOutcome.Cancelled, out _);
                 Complete(query, QueryOutcome.Cancelled, last.Result, clock.Elapsed, query.Attempt, "Cancelled.", null);
             }
             catch (Exception e)
             {
-                // Исключение источника токена или провайдера — ошибка программиста: завершаем запрос и пробрасываем.
-                FinishDownload(prepared, QueryOutcome.Cancelled);
+                // Исключение источника токена, провайдера или обработчика — ошибка программиста: завершаем запрос и пробрасываем.
+                TryFinishDownload(prepared, QueryOutcome.Cancelled, out _);
                 Complete(query, QueryOutcome.Cancelled, last.Result, clock.Elapsed, query.Attempt, e.Message, null);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Итог известен при запуске (сеть выключена, тело больше лимита, нет файла части), но выдаётся на следующем
+        /// кадре — после возврата из Send: обработчики и ожидающие видят запрос уже у вызывающего кода, а повторная
+        /// отправка из обработчика не растит стек.
+        /// </summary>
+        private static async UniTaskVoid CompleteImmediateAsync(Query query, QueryOutcome outcome, string message)
+        {
+            await UniTask.Yield(PlayerLoopTiming.Update);
+            if (query.Outcome.Value != QueryOutcome.None)
+                return; // уже завершён выходом из приложения
+            if (query.Cancellation.IsCancellationRequested)
+                Complete(query, QueryOutcome.Cancelled, null, TimeSpan.Zero, 0, "Cancelled.", null);
+            else
+                Complete(query, outcome, null, TimeSpan.Zero, 0, message, null);
         }
 
         private static bool ShouldRetry(Prepared prepared, AttemptOutcome last, int policyAttempts, out float delay)
@@ -140,6 +177,7 @@ namespace Vortex.Core.NetworkSystem
         private static async UniTask<AttemptOutcome> ExecuteAttemptAsync(Query query, Prepared prepared,
             Dictionary<string, string> headers, CancellationToken token)
         {
+            // Исключение при создании попытки — забота драйвера: он освобождает уже выделенное сам (см. INetworkDriver.CreateAttempt).
             var attempt = Driver.CreateAttempt(new PreparedAttempt(query.Id, query.Attempt, prepared.Url, prepared.Method, headers,
                 prepared.ContentType, prepared.Body ?? (IReadOnlyList<BodySegment>)Array.Empty<BodySegment>(),
                 prepared.TempDownloadPath));
@@ -180,11 +218,12 @@ namespace Vortex.Core.NetworkSystem
                 }
 
                 var result = attempt.GetResult();
-                query.SetUploadProgress(1f);
-                query.SetDownloadProgress(1f);
 
-                if (result.Body != null && result.Body.LongLength > _settings.MaxResponseBytes)
-                    return TooLargeResponse(result.Body.LongLength);
+                // Последний кусок мог прийти в том же кадре, что и завершение: лимит проверяется и здесь — в том числе
+                // для скачивания в файл, где тела в памяти нет.
+                var size = result.Body?.LongLength ?? attempt.DownloadedBytes;
+                if (size > _settings.MaxResponseBytes)
+                    return TooLargeResponse(size);
 
                 return Classify(result);
             }
@@ -244,21 +283,41 @@ namespace Vortex.Core.NetworkSystem
             return false;
         }
 
-        /// <summary>Скачивание в файл: при успехе временный файл заменяет целевой, иначе удаляется.</summary>
-        private static void FinishDownload(Prepared prepared, QueryOutcome outcome)
+        /// <summary>
+        /// Скачивание в файл: при успехе временный файл заменяет целевой, иначе удаляется. Успех без временного файла
+        /// (пустой ответ) даёт пустой целевой файл — прежнее содержимое не выдаётся за свежее.
+        /// Ошибка файловой системы не прерывает завершение: <c>false</c> и текст ошибки, запрос всё равно получит итог.
+        /// </summary>
+        private static bool TryFinishDownload(Prepared prepared, QueryOutcome outcome, out string error)
         {
-            if (prepared.TempDownloadPath == null || !File.Exists(prepared.TempDownloadPath))
-                return;
+            error = null;
+            var temp = prepared.TempDownloadPath;
+            if (temp == null)
+                return true;
 
-            if (outcome != QueryOutcome.Success)
+            try
             {
-                File.Delete(prepared.TempDownloadPath);
-                return;
-            }
+                if (outcome != QueryOutcome.Success)
+                {
+                    if (File.Exists(temp))
+                        File.Delete(temp);
+                    return true;
+                }
 
-            if (File.Exists(prepared.DownloadPath))
-                File.Delete(prepared.DownloadPath);
-            File.Move(prepared.TempDownloadPath, prepared.DownloadPath);
+                if (File.Exists(prepared.DownloadPath))
+                    File.Delete(prepared.DownloadPath);
+                if (File.Exists(temp))
+                    File.Move(temp, prepared.DownloadPath);
+                else
+                    File.WriteAllBytes(prepared.DownloadPath, Array.Empty<byte>());
+                return true;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                error = $"Downloaded file could not be finalized ({prepared.DownloadPath}): {e.Message}";
+                LogWarning(error);
+                return false;
+            }
         }
 
         #endregion
@@ -280,24 +339,8 @@ namespace Vortex.Core.NetworkSystem
                 filePath == null ? result?.Body : null, filePath, duration, attempts, message);
 
             ExceptionDispatchInfo handlerError = null;
-            try
-            {
-                query.SetOutcome(outcome);
-            }
-            catch (Exception e)
-            {
-                handlerError = ExceptionDispatchInfo.Capture(e);
-            }
-
-            try
-            {
-                query.SetState(QueryState.Completed);
-            }
-            catch (Exception e)
-            {
-                handlerError ??= ExceptionDispatchInfo.Capture(e);
-            }
-
+            Step(() => query.SetOutcome(outcome), ref handlerError);
+            Step(() => query.SetState(QueryState.Completed), ref handlerError);
             query.CompleteAwaiters();
 
             if (outcome is QueryOutcome.Success or QueryOutcome.NotModified)
@@ -307,18 +350,25 @@ namespace Vortex.Core.NetworkSystem
                 LogWarning($"#{query.Id} → {outcome} ({query.Result.StatusCode}): {message}" + BodyForLog(query.Result));
 
             if (query.AutoRelease || query.ReleaseRequested)
-            {
-                try
-                {
-                    ReleaseInternal(query);
-                }
-                catch (Exception e)
-                {
-                    handlerError ??= ExceptionDispatchInfo.Capture(e);
-                }
-            }
+                Step(() => ReleaseInternal(query), ref handlerError);
 
             handlerError?.Throw();
+        }
+
+        /// <summary>
+        /// Шаг завершения или освобождения: исключение обработчика (ошибка программиста) не прерывает остальные шаги —
+        /// запоминается первое, вызывающий пробрасывает его в конце.
+        /// </summary>
+        private static void Step(Action action, ref ExceptionDispatchInfo firstError)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                firstError ??= ExceptionDispatchInfo.Capture(e);
+            }
         }
 
         internal static void TakeResult(Query query)
@@ -356,24 +406,8 @@ namespace Vortex.Core.NetworkSystem
         private static void ReleaseInternal(Query query)
         {
             ExceptionDispatchInfo handlerError = null;
-            try
-            {
-                Registry.Remove(query);
-            }
-            catch (Exception e)
-            {
-                handlerError = ExceptionDispatchInfo.Capture(e);
-            }
-
-            try
-            {
-                query.SetState(QueryState.Released);
-            }
-            catch (Exception e)
-            {
-                handlerError ??= ExceptionDispatchInfo.Capture(e);
-            }
-
+            Step(() => Registry.Remove(query), ref handlerError);
+            Step(() => query.SetState(QueryState.Released), ref handlerError);
             query.Cancellation?.Dispose();
             query.Cancellation = null;
 
@@ -390,27 +424,14 @@ namespace Vortex.Core.NetworkSystem
             var active = new List<Query>(Registry.Active);
             foreach (var query in active)
             {
-                try
+                Step(() =>
                 {
                     query.Cancellation?.Cancel();
                     Complete(query, QueryOutcome.Cancelled, null, TimeSpan.Zero, query.Attempt, "Application exit.", null);
-                }
-                catch (Exception e)
-                {
-                    handlerError ??= ExceptionDispatchInfo.Capture(e);
-                }
+                }, ref handlerError);
 
-                if (query.State.Value == QueryState.Released)
-                    continue;
-
-                try
-                {
-                    ReleaseInternal(query);
-                }
-                catch (Exception e)
-                {
-                    handlerError ??= ExceptionDispatchInfo.Capture(e);
-                }
+                if (query.State.Value != QueryState.Released)
+                    Step(() => ReleaseInternal(query), ref handlerError);
             }
 
             handlerError?.Throw();

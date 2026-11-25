@@ -60,28 +60,53 @@ namespace Vortex.Unity.NetworkSystem.Drivers.Uwr
 
         public void Init()
         {
-            var assets = Resources.LoadAll<UwrNetworkSettings>("");
-            if (assets.Length != 1)
-                throw new InvalidOperationException(
-                    $"[Network] UnityWebRequest driver expects exactly one UwrNetworkSettings asset in Resources, found {assets.Length}.");
-            _settings = assets[0];
+            _settings = NetworkSettingsAsset.LoadSingle<UwrNetworkSettings>();
 
             _unsettable = new HashSet<string>(CommonUnsettable, StringComparer.OrdinalIgnoreCase);
 #if UNITY_WEBGL && !UNITY_EDITOR
             _unsettable.UnionWith(WebUnsettable);
 #endif
 
-            _tempFolder = Path.Combine(Application.temporaryCachePath, TempFolderName);
+            // temporaryCachePath общий у редактора, сборок и клонов проекта: у каждого запуска своя подпапка,
+            // чужие удаляются, только если давно не менялись.
+            var root = Path.Combine(Application.temporaryCachePath, TempFolderName);
+            _tempFolder = Path.Combine(root, Guid.NewGuid().ToString("N"));
 #if !(UNITY_WEBGL && !UNITY_EDITOR)
-            if (Directory.Exists(_tempFolder))
-                Directory.Delete(_tempFolder, true); // «хвосты» прошлых запусков
+            CleanStaleTempEntries(root, TimeSpan.FromHours(_settings.StaleTempFolderHours));
 #endif
 
             OnInit?.Invoke();
         }
 
-        public void Destroy()
+        public void Destroy() => TryDelete(_tempFolder);
+
+        /// <summary>«Хвосты» прошлых запусков: записи в общей папке старше срока. Занятые другим процессом пропускаются.</summary>
+        private static void CleanStaleTempEntries(string root, TimeSpan maxAge)
         {
+            if (!Directory.Exists(root))
+                return;
+            var cutoff = DateTime.UtcNow - maxAge;
+            foreach (var directory in Directory.GetDirectories(root))
+                if (Directory.GetLastWriteTimeUtc(directory) < cutoff)
+                    TryDelete(directory);
+            foreach (var file in Directory.GetFiles(root))
+                if (File.GetLastWriteTimeUtc(file) < cutoff)
+                    TryDelete(file);
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                    Directory.Delete(path, true);
+                else if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Занято другим процессом — удалит следующий запуск.
+            }
         }
 
         public INetworkAttempt CreateAttempt(PreparedAttempt attempt) =>

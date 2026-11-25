@@ -20,6 +20,8 @@ namespace Vortex.Core.NetworkSystem
     /// <summary>
     /// Источник токена. <paramref name="forceNew"/> = <c>true</c> — после 401, нужен новый токен.
     /// Пустой результат означает «токена нет».
+    /// Если источник сам получает токен через сетевой модуль, адрес получения не должен подпадать под правило
+    /// авторизации с тем же ключом источника: такой запрос снова запросит токен, и цепочка не остановится.
     /// </summary>
     public delegate UniTask<string> TokenSource(bool forceNew, CancellationToken cancellationToken);
 }

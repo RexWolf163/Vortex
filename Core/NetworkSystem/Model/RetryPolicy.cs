@@ -71,7 +71,10 @@ namespace Vortex.Core.NetworkSystem
         /// <summary>Проверка значений; ошибка — ошибка конфигурации.</summary>
         internal void Validate(string owner)
         {
-            if (maxAttempts < 1 || baseDelay < 0f || multiplier < 1f || maxDelay < 0f || jitter < 0f || jitter > 1f)
+            // Сравнения «не ≥» отсекают и NaN: с ним пауза перед повтором не вычисляется.
+            if (maxAttempts < 1 || !(baseDelay >= 0f) || !(multiplier >= 1f) || !(maxDelay >= 0f)
+                || !(jitter >= 0f) || jitter > 1f
+                || float.IsInfinity(baseDelay) || float.IsInfinity(multiplier) || float.IsInfinity(maxDelay))
                 throw new InvalidOperationException(
                     $"[Network] Invalid retry policy in {owner}: maxAttempts ≥ 1, baseDelay ≥ 0, multiplier ≥ 1, maxDelay ≥ 0, jitter 0…1.");
             foreach (var condition in retryOn)

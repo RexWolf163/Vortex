@@ -39,7 +39,9 @@ namespace Vortex.Unity.NetworkSystem.Mock
 
         public void Start() => _clock = Stopwatch.StartNew();
 
-        public bool IsDone => !_aborted && _clock != null && _kind != MockReactionKind.NoResponse && Elapsed >= _delay + _transfer;
+        /// <summary>Как у UnityWebRequest: прерванная попытка считается завершённой (с транспортной ошибкой).</summary>
+        public bool IsDone => _aborted
+                              || (_clock != null && _kind != MockReactionKind.NoResponse && Elapsed >= _delay + _transfer);
 
         public float UploadProgress => Progress;
 
@@ -49,10 +51,12 @@ namespace Vortex.Unity.NetworkSystem.Mock
 
         public AttemptResult GetResult()
         {
-            if (_kind == MockReactionKind.TransportError)
-                return new AttemptResult(0, null, null, TransportError.Network, _error);
-
             var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (_aborted)
+                return new AttemptResult(0, headers, null, TransportError.Network, "Request aborted.");
+            if (_kind == MockReactionKind.TransportError)
+                return new AttemptResult(0, headers, null, TransportError.Network, _error);
+
             if (_headers != null)
                 foreach (var header in _headers)
                     if (header != null && !string.IsNullOrWhiteSpace(header.name))
@@ -61,7 +65,16 @@ namespace Vortex.Unity.NetworkSystem.Mock
             if (_attempt.DownloadPath == null)
                 return new AttemptResult(_statusCode, headers, _body, TransportError.None, null);
 
-            File.WriteAllBytes(_attempt.DownloadPath, _body ?? Array.Empty<byte>());
+            try
+            {
+                File.WriteAllBytes(_attempt.DownloadPath, _body ?? Array.Empty<byte>());
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Как у UnityWebRequest: ошибка записи ответа — ошибка обработки данных, итог Network.
+                return new AttemptResult(0, headers, null, TransportError.Network, e.Message);
+            }
+
             return new AttemptResult(_statusCode, headers, null, TransportError.None, null);
         }
 
@@ -77,7 +90,7 @@ namespace Vortex.Unity.NetworkSystem.Mock
         {
             get
             {
-                if (_kind == MockReactionKind.NoResponse || _clock == null || Elapsed < _delay)
+                if (_aborted || _kind == MockReactionKind.NoResponse || _clock == null || Elapsed < _delay)
                     return 0f;
                 if (_transfer <= 0.0)
                     return IsDone ? 1f : 0f;

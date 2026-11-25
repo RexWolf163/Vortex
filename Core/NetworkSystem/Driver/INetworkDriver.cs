@@ -39,7 +39,11 @@ namespace Vortex.Core.NetworkSystem
         /// <summary>Возможность: лимит редиректов из настроек драйвера.</summary>
         bool SupportsRedirectLimit { get; }
 
-        /// <summary>Создать объект попытки. Попытка не запускается до <see cref="INetworkAttempt.Start"/>.</summary>
+        /// <summary>
+        /// Создать объект попытки. Попытка не запускается до <see cref="INetworkAttempt.Start"/>.
+        /// Если создание бросает исключение, драйвер сам освобождает всё, что успел выделить: объекта для
+        /// <see cref="IDisposable.Dispose"/> у ядра в этом случае нет.
+        /// </summary>
         INetworkAttempt CreateAttempt(PreparedAttempt attempt);
     }
 

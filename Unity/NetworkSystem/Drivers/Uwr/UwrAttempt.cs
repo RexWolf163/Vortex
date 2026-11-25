@@ -21,19 +21,28 @@ namespace Vortex.Unity.NetworkSystem.Drivers.Uwr
         public UwrAttempt(PreparedAttempt attempt, int redirectLimit, string tempFolder)
         {
             _request = new UnityWebRequest(attempt.Url, MethodName(attempt.Method)) { timeout = 0 };
-            if (redirectLimit >= 0)
-                _request.redirectLimit = redirectLimit;
+            try
+            {
+                if (redirectLimit >= 0)
+                    _request.redirectLimit = redirectLimit;
 
-            foreach (var header in attempt.Headers)
-                _request.SetRequestHeader(header.Key, header.Value);
+                foreach (var header in attempt.Headers)
+                    _request.SetRequestHeader(header.Key, header.Value);
 
-            if (attempt.Body.Count > 0)
-                _request.uploadHandler = CreateUploadHandler(attempt, tempFolder);
+                if (attempt.Body.Count > 0)
+                    _request.uploadHandler = CreateUploadHandler(attempt, tempFolder);
 
-            _toFile = attempt.DownloadPath != null;
-            _request.downloadHandler = _toFile
-                ? new DownloadHandlerFile(attempt.DownloadPath) { removeFileOnAbort = true }
-                : new DownloadHandlerBuffer();
+                _toFile = attempt.DownloadPath != null;
+                _request.downloadHandler = _toFile
+                    ? new DownloadHandlerFile(attempt.DownloadPath) { removeFileOnAbort = true }
+                    : new DownloadHandlerBuffer();
+            }
+            catch
+            {
+                // Объекта попытки у ядра не будет — нативный запрос и временный файл освобождаем здесь (контракт CreateAttempt).
+                Dispose();
+                throw;
+            }
         }
 
         public void Start() => _operation = _request.SendWebRequest();

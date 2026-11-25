@@ -85,17 +85,18 @@ namespace Vortex.Unity.NetworkSystem.Mock
 
         public void Init()
         {
-            var assets = Resources.LoadAll<MockNetworkSettings>("");
-            if (assets.Length != 1)
-                throw new InvalidOperationException(
-                    $"[Network] Mock driver expects exactly one MockNetworkSettings asset in Resources, found {assets.Length}.");
-            _settings = assets[0];
+            _settings = NetworkSettingsAsset.LoadSingle<MockNetworkSettings>();
             ValidateRules();
+            ResetOverrides(); // подкрутка — только текущего подключения
             IsActive = true;
             OnInit?.Invoke();
         }
 
-        public void Destroy() => IsActive = false;
+        public void Destroy()
+        {
+            IsActive = false;
+            ResetOverrides();
+        }
 
         public INetworkAttempt CreateAttempt(PreparedAttempt attempt)
         {

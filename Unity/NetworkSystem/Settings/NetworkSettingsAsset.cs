@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sirenix.OdinInspector;
@@ -16,6 +17,16 @@ namespace Vortex.Unity.NetworkSystem
     public abstract class NetworkSettingsAsset : ScriptableObject, INetworkSettings
     {
         private const long Megabyte = 1024L * 1024L;
+
+        /// <summary>Единственный ассет настроек драйвера в Resources. Нет или несколько — fail-fast.</summary>
+        public static T LoadSingle<T>() where T : NetworkSettingsAsset
+        {
+            var assets = Resources.LoadAll<T>("");
+            if (assets.Length != 1)
+                throw new InvalidOperationException(
+                    $"[Network] Network driver expects exactly one {typeof(T).Name} asset in Resources, found {assets.Length}.");
+            return assets[0];
+        }
 
         [BoxGroup("Окружения")]
         [SerializeField, ListDrawerSettings(ShowFoldout = true)]

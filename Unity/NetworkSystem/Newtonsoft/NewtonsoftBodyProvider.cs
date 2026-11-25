@@ -32,6 +32,8 @@ namespace Vortex.Unity.NetworkSystem.Providers
         private bool ignoreNulls;
 
         [NonSerialized] private JsonSerializerSettings _settings;
+        [NonSerialized] private NamingStyle _settingsNaming;
+        [NonSerialized] private bool _settingsIgnoreNulls;
 
         public string ContentType => "application/json; charset=utf-8";
 
@@ -89,19 +91,31 @@ namespace Vortex.Unity.NetworkSystem.Providers
             return result;
         }
 
-        private JsonSerializerSettings Settings => _settings ??= new JsonSerializerSettings
+        /// <summary>Кэш настроек сериализатора; пересобирается, если поля провайдера изменили (инспектор в Play Mode).</summary>
+        private JsonSerializerSettings Settings
         {
-            NullValueHandling = ignoreNulls ? NullValueHandling.Ignore : NullValueHandling.Include,
-            ContractResolver = new DefaultContractResolver
+            get
             {
-                NamingStrategy = naming switch
+                if (_settings != null && _settingsNaming == naming && _settingsIgnoreNulls == ignoreNulls)
+                    return _settings;
+
+                _settingsNaming = naming;
+                _settingsIgnoreNulls = ignoreNulls;
+                return _settings = new JsonSerializerSettings
                 {
-                    NamingStyle.CamelCase => new CamelCaseNamingStrategy(),
-                    NamingStyle.SnakeCase => new SnakeCaseNamingStrategy(),
-                    _ => new DefaultNamingStrategy()
-                }
+                    NullValueHandling = ignoreNulls ? NullValueHandling.Ignore : NullValueHandling.Include,
+                    ContractResolver = new DefaultContractResolver
+                    {
+                        NamingStrategy = naming switch
+                        {
+                            NamingStyle.CamelCase => new CamelCaseNamingStrategy(),
+                            NamingStyle.SnakeCase => new SnakeCaseNamingStrategy(),
+                            _ => new DefaultNamingStrategy()
+                        }
+                    }
+                };
             }
-        };
+        }
 
         private static Exception NotFlat(object value, string property) =>
             new InvalidOperationException(

@@ -141,12 +141,12 @@ namespace Vortex.Core.NetworkSystem
             return this;
         }
 
-        /// <summary>Таймаут одной попытки, секунды.</summary>
+        /// <summary>Таймаут одной попытки, секунды (конечное положительное число).</summary>
         public Query SetTimeout(float seconds)
         {
             ThrowIfLocked();
-            if (seconds <= 0f)
-                throw new ArgumentOutOfRangeException(nameof(seconds), "[Network] Timeout must be positive.");
+            if (!(seconds > 0f) || float.IsInfinity(seconds)) // NaN не проходит «> 0» и отключил бы таймаут
+                throw new ArgumentOutOfRangeException(nameof(seconds), "[Network] Timeout must be a finite positive number.");
             _timeout = seconds;
             return this;
         }
@@ -272,12 +272,13 @@ namespace Vortex.Core.NetworkSystem
 
         /// <summary>
         /// Прочитать тело в класс <typeparamref name="T"/> провайдером, выбранным по маске URL при запуске.
-        /// До завершения — исключение. Нет тела (304, пустой ответ) — <c>false</c> «нет данных».
+        /// До присвоения итога — исключение; из обработчика <see cref="OnOutcome"/> читать можно (ответ уже записан).
+        /// Нет тела (304, пустой ответ) — <c>false</c> «нет данных».
         /// </summary>
         public bool TryRead<T>(out T value, out string error)
         {
             value = default;
-            if (State.Value != QueryState.Completed && State.Value != QueryState.Released)
+            if (Outcome.Value == QueryOutcome.None)
                 throw new InvalidOperationException($"[Network] Query #{Id} is not completed; body cannot be read yet.");
 
             if (Result == null || !Result.HasBody)

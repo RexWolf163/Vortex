@@ -15,6 +15,14 @@ namespace Vortex.Unity.NetworkSystem.Drivers.Uwr
         [SerializeField, Min(0), Tooltip("Лимит редиректов. На WebGL не применяется: действует лимит браузера.")]
         private int redirectLimit = 32;
 
+        [BoxGroup("UnityWebRequest")]
+        [SerializeField, Min(1f), SuffixLabel("ч", true)]
+        [Tooltip("Временные файлы тел запросов других запусков старше этого срока удаляются при старте. Папку делят " +
+                 "редактор, сборки и клоны проекта, поэтому свежие папки не трогаются.")]
+        private float staleTempFolderHours = 24f;
+
         public int RedirectLimit => redirectLimit;
+
+        public float StaleTempFolderHours => staleTempFolderHours;
     }
 }

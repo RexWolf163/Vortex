@@ -60,7 +60,10 @@ namespace Vortex.Core.NetworkSystem
         /// <summary>Ответ или тело запроса больше лимита.</summary>
         TooLarge,
 
-        /// <summary>Бинарная часть multipart из файла: файла нет на момент отправки.</summary>
+        /// <summary>
+        /// Ошибка файла тела: файла части multipart нет на момент отправки, или скачанный ответ не удалось
+        /// записать на место (<see cref="Query.DownloadToFile"/>).
+        /// </summary>
         BodyError,
 
         /// <summary>Отменён (внешний токен, освобождение до завершения, выход из приложения).</summary>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 
@@ -18,6 +19,10 @@ namespace Vortex.Core.NetworkSystem
             public string ContentType;
             public List<BodySegment> Body;
             public IAuthProvider Auth;
+
+            /// <summary>Источник токена на момент запуска: снятие регистрации позже не влияет на запущенный запрос.</summary>
+            public TokenSource TokenSource;
+
             public float Timeout;
             public bool RetryAllowed;
             public RetryPolicy RetryPolicy;
@@ -25,7 +30,12 @@ namespace Vortex.Core.NetworkSystem
             public string TempDownloadPath;
         }
 
-        /// <summary>Запуск запроса: проверки (ошибки программиста/конфигурации — исключения), подготовка, реестр, очередь.</summary>
+        /// <summary>
+        /// Запуск запроса: проверки (ошибки программиста/конфигурации — исключения), подготовка, реестр, очередь.
+        /// Итог никогда не выдаётся внутри <see cref="Query.Send"/>: даже известный сразу — на следующем кадре.
+        /// Исключение подписчика реестра или обработчика состояния не прерывает запуск: запрос уходит в работу,
+        /// затем первое исключение пробрасывается — запрос не остаётся в реестре без хода.
+        /// </summary>
         internal static void Launch(Query query)
         {
             if (!IsInit)
@@ -38,23 +48,19 @@ namespace Vortex.Core.NetworkSystem
                 ? CancellationTokenSource.CreateLinkedTokenSource(query.ExternalToken)
                 : new CancellationTokenSource();
 
-            Registry.Add(query);
-            query.SetState(QueryState.Queued);
+            ExceptionDispatchInfo handlerError = null;
+            Step(() => Registry.Add(query), ref handlerError);
+            Step(() => query.SetState(QueryState.Queued), ref handlerError);
             LogInfo($"#{query.Id} {prepared.Method} {prepared.LogUrl} → queued.");
 
             if (!NetworkEnabled.Value)
-            {
-                Complete(query, QueryOutcome.NetworkDisabled, null, TimeSpan.Zero, 0, "Network is disabled.", null);
-                return;
-            }
+                CompleteImmediateAsync(query, QueryOutcome.NetworkDisabled, "Network is disabled.").Forget();
+            else if (immediateOutcome != QueryOutcome.None)
+                CompleteImmediateAsync(query, immediateOutcome, immediateMessage).Forget();
+            else
+                RunAsync(query, prepared).Forget();
 
-            if (immediateOutcome != QueryOutcome.None)
-            {
-                Complete(query, immediateOutcome, null, TimeSpan.Zero, 0, immediateMessage, null);
-                return;
-            }
-
-            RunAsync(query, prepared).Forget();
+            handlerError?.Throw();
         }
 
         private static Prepared Prepare(Query query, out QueryOutcome immediateOutcome, out string immediateMessage)
@@ -92,11 +98,12 @@ namespace Vortex.Core.NetworkSystem
             // --- Провайдеры ---
             var bodyProvider = FirstMatch(_settings.BodyProviderRules, normalized) ?? _settings.DefaultBodyProvider;
             var auth = FirstMatch(_settings.AuthRules, normalized);
+            TokenSource tokenSource = null;
             if (auth != null)
             {
                 if (isHttp)
                     throw new InvalidOperationException($"[Network] Query #{query.Id}: auth rule matched an http host '{normalized}'; tokens are never sent over http.");
-                if (!TokenSources.ContainsKey(auth.TokenSourceKey))
+                if (!TokenSources.TryGetValue(auth.TokenSourceKey, out tokenSource))
                     throw new InvalidOperationException($"[Network] Query #{query.Id}: token source '{auth.TokenSourceKey}' is not registered.");
             }
 
@@ -136,13 +143,10 @@ namespace Vortex.Core.NetworkSystem
             if (contentType != null && headers.ContainsKey("Content-Type"))
                 throw new InvalidOperationException($"[Network] Query #{query.Id}: Content-Type header conflicts with the body's own content type.");
 
-            var unsettable = Driver.UnsettableHeaders;
-            foreach (var name in headers.Keys)
-                if (ContainsIgnoreCase(unsettable, name))
-                    throw new InvalidOperationException($"[Network] Query #{query.Id}: header '{name}' cannot be set by the driver on this platform.");
+            ThrowIfUnsettable(query.Id, headers.Keys);
 
             if (!headers.ContainsKey("User-Agent") && !string.IsNullOrEmpty(_settings.UserAgent)
-                                                   && !ContainsIgnoreCase(unsettable, "User-Agent"))
+                                                   && !ContainsIgnoreCase(Driver.UnsettableHeaders, "User-Agent"))
                 headers["User-Agent"] = _settings.UserAgent;
 
             // --- Скачивание в файл ---
@@ -167,11 +171,13 @@ namespace Vortex.Core.NetworkSystem
                 ContentType = contentType,
                 Body = segments,
                 Auth = auth,
+                TokenSource = tokenSource,
                 Timeout = query.Timeout ?? _settings.DefaultTimeout,
                 RetryAllowed = query.RetryAllowed ?? method == HttpMethod.Get,
                 RetryPolicy = policy,
                 DownloadPath = query.DownloadPath,
-                TempDownloadPath = query.DownloadPath == null ? null : query.DownloadPath + ".part"
+                // Уникален на запрос: запросы в один путь (в том числе из другого процесса) не делят временный файл.
+                TempDownloadPath = query.DownloadPath == null ? null : $"{query.DownloadPath}.{Guid.NewGuid():N}.part"
             };
         }
 
@@ -190,7 +196,9 @@ namespace Vortex.Core.NetworkSystem
                     break;
 
                 case BytesBody bytesBody:
-                    segments.Add(BodySegment.FromBytes(bytesBody.Bytes));
+                    // Снимок на момент запуска: запрос заперт, правка массива вызывающим кодом не влияет
+                    // ни на проверку лимита, ни на попытки и повторы.
+                    segments.Add(BodySegment.FromBytes((byte[])bytesBody.Bytes.Clone()));
                     contentType = bytesBody.ContentType;
                     break;
 
@@ -250,7 +258,7 @@ namespace Vortex.Core.NetworkSystem
 
                 if (part.Bytes != null)
                 {
-                    segments.Add(BodySegment.FromBytes(part.Bytes));
+                    segments.Add(BodySegment.FromBytes((byte[])part.Bytes.Clone())); // снимок, как у BytesBody
                 }
                 else if (part.FilePath != null)
                 {
@@ -303,13 +311,19 @@ namespace Vortex.Core.NetworkSystem
                 if (pair.Length == 0)
                     continue;
                 var separator = pair.IndexOf('=');
-                var key = Uri.UnescapeDataString(separator < 0 ? pair : pair.Substring(0, separator));
-                var value = separator < 0 ? string.Empty : Uri.UnescapeDataString(pair.Substring(separator + 1));
+                var key = DecodeComponent(separator < 0 ? pair : pair.Substring(0, separator));
+                var value = separator < 0 ? string.Empty : DecodeComponent(pair.Substring(separator + 1));
                 result.Add(new KeyValuePair<string, string>(key, value));
             }
 
             return result;
         }
+
+        /// <summary>
+        /// Раскодирование компонента строки параметров по правилам form-urlencoded (как URLSearchParams): «+» — пробел.
+        /// Пересборка кодирует пробел как %20, смысл для сервера сохраняется; буквальный плюс в адресе пишется как %2B.
+        /// </summary>
+        private static string DecodeComponent(string component) => Uri.UnescapeDataString(component.Replace('+', ' '));
 
         private static void MergeParameter(List<KeyValuePair<string, string>> parameters, string key, string value, long queryId)
         {
@@ -351,6 +365,15 @@ namespace Vortex.Core.NetworkSystem
             }
 
             return builder.ToString();
+        }
+
+        /// <summary>Заголовок, который драйвер не может выставить на этой платформе, — ошибка программиста.</summary>
+        private static void ThrowIfUnsettable(long queryId, IEnumerable<string> names)
+        {
+            var unsettable = Driver.UnsettableHeaders;
+            foreach (var name in names)
+                if (ContainsIgnoreCase(unsettable, name))
+                    throw new InvalidOperationException($"[Network] Query #{queryId}: header '{name}' cannot be set by the driver on this platform.");
         }
 
         private static bool ContainsIgnoreCase(IReadOnlyCollection<string> names, string name)
