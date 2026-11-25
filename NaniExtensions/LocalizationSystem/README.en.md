@@ -154,6 +154,8 @@ Two-pass parsing for each language file:
 1. **First pass** — from base file (`files[]`): fills keys with translation from the language folder
 2. **Second pass** — from language folder file: overwrites translations, validates keys
 
+Comment lines (first non-whitespace character is `;`) are skipped in every pass, including index building from `files[]`. In Naninovel localization documents a record's comment is its source text; if it contains `:`, without the skip it would be parsed as a key (a stray index key or "Wrong key").
+
 Recursive folder traversal: if a directory is not a language key (not found in `languages`), the parser descends deeper.
 
 ---
@@ -209,6 +211,7 @@ Auto-creates asset on `InitializeOnLoadMethod` if `LocalizationPreset` is missin
 | Language folder file missing from `files[]` | Silently skipped |
 | Translation key missing in language folder | `LogError` with key and language |
 | Key not found in index during parsing | `LogError` "Wrong key" |
+| Comment line (leading `;`), including one with `:` | Skipped, not added to the index |
 | Empty translation | `LogError`, key skipped |
 | Language not in list, translation missing | Fallback to first available translation (`Texts[0]`) |
 | Repeated `Load Data` during loading | Blocked by `_run` flag |

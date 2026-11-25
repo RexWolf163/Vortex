@@ -102,6 +102,8 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Presets
                     lines = textAsset.text.Split('\n');
                     foreach (var line in lines)
                     {
+                        if (IsComment(line))
+                            continue;
                         var ar = line.Split(':');
                         if (ar.Length < 2)
                             continue; //фильтрация мусора
@@ -216,6 +218,8 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Presets
                 //Первичное заполнение списка ключей
                 foreach (var line in lines)
                 {
+                    if (IsComment(line))
+                        continue;
                     var ar = line.Split(':');
                     if (ar.Length < 2)
                         continue; //фильтрация мусора
@@ -233,6 +237,8 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Presets
                 //окончательное заполнение тем что найдено
                 foreach (var line in lines)
                 {
+                    if (IsComment(line))
+                        continue;
                     var ar = line.Split(':');
                     if (ar.Length < 2)
                         continue; //фильтрация мусора
@@ -262,6 +268,12 @@ namespace Vortex.NaniExtensions.LocalizationSystem.Presets
                     Debug.LogError($"[Localization] Key: {key} not found in {langName} locale.");
             }
         }
+
+        /// <summary>
+        /// Строка-комментарий managed text Naninovel (начинается с ';'). В документах локализации комментарий —
+        /// исходный текст записи; если в нём есть ':', без пропуска он разбирался бы как ключ
+        /// </summary>
+        private static bool IsComment(string line) => line.TrimStart().StartsWith(';');
     }
 }
 
