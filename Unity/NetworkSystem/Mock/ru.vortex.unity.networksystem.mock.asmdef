@@ -1,0 +1,24 @@
+{
+    "name": "ru.vortex.unity.networksystem.mock",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.core.networksystem",
+        "ru.vortex.unity.networksystem",
+        "ru.vortex.core.masksystem",
+        "ru.vortex.unity.masksystem",
+        "ru.vortex.system",
+        "ru.vortex.logger",
+        "ru.vortex.settings",
+        "ru.vortex.unity.extensions",
+        "ru.vortex.unity.CoreAssetsSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

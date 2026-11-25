@@ -1,0 +1,24 @@
+{
+    "name": "ru.vortex.unity.networksystem.newtonsoft",
+    "rootNamespace": "",
+    "references": [
+        "ru.vortex.core.networksystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "VORTEX_NEWTONSOFT_JSON"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.nuget.newtonsoft-json",
+            "expression": "",
+            "define": "VORTEX_NEWTONSOFT_JSON"
+        }
+    ],
+    "noEngineReferences": false
+}
