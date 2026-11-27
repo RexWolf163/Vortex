@@ -7,8 +7,8 @@ using Vortex.Core.MaskSystem;
 namespace Vortex.Unity.MaskSystem
 {
     /// <summary>
-    /// Маска вида «URL»: настройка проверяемых частей адреса, подготовка входа (разбор в адрес)
-    /// и подключение к <see cref="UrlController"/>.
+    /// Маска вида «URL»: настройка проверяемых частей адреса и подключение к <see cref="UrlController"/>
+    /// (разбор входа в адрес и сравнение частей).
     /// </summary>
     [Serializable]
     public class UrlMask : UnityMask
@@ -101,11 +101,8 @@ namespace Vortex.Unity.MaskSystem
         /// <inheritdoc/>
         public override bool IsMatch(string input)
         {
-            if (input == null)
-                throw Fail(new ArgumentNullException(nameof(input), $"[{GetType().Name}] Вход не задан (null)."));
-            RequireValid();
-            var ready = Prepare(input);
-            return ready != null && UrlController.IsAll(
+            RequireValid(input);
+            return UrlController.TryParseInput(input, out var ready) && UrlController.IsAll(
                 UrlController.IsSchemeMatch(ready, schemeMode, schemes),
                 UrlController.IsHostMatch(ready, hostMode,
                     hostMode == HostCheckMode.Any ? null : _idnHost ??= UrlController.ToIdnHost(host)),
@@ -116,46 +113,6 @@ namespace Vortex.Unity.MaskSystem
         /// <inheritdoc/>
         public override MatchResult Match(string input) =>
             IsMatch(input) ? MatchResult.Matched() : MatchResult.NoMatch();
-
-        /// <summary>
-        /// Разбор входа в абсолютный адрес вида <c>схема://…</c>, сохраняющий написанную схему;
-        /// не разобрался — <c>null</c>. Адресом не считается:
-        /// вход с «\», управляющими символами или пробелами по краям
-        /// (<see cref="Uri"/> мягче HTTP-стека и мог бы понять такую строку иначе, чем потребитель);
-        /// вход без <c>схема://</c> — пути (<c>/a/b</c>, <c>c:/x</c>) и адреса без полномочия (<c>mailto:</c>),
-        /// которые <see cref="Uri"/> на разных платформах разбирает по-разному.
-        /// </summary>
-        private static Uri Prepare(string input)
-        {
-            if (input.Length == 0 || char.IsWhiteSpace(input[0]) || char.IsWhiteSpace(input[^1]))
-                return null;
-            foreach (var c in input)
-                if (c == '\\' || char.IsControl(c))
-                    return null;
-            var separator = input.IndexOf("://", StringComparison.Ordinal);
-            if (separator <= 0)
-                return null;
-            var scheme = input.Substring(0, separator);
-            if (!Uri.CheckSchemeName(scheme) || !Uri.TryCreate(input, UriKind.Absolute, out var uri))
-                return null;
-            // Разбор должен сохранить написанную схему: иначе Uri прочитал вход иначе, чем он написан
-            // (например, «c://x» — как путь DOS со схемой file)
-            return string.Equals(uri.Scheme, scheme, StringComparison.OrdinalIgnoreCase) ? uri : null;
-        }
-
-        private void RequireValid()
-        {
-            var validation = Validate();
-            if (!validation.IsValid)
-                throw Fail(new InvalidOperationException(
-                    $"[{GetType().Name}] Сопоставление на неверной настройке: {validation.Message}"));
-        }
-
-        private static Exception Fail(Exception exception)
-        {
-            Debug.LogError(exception.Message);
-            return exception;
-        }
 
 #if UNITY_EDITOR
         private void OnSettingsChanged()

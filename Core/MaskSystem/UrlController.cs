@@ -8,8 +8,8 @@ using Vortex.Core.LoggerSystem.Model;
 namespace Vortex.Core.MaskSystem
 {
     /// <summary>
-    /// Правило «адрес подходит»: проверка настройки каждой части адреса, сравнение каждой части разобранного
-    /// адреса с настройкой и итог «подошли все проверенные части».
+    /// Правило «адрес подходит»: проверка настройки каждой части адреса, разбор входа в адрес, сравнение каждой
+    /// части разобранного адреса с настройкой и итог «подошли все проверенные части».
     /// </summary>
     /// <remarks>
     /// Примеры режимов:
@@ -195,6 +195,42 @@ namespace Vortex.Core.MaskSystem
                 if (!result.IsValid)
                     return result;
             return ValidationResult.Valid();
+        }
+
+        #endregion
+
+        #region Разбор входа
+
+        /// <summary>
+        /// Разобрать вход в абсолютный адрес вида <c>схема://…</c>, сохраняющий написанную схему. Адресом не считается:
+        /// вход с «\», управляющими символами или пробелами по краям
+        /// (<see cref="Uri"/> мягче HTTP-стека и мог бы понять такую строку иначе, чем потребитель);
+        /// вход без <c>схема://</c> — пути (<c>/a/b</c>, <c>c:/x</c>) и адреса без полномочия (<c>mailto:</c>),
+        /// которые <see cref="Uri"/> на разных платформах разбирает по-разному.
+        /// </summary>
+        /// <returns><c>true</c> — адрес разобран; <c>false</c> — вход не адрес (это данные, а не ошибка: «не совпало»).</returns>
+        public static bool TryParseInput(string input, out Uri uri)
+        {
+            if (input == null)
+                throw Fail(new ArgumentNullException(nameof(input), "Вход не задан (null)."));
+            uri = null;
+            if (input.Length == 0 || char.IsWhiteSpace(input[0]) || char.IsWhiteSpace(input[^1]))
+                return false;
+            foreach (var c in input)
+                if (c == '\\' || char.IsControl(c))
+                    return false;
+            var separator = input.IndexOf("://", StringComparison.Ordinal);
+            if (separator <= 0)
+                return false;
+            var scheme = input.Substring(0, separator);
+            if (!Uri.CheckSchemeName(scheme) || !Uri.TryCreate(input, UriKind.Absolute, out var parsed))
+                return false;
+            // Разбор должен сохранить написанную схему: иначе Uri прочитал вход иначе, чем он написан
+            // (например, «c://x» — как путь DOS со схемой file)
+            if (!string.Equals(parsed.Scheme, scheme, StringComparison.OrdinalIgnoreCase))
+                return false;
+            uri = parsed;
+            return true;
         }
 
         #endregion

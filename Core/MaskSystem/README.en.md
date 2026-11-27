@@ -17,13 +17,13 @@ Capabilities:
 - `ValidationResult` — settings validity, message and error position in the pattern
 - Three static controllers with the matching logic of each kind:
   - `StringEqualController` — string equals a pattern
-  - `UrlController` — address parts (scheme, host, port, path) match the settings
+  - `UrlController` — input parsing into an address; address parts (scheme, host, port, path) match the settings
   - `RegexController` — string matches a .NET regular expression
 - Setting enums: `StringCompareMode`, `TrimMode`, `SchemeCheckMode`, `HostCheckMode`, `PortCheckMode`, `PathCheckMode`
 
 Out of scope:
 
-- Mask settings and their storage, input preparation (trim, normalization, URL parsing) — Unity package `ru.vortex.unity.masksystem`
+- Mask settings and their storage, input preparation for the string equality kind (trim, normalization) — Unity package `ru.vortex.unity.masksystem`
 - Order of checking mask lists and "first match" — the list holder's responsibility
 - Network access: the URL kind only knows URL syntax
 
@@ -89,6 +89,7 @@ StringEqualController (static)
 UrlController (static)
   ├── ValidateScheme / ValidateHost / ValidatePort / ValidatePath, FirstInvalid(...)
   ├── ToIdnHost(host) → ASCII form of a validated host
+  ├── TryParseInput(input, out uri) → input parsed as a "scheme://…" address
   ├── IsSchemeMatch / IsHostMatch / IsPortMatch / IsPathMatch (over System.Uri)
   └── IsAll(scheme, host, port, path) → all checked parts matched
 
@@ -99,7 +100,7 @@ RegexController (static)
   └── Match(regex, input) → MatchResult with captures
 ```
 
-The abstraction holds no settings. Concrete mask classes (Unity package) hold the settings, prepare the input and call the controller of their kind.
+The abstraction holds no settings. Concrete mask classes (Unity package) hold the settings and call the controller of their kind. The string equality input (trim, NFC) is prepared by the mask; the URL input is parsed by `UrlController.TryParseInput`.
 
 ---
 
@@ -143,6 +144,7 @@ The abstraction holds no settings. Concrete mask classes (Unity package) hold th
 | No `RegexOptions.Compiled` | AOT platforms (IL2CPP, WebGL) |
 | No device-culture comparison | Results must not depend on the player's language |
 | `ValidationResult` is created by controllers only | Factories are `internal` |
+| A URL input must be `scheme://…` without `\`, control characters or edge spaces; parsing must keep the written scheme | `System.Uri` is more lenient than an HTTP stack and could read such input differently from the consumer |
 
 ---
 
@@ -153,6 +155,7 @@ The abstraction holds no settings. Concrete mask classes (Unity package) hold th
 | `Log` driver not connected when a controller fails fast | `NullReferenceException` from `Log.Print` instead of the original exception |
 | Regex with a trailing `#` comment in `x` mode | Validation error: the comment swallows the closing anchor; end the comment with a newline |
 | `IsHostMatch` with a host not obtained via `ToIdnHost` | Comparison may fail: hosts are compared in ASCII form |
+| `Is*Match` with an address not obtained via `TryParseInput` | URL input constraints do not apply: the address is compared as is |
 | Input host with characters that map to `;`, `,`, `|`, `%` or space in ASCII form | No match |
 | `file:///C:/x` on Windows | `AbsolutePath` has no leading `/`; exact/prefix path settings do not reach it |
 | Non-standard scheme (`foo://127.1/`) | `System.Uri` does not canonicalize the host; settings in canonical form do not match it |

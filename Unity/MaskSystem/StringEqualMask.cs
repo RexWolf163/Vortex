@@ -67,9 +67,7 @@ namespace Vortex.Unity.MaskSystem
         /// <inheritdoc/>
         public override bool IsMatch(string input)
         {
-            if (input == null)
-                throw Fail(new ArgumentNullException(nameof(input), $"[{GetType().Name}] Вход не задан (null)."));
-            RequireValid();
+            RequireValid(input);
             var ready = Prepare(input);
             // Вход, который нельзя нормализовать (невалидный Unicode), — данные, а не ошибка: не совпало
             if (ready == null)
@@ -105,20 +103,6 @@ namespace Vortex.Unity.MaskSystem
                 // Нормализация невозможна на этой платформе (например, U+FFFE) — вход это данные: не совпало
                 return null;
             }
-        }
-
-        private void RequireValid()
-        {
-            var validation = Validate();
-            if (!validation.IsValid)
-                throw Fail(new InvalidOperationException(
-                    $"[{GetType().Name}] Сопоставление на неверной настройке: {validation.Message}"));
-        }
-
-        private static Exception Fail(Exception exception)
-        {
-            Debug.LogError(exception.Message);
-            return exception;
         }
 
 #if UNITY_EDITOR

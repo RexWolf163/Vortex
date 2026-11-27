@@ -15,7 +15,7 @@
   - `StringEqualMask` — строка равна образцу (способ сравнения, регистр, обрезка входа, нормализация NFC)
   - `UrlMask` — части адреса: схема, хост, порт, путь
   - `RegexMask` — регулярное выражение .NET с захватами
-- `UnityMask` — общая база видов: заголовок, текст правил, панель проверки в инспекторе
+- `UnityMask` — общая база видов: заголовок, текст правил, проверка перед сопоставлением, панель проверки в инспекторе
 - Инспектор: подсветка ошибки с позицией, подсказка правил на полях настройки, тестовая строка с «совпало / нет» и захватами
 
 Вне зоны ответственности:
@@ -74,6 +74,7 @@ Mask (Core)
         ├── RulesHint             — текст правил вида (abstract)
         ├── TestOnDemand          — тестовая строка по кнопке (virtual, false)
         ├── ResetEditorCache()    — сброс итогов панели проверки (protected)
+        ├── RequireValid(input)   — fast-fail перед сопоставлением: вход null, неверная настройка (protected)
         ├── StringEqualMask       → StringEqualController
         ├── UrlMask               → UrlController
         └── RegexMask             → RegexController
@@ -81,7 +82,8 @@ Mask (Core)
 
 Каждый вид:
 - держит настройки в полях `[SerializeField] private` с геттерами только на чтение;
-- готовит копию входа (обрезка и NFC у `StringEqualMask`, разбор адреса у `UrlMask`) и вызывает контроллер своего вида;
+- перед сопоставлением вызывает `RequireValid(input)`;
+- вызывает контроллер своего вида; `StringEqualMask` перед этим готовит копию входа (обрезка, NFC), вход `UrlMask` разбирает сам контроллер (`UrlController.TryParseInput`);
 - кэширует итог проверки и подготовленные данные (`[NonSerialized]`); в редакторе правка поля настройки (Odin `[OnValueChanged]`) сбрасывает кэши и панель проверки.
 
 ### Свой вид
@@ -98,7 +100,12 @@ public class PrefixMask : UnityMask
     public override string RulesHint => "Строка начинается с префикса.";
 
     public override ValidationResult Validate() => _validation ??= /* контроллер вида */;
-    public override bool IsMatch(string input) => /* проверки null и настройки, затем контроллер */;
+    public override bool IsMatch(string input)
+    {
+        RequireValid(input);
+        return /* контроллер вида */;
+    }
+
     public override MatchResult Match(string input) => IsMatch(input) ? MatchResult.Matched() : MatchResult.NoMatch();
 
 #if UNITY_EDITOR

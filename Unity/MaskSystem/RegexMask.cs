@@ -55,19 +55,8 @@ namespace Vortex.Unity.MaskSystem
         /// <summary>Проверенное и скомпилированное выражение; <c>null</c> на входе и неверная настройка — fast-fail.</summary>
         private Regex RequireRegex(string input)
         {
-            if (input == null)
-                throw Fail(new ArgumentNullException(nameof(input), $"[{GetType().Name}] Вход не задан (null)."));
-            var validation = Validate();
-            if (!validation.IsValid)
-                throw Fail(new InvalidOperationException(
-                    $"[{GetType().Name}] Сопоставление на неверной настройке: {validation.Message}"));
+            RequireValid(input);
             return _regex ??= RegexController.Build(pattern, !caseSensitive);
-        }
-
-        private static Exception Fail(Exception exception)
-        {
-            Debug.LogError(exception.Message);
-            return exception;
         }
 
 #if UNITY_EDITOR

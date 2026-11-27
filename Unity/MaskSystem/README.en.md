@@ -15,7 +15,7 @@ Capabilities:
   - `StringEqualMask` — string equals a pattern (comparison mode, case, input trimming, NFC normalization)
   - `UrlMask` — URL parts: scheme, host, port, path
   - `RegexMask` — .NET regular expression with captures
-- `UnityMask` — common base of the kinds: header label, rules text, inspector check panel
+- `UnityMask` — common base of the kinds: header label, rules text, pre-match check, inspector check panel
 - Inspector: error highlight with position, rules tooltip on settings fields, test string with "match / no match" and captures
 
 Out of scope:
@@ -74,6 +74,7 @@ Mask (Core)
         ├── RulesHint             — rules text of the kind (abstract)
         ├── TestOnDemand          — test string by button (virtual, false)
         ├── ResetEditorCache()    — reset of the check panel results (protected)
+        ├── RequireValid(input)   — fast-fail before matching: null input, invalid settings (protected)
         ├── StringEqualMask       → StringEqualController
         ├── UrlMask               → UrlController
         └── RegexMask             → RegexController
@@ -81,7 +82,8 @@ Mask (Core)
 
 Each kind:
 - holds settings in `[SerializeField] private` fields with read-only getters;
-- prepares a copy of the input (trim and NFC for `StringEqualMask`, URL parsing for `UrlMask`) and calls the controller of its kind;
+- calls `RequireValid(input)` before matching;
+- calls the controller of its kind; `StringEqualMask` first prepares a copy of the input (trim, NFC), the `UrlMask` input is parsed by the controller itself (`UrlController.TryParseInput`);
 - caches validation result and prepared data (`[NonSerialized]`); in the editor a settings field change (Odin `[OnValueChanged]`) resets the caches and the check panel.
 
 ### Custom kind
@@ -98,7 +100,12 @@ public class PrefixMask : UnityMask
     public override string RulesHint => "The string starts with the prefix.";
 
     public override ValidationResult Validate() => _validation ??= /* controller of the kind */;
-    public override bool IsMatch(string input) => /* null and validity checks, then the controller */;
+    public override bool IsMatch(string input)
+    {
+        RequireValid(input);
+        return /* controller of the kind */;
+    }
+
     public override MatchResult Match(string input) => IsMatch(input) ? MatchResult.Matched() : MatchResult.NoMatch();
 
 #if UNITY_EDITOR
