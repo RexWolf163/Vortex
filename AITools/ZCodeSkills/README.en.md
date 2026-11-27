@@ -10,9 +10,9 @@ Three skills for code evaluation and TZ (technical specification) design in Vort
 |-------|---------|----------|
 | [code-quality](code-quality/SKILL.md) | Evaluation of the **form** of Unity code using canonical formulas with an architectural multiplier. Branches by size: detailed (≤3000 LOC), by subgroups (3000–12000), partial, subjective review (>12000) | "evaluate code quality", "run the evaluation criteria", "evaluate the package architecture" |
 | [applied-quality](applied-quality/SKILL.md) | Evaluation of code **behavior** using the "Scenario robustness" canon: input→output threads, re-entry, tangling, recursion. Branches: mono (≤2000 LOC), sharding with graph reconstruction (2000–10000), partial | "evaluate package correctness", "check for logic / adequacy", "what breaks at runtime" |
-| [tz-design](tz-design/SKILL.md) | Writing a TZ for a feature or subsystem and self-audit of a finished TZ | "make a TZ", "format as a TZ", "analyze the TZ", "check the TZ for completeness" |
+| [tz-design](tz-design/SKILL.md) | Writing a TZ for a feature or subsystem and self-audit of a finished TZ. For systems with external input or a guarding role — a threat model and a hardening boundary (TZ section 6a) | "make a TZ", "format as a TZ", "analyze the TZ", "check the TZ for completeness" |
 
-Out of scope: `vortex-layer-detect` and `vortex-initial-architecture` are not adapted for ZCode — they exist only in ClaudeCodeSkills.
+Out of scope: `vortex-layer-detect`, `vortex-initial-architecture` and `tz-build` are not adapted for ZCode — they exist only in ClaudeCodeSkills.
 
 ## Dependencies
 
@@ -88,7 +88,7 @@ ZCodeSkills/
 | | ClaudeCodeSkills | ZCodeSkills |
 |---|---|---|
 | Platform | Claude Code | ZCode |
-| Contents | 5 skills | 3 skills (no `vortex-layer-detect`, `vortex-initial-architecture`) |
+| Contents | 6 skills | 3 skills (no `vortex-layer-detect`, `vortex-initial-architecture`, `tz-build`) |
 | Packaging | one `SKILL.md` per skill | `SKILL.md` + `references/` |
 | Triggers | in `description` | separate `when_to_use` field |
 | Installation | `~/.claude/skills/`, `.claude/skills/` | `~/.zcode/skills/`, `.zcode/skills/` |
@@ -108,4 +108,4 @@ Skills are versioned together with Vortex through the folder's git history.
 - **Only `SKILL.md` was copied.** Without `references/` the skill cannot find the canon at the required step. Copy the whole folder.
 - **The sets diverge.** A change made only in ClaudeCodeSkills does not reach the ZCode version, and evaluations on the two platforms start to differ.
 - **Editing `description` / `when_to_use`.** These fields determine when ZCode launches the skill; changing the wording changes recognition.
-- **`vortex-layer-detect` / `vortex-initial-architecture` are needed.** They are not adapted for ZCode — use the ClaudeCodeSkills versions in Claude Code, or adapt them following this set.
+- **`vortex-layer-detect` / `vortex-initial-architecture` / `tz-build` are needed.** They are not adapted for ZCode — use the ClaudeCodeSkills versions in Claude Code, or adapt them following this set.

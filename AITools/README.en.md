@@ -35,7 +35,7 @@ AITools/
 └── ZCodeSkills/                         # The same skills adapted for ZCode (+ its own README)
 ```
 
-The [ClaudeCodeSkills](ClaudeCodeSkills/) subpackage contains a set of Claude Code skills that package Vortex methodologies (layer detection, initial architecture, quality evaluation, TZ design) into an executable format. See its own README for details.
+The [ClaudeCodeSkills](ClaudeCodeSkills/) subpackage contains a set of Claude Code skills that package Vortex methodologies (layer detection, initial architecture, TZ design with a threat model, layer-by-layer code build from a TZ, quality evaluation) into an executable format. See its own README for details.
 
 The [ZCodeSkills](ZCodeSkills/) subpackage is an adaptation of the code evaluation and TZ design skills for ZCode: the canon is the same, the packaging is `SKILL.md` + `references/`. See its own README for details.
 

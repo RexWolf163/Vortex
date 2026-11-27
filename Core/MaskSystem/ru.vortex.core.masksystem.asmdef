@@ -1,7 +1,10 @@
 {
     "name": "ru.vortex.core.masksystem",
-    "rootNamespace": "",
-    "references": [],
+    "rootNamespace": "Vortex.Core.MaskSystem",
+    "references": [
+        "GUID:86f05ea23c6647040884b166bb929c16",
+        "GUID:a00fea34cd87e874eb05688c1583b814"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -10,5 +13,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": true
 }

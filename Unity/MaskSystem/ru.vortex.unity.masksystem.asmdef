@@ -1,8 +1,9 @@
 {
     "name": "ru.vortex.unity.masksystem",
-    "rootNamespace": "",
+    "rootNamespace": "Vortex.Unity.MaskSystem",
     "references": [
-        "ru.vortex.core.masksystem"
+        "GUID:959254ccea9d75748abaa85d0eb31cd1",
+        "GUID:865e31c772c77e64cb48f0792a7a6a0c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
