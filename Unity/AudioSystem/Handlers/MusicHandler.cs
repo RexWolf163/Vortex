@@ -30,7 +30,10 @@ namespace Vortex.Unity.AudioSystem.Handlers
         private void OnDestroy()
         {
             AudioController.OnInit -= OnInit;
-            TimeController.RemoveCall(this);
+            // Хэндлер, запустивший музыку, оставляет в очереди отложенный StopMusic из OnDisable: объект, уничтоженный
+            // в кадре выключения (окно закрывается и уничтожается), иначе снимал свою остановку — музыка продолжала играть
+            if (!_isPlay)
+                TimeController.RemoveCall(this);
         }
 
         private void OnInit() => TimeController.Accumulate(Init, this);
