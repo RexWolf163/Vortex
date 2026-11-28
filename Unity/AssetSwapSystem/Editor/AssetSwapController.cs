@@ -43,6 +43,20 @@ namespace Vortex.Unity.AssetSwapSystem
         private const float StepWeightTypes    = 0.10f;
         private const float StepWeightHolders  = 0.70f;
 
+        /// <summary>
+        /// Группы в порядке настроек: номер, комментарий группы и комментарии вариантов — для выбора группы и варианта
+        /// во внешних инструментах (настройки сборки). Снимок, настройки не меняет
+        /// </summary>
+        public static IReadOnlyList<AssetSwapGroupInfo> GetGroups()
+        {
+            var settings = AssetSwapSettings.instance;
+            settings.Sanitize();
+            return settings.Groups
+                .Select(g => new AssetSwapGroupInfo(g.index, g.comment?.Trim() ?? string.Empty,
+                    g.variantComments.Select(c => c?.Trim() ?? string.Empty).ToArray()))
+                .ToArray();
+        }
+
         /// <summary>Зарегистрировать новую группу. Тонкая операция, sync.</summary>
         public static int NewGroup()
         {

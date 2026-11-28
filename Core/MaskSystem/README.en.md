@@ -16,16 +16,45 @@ Capabilities:
 - `MatchResult` — match flag and read-only captures "name → value"
 - `ValidationResult` — settings validity, message and error position in the pattern
 - Three static controllers with the matching logic of each kind:
-  - `StringEqualController` — string equals a pattern
+  - `StringEqualController` — preparation of the input copy and the pattern (trim, NFC); string equals a pattern
   - `UrlController` — input parsing into an address; address parts (scheme, host, port, path) match the settings
   - `RegexController` — string matches a .NET regular expression
 - Setting enums: `StringCompareMode`, `TrimMode`, `SchemeCheckMode`, `HostCheckMode`, `PortCheckMode`, `PathCheckMode`
 
 Out of scope:
 
-- Mask settings and their storage, input preparation for the string equality kind (trim, normalization) — Unity package `ru.vortex.unity.masksystem`
+- Mask settings and their storage — Unity package `ru.vortex.unity.masksystem`
 - Order of checking mask lists and "first match" — the list holder's responsibility
 - Network access: the URL kind only knows URL syntax
+
+---
+
+## Applicability
+
+A mask is a **predicate over a ready string**: the rule is set by the developer (in the inspector), the string is passed by code, the answer is "matches as a whole / no" and, for regex, captures.
+
+**Use it when** all of the following hold:
+
+- the rule is set by the developer, not by the player or an unchecked external source;
+- the string is complete (identifier, name, key, address from code or data) — not typed character by character;
+- you need a "matches / no" answer for the whole string, optionally with named parts (regex);
+- the rule is validated at the consumer's initialization (`Validate`); an invalid one stops it.
+
+Typical cases: "URL mask → provider" rules, allowed host lists, selecting records and assets by name or identifier, splitting a key into parts with captures.
+
+**Do not use it for:**
+
+| Task | Why it does not fit | Use instead |
+|---|---|---|
+| Player input control (input field, per-character filter) | No check for an unfinished string: "h", "ht"… are always "no match". Player input is outside the threat model (regex has no timeout). No rejection reason to show the player | Input field filters (`Vortex.Unity.UI.TextInputSystem`); for expressions — `RegexController` directly |
+| Bringing a value to a storage form (trim, normalization) | A mask only answers "yes / no" and does not return the prepared string | `StringEqualController.TryPrepareInput` or the value owner's own preparation |
+| Parsing into a type: numbers, dates, ranges | No such kinds | Parsing (`TryParse`) by the value owner |
+| Substring search, all occurrences, replacement | A match always covers the whole string | `System.Text.RegularExpressions` |
+| Expressions from an untrusted source or long player input against regex | No match timeout | `Regex` with a timeout in the consumer |
+| Content protection: HTML/SQL sanitizing, address reachability, DNS, certificates | The URL kind only knows URL syntax | Dedicated networking and security tools |
+| Bulk matching every frame | The URL kind parses the address on every call (allocations) | Result cache in the consumer |
+| A mask created by code at runtime | Settings are inspector-only | The kind's controller directly with parameters |
+| Matching off the main thread | No synchronization | — |
 
 ---
 
@@ -84,6 +113,8 @@ Mask (abstract, [Serializable])
 StringEqualController (static)
   ├── Validate(pattern, trimMode, compareMode, normalize)
   ├── FindInvalidUnicode(value) → index of a lone surrogate or -1
+  ├── TryPrepareInput(input, trimMode, normalize, out ready) → input copy after trim and NFC
+  ├── PreparePattern(pattern, normalize) → pattern for comparison (NFC per settings)
   └── IsMatch(ready, pattern, compareMode, ignoreCase)
 
 UrlController (static)
@@ -100,7 +131,7 @@ RegexController (static)
   └── Match(regex, input) → MatchResult with captures
 ```
 
-The abstraction holds no settings. Concrete mask classes (Unity package) hold the settings and call the controller of their kind. The string equality input (trim, NFC) is prepared by the mask; the URL input is parsed by `UrlController.TryParseInput`.
+The abstraction holds no settings. Concrete mask classes (Unity package) hold the settings and caches and call the controller of their kind; the input is prepared by the controller (`StringEqualController.TryPrepareInput`, `UrlController.TryParseInput`).
 
 ---
 

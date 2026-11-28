@@ -176,6 +176,32 @@ namespace Vortex.Unity.AssetSwapSystem
             EditorGUILayout.EndScrollView();
         }
 
+        /// <summary>Результат <see cref="FindFullMatch"/>: ни один вариант не совпал со всеми target'ами</summary>
+        internal const int NoFullMatch = 0;
+
+        /// <summary>Результат <see cref="FindFullMatch"/>: со всеми target'ами совпало несколько байт-идентичных вариантов</summary>
+        internal const int AmbiguousMatch = -1;
+
+        /// <summary>
+        /// Какому варианту целиком соответствует текущее содержимое target'ов группы (тот же расчёт, что в окне, —
+        /// <see cref="Recompute"/>): K — все target'ы совпали байт в байт с Variant K и только с ним;
+        /// <see cref="NoFullMatch"/> — нет такого варианта или нет target'ов; <see cref="AmbiguousMatch"/> — несколько.
+        /// Тяжёлая операция (SHA1 всех файлов группы) — только по явному действию пользователя
+        /// </summary>
+        internal static int FindFullMatch(AssetSwapGroup group)
+        {
+            var cache = Recompute(group);
+            if (cache.targets.Length == 0)
+                return NoFullMatch;
+            var full = cache.matchedPerK.Where(kv => kv.Value == cache.targets.Length).Select(kv => kv.Key).ToArray();
+            return full.Length switch
+            {
+                0 => NoFullMatch,
+                1 => full[0],
+                _ => AmbiguousMatch,
+            };
+        }
+
         /// <summary>
         /// Полный пересчёт матрицы соответствия: FindAssetsByLabel + SHA1 для каждого файла.
         /// Тяжёлая операция; вызывается только на инвалидации кэша (см. <see cref="OnFocus"/>

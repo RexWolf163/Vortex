@@ -31,6 +31,7 @@ Features:
 - **Validator before Apply** — checks pair completeness, reverse-completeness, importer type match, name uniqueness, and absence of runtime references to variant assets. Errors block Apply.
 - **Running from an external builder (command line)** — `unity -batchmode -executeMethod …ApplyFromCommandLine -assetSwap group:variant` (by names — the Comment fields — or numbers) swaps variants without the editor and fails the process (code 1) on any error; `…ValidateAllFromCommandLine` — a check without swapping. For build scripts inside Unity — synchronous `Apply(int, int)` / `ApplyByComment(string)`. See [Running from an external builder](#running-from-an-external-builder).
 - **Separate byte-match window** — diagnostics of which variant the current target contents currently correspond to.
+- **Group control panel** — a row per group: variant selection, `Match` (which variant is applied now) and `Apply`, see [Group control panel](#group-control-panel).
 
 Out of scope:
 
@@ -84,6 +85,22 @@ All actions live on the `Project Settings → Vortex/AssetSwap` page, on the but
 
 `Add label to Selected` / `Add label` merge, not reset: existing labels stay, duplicates are not created. Folders in the selection are skipped. If the selection is empty — a `LogWarning` is emitted to the console and nothing changes.
 
+### Group control panel
+
+The «Управление группами» (Group control) block above the group list — quick variant switching without scrolling through group blocks. A row per group:
+
+| Element | What it does |
+|---|---|
+| Title | Group Comment and number — `publisher (AssetGroup1)`; without a Comment — `AssetGroup1` |
+| Variant dropdown | The variant for `Apply`: `steam (Variant1)`, without a Comment — `Variant1`. Initially «— вариант —» (none selected) |
+| `Match` | Computes which variant the group's targets match in full (byte for byte, like the [Match window](#first-group-creation)). Exactly one variant — it is selected in the dropdown, marked «✓ текущий» (current) |
+| `Apply` | Applies the selected variant — same as a variant's `Apply` button (validation, progress bar with Cancel). Disabled while no variant is selected |
+| Result on the right | The last `Match` result: «текущий: VariantK» (current), «нет полного совпадения» (no full match: mixed contents or no targets), «совпадает с несколькими» (matches several: variants are byte-identical); no `Match` yet — empty |
+
+- A successful `Apply` (from the panel or a variant's button) marks the applied variant as current: the target contents are now that variant. A failed one clears the group's `Match` result: it is no longer reliable.
+- The selection and the `Match` result live while the page is open; recompilation drops them. The package still does not store a «current variant» (see [Purpose](#purpose)) — this is a check snapshot.
+- `Match` is a heavy operation (SHA1 of every file of the group), run only by the button.
+
 ---
 
 ## CI (build pipeline) usage
@@ -128,7 +145,10 @@ bool AssetSwapController.ApplyByComment(string variantComment);  // in every gro
 int  AssetSwapController.FindVariantByComment(int groupIndex, string comment); // -1 — none
 bool AssetSwapController.Validate(int groupIndex);
 bool AssetSwapController.ValidateAll();
+IReadOnlyList<AssetSwapGroupInfo> AssetSwapController.GetGroups(); // groups: number, Comment, variant Comments
 ```
+
+`GetGroups` — a snapshot of the groups in settings order for external tools (picking a group and variant in build settings): `AssetSwapGroupInfo.Index` — N of `AssetGroup{N}`, `Comment` — the group Comment, `VariantComments` — variant Comments (index K-1 → Variant K). An empty Comment is an empty string; text is trimmed at the edges. Does not change the settings.
 
 `ApplyByComment` matches the variant comment case-insensitively («steam», «nutaku»…); groups without such a variant are skipped with a log line. `false` — no group has the variant or at least one variant was not applied. `Apply` returns `false` on an unknown group/variant, failed validation, cancellation or a `File.Copy` failure (`ApplyAsync` returns the same `bool`).
 

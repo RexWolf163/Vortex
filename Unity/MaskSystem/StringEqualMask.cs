@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using Vortex.Core.MaskSystem;
@@ -7,8 +6,8 @@ using Vortex.Core.MaskSystem;
 namespace Vortex.Unity.MaskSystem
 {
     /// <summary>
-    /// Маска вида «равенство строк»: настройка образца и сравнения, подготовка копии входа (обрезка, NFC)
-    /// и подключение к <see cref="StringEqualController"/>.
+    /// Маска вида «равенство строк»: настройка образца и сравнения и подключение к
+    /// <see cref="StringEqualController"/> (подготовка копии входа и образца, сравнение).
     /// </summary>
     [Serializable]
     public class StringEqualMask : UnityMask
@@ -68,42 +67,16 @@ namespace Vortex.Unity.MaskSystem
         public override bool IsMatch(string input)
         {
             RequireValid(input);
-            var ready = Prepare(input);
             // Вход, который нельзя нормализовать (невалидный Unicode), — данные, а не ошибка: не совпало
-            if (ready == null)
+            if (!StringEqualController.TryPrepareInput(input, trimMode, normalize, out var ready))
                 return false;
-            _preparedPattern ??= normalize ? pattern.Normalize(NormalizationForm.FormC) : pattern;
+            _preparedPattern ??= StringEqualController.PreparePattern(pattern, normalize);
             return StringEqualController.IsMatch(ready, _preparedPattern, compareMode, !caseSensitive);
         }
 
         /// <inheritdoc/>
         public override MatchResult Match(string input) =>
             IsMatch(input) ? MatchResult.Matched() : MatchResult.NoMatch();
-
-        /// <summary>Копия входа после обрезки и нормализации; <c>null</c> — вход нельзя нормализовать.</summary>
-        private string Prepare(string input)
-        {
-            var ready = trimMode switch
-            {
-                TrimMode.TrimStart => input.TrimStart(),
-                TrimMode.TrimEnd => input.TrimEnd(),
-                TrimMode.FullTrim => input.Trim(),
-                _ => input
-            };
-            if (!normalize || ready.Length == 0)
-                return ready;
-            if (StringEqualController.FindInvalidUnicode(ready) >= 0)
-                return null;
-            try
-            {
-                return ready.Normalize(NormalizationForm.FormC);
-            }
-            catch (ArgumentException)
-            {
-                // Нормализация невозможна на этой платформе (например, U+FFFE) — вход это данные: не совпало
-                return null;
-            }
-        }
 
 #if UNITY_EDITOR
         private void OnSettingsChanged()

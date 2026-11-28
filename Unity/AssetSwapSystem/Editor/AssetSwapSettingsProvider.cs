@@ -46,6 +46,12 @@ namespace Vortex.Unity.AssetSwapSystem
         private int GetCount(string label)
             => _counts.TryGetValue(label, out var count) ? count : 0;
 
+        // Панель управления группами (по номеру группы): выбранный в выпадашке вариант (0 — не выбран) и результат
+        // последнего Match (AssetSwapMatchWindow.FindFullMatch; нет записи — Match не проводился). Успешный Apply
+        // записывает применённый вариант как совпавший — содержимое target'ов теперь его.
+        private readonly Dictionary<int, int> _selectedVariant = new();
+        private readonly Dictionary<int, int> _matchedVariant = new();
+
         private AssetSwapSettingsProvider(string path, SettingsScope scope) : base(path, scope)
         {
         }
@@ -120,12 +126,90 @@ namespace Vortex.Unity.AssetSwapSystem
                 }
 
                 EditorGUILayout.Space();
+                DrawControlPanel(settings);
+                EditorGUILayout.Space();
 
                 // Копия списка для безопасной итерации: RemoveGroup модифицирует settings.Groups.
                 foreach (var group in new List<AssetSwapGroup>(settings.Groups))
                     DrawGroup(group);
             }
         }
+
+        /// <summary>
+        /// Панель управления: строка на группу — группа, выпадашка варианта, Match, Apply и итог Match. Match считает,
+        /// какому варианту целиком соответствуют target'ы (как окно Match), и при единственном полном совпадении
+        /// выбирает этот вариант — он помечен «✓ текущий». Apply применяет выбранный вариант
+        /// </summary>
+        private void DrawControlPanel(AssetSwapSettings settings)
+        {
+            if (settings.Groups.Count == 0)
+                return;
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField("Управление группами", EditorStyles.boldLabel);
+                foreach (var group in settings.Groups)
+                    DrawControlRow(group);
+            }
+        }
+
+        private void DrawControlRow(AssetSwapGroup group)
+        {
+            var matched = _matchedVariant.TryGetValue(group.index, out var m) ? m : (int?)null;
+            _selectedVariant.TryGetValue(group.index, out var selected);
+            if (selected > group.variantsCount)
+                selected = 0;
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(GroupTitle(group), GUILayout.Width(200));
+
+                var options = new string[group.variantsCount + 1];
+                options[0] = "— вариант —";
+                for (var k = 1; k <= group.variantsCount; k++)
+                    options[k] = VariantTitle(group, k) + (matched == k ? "   ✓ текущий" : string.Empty);
+                _selectedVariant[group.index] = EditorGUILayout.Popup(selected, options, GUILayout.MinWidth(160));
+
+                if (GUILayout.Button(new GUIContent("Match", "Какому варианту соответствует содержимое target'ов"),
+                        GUILayout.Width(70)))
+                {
+                    FlushIfDirty();
+                    var found = AssetSwapMatchWindow.FindFullMatch(group);
+                    _matchedVariant[group.index] = found;
+                    if (found > 0)
+                        _selectedVariant[group.index] = found;
+                }
+
+                using (new EditorGUI.DisabledScope(_selectedVariant[group.index] == 0))
+                    if (GUILayout.Button(new GUIContent("Apply", "Применить выбранный вариант"), GUILayout.Width(70)))
+                    {
+                        FlushIfDirty();
+                        RunApply(group.index, _selectedVariant[group.index]).Forget();
+                    }
+
+                EditorGUILayout.LabelField(MatchStatus(matched), EditorStyles.miniLabel, GUILayout.Width(170));
+            }
+        }
+
+        private static string GroupTitle(AssetSwapGroup group) =>
+            string.IsNullOrWhiteSpace(group.comment)
+                ? $"AssetGroup{group.index}"
+                : $"{group.comment.Trim()} (AssetGroup{group.index})";
+
+        private static string VariantTitle(AssetSwapGroup group, int k)
+        {
+            var comment = k - 1 < group.variantComments.Count ? group.variantComments[k - 1] : null;
+            return string.IsNullOrWhiteSpace(comment) ? $"Variant{k}" : $"{comment.Trim()} (Variant{k})";
+        }
+
+        /// <summary>Итог последнего Match группы; Match не проводился — пусто</summary>
+        private static string MatchStatus(int? matched) => matched switch
+        {
+            null => string.Empty,
+            AssetSwapMatchWindow.NoFullMatch => "нет полного совпадения",
+            AssetSwapMatchWindow.AmbiguousMatch => "совпадает с несколькими",
+            _ => $"текущий: Variant{matched}",
+        };
 
         private void DrawGroup(AssetSwapGroup group)
         {
@@ -324,7 +408,11 @@ namespace Vortex.Unity.AssetSwapSystem
             _busy = true;
             try
             {
-                await AssetSwapController.ApplyAsync(groupIndex, variantIndex, showProgressBar: true, WriteCount);
+                // Успешный Apply — target'ы теперь содержат этот вариант; иначе итог прежнего Match уже не достоверен
+                if (await AssetSwapController.ApplyAsync(groupIndex, variantIndex, showProgressBar: true, WriteCount))
+                    _matchedVariant[groupIndex] = variantIndex;
+                else
+                    _matchedVariant.Remove(groupIndex);
             }
             catch (System.Exception e)
             {

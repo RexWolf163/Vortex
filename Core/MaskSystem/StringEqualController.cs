@@ -6,8 +6,8 @@ using Vortex.Core.LoggerSystem.Model;
 namespace Vortex.Core.MaskSystem
 {
     /// <summary>
-    /// Правило «строка равна образцу»: проверка настройки образца и сравнение готовой строки с образцом
-    /// выбранным способом.
+    /// Правило «строка равна образцу»: проверка настройки образца, подготовка копии входа и образца (обрезка, NFC)
+    /// и сравнение готовой строки с образцом выбранным способом.
     /// </summary>
     public static class StringEqualController
     {
@@ -74,6 +74,67 @@ namespace Vortex.Core.MaskSystem
             }
 
             return -1;
+        }
+
+        /// <summary>
+        /// Подготовить копию входа: обрезка пробельных символов по <paramref name="trimMode"/> и, при
+        /// <paramref name="normalize"/>, нормализация NFC. Вход, который нельзя нормализовать (невалидный Unicode), —
+        /// данные, а не ошибка.
+        /// </summary>
+        /// <returns><c>true</c> — копия готова; <c>false</c> — вход нельзя нормализовать («не совпало»).</returns>
+        public static bool TryPrepareInput(string input, TrimMode trimMode, bool normalize, out string ready)
+        {
+            if (input == null)
+                throw Fail(new ArgumentNullException(nameof(input), "Вход не задан (null)."));
+            var trimmed = trimMode switch
+            {
+                TrimMode.None => input,
+                TrimMode.TrimStart => input.TrimStart(),
+                TrimMode.TrimEnd => input.TrimEnd(),
+                TrimMode.FullTrim => input.Trim(),
+                _ => throw Fail(new ArgumentOutOfRangeException(nameof(trimMode), trimMode,
+                    "Неизвестный режим обрезки."))
+            };
+
+            ready = null;
+            if (!normalize || trimmed.Length == 0)
+            {
+                ready = trimmed;
+                return true;
+            }
+
+            if (FindInvalidUnicode(trimmed) >= 0)
+                return false;
+            try
+            {
+                ready = trimmed.Normalize(NormalizationForm.FormC);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                // Нормализация невозможна на этой платформе (например, U+FFFE) — вход это данные: не совпало
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Подготовить проверенный образец: при <paramref name="normalize"/> — нормализация NFC, иначе как есть.
+        /// Образец, не прошедший <see cref="Validate"/>, — ошибка программиста.
+        /// </summary>
+        public static string PreparePattern(string pattern, bool normalize)
+        {
+            if (pattern == null)
+                throw Fail(new ArgumentNullException(nameof(pattern), "Образец не задан (null)."));
+            if (!normalize)
+                return pattern;
+            try
+            {
+                return pattern.Normalize(NormalizationForm.FormC);
+            }
+            catch (ArgumentException e)
+            {
+                throw Fail(new ArgumentException($"Образец не проверен или неверен: {e.Message}", nameof(pattern), e));
+            }
         }
 
         /// <summary>Сравнить готовую строку с образцом.</summary>

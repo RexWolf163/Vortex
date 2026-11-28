@@ -23,6 +23,8 @@ Out of scope:
 - Matching logic — static controllers of the Core package
 - Mask lists and "first match" — the list holder
 
+Where masks should and should not be used (including: not for player input control) — Core package README, "Applicability" section.
+
 ---
 
 ## Dependencies
@@ -83,7 +85,7 @@ Mask (Core)
 Each kind:
 - holds settings in `[SerializeField] private` fields with read-only getters;
 - calls `RequireValid(input)` before matching;
-- calls the controller of its kind; `StringEqualMask` first prepares a copy of the input (trim, NFC), the `UrlMask` input is parsed by the controller itself (`UrlController.TryParseInput`);
+- calls the controller of its kind; the input is prepared by the controller (`StringEqualController.TryPrepareInput`, `UrlController.TryParseInput`), the mask only passes its settings;
 - caches validation result and prepared data (`[NonSerialized]`); in the editor a settings field change (Odin `[OnValueChanged]`) resets the caches and the check panel.
 
 ### Custom kind
