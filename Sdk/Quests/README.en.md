@@ -172,6 +172,28 @@ public class ExampleVariableCondition : QuestConditionLogic
 
 `SetListener` subscribes to `IReactiveData.OnUpdateData` with reference counting — one subscription per `IReactiveData` regardless of the number of conditions. `RemoveListener` unsubscribes when no sources remain.
 
+### Reusing condition logic outside quests (`AnyConditions`)
+
+`AnyConditions` is a connector class: it plugs existing `QuestConditionLogic` implementations into any system that needs a one-off "is it met right now" check, without that system defining its own condition types. It is not part of the quest lifecycle: the controller does not know about it, and it does not show up in the Quest Monitor.
+
+- Fold inside the group — **OR** (any condition); an empty group is met. The fold between groups belongs to the owner, usually AND.
+- It sets no subscriptions (`InitListeners` is never called): conditions are evaluated only at the moment of `Check()`. That is why the OR ban from the section above does not apply here — there is no tracking, so there is no atomicity to break.
+- If you need to react to condition changes, this is the wrong tool: use `QuestConditions` + `QuestController.OnCheckConditions` (or `LogicGateCondition` for OR).
+
+```csharp
+// A block enabled by conditions: AND between groups, OR inside a group, empty = always enabled
+[Serializable]
+private class ItemsGroup
+{
+    [SerializeField] private AnyConditions[] conditions = new AnyConditions[0];
+    [SerializeField] private List<string> items = new();
+
+    public bool IsOpen() => conditions.All(c => c.Check());
+}
+```
+
+Used in the project by: the shop storefront (item blocks), the radio (phrase blocks), the puzzle hub (texture groups).
+
 ### UI Binding
 
 Place `QuestDataStorage` on the scene, specify the quest GUID. View components access `QuestModel` via `IDataStorage.GetData<QuestModel>()`.
@@ -300,6 +322,7 @@ Window layout:
 | `QuestRewardLogic` | `abstract` | Reward: `RewardLogic()`, `GetRewardData()`; given by the controller in `GiveRewards()` |
 | `QuestConditionLogic` | `abstract` | Condition: `Check()`, `InitListeners()`, `DisposeListeners()` |
 | `QuestConditions` | `Serializable` | Condition group: `Check()` is AND. The fold between groups — AND (start) or OR (interrupt) — is at the controller level |
+| `AnyConditions` | `Serializable` | Connector class for reusing condition logic outside quests: a group of `QuestConditionLogic`, `Check()` is OR (empty — true), no subscriptions — evaluated at call time. The fold between groups belongs to the owner |
 | `LogicGateCondition` | `QuestConditionLogic` | Combinator over nested conditions with a mode (`OR` / `NOT`=NOR / `XOR`=exactly one / `AND`=all). Subscribes to **all** children (alternativeness). Expresses arbitrary logic inside an AND-group; trees nest freely (e.g. `OR` over two `AND`-sets); `NOT` over a single child replaces the removed per-condition `inverted` flag. *(formerly `OrNotCondition`; serialized `[SerializeReference]` references migrate via `[MovedFrom]`)* |
 | `QuestCompleted` | `QuestConditionLogic` | Condition: quest with given ID has finished with any result (`Reward`/`Completed`/`Failed`) |
 | `QuestStateCondition` | `QuestConditionLogic` | Condition: the state of the quest with given ID is in the `states` whitelist (e.g. `InProgress`, or `Ready` + `InProgress`). Empty list or the quest is absent in the current game — not met. While not met, subscribes to the tracked quest's `OnStateUpdated`: starting a quest and giving rewards do not trigger a condition re-check on their own |

@@ -172,6 +172,28 @@ public class ExampleVariableCondition : QuestConditionLogic
 
 `SetListener` подписывается на `IReactiveData.OnUpdateData` с подсчётом ссылок — одна подписка на `IReactiveData` независимо от количества условий. `RemoveListener` снимает подписку когда источников не осталось.
 
+### Переиспользование условной логики вне квестов (`AnyConditions`)
+
+`AnyConditions` — класс-коннектор: подключает готовые `QuestConditionLogic` к любой системе, которой нужно разово спросить «выполнено ли сейчас», без своих типов условий. Это не часть квестового цикла: контроллер его не знает, в монитор квестов он не попадает.
+
+- Свёртка внутри группы — **OR** (любое условие), пустая группа — выполнена. Свёртка между группами — у владельца, обычно AND.
+- Подписок не ставит (`InitListeners` не вызывается): условия проверяются только в момент `Check()`. Поэтому запрет OR из раздела выше сюда не относится — отслеживания нет, атомарность ломать нечему.
+- Нужна реакция на изменение условий — это не сюда: `QuestConditions` + `QuestController.OnCheckConditions` (или `LogicGateCondition` для OR).
+
+```csharp
+// Блок, подключаемый условиями: AND между группами, OR внутри группы, пусто = подключён всегда
+[Serializable]
+private class ItemsGroup
+{
+    [SerializeField] private AnyConditions[] conditions = new AnyConditions[0];
+    [SerializeField] private List<string> items = new();
+
+    public bool IsOpen() => conditions.All(c => c.Check());
+}
+```
+
+Используется в проекте: витрина магазина (блоки товаров), радио (блоки фраз), хаб паззлов (группы текстур).
+
 ### Привязка UI
 
 Разместить `QuestDataStorage` на сцене, указать GUID квеста. View-компоненты получают `QuestModel` через `IDataStorage.GetData<QuestModel>()`.
@@ -300,6 +322,7 @@ Locked / Ready / InProgress ──[любая группа прерывания 
 | `QuestRewardLogic` | `abstract` | Награда: `RewardLogic()`, `GetRewardData()`; выдаётся контроллером в `GiveRewards()` |
 | `QuestConditionLogic` | `abstract` | Условие: `Check()`, `InitListeners()`, `DisposeListeners()` |
 | `QuestConditions` | `Serializable` | Группа условий: `Check()` по AND. Свёртка между группами — AND (старт) или OR (прерывание) — на уровне контроллера |
+| `AnyConditions` | `Serializable` | Класс-коннектор для переиспользования условной логики вне квестов: группа `QuestConditionLogic`, `Check()` по OR (пусто — true), без подписок — проверка в момент вызова. Свёртка между группами — у владельца |
 | `LogicGateCondition` | `QuestConditionLogic` | Комбинатор над вложенными условиями с режимом (`OR` / `NOT`=NOR / `XOR`=ровно одно / `AND`=все). Подписывается на **все** дочерние (альтернативность). Выражает произвольную логику внутри AND-группы; деревья вкладываются свободно (напр. `OR` над двумя `AND`-наборами); `NOT` над одним вложенным заменяет убранный флаг `inverted` у условий. *(бывш. `OrNotCondition`; сериализованные `[SerializeReference]`-ссылки мигрируют через `[MovedFrom]`)* |
 | `QuestCompleted` | `QuestConditionLogic` | Условие: квест с заданным ID завершён с любым результатом (`Reward`/`Completed`/`Failed`) |
 | `QuestStateCondition` | `QuestConditionLogic` | Условие: состояние квеста с заданным ID входит в белый список `states` (например, `InProgress` или `Ready` + `InProgress`). Пустой список или квеста нет в текущей игре — не выполнено. Пока не выполнено, подписано на `OnStateUpdated` отслеживаемого квеста: запуск квеста и выдача награды сами перепроверку условий не запускают |
