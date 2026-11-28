@@ -1,4 +1,4 @@
-namespace Vortex.Core.NetworkSystem.Settings
+namespace Vortex.Core.NetworkSystem.Config
 {
     /// <summary>
     /// Ограничения нагрузки: число одновременных запросов, размер тела запроса, размер ответа.

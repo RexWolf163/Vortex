@@ -31,7 +31,10 @@ namespace Vortex.Core.NetworkSystem.Driver
         /// <summary>Сегменты тела в порядке отправки. Пусто — тела нет.</summary>
         public IReadOnlyList<BodySegment> Body => _body;
 
-        /// <summary>Путь к файлу-приёмнику ответа. <c>null</c> — ответ в память.</summary>
+        /// <summary>
+        /// Путь к файлу-приёмнику ответа. <c>null</c> — ответ в память. Файл появляется по этому пути только
+        /// после сохранения (<see cref="INetworkAttempt.SaveResponseFile"/>).
+        /// </summary>
         public string ResponseFilePath { get; }
 
         /// <summary>Лимит размера ответа, байты.</summary>

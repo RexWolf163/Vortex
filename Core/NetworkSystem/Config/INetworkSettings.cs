@@ -1,4 +1,4 @@
-namespace Vortex.Core.NetworkSystem.Settings
+namespace Vortex.Core.NetworkSystem.Config
 {
     /// <summary>
     /// Все настройки связи: адреса, значения по умолчанию, ограничения и защита. Данные без логики:

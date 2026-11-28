@@ -1,7 +1,7 @@
 using Vortex.Core.MaskSystem;
 using Vortex.Core.NetworkSystem.Providers;
 
-namespace Vortex.Core.NetworkSystem.Settings
+namespace Vortex.Core.NetworkSystem.Config
 {
     /// <summary>Правило выбора провайдера тела: маска адреса и провайдер, применяемый при совпадении.</summary>
     public sealed class BodyProviderRule

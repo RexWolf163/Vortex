@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using Vortex.Core.MaskSystem;
 
-namespace Vortex.Core.NetworkSystem.Settings
+namespace Vortex.Core.NetworkSystem.Config
 {
     /// <summary>
     /// Защита: разрешённые http-хосты, правила авторизации, следование редиректам с авторизацией,
-    /// имена заголовков и параметров, скрываемых в логах.
+    /// имена заголовков и параметров, скрываемых в логах, длина тела в логе.
     /// </summary>
     public interface ISecuritySettings
     {
@@ -23,5 +23,8 @@ namespace Vortex.Core.NetworkSystem.Settings
 
         /// <summary>Имена заголовков и параметров, значения которых скрываются в логах.</summary>
         IReadOnlyList<string> MaskedNames { get; }
+
+        /// <summary>Наибольшая длина тела запроса и ответа в логе, символы.</summary>
+        int LogBodyLength { get; }
     }
 }

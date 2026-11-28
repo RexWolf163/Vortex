@@ -1,7 +1,7 @@
 using Vortex.Core.MaskSystem;
 using Vortex.Core.NetworkSystem.Providers;
 
-namespace Vortex.Core.NetworkSystem.Settings
+namespace Vortex.Core.NetworkSystem.Config
 {
     /// <summary>
     /// Правило авторизации: маска адреса и провайдер авторизации, применяемый при совпадении.

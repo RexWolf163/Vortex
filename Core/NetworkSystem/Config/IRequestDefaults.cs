@@ -3,7 +3,7 @@ using Vortex.Core.NetworkSystem.Model;
 using Vortex.Core.NetworkSystem.Model.Enums;
 using Vortex.Core.NetworkSystem.Providers;
 
-namespace Vortex.Core.NetworkSystem.Settings
+namespace Vortex.Core.NetworkSystem.Config
 {
     /// <summary>
     /// Значения запроса по умолчанию: таймаут попытки, политика повторов, заголовки, метод простого запроса,

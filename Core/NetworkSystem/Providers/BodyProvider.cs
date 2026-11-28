@@ -11,6 +11,7 @@ namespace Vortex.Core.NetworkSystem.Providers
     /// указанного класса с итогом чтения, разложить объект в плоский набор параметров (если провайдер это умеет).
     /// Данные настройки — в наследниках.
     /// </summary>
+    /// <remarks>Экземпляр один на все запросы и состояния между вызовами не хранит.</remarks>
     [Serializable]
     public abstract class BodyProvider
     {
@@ -21,7 +22,8 @@ namespace Vortex.Core.NetworkSystem.Providers
         public abstract BytesBody Serialize(object value);
 
         /// <summary>
-        /// Разобрать байты в объект класса <typeparamref name="T"/>. Неразбираемые байты — не исключение,
+        /// Разобрать байты в объект класса <typeparamref name="T"/>. Вызывается только с непустым телом.
+        /// Неразбираемые байты и класс, который провайдер не умеет разбирать, — не исключение,
         /// а итог <see cref="ReadStatus.Failed"/> с сообщением.
         /// </summary>
         public abstract ReadResult<T> Deserialize<T>(byte[] bytes);
@@ -31,7 +33,8 @@ namespace Vortex.Core.NetworkSystem.Providers
 
         /// <summary>
         /// Разложить объект в плоский набор параметров «имя → значение». Вызывается, только если
-        /// <see cref="CanFlatten"/>.
+        /// <see cref="CanFlatten"/>. Значения — только типов параметров адреса: строка, целое, дробное,
+        /// <c>bool</c>, дата, enum. Вложенный объект или коллекция в значении — ошибка программиста: исключение.
         /// </summary>
         public abstract IReadOnlyList<KeyValuePair<string, object>> Flatten(object value);
     }

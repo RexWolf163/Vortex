@@ -20,7 +20,10 @@ namespace Vortex.Core.NetworkSystem.Driver
         /// <summary>Тело в памяти. <c>null</c>, если тела нет или оно в файле. Массив не копируется — не изменять.</summary>
         public byte[] Bytes { get; }
 
-        /// <summary>Путь к файлу с телом. <c>null</c>, если тела нет или оно в памяти.</summary>
+        /// <summary>
+        /// Путь к файлу-приёмнику тела. <c>null</c>, если тела нет или оно в памяти. Файл появляется по этому
+        /// пути только после сохранения (<see cref="INetworkAttempt.SaveResponseFile"/>).
+        /// </summary>
         public string FilePath { get; }
 
         /// <summary>Почему нет HTTP-ответа. <see cref="AttemptError.None"/> — ответ получен.</summary>

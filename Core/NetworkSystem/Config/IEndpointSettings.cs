@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Vortex.Core.NetworkSystem.Model;
 
-namespace Vortex.Core.NetworkSystem.Settings
+namespace Vortex.Core.NetworkSystem.Config
 {
     /// <summary>Куда обращаться: список окружений и ключ активного.</summary>
     public interface IEndpointSettings
