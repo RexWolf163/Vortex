@@ -6,7 +6,7 @@ using Vortex.Core.LocalizationSystem.Bus;
 using Vortex.Unity.LocalizationSystem;
 using Vortex.Unity.UI.UIComponents;
 
-namespace Vortex.Unity.Components.Misc.LocalizationSystem
+namespace Vortex.Unity.Components.Misc.Controls
 {
     public class SetLocaleHandler : MonoBehaviour
     {

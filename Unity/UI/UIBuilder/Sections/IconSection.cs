@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-using Vortex.Unity.Components.Misc.LocalizationSystem;
+using Vortex.Unity.Components.Misc.Controls;
 using Vortex.Unity.UI.UIBuilder.Base;
 using Vortex.Unity.UI.UIComponents;
 using Vortex.Unity.UI.UIComponents.Parts;

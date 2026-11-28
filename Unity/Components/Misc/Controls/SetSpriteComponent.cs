@@ -4,7 +4,7 @@ using Vortex.Unity.UI.UIComponents.Attributes;
 using Vortex.Unity.UI.UIComponents;
 using Vortex.Unity.UI.UIComponents.Parts;
 
-namespace Vortex.Unity.Components.Misc.LocalizationSystem
+namespace Vortex.Unity.Components.Misc.Controls
 {
     /// <summary>
     /// Компонент для выставления фиксированного спрайта на UIComponent
