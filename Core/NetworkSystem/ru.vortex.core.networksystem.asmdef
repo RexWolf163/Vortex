@@ -3,7 +3,8 @@
     "rootNamespace": "Vortex.Core.NetworkSystem",
     "references": [
         "GUID:86f05ea23c6647040884b166bb929c16",
-        "GUID:a00fea34cd87e874eb05688c1583b814"
+        "GUID:a00fea34cd87e874eb05688c1583b814",
+        "GUID:959254ccea9d75748abaa85d0eb31cd1"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
